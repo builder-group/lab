@@ -2,8 +2,8 @@ import type { TCameraTrack } from './follow-camera';
 
 /**
  * Per-frame difference between a ported camera track and the keyframes Blender baked, as dumped by
- * `blender/tests/dump_camera.py`. Position error in metres, angle error in degrees (the rotation between both
- * camera orientations), focus error in metres.
+ * `blender/tests/dump_camera.py`. Position error in meters, angle error in degrees (the rotation between both
+ * camera orientations), focus error in meters.
  */
 export function compareCameraTrack(
 	track: TCameraTrack,

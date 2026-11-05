@@ -3,7 +3,7 @@ import { verticalFov, type TCameraTrack } from './follow-camera';
 
 // Shared by the follow camera's tests
 
-/** Marble position in normalised image coordinates (0 to 1, y up) seen through the track at `frame` */
+/** Marble position in normalized image coordinates (0 to 1, y up) seen through the track at `frame` */
 export function project(track: TCameraTrack, frame: number, x: number, y: number): [number, number] {
 	const rotation = quaternionToMatrix(track.rotation.subarray(frame * 4, frame * 4 + 4));
 	const relative = [

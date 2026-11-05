@@ -1,5 +1,5 @@
-"""Flat Light frames show the theme's colours: the median colour of a Flat Light frame, which is the wall's, stays
-close to the Fast frame's in every built-in theme and in project themes with a changed Wall colour, and is the same at
+"""Flat Light frames show the theme's colors: the median color of a Flat Light frame, which is the wall's, stays
+close to the Fast frame's in every built-in theme and in project themes with a changed Wall color, and is the same at
 two points of the film whatever the camera does. The Draft export renders with these settings; Live Preview's Eevee
 frame is the Fast one.
 
@@ -24,7 +24,7 @@ from mm_worker.render import PRESETS, engine_settings  # noqa: E402
 OUT = Path(__file__).resolve().parents[2] / '.local' / 'preview'
 PACKAGE = OUT / 'package'
 VARIANT = '.cache/flat-check.json'
-# Channels of 8-bit display colour; the Fast wall is mottled and its grid or peg holes move the median a little
+# Channels of 8-bit display color; the Fast wall is mottled and its grid or peg holes move the median a little
 TOLERANCE = 12
 FLAT_SAMPLES = PRESETS['draft']['workbench']
 FRAMES = (300, 760)

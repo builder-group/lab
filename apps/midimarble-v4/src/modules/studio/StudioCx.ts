@@ -514,7 +514,7 @@ export class StudioCx {
 
 	/**
 	 * Save (⌘S). A saved project writes at once. An unsaved document asks where to save it with the save panel and
-	 * moves its package there with every file, so it continues as a project in Recent. Returns false when cancelled
+	 * moves its package there with every file, so it continues as a project in Recent. Returns false when canceled
 	 * or failed.
 	 */
 	async save(chosenPath?: string): Promise<boolean> {
@@ -549,7 +549,7 @@ export class StudioCx {
 
 	/**
 	 * Save As… (⇧⌘S). An unsaved document saves as with Save. A saved project is copied with its files to the chosen
-	 * place and the copy stays open, as in macOS; the original keeps its last autosave. Returns false when cancelled
+	 * place and the copy stays open, as in macOS; the original keeps its last autosave. Returns false when canceled
 	 * or failed.
 	 */
 	async saveAs(chosenPath?: string): Promise<boolean> {

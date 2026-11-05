@@ -4,11 +4,11 @@ A skin or decor item is a `.blend` plus `manifest.json`, built with headless Ble
 
 ## asset.blend
 
-Exactly one collection named `MM_ASSET` holds the model. Model in metres. Pack every texture (`bpy.ops.file.pack_all()`).
+Exactly one collection named `MM_ASSET` holds the model. Model in meters. Pack every texture (`bpy.ops.file.pack_all()`).
 
-- **Skin**: origin at the centre of the contact surface, +Z away from it. The face the marble touches lies at z = 0 and the body extends toward -Z. The app orients it on the piece. Fit the piece's params; `get_state` lists pieces and a platform's `length` is in its params.
-- **Marble skin** (`pieceType: 'marble'`): a sphere with its origin at the marble's centre. It scales evenly from `fittedParams.radius`, the radius you built it at, to the marble's (`get_state.marbles[].radius`), and rolls with the marble. Physics never reads it. Often `marble:glass` with the marble's colour is all you need.
-- **Decor**: origin at the centre of the back face, flat on the wall, +Z toward the camera. No hitbox: marbles never touch it. Keep the geometry cheap, since it repeats.
+- **Skin**: origin at the center of the contact surface, +Z away from it. The face the marble touches lies at z = 0 and the body extends toward -Z. The app orients it on the piece. Fit the piece's params; `get_state` lists pieces and a platform's `length` is in its params.
+- **Marble skin** (`pieceType: 'marble'`): a sphere with its origin at the marble's center. It scales evenly from `fittedParams.radius`, the radius you built it at, to the marble's (`get_state.marbles[].radius`), and rolls with the marble. Physics never reads it. Often `marble:glass` with the marble's color is all you need.
+- **Decor**: origin at the center of the back face, flat on the wall, +Z toward the camera. No hitbox: marbles never touch it. Keep the geometry cheap, since it repeats.
 - Optional reaction parts: child objects named `MM_REACT_<Name>` with a custom property `mm_reaction` set to `press`, `wobble` or `glow`. They animate on hits. Visual only; keep presses small.
 
 Build it from a script, starting from an empty file:
@@ -44,7 +44,7 @@ bpy.ops.wm.save_as_mainfile(filepath='asset.blend')
 ```
 
 
-`role` is `skin` or `decoration`; `add_asset` also takes `decor`. `id` uses lowercase letters, digits and `-`; a taken id gets a free suffix. For decor, `fittedParams` takes `width` and `height` in metres, which keep it clear of the run. `properties` are optional rows in the inspector, written to the material inputs and nodes of that name. Also put a `preview.png` beside it, a small square render, so the tile shows a picture.
+`role` is `skin` or `decoration`; `add_asset` also takes `decor`. `id` uses lowercase letters, digits and `-`; a taken id gets a free suffix. For decor, `fittedParams` takes `width` and `height` in meters, which keep it clear of the run. `properties` are optional rows in the inspector, written to the material inputs and nodes of that name. Also put a `preview.png` beside it, a small square render, so the tile shows a picture.
 
 ## add_asset
 

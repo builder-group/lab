@@ -5,7 +5,7 @@ import type { THitResult } from '@/modules/simulation';
 import type { StudioCx } from '../StudioCx';
 
 /**
- * Timing is shown, not heard: a hit's dot flashes in its status colour as the marble lands it during playback,
+ * Timing is shown, not heard: a hit's dot flashes in its status color as the marble lands it during playback,
  * green On Time, amber early or late, red Missed, Blocked or Stopped. Open hits have nothing to land on.
  */
 export interface THitFlash {

@@ -92,7 +92,7 @@ import { createViewMotion, FOLLOW_RATE, followMarble, isSettled, keepInView, NAV
 
 export type { TComposeTool } from './keys';
 
-/** Metres of the wall kept around a framed problem */
+/** Meters of the wall kept around a framed problem */
 const FRAME_ROOM = 0.25;
 
 /**
@@ -557,12 +557,12 @@ export class ComposeCx {
 		if (!this.studio.$playing.get()) this.fitAll();
 	}
 
-	/** ⌘0: the wall at physical size around the centre of the view, like Figma's Zoom to 100% */
+	/** ⌘0: the wall at physical size around the center of the view, like Figma's Zoom to 100% */
 	zoomTo100(): void {
 		this.zoomBy(ZOOM_100_SCALE / this.$camera.get().view.scale);
 	}
 
-	/** Pixels per metre at which a default platform is still `MIN_FIT_PLATFORM_PX` long */
+	/** Pixels per meter at which a default platform is still `MIN_FIT_PLATFORM_PX` long */
 	private minFitScale(): number {
 		return MIN_FIT_PLATFORM_PX / PLACEMENT_LENGTH;
 	}
@@ -580,7 +580,7 @@ export class ComposeCx {
 	}
 
 	/**
-	 * Zooms to the width of the film frame and centres the focused marble at the playhead. This is the
+	 * Zooms to the width of the film frame and centers the focused marble at the playhead. This is the
 	 * working view: pieces read at their real size, like the camera of the finished film.
 	 */
 	fitFrame(): void {
@@ -743,7 +743,7 @@ export class ComposeCx {
 		this.fit({ minX: bounds.minX - margin, minY: bounds.minY - margin, maxX: bounds.maxX + margin, maxY: bounds.maxY + margin });
 	}
 
-	/** CSS pixels per wall metre, for strokes drawn at wall size */
+	/** CSS pixels per wall meter, for strokes drawn at wall size */
 	screenScale(): number {
 		return this.$camera.get().view.scale;
 	}
@@ -773,7 +773,7 @@ export class ComposeCx {
 				return;
 			}
 			// The releases and where each marble's free fall meets its first note frame the wall before any run,
-			// so the run's first hits rarely need to widen it afterwards
+			// so the run's first hits rarely need to widen it afterward
 			const opening = this.result == null ? openingPoints(project) : [];
 			if (opening.length > 0) this.fitAround(project, boundsOf(opening));
 			else this.fitFrame();
@@ -1507,7 +1507,7 @@ export class ComposeCx {
 
 	/**
 	 * The scenery piece the armed tool adds where the marble is at `time`. A windmill sits beside the fall, its arms
-	 * clear of every marble's path, so adding one keeps the run; dragging it into the path afterwards makes the marble
+	 * clear of every marble's path, so adding one keeps the run; dragging it into the path afterward makes the marble
 	 * turn it. Generated rail paths are laid out against the marble, since they hold it. With no hit to follow, such as on
 	 * a marble without hits, the piece stays untied where it is put.
 	 */
@@ -2120,7 +2120,7 @@ export class ComposeCx {
 	}
 
 	/**
-	 * Centres the view on `point` unless it and `margin` metres around it lie at least `inset` pixels inside
+	 * Centers the view on `point` unless it and `margin` meters around it lie at least `inset` pixels inside
 	 * the canvas
 	 */
 	private revealPoint(point: TVec2 | null, inset = 60, margin = 0.03): void {

@@ -14,7 +14,7 @@ export interface TWallBox {
 	angle: number;
 }
 
-/** Spacing of a run's points in metres; checks pad by half of it, so what lies between two points stays covered */
+/** Spacing of a run's points in meters; checks pad by half of it, so what lies between two points stays covered */
 const POINT_SPACING = 0.003;
 const PIECE_SPACING = 0.005;
 const CELL = 0.04;
@@ -32,7 +32,7 @@ export interface TObstacleField {
 	cells: Map<number, number[]>;
 }
 
-/** Every marble's run over the film and the pieces in it. Runs are the marbles' centres at their samples, joined up. */
+/** Every marble's run over the film and the pieces in it. Runs are the marbles' centers at their samples, joined up. */
 export function buildObstacleField(result: TSimulationResult): TObstacleField {
 	const field: TObstacleField = { x: [], y: [], radius: [], time: [], lane: [], laneIds: [], cells: new Map() };
 	result.marbles.forEach((marble, laneIndex) => {

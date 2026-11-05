@@ -7,7 +7,7 @@ JPEG frames with Eevee and the film's own lights into the same folder: `00042.jp
 
 The app decides the order. It writes `target.json` (`{"order": [...], "paused": false}`) into the folder, through
 this op or directly through the host, whenever the person stops working. The job re-reads it between chunks: it takes
-the first frame of `order` without a file and renders it with its missing neighbours as one short animation render
+the first frame of `order` without a file and renders it with its missing neighbors as one short animation render
 (`CHUNK_FRAMES`), which keeps Blender's render scene between frames. While `paused` it sleeps, keeping its scene and
 shaders. It exits once `order` is done. `cancel` in the folder stops it between chunks. `status.json` reports progress,
 with `pid` naming the run.
@@ -114,7 +114,7 @@ def start_preview_render(worker, args):
 
 def cancel_preview_render(worker, args):
     stopped = stop_preview(worker)
-    return {'cancelled': stopped}
+    return {'canceled': stopped}
 
 
 def stop_preview(worker):
@@ -205,7 +205,7 @@ def run_preview_job(job_path):
         render_preview_frames(job, folder, status)
         status['state'] = 'done'
     except Stopped:
-        status['state'] = 'cancelled'
+        status['state'] = 'canceled'
     except Exception as error:  # noqa: BLE001 - the app reads the failure from the status
         import traceback
         traceback.print_exc()

@@ -1,8 +1,8 @@
 import type { TVec2 } from '@/modules/project';
 
-// 2D wall view math. World units are metres with y up; screen units are CSS pixels with y down.
+// 2D wall view math. World units are meters with y up; screen units are CSS pixels with y down.
 
-/** Camera looking at the wall. `scale` is CSS pixels per metre. */
+/** Camera looking at the wall. `scale` is CSS pixels per meter. */
 export interface TView {
 	center: TVec2;
 	scale: number;
@@ -68,7 +68,7 @@ export function fitBounds(bounds: TBounds, viewport: TViewport, padding: TPaddin
 	const spanX = Math.max(1e-4, bounds.maxX - bounds.minX);
 	const spanY = Math.max(1e-4, bounds.maxY - bounds.minY);
 	const scale = clampScale(Math.min(width / spanX, height / spanY, maxScale));
-	// Centre the content in the padded area, which may be off the viewport centre
+	// Center the content in the padded area, which may be off the viewport center
 	const offsetX = (padding.left - padding.right) / 2 / scale;
 	const offsetY = (padding.bottom - padding.top) / 2 / scale;
 	return {
@@ -120,14 +120,14 @@ const MIN_SPACING = 18;
 export interface TGridLayers {
 	/** Spacing of the always visible layer in CSS pixels */
 	size: number;
-	/** Background position of a tile whose dot sits at its centre */
+	/** Background position of a tile whose dot sits at its center */
 	offset: TVec2;
 	/** Spacing of the fading layer, half of `size` */
 	fineSize: number;
 	fineOffset: TVec2;
 	/** Opacity of the fine layer from 0 to 1 */
 	fineAlpha: number;
-	/** World spacing of the coarse layer in metres */
+	/** World spacing of the coarse layer in meters */
 	pitch: number;
 }
 
@@ -167,7 +167,7 @@ export interface TScreenRect {
 }
 
 /**
- * Where a floating bar of `size`, centred on its `left`, goes near `anchor` without covering any of
+ * Where a floating bar of `size`, centered on its `left`, goes near `anchor` without covering any of
  * `obstacles`: under the anchor, under the obstacles, beside them or above the anchor, whichever fits in the
  * viewport first. Falls back to the anchor, kept inside the viewport.
  */

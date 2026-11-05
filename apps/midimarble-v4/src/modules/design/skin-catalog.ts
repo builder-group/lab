@@ -8,23 +8,23 @@ import catalog from '../../../blender/mm_worker/skin_catalog.json';
 // `blender/tests/skin_look_cases.json`.
 
 export type TSkinElement = keyof typeof catalog.elements;
-export type TSkinColour = NonNullable<TSkinComponent['colour']>;
+export type TSkinColorSource = NonNullable<TSkinComponent['colorSource']>;
 export type TSkinOnHit = NonNullable<TSkinComponent['onHit']>;
 
 export interface TCatalogSkin {
 	id: string;
 	label: string;
 	element: TSkinElement;
-	/** Its own colour when nothing overrides it, and the Colour choices it has */
-	colour: TSkinColour;
-	colours: readonly TSkinColour[];
+	/** Its own color when nothing overrides it, and the Color choices it has */
+	colorSource: TSkinColorSource;
+	colorSources: readonly TSkinColorSource[];
 	/** What it does on a hit with no On Hit of its own */
 	reacts: TSkinOnHit;
-	/** Has parts that glow without a hit, so Glow Colour always applies */
+	/** Has parts that glow without a hit, so Glow Color always applies */
 	glows: boolean;
 	variants: readonly { id: string; label: string }[];
 	variant: string | null;
-	/** Extra properties the skin has beyond the standard ones, such as Gift's Ribbon Colour */
+	/** Extra properties the skin has beyond the standard ones, such as Gift's Ribbon Color */
 	properties: readonly TAssetProperty[];
 	/** Under `public/`; null for a skin with no tile */
 	previewUrl: string | null;
@@ -43,8 +43,8 @@ const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 			id: raw.id,
 			label: raw.label,
 			element,
-			colour: raw.colour as TSkinColour,
-			colours: raw.colours as TSkinColour[],
+			colorSource: raw.colorSource as TSkinColorSource,
+			colorSources: raw.colorSources as TSkinColorSource[],
 			reacts: raw.reacts as TSkinOnHit,
 			glows: raw.glows === true,
 			variants: raw.variants ?? [],
@@ -111,7 +111,7 @@ export interface TSkinLook {
 	skin: string;
 	/** It shows the theme's skin, so the theme's property defaults apply */
 	isThemeSkin: boolean;
-	colour: TSkinColour;
+	colorSource: TSkinColorSource;
 	/** Null keeps the theme's reaction */
 	onHit: TSkinOnHit | null;
 	glowColor: string | null;
@@ -131,13 +131,13 @@ export function resolveSkinLook(base: string, parts: TThemeParts | null | undefi
 	const skin = own ?? partSkin;
 	const isThemeSkin = own == null || own === partSkin;
 	const entry = SKINS_BY_ID.get(skin) as TCatalogSkin;
-	const colour = component?.colour ?? (isThemeSkin ? part.colour : undefined);
+	const colorSource = component?.colorSource ?? (isThemeSkin ? part.colorSource : undefined);
 	const onHit = component?.onHit ?? (isThemeSkin ? part.onHit : undefined);
 	const variant = component?.variant ?? (isThemeSkin ? part.variant : undefined);
 	return {
 		skin,
 		isThemeSkin,
-		colour: colour != null && entry.colours.includes(colour) ? colour : entry.colour,
+		colorSource: colorSource != null && entry.colorSources.includes(colorSource) ? colorSource : entry.colorSource,
 		onHit: onHit != null && elementOnHit(element).includes(onHit) ? onHit : null,
 		glowColor: component?.glowColor ?? (isThemeSkin ? part.glowColor : undefined) ?? null,
 		variant: variant != null && entry.variants.some((item) => item.id === variant) ? variant : entry.variant,
@@ -152,7 +152,7 @@ function fits(id: string, element: TSkinElement): boolean {
 
 /** The property rows a selection shows: what every selected skin has, like Figma's mixed selections */
 export interface TSharedSkinProperties {
-	colours: readonly TSkinColour[];
+	colorSources: readonly TSkinColorSource[];
 	onHit: readonly TSkinOnHit[];
 	glowColor: boolean;
 	variants: readonly { id: string; label: string }[];
@@ -164,10 +164,10 @@ export function sharedSkinProperties(looks: readonly { element: TSkinElement; lo
 	const onHit = intersect(looks.map(({ element }) => elementOnHit(element)));
 	const firstVariants = skins[0]?.variants ?? [];
 	const isSameVariants = skins.every((skin) => skin.variants.length === firstVariants.length && skin.variants.every((item, index) => item.id === firstVariants[index]?.id));
-	// Glow Colour shows with Glow: on a hit, or for a skin that always glows
+	// Glow Color shows with Glow: on a hit, or for a skin that always glows
 	const glowColor = looks.length > 0 && looks.every(({ look }, index) => (look.onHit ?? skins[index]?.reacts) === 'glow' || skins[index]?.glows === true);
-	return { colours: intersect(skins.map((skin) => skin.colours)), onHit, glowColor, variants: isSameVariants ? firstVariants : [] };
+	return { colorSources: intersect(skins.map((skin) => skin.colorSources)), onHit, glowColor, variants: isSameVariants ? firstVariants : [] };
 }
 
-export const COLOUR_LABELS: Record<TSkinColour, string> = { skin: 'Skin', marble: 'Marble', note: 'By Note' };
+export const COLOR_SOURCE_LABELS: Record<TSkinColorSource, string> = { skin: 'Skin', marble: 'Marble', note: 'By Note' };
 export const ON_HIT_LABELS: Record<TSkinOnHit, string> = { none: 'None', press: 'Press', wobble: 'Wobble', glow: 'Glow' };

@@ -47,7 +47,7 @@ export const ExportSheet: React.FC<TExportSheetProps> = (props) => {
 					<ExportSettings cx={cx} />
 				) : job.phase === 'done' ? (
 					<ExportDone cx={cx} job={job} />
-				) : job.phase === 'failed' || job.phase === 'cancelled' ? (
+				) : job.phase === 'failed' || job.phase === 'canceled' ? (
 					<ExportStopped cx={cx} job={job} />
 				) : (
 					<ExportProgress cx={cx} job={job} />
@@ -217,7 +217,7 @@ const ExportStopped: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 		<>
 			<SheetHeader
 				icon={isFailed ? <CircleAlert size={16} strokeWidth={1.8} className="text-[var(--bad)]" /> : undefined}
-				title={isFailed ? 'Export Failed' : 'Export Cancelled'}
+				title={isFailed ? 'Export Failed' : 'Export Canceled'}
 				subtitle={isFailed ? 'Blender reported a problem' : 'No film was written'}
 			/>
 			{job.error != null ? <p className="mm-error-box">{job.error}</p> : null}
@@ -259,8 +259,8 @@ export function exportStatusLabel(job: TExportJob): string {
 			return 'Film exported';
 		case 'failed':
 			return 'Export failed';
-		case 'cancelled':
-			return 'Export cancelled';
+		case 'canceled':
+			return 'Export canceled';
 		case 'idle':
 			return '';
 	}

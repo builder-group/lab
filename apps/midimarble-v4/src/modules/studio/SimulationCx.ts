@@ -349,6 +349,6 @@ export function moveLimit(project: TProject, move: { laneId: string; hitId: stri
 	}
 	const source = from ?? 'the piece before it';
 	if (outcome.moved < MOVE_MOVED) return { chip: `Stays: out of reach from ${source}`, notice: `${name} stays where it is: ${source} can't send the marble there on time.`, isStuck: true };
-	const cm = (metres: number): string => `${(metres * 100).toFixed(1)} cm`;
+	const cm = (meters: number): string => `${(meters * 100).toFixed(1)} cm`;
 	return { chip: `Goes ${cm(outcome.moved)}: the marble reaches no further`, notice: `${name} moved ${cm(outcome.moved)} of ${cm(outcome.moved + outcome.missed)}: ${source} can't send the marble further on time.`, isStuck: false };
 }

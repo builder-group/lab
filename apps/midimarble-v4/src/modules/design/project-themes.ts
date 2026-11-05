@@ -4,7 +4,7 @@ import { isPackAdded, STARTER_ORIGIN } from '@/modules/library';
 import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
-// changes a few colours on top (`TThemeOverrides`). `design.theme` names a built-in id or a project theme's id; the
+// changes a few colors on top (`TThemeOverrides`). `design.theme` names a built-in id or a project theme's id; the
 // Blender worker and the Draft Preview both read the base plus the overrides (`themes.py` `resolve_theme`).
 
 /** The origin line of what came from a Pack: "Christmas Pack" */
@@ -31,10 +31,10 @@ export type TThemeOverrideName = keyof TThemeOverrides;
 
 /** The overrides the inspector shows, in order, with the help behind each label */
 export const THEME_OVERRIDE_FIELDS: readonly { name: TThemeOverrideName; label: string; help: string }[] = [
-	{ name: 'wallColor', label: 'Wall', help: 'Colour of the wall behind the track' },
-	{ name: 'lightColor', label: 'Light', help: 'Colour of the key light: warm, neutral or cool' },
-	{ name: 'glowColor', label: 'Glow', help: "Colour of the glowing edges; without one they take their marble's colour" },
-	{ name: 'backgroundColor', label: 'Background', help: 'Colour of the surroundings that light and reflect in the track' }
+	{ name: 'wallColor', label: 'Wall', help: 'Color of the wall behind the track' },
+	{ name: 'lightColor', label: 'Light', help: 'Color of the key light: warm, neutral or cool' },
+	{ name: 'glowColor', label: 'Glow', help: "Color of the glowing edges; without one they take their marble's color" },
+	{ name: 'backgroundColor', label: 'Background', help: 'Color of the surroundings that light and reflect in the track' }
 ];
 
 /** A theme as applied: a built-in one, a project theme with its base and overrides, or an unknown id */
@@ -89,18 +89,18 @@ export function sceneThemeParts(design: Pick<TDesign, 'theme' | 'themes'>): TThe
 	return parts != null && Object.keys(parts).length > 0 ? parts : undefined;
 }
 
-/** Whether the theme's platforms take their note's colour: Colour by Note as a theme's default */
+/** Whether the theme's platforms take their note's color: Color by Note as a theme's default */
 export function isThemeColorByNote(design: Pick<TDesign, 'theme' | 'themes'>): boolean {
-	return resolveTheme(design).parts.platform.colour === 'note';
+	return resolveTheme(design).parts.platform.colorSource === 'note';
 }
 
-/** Built-in theme the applied theme starts from: skins, reactions, title colour and render look follow it */
+/** Built-in theme the applied theme starts from: skins, reactions, title color and render look follow it */
 export function baseThemeOf(design: Pick<TDesign, 'theme' | 'themes'>): string {
 	return resolveTheme(design).base;
 }
 
 /**
- * The colours the film uses: the applied theme's overrides with the Wall and Key Light layers' own colours on top,
+ * The colors the film uses: the applied theme's overrides with the Wall and Key Light layers' own colors on top,
  * for the scene description and the Draft Preview
  */
 export function appliedOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TThemeOverrides {
@@ -119,8 +119,8 @@ export function sceneThemeOverrides(design: Pick<TDesign, 'theme' | 'themes' | '
 }
 
 /**
- * What each override shows while it is not set: the base theme's own colour, from `THEMES` in themes.py (linear
- * values turned into display hex). Glow has none: edges take their marble's colour.
+ * What each override shows while it is not set: the base theme's own color, from `THEMES` in themes.py (linear
+ * values turned into display hex). Glow has none: edges take their marble's color.
  */
 export function themeDefaultColor(base: string, name: TThemeOverrideName): string | null {
 	const theme = BASE_COLORS[base] ?? BASE_COLORS[DEFAULT_THEME];
@@ -129,7 +129,7 @@ export function themeDefaultColor(base: string, name: TThemeOverrideName): strin
 	return linearToHex(linear);
 }
 
-// Linear colours of `THEMES` in themes.py: the wall (Pegboard's hardboard tint), the sun and the world
+// Linear colors of `THEMES` in themes.py: the wall (Pegboard's hardboard tint), the sun and the world
 const BASE_COLORS: Record<string, { wall: readonly number[]; light: readonly number[]; background: readonly number[] }> = {
 	pegboard: { wall: [0.58, 0.42, 0.26], light: [1.0, 0.96, 0.9], background: [0.72, 0.74, 0.78] },
 	brass: { wall: [0.42, 0.355, 0.53], light: [1.0, 0.95, 0.88], background: [0.53, 0.5, 0.62] },
@@ -146,7 +146,7 @@ function linearToHex(linear: readonly number[]): string {
 /** The relative luminance above which a wall takes dark titles: Pegboard's birch does, Brass's lavender plaster doesn't */
 const LIGHT_WALL_LUMINANCE = 0.7;
 
-/** The title colour that reads on a wall: white with its soft shadow, navy only on a wall too light for white */
+/** The title color that reads on a wall: white with its soft shadow, navy only on a wall too light for white */
 export function titleColorOnWall(wall: string): string {
 	const channel = (start: number): number => {
 		const value = Number.parseInt(wall.slice(start, start + 2), 16) / 255;
@@ -155,19 +155,19 @@ export function titleColorOnWall(wall: string): string {
 	return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > LIGHT_WALL_LUMINANCE ? '#1f3a5f' : '#ffffff';
 }
 
-/** The colour titles start with in a base theme */
+/** The color titles start with in a base theme */
 export function themeTitleColor(base: string): string {
 	return titleColorOnWall(themeDefaultColor(base, 'wallColor') ?? '#ffffff');
 }
 
-/** What a title reads in when its own colour is unset, and the colour a new one starts with: it stands apart from the wall the project shows */
+/** What a title reads in when its own color is unset, and the color a new one starts with: it stands apart from the wall the project shows */
 export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wall'>): string {
 	const theme = resolveTheme(design);
 	return titleColorOnWall(design.wall.color ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
 }
 
 /**
- * Switches the theme; titles still in the old base's title colour take the new one's. A marble's colour stays: it tells
+ * Switches the theme; titles still in the old base's title color take the new one's. A marble's color stays: it tells
  * marbles apart, and a theme applies to all of them
  */
 export function themeCommands(project: TProject, themeId: string): TProjectCommand[] {
@@ -283,11 +283,11 @@ function currentThemeParts(project: TProject): TThemeParts {
 /** The part a skin component's choices make; null for a library skin or no choices */
 function partOf(skin: TSkinComponent | undefined): TThemePart | null {
 	if (skin == null) return null;
-	const { assetId, colour, onHit, glowColor, variant } = skin;
+	const { assetId, colorSource, onHit, glowColor, variant } = skin;
 	if (assetId != null && catalogSkin(assetId) == null) return null;
 	const part: TThemePart = {
 		...(assetId != null ? { skin: assetId } : {}),
-		...(colour != null ? { colour } : {}),
+		...(colorSource != null ? { colorSource } : {}),
 		...(onHit != null ? { onHit } : {}),
 		...(glowColor != null ? { glowColor } : {}),
 		...(variant != null ? { variant } : {})

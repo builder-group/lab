@@ -11,7 +11,7 @@ function song(melody: THit[], backing: THit[] = [], sources: TSource[] = [MIDI])
 }
 
 describe('soundingKeys function', () => {
-	it('should light a key in its marble colour for as long as the note sounds', () => {
+	it('should light a key in its marble color for as long as the note sounds', () => {
 		const spans = noteSpans(song([{ id: 'a', time: 1, pitch: 60, duration: 0.25 }]));
 
 		expect(soundingKeys(spans, 0.99).size).toBe(0);
@@ -19,7 +19,7 @@ describe('soundingKeys function', () => {
 		expect(soundingKeys(spans, 1.25).size).toBe(0);
 	});
 
-	it('should release a marble note at its next note and light Backing in grey', () => {
+	it('should release a marble note at its next note and light Backing in gray', () => {
 		const spans = noteSpans(
 			song(
 				[

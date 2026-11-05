@@ -37,7 +37,7 @@ describe('preflightExport function on whole songs', () => {
 				title: expect.stringMatching(/^Bass leaves the frame at 0:0\d\.\d\d \(\d+ hits\)$/),
 				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:\d\d\.\d\d\.$/),
 				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
-				target: { ids: ['camera'], time: first?.span?.from, workspace: 'design' }
+				target: { ids: ['camera'], time: first?.span?.from, workspace: 'compose' }
 			})
 		);
 		// The jump lands inside the span, where the Camera panel shows the problem

@@ -353,7 +353,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 /** An open hit dot. Long gaps get a diamond with a dashed ring; dots outside the frame are red. */
 /**
  * Every hit's dot, where the marble is at the hit's time: a solid dot with its small outline ring. Open dots take the
- * marble's colour, on-time dots are green at the same size, and a hit that needs attention is a little larger, amber or
+ * marble's color, on-time dots are green at the same size, and a hit that needs attention is a little larger, amber or
  * red. The next open dot and every dot that needs attention pulse, in CSS alone. Selecting the hit adds the accent ring.
  */
 const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: string; size: number; isPulsing: boolean; isHovered: boolean; isFocused: boolean; isLongGap?: boolean }) {
@@ -378,7 +378,7 @@ const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: 
 	);
 });
 
-// Pixels per metre below which a default platform is under about 16 px, not much wider than an on-time dot
+// Pixels per meter below which a default platform is under about 16 px, not much wider than an on-time dot
 const ON_TIME_DOT_MIN_SCALE = 180;
 
 /** Every hit's dot, redrawn when the run, the selection, the hovered dot or the zoom changes and not when the view pans */
@@ -720,7 +720,7 @@ function inflate(corners: TVec2[], distance: number): TVec2[] {
 	return corners.map((corner, index) => {
 		const previous = corners[(index + corners.length - 1) % corners.length] ?? corner;
 		const next = corners[(index + 1) % corners.length] ?? corner;
-		// Offset along both adjacent edge normals, pointing away from the centre
+		// Offset along both adjacent edge normals, pointing away from the center
 		const offset = { x: 0, y: 0 };
 		for (const [a, b] of [
 			[previous, corner],

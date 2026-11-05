@@ -145,7 +145,7 @@ const NameInput: React.FC<{ value: string; onDone: (value: string | null) => voi
 	);
 };
 
-/** Status pill for the inspector header, with the details in a tooltip; colour always comes with a label */
+/** Status pill for the inspector header, with the details in a tooltip; color always comes with a label */
 export const StatusPill: React.FC<TStatusPillProps> = (props) => {
 	const { tone, label, detail, icon } = props;
 	return (

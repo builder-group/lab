@@ -28,10 +28,10 @@ describe('skin catalog', () => {
 		expect(skinElement('unknown')).toBe('platform');
 	});
 
-	it('should give Gift its Ribbon Colour as an extra property with the standard Colour choices', () => {
+	it('should give Gift its Ribbon Color as an extra property with the standard Color choices', () => {
 		const skin = catalogSkin('platform:gift');
-		expect(skin?.properties.map((property) => [property.name, property.type])).toEqual([['Ribbon Colour', 'colour']]);
-		expect(skin?.colours).toEqual(['skin', 'marble', 'note']);
+		expect(skin?.properties.map((property) => [property.name, property.type])).toEqual([['Ribbon Color', 'color']]);
+		expect(skin?.colorSources).toEqual(['skin', 'marble', 'note']);
 		expect(catalogSkin('platform:gold')?.properties).toEqual([]);
 	});
 
@@ -48,11 +48,11 @@ describe('skin catalog', () => {
 	it('should show only what a selection shares', () => {
 		const look = (element: TSkinElement, component?: TSkinComponent) => ({ element, look: resolveSkinLook('brass', null, element, component) });
 		const platforms = sharedSkinProperties([look('platform'), look('platform', { assetId: 'platform:device' })]);
-		expect(platforms.colours).toEqual(['skin', 'marble', 'note']);
+		expect(platforms.colorSources).toEqual(['skin', 'marble', 'note']);
 		expect(platforms.onHit).toEqual(['none', 'press', 'wobble', 'glow']);
 		expect(platforms.variants).toEqual([]);
 		const mixed = sharedSkinProperties([look('platform'), look('rail')]);
-		expect(mixed.colours).toEqual(['skin', 'marble']);
+		expect(mixed.colorSources).toEqual(['skin', 'marble']);
 		expect(mixed.onHit).toEqual(['none', 'glow']);
 		expect(mixed.glowColor).toBe(false);
 		const devices = sharedSkinProperties([look('platform', { assetId: 'platform:device' })]);
@@ -61,6 +61,6 @@ describe('skin catalog', () => {
 		const marble = sharedSkinProperties([look('marble', { assetId: 'marble:magic' })]);
 		expect(marble.onHit).toEqual([]);
 		expect(marble.glowColor).toBe(true);
-		expect(marble.colours).toEqual(['marble', 'skin']);
+		expect(marble.colorSources).toEqual(['marble', 'skin']);
 	});
 });

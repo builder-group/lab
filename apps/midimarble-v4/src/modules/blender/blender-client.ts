@@ -163,7 +163,7 @@ export const blender = {
 		return Ok({ progress, done: true, result: response.result });
 	},
 
-	cancelJob(packagePath: string, jobId: string): Promise<TResult<{ jobId: string; cancelled: boolean }, BlenderError>> {
+	cancelJob(packagePath: string, jobId: string): Promise<TResult<{ jobId: string; canceled: boolean }, BlenderError>> {
 		return this.request(packagePath, 'cancel', { jobId }, { timeoutMs: 30_000 });
 	},
 
@@ -420,7 +420,7 @@ export interface TPreviewRenderStarted {
 /** `.cache/preview-frames/<signature>/status.json` */
 export interface TPreviewRenderStatus {
 	signature: string;
-	state: 'rendering' | 'done' | 'cancelled' | 'failed';
+	state: 'rendering' | 'done' | 'canceled' | 'failed';
 	frames: number;
 	fps: number;
 	startTime: number;

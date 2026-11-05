@@ -50,7 +50,7 @@ const GLASS_DENSITY = 2500;
 // highest `bounce` a piece allows, so Min never clips a piece's value.
 const MARBLE_RESTITUTION = 0.95;
 const MARBLE_FRICTION = 0.5;
-// Marble centres move in this plane. Colliders span z from their wall offset over COLLIDER_DEPTH, so the plane runs
+// Marble centers move in this plane. Colliders span z from their wall offset over COLLIDER_DEPTH, so the plane runs
 // through every piece and contact normals stay in xy.
 const MARBLE_Z = 0.01;
 // A piece's `depth` is how far it stands out in the film and plays no part in the run. Its collider keeps this fixed
@@ -1380,7 +1380,7 @@ function pieceIndex(state: TRunState): TPieceIndex {
 
 /**
  * Another marble enters a marble's world as a proxy only while the two could touch within the next two
- * steps. Checked every step with the marbles' own speeds, so neighbouring lanes, which pass within a
+ * steps. Checked every step with the marbles' own speeds, so neighboring lanes, which pass within a
  * parking reach of each other all the time, stay apart.
  */
 function updateProxies(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
@@ -1753,7 +1753,7 @@ function recordPieceContact(
 	const pre = preStepSample(run, state.step);
 	const last = run.samples[run.samples.length - 1];
 	let time = stepTime;
-	let centre = last?.position ?? marble.release;
+	let center = last?.position ?? marble.release;
 	let velocity = (pre ?? last)?.velocity ?? { x: 0, y: 0 };
 	if (pre != null) {
 		const gap = (tau: number): number => {
@@ -1764,32 +1764,32 @@ function recordPieceContact(
 		if (tau != null) {
 			time = pre.time + tau;
 			const flight = ballistic(pre.position, pre.velocity, tau, plan.gravity);
-			centre = flight.position;
+			center = flight.position;
 			velocity = flight.velocity;
 		}
 	}
-	const position = shapeClosestPoint(shape, centre.x, centre.y);
+	const position = shapeClosestPoint(shape, center.x, center.y);
 	state.contacts.push({
 		time,
 		marbleEntityId: marble.entityId,
 		otherEntityId: entityId,
 		kind: 'piece',
 		position,
-		speed: approachSpeed(centre, velocity, position, rotor)
+		speed: approachSpeed(center, velocity, position, rotor)
 	});
 }
 
 /** Speed of the marble toward the surface along the contact normal, relative to the surface */
 function approachSpeed(
-	centre: TVec2,
+	center: TVec2,
 	velocity: TVec2,
 	point: TVec2,
 	rotor: TRotorRun | null
 ): number {
-	let nx = centre.x - point.x;
-	let ny = centre.y - point.y;
+	let nx = center.x - point.x;
+	let ny = center.y - point.y;
 	const length = Math.hypot(nx, ny);
-	// A centre inside the shape has no outline direction; the motion itself is then the approach
+	// A center inside the shape has no outline direction; the motion itself is then the approach
 	if (length < 1e-9) return Math.hypot(velocity.x, velocity.y);
 	nx /= length;
 	ny /= length;

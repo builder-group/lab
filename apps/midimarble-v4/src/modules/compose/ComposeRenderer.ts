@@ -26,13 +26,13 @@ export interface TRenderPiece {
 	piece: TResolvedPiece;
 	/** Current rotation, which differs from the resolved angle for moving pieces such as windmills */
 	angle: number;
-	/** Overrides the piece type's flat colours, for the Film Draft Preview's theme look */
+	/** Overrides the piece type's flat colors, for the Film Draft Preview's theme look */
 	colors?: { bar: string; nub: string };
 	/** The film's marble path depth, in the Draft Preview: a Windmill turns around it */
 	pathZ?: number;
 }
 
-/** Wall surface in the Camera view: its colour and the peg hole colour, or no holes for a plain wall */
+/** Wall surface in the Camera view: its color and the peg hole color, or no holes for a plain wall */
 export interface TWallLook {
 	color: string;
 	holes: string | null;
@@ -62,7 +62,7 @@ export interface TComposeTheme {
 	guide: string;
 }
 
-/** Marble centres move in this plane, see `MARBLE_Z` in the simulation */
+/** Marble centers move in this plane, see `MARBLE_Z` in the simulation */
 export const MARBLE_Z = 0.01;
 /** Marbles never shrink below this radius on screen, so a zoomed-out run still shows where they are */
 export const MIN_MARBLE_PX = 3.5;
@@ -94,7 +94,7 @@ export class ComposeRenderer {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true });
 		this.renderer.setClearColor(0x000000, 0);
 
-		// Lambert divides by π, so these intensities keep a face toward the camera at its flat colour
+		// Lambert divides by π, so these intensities keep a face toward the camera at its flat color
 		this.scene.add(new THREE.AmbientLight(0xffffff, 0.72 * Math.PI));
 		const light = new THREE.DirectionalLight(0xffffff, 0.36 * Math.PI);
 		light.position.set(0.3, 1, 2);
@@ -358,7 +358,7 @@ export class ComposeRenderer {
 		const pixelsPerUnit = film.frame.height / 2 / halfFrame;
 		this.film.aspect = width / height;
 		this.film.fov = THREE.MathUtils.radToDeg(2 * Math.atan(height / 2 / pixelsPerUnit));
-		// A frame off the canvas centre shifts the view so its centre stays on the camera axis
+		// A frame off the canvas center shifts the view so its center stays on the camera axis
 		const offsetX = film.frame.x + film.frame.width / 2 - width / 2;
 		const offsetY = film.frame.y + film.frame.height / 2 - height / 2;
 		if (Math.abs(offsetX) > 0.5 || Math.abs(offsetY) > 0.5) this.film.setViewOffset(width, height, -offsetX, -offsetY, width, height);
@@ -461,7 +461,7 @@ export class ComposeRenderer {
 	}
 }
 
-/** Flat toy colours per piece type: the body and a darker shade for brackets, hubs and outlines */
+/** Flat toy colors per piece type: the body and a darker shade for brackets, hubs and outlines */
 export const piecePalette: Record<string, { bar: string; nub: string }> = {
 	platform: { bar: '#f2845c', nub: '#c4603d' },
 	rail: { bar: '#3c9ee0', nub: '#2373ad' },
@@ -560,7 +560,7 @@ const lineFragmentShader = /* glsl */ `
 
 /**
  * Screen-space line strip drawn as one instanced quad per segment. Points before the playhead use the full
- * colour and later points a lighter mix with the canvas, so overlapping joins stay opaque.
+ * color and later points a lighter mix with the canvas, so overlapping joins stay opaque.
  */
 class TrackLine {
 	readonly mesh: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;

@@ -22,7 +22,7 @@ function item(id: string, role: 'skin' | 'decoration', extra: Partial<TLibraryIt
 	};
 }
 
-const theme: TProjectTheme = { id: 'cosy', name: 'Cosy', base: 'brass', overrides: {}, parts: { platform: { skin: 'brass-bar' }, rail: { skin: 'rail:chrome' } } };
+const theme: TProjectTheme = { id: 'cozy', name: 'Cozy', base: 'brass', overrides: {}, parts: { platform: { skin: 'brass-bar' }, rail: { skin: 'rail:chrome' } } };
 
 function pack(items: TLibraryItem[], extra: Partial<TPack> = {}): TPack {
 	return { id: 'christmas', path: '/p', name: 'Christmas', version: '1.0', description: null, author: null, link: null, pictureUrl: null, themes: [], items, builtInDecor: [], ...extra };
@@ -38,12 +38,12 @@ describe('Packs', () => {
 		const project = createProject({ title: 'Song' });
 		const commands = packThemeCommands(project, theme);
 		expect(commands[0]).toEqual({ type: 'setDesign', design: { themes: [theme] } });
-		expect(commands.some((command) => command.type === 'setDesign' && command.design.theme === 'cosy')).toBe(true);
+		expect(commands.some((command) => command.type === 'setDesign' && command.design.theme === 'cozy')).toBe(true);
 	});
 
 	it('should export the shown theme and chosen items, with what the theme needs', () => {
 		const project = createProject({ title: 'Song' });
-		const withTheme = { ...project, design: { ...project.design, themes: [theme], theme: 'cosy' } };
+		const withTheme = { ...project, design: { ...project.design, themes: [theme], theme: 'cozy' } };
 		const [isOk, , exported] = packExport(withTheme, [item('brass-bar', 'skin'), item('bauble', 'decoration'), item('tree', 'decoration')], { name: ' Christmas ', includesTheme: true, assetIds: ['bauble'] });
 		expect(isOk).toBe(true);
 		expect(exported?.manifest).toMatchObject({ id: 'christmas', name: 'Christmas', version: '1.0' });
@@ -51,7 +51,7 @@ describe('Packs', () => {
 		expect(exported?.manifest.items.map((entry) => entry.kind).sort()).toEqual(['decor', 'skin', 'theme']);
 		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
 		expect(stored.name).toBe('Christmas');
-		expect(stored.id).not.toBe('cosy');
+		expect(stored.id).not.toBe('cozy');
 	});
 
 	it('should export a built-in theme as a stored theme on its base', () => {

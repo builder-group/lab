@@ -6,8 +6,8 @@ import type { TWorkspace } from './StudioCx';
 
 /**
  * What the inspector shows for a selection. Each layer owns its settings: the
- * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its colour and release,
- * the Wall its skin and colours, a light its colour, strength and direction.
+ * Song its file and Backing, the Camera its framing, a shot or a title its own, a marble its color and release,
+ * the Wall its skin and colors, a light its color, strength and direction.
  * Nothing selected is the Scene. The same selection shows the same inspector whether it was made in Layers or in the
  * timeline, and in either workspace, except that Track has no Wall, Lights, Titles or Decor and Film no Camera: a
  * selection left over from the other workspace shows the Scene there.

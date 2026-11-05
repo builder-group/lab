@@ -117,7 +117,7 @@ export function createTwoMarblesStart(): TProject {
 }
 
 /**
- * The gap piece after the platform at `index`: the platform turns the marble toward the frame centre, so the piece has
+ * The gap piece after the platform at `index`: the platform turns the marble toward the frame center, so the piece has
  * room, and the first of its tilts that leaves nothing struck twice or touching wins, or else the first that plays
  */
 function bridgeGap(project: TProject, laneId: string, index: number, simulate: TSimulateFn, create: (candidate: TProject) => TResult<TGapPieceProposal, Error>): TProject | null {

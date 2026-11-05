@@ -23,7 +23,7 @@ import { toggleSongExpanded } from './timeline-state';
  * name in the header, the waveform of a recording or a small overview of every note for MIDI. A song with notes
  * expands into a piano roll of every note, where notes change pitch and are handed to marbles or to Backing, with its
  * Parts below (`PartRows`). A recording stays a flat waveform row with one Mute and Solo, the hits drawn on it as ticks
- * in their marbles' colours so they can be judged against the waveform. The row exists only while the project has a song file or Backing notes;
+ * in their marbles' colors so they can be judged against the waveform. The row exists only while the project has a song file or Backing notes;
  * without a file it reads Song and shows the Backing notes.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
@@ -164,7 +164,7 @@ interface TSongTrackProps {
 	onDragStart: TDragStart;
 }
 
-/** Every marble's hits as ticks over the waveform, in its colour; dragged hits move with the drag */
+/** Every marble's hits as ticks over the waveform, in its color; dragged hits move with the drag */
 const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; height: number; drag: TDrag | null }> = (props) => {
 	const { project, zoom, width, height, drag } = props;
 	return (
@@ -181,7 +181,7 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 	);
 };
 
-/** Every note in one strip, higher notes higher, in the marble colours and Backing in grey; `only` limits it to one Part */
+/** Every note in one strip, higher notes higher, in the marble colors and Backing in gray; `only` limits it to one Part */
 export const NoteOverview: React.FC<{ project: TProject; only?: string; zoom: number; width: number; height: number }> = (props) => {
 	const { project, only, zoom, width, height } = props;
 	const lanes = [...project.music.lanes, { id: BACKING_ID, color: BACKING_COLOR, hits: project.music.backing }].filter((lane) => only == null || lane.id === only);

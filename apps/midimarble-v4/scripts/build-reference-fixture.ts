@@ -126,7 +126,7 @@ for (const [sectionIndex, section] of SECTIONS.entries()) {
 project = await finished(dress(withoutOpenHits(project)));
 const finalResult = createSimulatorResult(project);
 simulator.dispose();
-// Assists accept a marble that comes to rest on stacked pieces; a section must keep travelling down the wall
+// Assists accept a marble that comes to rest on stacked pieces; a section must keep traveling down the wall
 if (finalResult.descent1 < 2 || finalResult.descent2 < 2) throw new Error('A section stopped descending');
 // Pieces are named in time order last, so the Layers list reads Platform 1, 2, 3 down the marble
 const json = serializeProject(namePiecesInOrder(apply(project, [], 0)));
@@ -137,7 +137,7 @@ console.log(JSON.stringify(finalResult));
 
 function startZigzag(current: TProject, index: number, angle: number): TProject {
 	// Try the tilt and its mirror and keep the one whose continuation descends furthest, so the section keeps
-	// travelling down the wall instead of bouncing in place. Steeper tilts descend further but spread the columns
+	// traveling down the wall instead of bouncing in place. Steeper tilts descend further but spread the columns
 	let best: { project: TProject; descent: number } | null = null;
 	for (const tilt of [angle, -angle]) {
 		const tilted = apply(current, [
@@ -215,7 +215,7 @@ function dress(current: TProject): TProject {
 	}
 	const placed = simulate(current).pieces;
 	for (const [index, section] of SECTIONS.entries()) {
-		// The first two pieces of a section are its two columns; the title sits centred above them
+		// The first two pieces of a section are its two columns; the title sits centered above them
 		const firsts = placed
 			.filter((piece) => {
 				const hitId = current.entities.find((entity) => entity.id === piece.entityId)?.components.hitLink?.hitId;

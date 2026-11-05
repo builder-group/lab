@@ -254,7 +254,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
 	}
 
-	/** The title reads in the colour that stands apart from the wall, whatever the wall becomes */
+	/** The title reads in the color that stands apart from the wall, whatever the wall becomes */
 	function clearColor(): void {
 		if (text == null) return;
 		const { color: _color, ...value } = text;
@@ -316,12 +316,12 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 				)}
 				<span className="mm-ifield" data-span="2">
 					<label htmlFor="text-color" className="mm-ifield-label">
-						Colour
+						Color
 					</label>
-					<input id="text-color" type="color" className="mm-color" aria-label="Title colour" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color ?? defaultTitleColor(project.design)} onChange={(event) => setText({ color: event.target.value })} />
+					<input id="text-color" type="color" className="mm-color" aria-label="Title color" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color ?? defaultTitleColor(project.design)} onChange={(event) => setText({ color: event.target.value })} />
 					{text.color != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{themeOriginLabel(project.design)}</span>}
 					{text.color != null && text.color.toLowerCase() !== defaultTitleColor(project.design) ? (
-						<button className="mm-icon-button" onClick={clearColor} title="Use the colour that reads on the wall" aria-label="Reset Colour" type="button">
+						<button className="mm-icon-button" onClick={clearColor} title="Use the color that reads on the wall" aria-label="Reset Color" type="button">
 							<RotateCcw size={12} strokeWidth={1.9} />
 						</button>
 					) : null}

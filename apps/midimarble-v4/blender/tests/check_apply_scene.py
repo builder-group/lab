@@ -399,8 +399,8 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     # A marble inside a tunnel is hidden through its holder's mm_visible
     from mm_worker import contacts
     tunnel = {'type': 'tunnel', 'params': {'radius': 0.002, 'bore': 0.004}, 'path': [{'x': 0.0, 'y': 0.0}, {'x': 0.2, 'y': 0.0}]}
-    centre_y = RADIUS + 0.002
-    visible = contacts.tunnel_visibility(np.array([-0.05, 0.005, 0.1, 0.195, 0.1]), np.array([centre_y] * 4 + [0.05]), RADIUS, [tunnel])
+    center_y = RADIUS + 0.002
+    visible = contacts.tunnel_visibility(np.array([-0.05, 0.005, 0.1, 0.195, 0.1]), np.array([center_y] * 4 + [0.05]), RADIUS, [tunnel])
     check(list(visible) == [1, 1, 0, 1, 1], 'a marble is hidden only while fully inside a tunnel')
     marble_skin = next(child for child in marble.children if child.get('mm_visibility'))
     marble['mm_visible'] = 0.0
@@ -412,7 +412,7 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     scene.frame_set(scene.frame_current - 1)
     check(hidden and not marble_skin.hide_render, 'mm_visible drives the marble skin visibility')
 
-    # A film job runs in its own process and can be cancelled
+    # A film job runs in its own process and can be canceled
     try:
         worker.handle('render_film', {'preset': 'ultra', 'outputPath': 'renders/x.mp4'})
         check(False, 'unknown presets are rejected')
@@ -423,8 +423,8 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     time.sleep(1.0)
     worker.handle('cancel', {'jobId': 'job-cancel'})
     envelope = render.wait_for_job(root, 'job-cancel', timeout=30)
-    check(not envelope['ok'] and envelope['error']['code'] == 'CANCELLED', 'cancel stops the render job')
-    check(not (root / 'renders' / 'cancel.mp4').exists(), 'a cancelled job writes no film')
+    check(not envelope['ok'] and envelope['error']['code'] == 'CANCELED', 'cancel stops the render job')
+    check(not (root / 'renders' / 'cancel.mp4').exists(), 'a canceled job writes no film')
 
 
 def studio_role(role):
@@ -484,21 +484,21 @@ def check_device_skins():
 
 
 def check_color_by_note():
-    """Colour by Note gives every platform that plays a note its pitch class colour in both themes; without the
+    """Color by Note gives every platform that plays a note its pitch class color in both themes; without the
     option or without a note the theme's own material stays, and the skin key changes with the pitch class"""
     from mm_worker import skins, themes
     neon_piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 69, 'color': '#3478f6'}
-    neon_on = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS, parts={'platform': {'colour': 'note'}}))['parts'][0]['mesh'].materials]
+    neon_on = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS, parts={'platform': {'colorSource': 'note'}}))['parts'][0]['mesh'].materials]
     neon_off = [material.name for material in skins.build_spec('piece', neon_piece, skins.skin_context('neon', RADIUS))['parts'][0]['mesh'].materials]
-    expected = themes.neon_body_material(skins.neon_colors(skins.PieceFrame(neon_piece, skins.skin_context('neon', RADIUS, parts={'platform': {'colour': 'note'}})))[0]).name
+    expected = themes.neon_body_material(skins.neon_colors(skins.PieceFrame(neon_piece, skins.skin_context('neon', RADIUS, parts={'platform': {'colorSource': 'note'}})))[0]).name
     check(neon_on[0] == expected and neon_off[0] != expected and themes.note_color(69) is not None,
-          'neon: Colour by Note gives an A platform its note colour (%s, %s)' % (neon_on[0], neon_off[0]))
+          'neon: Color by Note gives an A platform its note color (%s, %s)' % (neon_on[0], neon_off[0]))
     for theme, plain in (('pegboard', 'MM · flat'), ('brass', 'MM · brass')):
-        on = skins.skin_context(theme, RADIUS, parts={'platform': {'colour': 'note'}})
+        on = skins.skin_context(theme, RADIUS, parts={'platform': {'colorSource': 'note'}})
         off = skins.skin_context(theme, RADIUS)
         piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 69}
-        coloured = [material.name for material in skins.build_spec('piece', piece, on)['parts'][0]['mesh'].materials]
-        check('MM · note A' in coloured, '%s: Colour by Note colours an A platform (%s)' % (theme, coloured))
+        colored = [material.name for material in skins.build_spec('piece', piece, on)['parts'][0]['mesh'].materials]
+        check('MM · note A' in colored, '%s: Color by Note colors an A platform (%s)' % (theme, colored))
         default = [material.name for material in skins.build_spec('piece', piece, off)['parts'][0]['mesh'].materials]
         check(not any(name.startswith('MM · note') for name in default) and default[0].startswith(plain),
               '%s: without the option the theme material stays (%s)' % (theme, default))
@@ -507,21 +507,21 @@ def check_color_by_note():
         check(skins.skin_key('piece', piece, on) == skins.skin_key('piece', octave, on)
               and skins.skin_key('piece', piece, on) != skins.skin_key('piece', other, on),
               '%s: the skin key follows the pitch class' % theme)
-    # A chosen skin keeps its own colour under Colour by Note; Brass's Gold spelled out is still its default
+    # A chosen skin keeps its own color under Color by Note; Brass's Gold spelled out is still its default
     def platform_materials(theme, skin):
         piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'notePitch': 60,
                  'skin': {'assetId': skin}}
-        context = skins.skin_context(theme, RADIUS, parts={'platform': {'colour': 'note'}})
+        context = skins.skin_context(theme, RADIUS, parts={'platform': {'colorSource': 'note'}})
         return [material.name for material in skins.build_spec('piece', piece, context)['parts'][0]['mesh'].materials]
 
     names = platform_materials('brass', 'platform:key')
-    check('MM · key' in names and not any(name.startswith('MM · note') for name in names), 'platform:key keeps its white key under Colour by Note (%s)' % names)
+    check('MM · key' in names and not any(name.startswith('MM · note') for name in names), 'platform:key keeps its white key under Color by Note (%s)' % names)
     names = platform_materials('pegboard', 'platform:copper')
-    check(names[0] == 'MM · bar copper', 'a Copper skin from More Skins keeps its copper under Colour by Note (%s)' % names)
+    check(names[0] == 'MM · bar copper', 'a Copper skin from More Skins keeps its copper under Color by Note (%s)' % names)
     names = platform_materials('pegboard', 'platform:gold')
-    check(names[0] == 'MM · brass', 'a Gold skin chosen in Pegboard keeps its gold under Colour by Note (%s)' % names)
+    check(names[0] == 'MM · brass', 'a Gold skin chosen in Pegboard keeps its gold under Color by Note (%s)' % names)
     names = platform_materials('brass', 'platform:gold')
-    check(names[0] == 'MM · note C', "Brass's Gold, its default spelled out, takes the note colour (%s)" % names)
+    check(names[0] == 'MM · note C', "Brass's Gold, its default spelled out, takes the note color (%s)" % names)
 
 
 def check_marble_contrast():
@@ -558,7 +558,7 @@ def check_marble_contrast():
         dark = skins.skin_key('marble', {'radius': RADIUS, 'color': '#3478f6'}, context)
     finally:
         themes.set_overrides(None)
-    check(plain != dark, 'a Wall colour that changes the marble tone rebuilds the marble skin')
+    check(plain != dark, 'a Wall color that changes the marble tone rebuilds the marble skin')
 
 
 def bent_wire(wall_u, top, high_y, along, slope, low_u, low_y, bend, points=12):
@@ -569,16 +569,16 @@ def bent_wire(wall_u, top, high_y, along, slope, low_u, low_y, bend, points=12):
     reach = radius * share
     start = (wall_u, high_y + reach)
     end = (wall_u + along * math.cos(slope) * reach, high_y - math.sin(slope) * reach)
-    centre = (wall_u + along * radius, high_y + reach)
-    begin = math.atan2(start[1] - centre[1], start[0] - centre[0])
-    sweep = math.atan2(end[1] - centre[1], end[0] - centre[0]) - begin
+    center = (wall_u + along * radius, high_y + reach)
+    begin = math.atan2(start[1] - center[1], start[0] - center[0])
+    sweep = math.atan2(end[1] - center[1], end[0] - center[0]) - begin
     if along > 0 and sweep < 0:
         sweep += 2 * math.pi
     if along < 0 and sweep > 0:
         sweep -= 2 * math.pi
-    arc = [(centre[0] + radius * math.cos(begin + sweep * i / points), centre[1] + radius * math.sin(begin + sweep * i / points))
+    arc = [(center[0] + radius * math.cos(begin + sweep * i / points), center[1] + radius * math.sin(begin + sweep * i / points))
            for i in range(1, points)]
-    return [(wall_u, top), start, *arc, end, (low_u, low_y)], centre, radius
+    return [(wall_u, top), start, *arc, end, (low_u, low_y)], center, radius
 
 
 def check_switchback_skins():
@@ -586,8 +586,8 @@ def check_switchback_skins():
     pairs stay one setback behind the physics wire through the bend, on the side away from the marble"""
     from mm_worker import skins
     slope, bend = math.radians(8), 0.04
-    first, centre_a, radius_a = bent_wire(0.0, 0.0, -0.03, 1, slope, 0.068, -0.03 - math.tan(slope) * 0.068, bend)
-    second, centre_b, radius_b = bent_wire(0.1, -0.04, -0.075, -1, slope, 0.032, -0.075 - math.tan(slope) * 0.068, bend)
+    first, center_a, radius_a = bent_wire(0.0, 0.0, -0.03, 1, slope, 0.068, -0.03 - math.tan(slope) * 0.068, bend)
+    second, center_b, radius_b = bent_wire(0.1, -0.04, -0.075, -1, slope, 0.032, -0.075 - math.tan(slope) * 0.068, bend)
     stop = [(0.0, -0.06), (0.0, -0.12)]
     wires = [[{'x': x, 'y': y} for x, y in wire] for wire in (first, second, stop)]
     piece = {'type': 'rail', 'layout': 'switchback', 'params': {'width': 0.1, 'turns': 2, 'radius': 0.0025, 'bend': bend}, 'angle': 0.0,
@@ -604,10 +604,10 @@ def check_switchback_skins():
           'the marble rides inside each bend')
     check(skins.marble_side(stop, (0.05, -0.05)) > 0, 'a straight stop faces the middle of the rail')
     setback = 0.004
-    for wire, centre, radius, label in ((first, centre_a, radius_a, 'left'), (second, centre_b, radius_b, 'right')):
+    for wire, center, radius, label in ((first, center_a, radius_a, 'left'), (second, center_b, radius_b, 'right')):
         line = skins.offset_wire(wire, -setback * skins.marble_side(wire, (0.05, -0.05)))
         bend_points = line[1:-1]
-        error = max(abs(math.dist(point, centre) - (radius + setback)) for point in bend_points)
+        error = max(abs(math.dist(point, center) - (radius + setback)) for point in bend_points)
         check(error < 2e-4, '%s brass wire follows the bend one setback outside it (%.5f m)' % (label, error))
         low = line[-1]
         check(low[1] < wire[-1][1] - setback * 0.9, '%s brass wire runs below the leg (%.4f m)' % (label, wire[-1][1] - low[1]))

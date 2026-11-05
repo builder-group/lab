@@ -5,7 +5,7 @@ import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2
 import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult } from '@/modules/simulation';
 import { resolvedPieceShapes, shapesGap } from '@/modules/simulation/clearance';
 
-/** How far a copy lands from its original, right and down on the wall in metres, like Finder's and Figma's Duplicate */
+/** How far a copy lands from its original, right and down on the wall in meters, like Finder's and Figma's Duplicate */
 export const DUPLICATE_OFFSET = { x: 0.05, y: -0.05 };
 
 // Clearance kept from every marble's path, beyond its radius, and from other pieces

@@ -128,8 +128,8 @@ def main():
 
     if QUICK:
         worker.handle('preview_render_cancel', {})
-        status = wait(folder, lambda value: value.get('state') == 'cancelled', 10)
-        check(status['state'] == 'cancelled', 'cancel stops the job')
+        status = wait(folder, lambda value: value.get('state') == 'canceled', 10)
+        check(status['state'] == 'canceled', 'cancel stops the job')
     else:
         status = wait(folder, lambda value: value.get('state') in ('done', 'failed'), 1800)
         check(status['state'] == 'done', 'job finished: ' + str(status.get('error', 'done')))

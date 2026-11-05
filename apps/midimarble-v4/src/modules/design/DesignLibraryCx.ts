@@ -106,7 +106,7 @@ export class DesignLibraryCx {
 
 	/**
 	 * Add for a Pack in the sheet, or Import from File… without a path. It stays on this Mac for every project: its items
-	 * show in Insert and the tiles and its themes in the picker, and the look stays as it is. Ok(null) when cancelled.
+	 * show in Insert and the tiles and its themes in the picker, and the look stays as it is. Ok(null) when canceled.
 	 */
 	async addPack(path?: string): Promise<TResult<TPack | null, Error>> {
 		const chosen = path ?? (await host.choosePackToImport());
@@ -131,7 +131,7 @@ export class DesignLibraryCx {
 		this.$exportPack.set({ name: resolveTheme(project.design).name, includesTheme: true, assetIds });
 	}
 
-	/** Export Pack…: writes the Pack; `destination` skips the save panel. Ok(null) when cancelled. */
+	/** Export Pack…: writes the Pack; `destination` skips the save panel. Ok(null) when canceled. */
 	async exportPack(options: TPackExportOptions, destination?: string): Promise<TResult<string | null, Error>> {
 		const project = this.source.getProject();
 		const packagePath = this.source.getPackagePath();

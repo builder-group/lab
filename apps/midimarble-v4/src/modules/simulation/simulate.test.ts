@@ -268,7 +268,7 @@ describe('simulate', () => {
 		expect(marbleContacts).toHaveLength(2);
 		expect(marbleContacts[0]?.marbleEntityId).toBe('marble-1');
 		expect(marbleContacts[0]?.otherEntityId).toBe('marble-2');
-		// Head-on at 2 m/s closing speed, touching when the centres are 16 mm apart
+		// Head-on at 2 m/s closing speed, touching when the centers are 16 mm apart
 		expect(marbleContacts[0]?.time).toBeCloseTo((0.2 - 0.016) / 2, 3);
 		expect(marbleContacts[0]?.position.x).toBeCloseTo(0, 6);
 	});
@@ -290,7 +290,7 @@ describe('simulate', () => {
 		const rail = result.pieces.find((piece) => piece.entityId === railId);
 		expect(rail?.status).toBe('placed');
 		expect(rail?.shapes?.every((shape) => shape.kind === 'capsule')).toBe(true);
-		// Rolling on the support: the centre stays one marble and wire radius above the path
+		// Rolling on the support: the center stays one marble and wire radius above the path
 		const path = rail?.path ?? [];
 		const end = path[path.length - 1];
 		const onRail = result.marbles[0]?.samples.filter(

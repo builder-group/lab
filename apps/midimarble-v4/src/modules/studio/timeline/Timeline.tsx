@@ -80,7 +80,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const songRows = React.useMemo(() => (project == null || !hasSong ? null : songRollRange(project, song)), [project, hasSong, song]);
 	const parts = React.useMemo(() => (project == null ? [] : songParts(project)), [project]);
 
-	// The hit a marble just landed flashes in its status colour. Set on the element, so no row re-renders while playing.
+	// The hit a marble just landed flashes in its status color. Set on the element, so no row re-renders while playing.
 	React.useEffect(
 		() =>
 			cx.$hitFlash.listen(({ value }) => {

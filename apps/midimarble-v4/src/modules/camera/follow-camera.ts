@@ -23,7 +23,7 @@ const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
 const LEAD_LIMIT = 0.0235;
 /**
- * While the follow point falls faster than FALL_START metres per second, the frame looks FALL_AHEAD seconds of the
+ * While the follow point falls faster than FALL_START meters per second, the frame looks FALL_AHEAD seconds of the
  * extra speed below it, at most FALL_LIMIT of the camera distance, eased over FALL_EASE seconds; the speed is taken
  * over FALL_WINDOW seconds either side, and the lead lasts FALL_HOLD seconds past the fall
  */
@@ -58,7 +58,7 @@ const LEAD_HOLD = 1.5;
 const LEAD_EASE = 2.5;
 /** A shot at this fraction of the rig distance or closer frames only the leading marble */
 const PUSH_FOCUS = 0.7;
-/** Weight in the group centre of a marble past its `activeUntil`, `FINISHED_WEIGHT` in `camera.py` */
+/** Weight in the group center of a marble past its `activeUntil`, `FINISHED_WEIGHT` in `camera.py` */
 const FINISHED_WEIGHT = 0.001;
 /** The opening frames the release points and up to this many of the first struck pieces */
 const OPENING_PIECES = 3;
@@ -66,7 +66,7 @@ const OPENING_PIECES = 3;
 const OPENING_EASE = 1.5;
 /** Seconds after the first hit over which the opening's zoom eases back: slower than its frame, as the zoom never pumps */
 const OPENING_ZOOM_EASE = 6.0;
-/** Steps that centre the opening box in the image */
+/** Steps that center the opening box in the image */
 const OPENING_STEPS = 3;
 /** The opening stands at most this many times the rig distance away, and no further than a marble still spans this share of the frame width; a box that needs more isn't framed */
 const OPENING_ZOOM = 1.7;
@@ -96,7 +96,7 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	for (let index = 0; index < count; index++) times[index] = index / fps;
 	const aspect = renderAspect(input.frame);
 	// The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
-	// and sized around the group's centre gives the run direction and the smoothed target that size the second
+	// and sized around the group's center gives the run direction and the smoothed target that size the second
 	const straight = groupFraming(
 		marbles,
 		times,
@@ -176,7 +176,7 @@ export function sampleCameraTrack(
 			t
 		);
 	}
-	// Shortest-path normalised lerp; Blender interpolates the Euler keys linearly, which agrees closely at 1/fps steps
+	// Shortest-path normalized lerp; Blender interpolates the Euler keys linearly, which agrees closely at 1/fps steps
 	const sign = dot4(track.rotation, index * 4, track.rotation, next * 4) < 0 ? -1 : 1;
 	let length = 0;
 	for (let axis = 0; axis < 4; axis++) {
@@ -262,7 +262,7 @@ export interface TFollowMarble {
 	motion: TMotion;
 }
 
-/** Marble samples in wall metres, as the worker reads them from the Float32 motion file */
+/** Marble samples in wall meters, as the worker reads them from the Float32 motion file */
 export interface TMotion {
 	time: Float64Array;
 	x: Float64Array;
@@ -279,7 +279,7 @@ export interface TCameraTrack {
 	rotation: Float64Array;
 	/** Distance to the followed point per frame, the depth-of-field focus */
 	focus: Float64Array;
-	/** Look target on the wall per frame, xy in wall metres */
+	/** Look target on the wall per frame, xy in wall meters */
 	target: Float64Array;
 	/** Image roll per frame in radians */
 	roll: Float64Array;
@@ -427,7 +427,7 @@ function followPoints(
 		const x = interp(times, marble.motion.time, marble.motion.x);
 		const y = interp(times, marble.motion.time, marble.motion.y);
 		for (let index = 0; index < times.length; index++) {
-			// A marble that has finished playing falls away fast, so even a small weight would drag the centre
+			// A marble that has finished playing falls away fast, so even a small weight would drag the center
 			const time = times[index] ?? 0;
 			const isFinished = marble.activeUntil != null && time > marble.activeUntil + 1e-9;
 			const weight = inside(marble, time) ? 1.0 : isFinished ? FINISHED_WEIGHT : 0.05;
@@ -582,13 +582,13 @@ function viewAxes(side: number, roll: number, pitch: number): TAxes {
 }
 
 /**
- * `spread_need`: distance at which every marble in flight stays inside the framing box around the centre, with each
+ * `spread_need`: distance at which every marble in flight stays inside the framing box around the center, with each
  * offset seen along the camera's axes
  */
 function spreadNeed(
 	marbles: TFollowMarble[],
 	times: Float64Array,
-	centre: [Float64Array, Float64Array],
+	center: [Float64Array, Float64Array],
 	lens: number,
 	turn: { side: Float64Array; roll: Float64Array },
 	pitch: number
@@ -604,8 +604,8 @@ function spreadNeed(
 		const [x, y] = marblePoint(marble, times);
 		for (let index = 0; index < times.length; index++) {
 			if (!inside(marble, times[index] ?? 0)) continue;
-			const dx = (x[index] ?? 0) - (centre[0][index] ?? 0);
-			const dy = (y[index] ?? 0) - (centre[1][index] ?? 0);
+			const dx = (x[index] ?? 0) - (center[0][index] ?? 0);
+			const dy = (y[index] ?? 0) - (center[1][index] ?? 0);
 			const { right, up, toward } = axes[index] as { right: TVec3; up: TVec3; toward: TVec3 };
 			const across = Math.abs(dx * right[0] + dy * right[2]);
 			const high = Math.abs(dx * up[0] + dy * up[2]);
@@ -620,11 +620,11 @@ function spreadNeed(
 function pacedHeight(
 	marbles: TFollowMarble[],
 	times: Float64Array,
-	centreY: Float64Array,
+	centerY: Float64Array,
 	descent: { time: Float64Array; y: Float64Array }
 ): Float64Array {
 	const moving = marbles.filter(hasMotion);
-	if (moving.length < 2) return centreY;
+	if (moving.length < 2) return centerY;
 	const heights = moving.map((marble) => interp(times, marble.motion.time, marble.motion.y));
 	const paced = interp(times, descent.time, descent.y);
 	const first = descent.time[0] ?? 0;
@@ -645,7 +645,7 @@ function pacedHeight(
 		const isCovered = time >= first && time <= last && flying >= 2;
 		result[index] = isCovered
 			? clamp(paced[index] ?? 0, middle - quarter, middle + quarter)
-			: (centreY[index] ?? 0);
+			: (centerY[index] ?? 0);
 	}
 	return result;
 }
@@ -692,11 +692,11 @@ function groupFraming(
 	const leadTimes = times.map((time) =>
 		hold == null ? time + settings.lead : Math.min(time + settings.lead, hold)
 	);
-	const { point: centre, depth } = followPoints(marbles, sample);
+	const { point: center, depth } = followPoints(marbles, sample);
 	const { point: ahead } = followPoints(marbles, leadTimes);
-	if (centre == null || ahead == null) return null;
+	if (center == null || ahead == null) return null;
 	if (settings.descent != null) {
-		centre[1] = pacedHeight(marbles, sample, centre[1], settings.descent);
+		center[1] = pacedHeight(marbles, sample, center[1], settings.descent);
 		ahead[1] = pacedHeight(marbles, leadTimes, ahead[1], settings.descent);
 	}
 	// Shots scale the automatic framing: a Push In to 0.7 of the rig distance comes to 0.7 of whatever the camera
@@ -705,12 +705,12 @@ function groupFraming(
 	const scale = shotDistance.map((value) => value / settings.distance);
 	const base = settings.distance;
 	const turn = viewTurn(times, heading, hold, settings.side, settings.sway);
-	// Sized around the smoothed target when the first pass gave one, else around the group's centre
+	// Sized around the smoothed target when the first pass gave one, else around the group's center
 	const axes = Array.from(times, (_, index) =>
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
 	);
-	const raw = spreadNeed(marbles, sample, aim ?? centre, settings.lens, turn, settings.pitch);
-	// The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its centre would widen it again
+	const raw = spreadNeed(marbles, sample, aim ?? center, settings.lens, turn, settings.pitch);
+	// The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its center would widen it again
 	const opening = openingFrame(marbles, times, sample, settings, fps, axes);
 	const zoomNeed = raw.slice();
 	if (opening != null) {
@@ -748,7 +748,7 @@ function groupFraming(
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
 				const w = 1 - (push[index] ?? 0);
-				centre[axis][index] = w * (centre[axis][index] ?? 0) + (1 - w) * (lead[axis][index] ?? 0);
+				center[axis][index] = w * (center[axis][index] ?? 0) + (1 - w) * (lead[axis][index] ?? 0);
 				ahead[axis][index] =
 					w * (ahead[axis][index] ?? 0) + (1 - w) * (leadAhead[axis][index] ?? 0);
 			}
@@ -762,22 +762,22 @@ function groupFraming(
 			for (let index = 0; index < count; index++) {
 				const w = opening.weight[index] ?? 0;
 				const point = opening.point[axis][index] ?? 0;
-				centre[axis][index] = w * point + (1 - w) * (centre[axis][index] ?? 0);
+				center[axis][index] = w * point + (1 - w) * (center[axis][index] ?? 0);
 				ahead[axis][index] = w * point + (1 - w) * (ahead[axis][index] ?? 0);
 			}
 		}
 	}
 	if (hold != null) {
-		settle(centre, times, hold, settings.bowl);
+		settle(center, times, hold, settings.bowl);
 		settle(ahead, times, hold, settings.bowl);
 	}
-	return { current: centre, ahead, depth, distance, fallScale, openingWeight: opening?.weight ?? null };
+	return { current: center, ahead, depth, distance, fallScale, openingWeight: opening?.weight ?? null };
 }
 
 /**
  * `opening_frame`: until the first hit the camera frames the box around the release points and the first struck
  * pieces, so the film opens on the track rather than on marbles over an empty wall, and eases into the follow over
- * OPENING_EASE seconds after it. Returns the box centre, the distance the box needs and the weight of the opening per
+ * OPENING_EASE seconds after it. Returns the box center, the distance the box needs and the weight of the opening per
  * frame; the weight eases to 0 where the box needs more than its limit.
  */
 function openingFrame(
@@ -833,7 +833,7 @@ function openingFrame(
 			});
 			return widest;
 		};
-		// Centre the box in the image rather than on the wall: the steep view enlarges what lies near the camera
+		// Center the box in the image rather than on the wall: the steep view enlarges what lies near the camera
 		const determinant = right[0] * up[2] - right[2] * up[0];
 		for (
 			let iteration = 0;
@@ -918,9 +918,9 @@ function settle(points: [Float64Array, Float64Array], times: Float64Array, hold:
 }
 
 /**
- * `fall_lead`: how far below the follow point the camera looks while it falls. Above FALL_START metres per second
+ * `fall_lead`: how far below the follow point the camera looks while it falls. Above FALL_START meters per second
  * the frame leads by FALL_AHEAD seconds of the extra speed, at most FALL_LIMIT of the camera distance, eased over
- * FALL_EASE seconds, so a falling marble sits above the centre with the pieces it falls toward in frame. Over the
+ * FALL_EASE seconds, so a falling marble sits above the center with the pieces it falls toward in frame. Over the
  * HOLD_SPAN seconds before the hold the lead fades out, so the held frame still shows the last pieces.
  */
 function fallLead(
@@ -1254,7 +1254,7 @@ function interleave(x: Float64Array, y: Float64Array): Float64Array {
 	return out;
 }
 
-/** Python's `round`: halves go to the even neighbour */
+/** Python's `round`: halves go to the even neighbor */
 export function pyRound(value: number): number {
 	const floor = Math.floor(value);
 	const fraction = value - floor;

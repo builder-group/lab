@@ -103,7 +103,7 @@ function changesLabel(count: number): string {
 	return `${count} ${count === 1 ? 'change' : 'changes'}`;
 }
 
-/** What every theme tile shows: its still, the colours a project theme changes as dots in the corner, its name and origin */
+/** What every theme tile shows: its still, the colors a project theme changes as dots in the corner, its name and origin */
 function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key' | 'label' | 'detail' | 'onDetail' | 'previewUrl' | 'thumb' | 'title'> {
 	const origin = theme.projectTheme?.pack;
 	const swatches = THEME_OVERRIDE_FIELDS.flatMap((field) => {
@@ -132,12 +132,12 @@ function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key'
 	};
 }
 
-/** A theme's rendered still of its base, the Colour by Note still when its platforms take their note's colour */
+/** A theme's rendered still of its base, the Color by Note still when its platforms take their note's color */
 const ThemePicture: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
 	const preset = themePresets.find((item) => item.id === theme.base);
 	if (preset == null) return null;
 	if (theme.projectTheme != null && (theme.overrides.wallColor != null || theme.projectTheme.parts != null)) return <ThemeSketch theme={theme} />;
-	return <img alt="" src={theme.parts.platform.colour === 'note' ? preset.notePreviewUrl : preset.previewUrl} draggable={false} />;
+	return <img alt="" src={theme.parts.platform.colorSource === 'note' ? preset.notePreviewUrl : preset.previewUrl} draggable={false} />;
 };
 
 /** A project theme has no rendered still of its own, so its base's would lie: its wall, bars and marble as the Draft Preview draws them */

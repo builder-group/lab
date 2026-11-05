@@ -32,9 +32,9 @@ export const MAX_TILT = 40;
 
 export interface TBarShape {
 	kind: 'zigzag' | 'staircase';
-	/** Bar centres apart (Zigzag) or sideways per hit (Staircase), in metres */
+	/** Bar centers apart (Zigzag) or sideways per hit (Staircase), in meters */
 	width: number;
-	/** Strike this far from the bar's centre toward where it flies next, in metres */
+	/** Strike this far from the bar's center toward where it flies next, in meters */
 	strike: number;
 	/** Fixed bounce per bar; the seed when `drop` is set */
 	bounce: number;
@@ -46,8 +46,8 @@ export interface TBarShape {
 	maxTilt?: number;
 	/** Staircase direction, Zigzag's first side when no arrival motion decides */
 	dir?: number;
-	/** Fixed column centre instead of the arrival's */
-	centre?: number;
+	/** Fixed column center instead of the arrival's */
+	center?: number;
 	minTakeoff?: number;
 	/** The last bar sends the marble toward this x, where a following rail should start */
 	exitToFrame?: number;
@@ -75,7 +75,7 @@ export interface TBarsFit {
 	entities: TEntity[];
 	bars: TBar[];
 	sims: number;
-	centre: number;
+	center: number;
 }
 
 interface TVelocity {
@@ -117,15 +117,15 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 	let result = run(project, first + 0.03);
 	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [], time - 1e-6);
 	const firstArrival = arrival(first);
-	if (firstArrival == null) return { project, entities, bars, sims, centre: 0 };
+	if (firstArrival == null) return { project, entities, bars, sims, center: 0 };
 	const firstDot = result.hits.find((hit) => hit.hitId === hitIds[0])?.dot ?? firstArrival.position;
 
 	// Sides. Zigzag: a marble moving right lands in the right column
 	const firstSide = shape.dir ?? (Math.abs(firstArrival.velocity.x) > 0.02 ? Math.sign(firstArrival.velocity.x) : 1);
 	const sideOf = (index: number): number => (shape.kind === 'zigzag' ? (index % 2 === 0 ? firstSide : -firstSide) : firstSide);
 	const span = shape.width - 2 * shape.strike;
-	const centre = shape.centre ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
-	const dotX = (index: number): number => (shape.kind === 'zigzag' ? centre + (sideOf(index) * span) / 2 : centre + index * firstSide * shape.width);
+	const center = shape.center ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
+	const dotX = (index: number): number => (shape.kind === 'zigzag' ? center + (sideOf(index) * span) / 2 : center + index * firstSide * shape.width);
 	const total = shape.stopBefore === true ? hitIds.length - 1 : hitIds.length;
 	const radius = base.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.marble?.radius ?? 0.012;
 	const heights: number[] = [];
@@ -301,7 +301,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 		bars.push({ hitId: id, hop, angle: chosen.angle, bounce: chosen.bounce, contactAt: chosen.contactAt, errX: chosen.errX, errY: chosen.errY, trials, why: chosen.why });
 		onBar?.(index + 1, total);
 	}
-	return { project, entities, bars, sims, centre };
+	return { project, entities, bars, sims, center };
 }
 
 /**

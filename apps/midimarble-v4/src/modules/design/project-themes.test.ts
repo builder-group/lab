@@ -37,7 +37,7 @@ describe('resolveTheme function', () => {
 		expect(baseThemeOf({ ...design, themes: [{ id: 'theme-1', name: 'Odd', base: 'chalk', overrides: {} }] })).toBe('pegboard');
 	});
 
-	it("should give each override its base's own colour while it is not set", () => {
+	it("should give each override its base's own color while it is not set", () => {
 		expect(themeDefaultColor('brass', 'wallColor')).toBe('#ada1c0');
 		expect(themeDefaultColor('neon', 'lightColor')).toBe('#eff6ff');
 		expect(themeDefaultColor('neon', 'glowColor')).toBeNull();
@@ -107,7 +107,7 @@ describe('project theme commands', () => {
 		expect(apply(other, deleteThemeCommands(other, themeId)).design.theme).toBe('brass');
 	});
 
-	it("should recolour titles still in the old wall's title colour", () => {
+	it("should recolor titles still in the old wall's title color", () => {
 		const light = { id: 'theme-light', name: 'Light', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
 		const project = withTheme('pegboard');
 		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#ffffff' } } };

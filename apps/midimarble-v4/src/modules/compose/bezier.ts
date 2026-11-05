@@ -4,7 +4,7 @@ import type { TPathNode, TVec2 } from '@/modules/project';
 // handles as offsets from its point, so moving a node carries its handles. The engine gets the curve
 // sampled densely into `path.points`, which its smoothing passes through almost unchanged.
 
-/** Spacing of the sampled polyline in metres, fine enough that the engine's smoothing keeps the curve */
+/** Spacing of the sampled polyline in meters, fine enough that the engine's smoothing keeps the curve */
 export const PATH_SAMPLE_SPACING = 0.006;
 
 /** Point on the cubic segment from node `a` to node `b` at `t` */

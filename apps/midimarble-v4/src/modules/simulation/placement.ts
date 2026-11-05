@@ -3,15 +3,15 @@ import { nextPieceName } from './piece-names';
 import { getPieceDefinition, type TRailLayout } from './pieces';
 
 const DEFAULT_TILT = (15 * Math.PI) / 180;
-// Dots closer than this to the frame centre lean against the horizontal motion instead
-const CENTRE_DEADBAND = 0.02;
+// Dots closer than this to the frame center lean against the horizontal motion instead
+const CENTER_DEADBAND = 0.02;
 // Half width of a lane's band with several marbles: two columns of default bars at least a bar and a
 // clearance apart, with half a bar to spare at each side
 const LANE_HALF_WIDTH = 0.13;
 
 /**
  * Default surface angle for a new piece at a hit dot. The surface tilts by 15° so its normal leans toward
- * the frame centre. Near the centre it leans against the current horizontal motion, which turns the
+ * the frame center. Near the center it leans against the current horizontal motion, which turns the
  * marble back. A positive angle leans the normal to the left.
  */
 export function defaultPlatformAngle(
@@ -20,7 +20,7 @@ export function defaultPlatformAngle(
 	frameCenterX: number
 ): number {
 	const offset = dot.x - frameCenterX;
-	if (Math.abs(offset) > CENTRE_DEADBAND) return offset > 0 ? DEFAULT_TILT : -DEFAULT_TILT;
+	if (Math.abs(offset) > CENTER_DEADBAND) return offset > 0 ? DEFAULT_TILT : -DEFAULT_TILT;
 	return (velocity?.x ?? 0) >= 0 ? DEFAULT_TILT : -DEFAULT_TILT;
 }
 
@@ -64,9 +64,9 @@ export interface TFrameBand {
 /**
  * Horizontal band the run should stay within. With one marble it is the film frame: 0.45 m wide at 9:16 for a camera
  * 1.263 m away through the 85 mm lens, scaled with the project's aspect and camera distance, so the 1.36 m default of
- * new projects keeps the 0.485 m Build Track was tuned on (a wider one leaves hits open), centred on the marble's release. With several marbles each lane gets a
+ * new projects keeps the 0.485 m Build Track was tuned on (a wider one leaves hits open), centered on the marble's release. With several marbles each lane gets a
  * band `2 · LANE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the lanes sit `LANE_SPACING`
- * apart in the order of their releases from left to right, centred on the mean release. `laneId` picks a lane's
+ * apart in the order of their releases from left to right, centered on the mean release. `laneId` picks a lane's
  * band, which is only where the marble prefers to stay: a marble may cross another's path as long as it touches
  * neither that marble nor its pieces, which the assists check by simulation. Without it the band covering every lane
  * is returned, the limit every placement stays inside so the run stays in frame.

@@ -113,7 +113,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 				{exampleGroups.map((group) => (
 					<React.Fragment key={group.title}>
 						<div className="mm-section-title mt-4">{group.title}</div>
-						{/* A gallery of stills like GarageBand's project templates, so a run is recognised before it opens */}
+						{/* A gallery of stills like GarageBand's project templates, so a run is recognized before it opens */}
 						<div className="grid shrink-0 grid-cols-3 gap-x-2 gap-y-3 px-3 pt-1">
 							{group.examples.map((example) => (
 								<button

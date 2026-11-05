@@ -5,8 +5,8 @@ import type { TThemeOverrides, TThemeParts, TWallKind } from '@/modules/project'
 import { filmSize } from './export-estimate';
 import { resolveSkinLook, skinElement, type TSkinLook } from './skin-catalog';
 
-// Flat colours that approximate the Blender themes for the Film Draft Preview. The values follow
-// `blender/mm_worker/themes.py` and `skins.py`, converted from Blender's linear colours to display sRGB and
+// Flat colors that approximate the Blender themes for the Film Draft Preview. The values follow
+// `blender/mm_worker/themes.py` and `skins.py`, converted from Blender's linear colors to display sRGB and
 // shaded toward how the rendered stills look, so a theme reads the same at a glance.
 
 export interface TDraftColors {
@@ -15,7 +15,7 @@ export interface TDraftColors {
 }
 
 /**
- * Colour by Note colours, one per pitch class from C, after the boomwhacker wheel. The same display values as
+ * Color by Note colors, one per pitch class from C, after the boomwhacker wheel. The same display values as
  * `NOTE_COLORS` in `blender/mm_worker/themes.py`.
  */
 export const NOTE_COLORS: readonly string[] = [
@@ -42,7 +42,7 @@ const DRAFT_WALL_COLORS: Record<string, string> = { brass: '#a098ac', neon: '#14
 
 /**
  * Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon. A project
- * theme's Wall colour replaces the base's, and Pegboard keeps its holes.
+ * theme's Wall color replaces the base's, and Pegboard keeps its holes.
  */
 export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, kind?: TWallKind): TWallLook {
 	const color = overrides.wallColor ?? DRAFT_WALL_COLORS[theme] ?? '#b3a38f';
@@ -67,18 +67,18 @@ const HOUSING = '#26282d';
 /** Gift's red paper and gold ribbon, `GIFT_PAPERS` in skins.py */
 const GIFT_PAPER = '#a01522';
 const RIBBON = '#d9a520';
-/** Colour: Skin of a Candy Rail, `CANDY_COLOR` in skins.py */
+/** Color: Skin of a Candy Rail, `CANDY_COLOR` in skins.py */
 const CANDY = '#c8202c';
 
-/** What a skin colours itself with, by its Colour: null for its own colour */
+/** What a skin colors itself with, by its Color: null for its own color */
 function accentOf(look: TSkinLook, piece: Pick<TScenePiece, 'color' | 'notePitch'>): string | null {
-	if (look.colour === 'skin') return null;
-	return look.colour === 'note' && piece.notePitch != null ? noteColor(piece.notePitch) : piece.color;
+	if (look.colorSource === 'skin') return null;
+	return look.colorSource === 'note' && piece.notePitch != null ? noteColor(piece.notePitch) : piece.color;
 }
 
 /**
- * Body and accent colour of a piece from its scene description entry: its skin, wherever the theme stands, and that skin's
- * Colour. `colorByNote` is the theme's default for platforms; `parts` a project theme's parts.
+ * Body and accent color of a piece from its scene description entry: its skin, wherever the theme stands, and that skin's
+ * Color. `colorByNote` is the theme's default for platforms; `parts` a project theme's parts.
  */
 export function draftPieceColors(
 	theme: string,
@@ -87,7 +87,7 @@ export function draftPieceColors(
 	overrides: Pick<TThemeOverrides, 'glowColor'> = {},
 	parts?: TThemeParts
 ): TDraftColors {
-	const withNote = colorByNote ? { ...parts, platform: { ...parts?.platform, colour: 'note' as const } } : parts;
+	const withNote = colorByNote ? { ...parts, platform: { ...parts?.platform, colorSource: 'note' as const } } : parts;
 	const look = resolveSkinLook(theme, withNote, skinElement(piece.type), piece.skin);
 	const style = look.skin.split(':')[1] ?? '';
 	const accent = accentOf(look, piece);
@@ -96,7 +96,7 @@ export function draftPieceColors(
 	if (style === 'pegboard' || style === 'wood') {
 		// A Wood Bowl is chrome wires on wooden pegs and plays no note
 		if (piece.type === 'bowl') return { bar: accent ?? CHROME, nub: WOOD };
-		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
+		// Pieces take their marble's color; a lighter tint keeps the marble readable as it rolls over them
 		const body = accent == null ? WOOD : accent === piece.color ? tint(piece.color, PEGBOARD_TINT) : accent;
 		return piece.type === 'tunnel' ? { bar: body, nub: shade(body, 0.75) } : { bar: body, nub: WOOD };
 	}
@@ -175,7 +175,7 @@ const SLOT = '#141418';
 /** Dark gloss mounts and posts of Neon, `neon_mount_material` in themes.py */
 const NEON_MOUNT = '#1c2030';
 
-/** A marble in the Draft Preview: its body colour and, for a pearl marble, the coloured rim around it */
+/** A marble in the Draft Preview: its body color and, for a pearl marble, the colored rim around it */
 export interface TDraftMarble {
 	body: string;
 	rim: string | null;
@@ -185,11 +185,11 @@ export interface TDraftMarble {
 	finish?: { kind: 'glass' | 'metal' | 'magic'; color: string; second: string };
 }
 
-/** `Skin` colours of the marble skins that have one, `GLASS_SKIN` and `MAGIC_SKIN` in skin_materials.py */
+/** `Skin` colors of the marble skins that have one, `GLASS_SKIN` and `MAGIC_SKIN` in skin_materials.py */
 const GLASS_SKIN = '#1f6fe0';
 const GLASS_GREEN_SKIN = '#0c8a3a';
 const MAGIC_SKIN = '#7a3cff';
-/** `GLOW_SKIN_COLOR` in skins.py: Colour: Skin on a glowing skin */
+/** `GLOW_SKIN_COLOR` in skins.py: Color: Skin on a glowing skin */
 const GLOW_SKIN = '#39c8ff';
 
 /** The contrast a marble keeps against its wall and its own pieces, as WCAG's 3:1 for graphics */
@@ -199,7 +199,7 @@ export const MARBLE_CONTRAST = 3;
  * A marble's look in a theme. The marble is the subject of the film, so it stands apart from its wall and its own
  * pieces in every theme: pearl white with its lane's hue on the rim on a dark wall (Neon), or its lane's hue made
  * deep on a light one (Pegboard's birch, Brass's lavender), whichever contrasts more with both. A project theme's
- * Wall colour can change the choice. The same rule as `marble_look` in themes.py.
+ * Wall color can change the choice. The same rule as `marble_look` in themes.py.
  */
 export function draftMarble(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, skin?: TSkinLook): TDraftMarble {
 	return marbleLook(theme, color, overrides, skin).marble;
@@ -221,23 +221,23 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 	const chosen = (marble: TDraftMarble): { marble: TDraftMarble; contrast: number } => ({ marble, contrast: lowest(marble.body) });
 	switch (skin?.skin) {
 		case 'marble:pearl':
-			return chosen(skin.colour === 'skin' ? { ...pearl, body: tint('#d0d4dc', PEARL_WHITE), rim: null } : pearl);
+			return chosen(skin.colorSource === 'skin' ? { ...pearl, body: tint('#d0d4dc', PEARL_WHITE), rim: null } : pearl);
 		case 'marble:deep':
 			return chosen(deep);
 		case 'marble:glass':
 		case 'marble:glass-green': {
-			const glass = saturate(skin.colour === 'skin' ? (skin.skin === 'marble:glass-green' ? GLASS_GREEN_SKIN : GLASS_SKIN) : color, 1);
+			const glass = saturate(skin.colorSource === 'skin' ? (skin.skin === 'marble:glass-green' ? GLASS_GREEN_SKIN : GLASS_SKIN) : color, 1);
 			const look = chosen({ body: tint(glass, 0.55), rim: null, tone: 'pearl', finish: { kind: 'glass', color: glass, second: '#ffffff' } });
-			// Glass reads by its swirl's colour, which a lightness ratio can't see: a green swirl on a cream wall is close in
-			// lightness and plain to see, so a swirl far enough in colour from all around it counts as reading
+			// Glass reads by its swirl's color, which a lightness ratio can't see: a green swirl on a cream wall is close in
+			// lightness and plain to see, so a swirl far enough in color from all around it counts as reading
 			return around.every((other) => colorDistance(glass, other) >= GLASS_COLOR_DISTANCE) ? { ...look, contrast: Math.max(look.contrast, MARBLE_CONTRAST) } : look;
 		}
 		case 'marble:metal': {
-			const tone = skin.colour === 'marble' ? tint(saturate(color, 1), 0.35) : '#b8bcc4';
+			const tone = skin.colorSource === 'marble' ? tint(saturate(color, 1), 0.35) : '#b8bcc4';
 			return chosen({ body: tone, rim: null, tone: 'pearl', finish: { kind: 'metal', color: tone, second: '#1c1e22' } });
 		}
 		case 'marble:magic': {
-			const smoke = saturate(skin.colour === 'skin' ? MAGIC_SKIN : color, 1);
+			const smoke = saturate(skin.colorSource === 'skin' ? MAGIC_SKIN : color, 1);
 			return chosen({ body: deepColor(smoke), rim: smoke, tone: 'deep', finish: { kind: 'magic', color: smoke, second: skin.glowColor ?? tint(smoke, 0.4) } });
 		}
 		default:
@@ -248,7 +248,7 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 }
 
 /**
- * Surfaces a marble rolls over in a theme without Colour by Note: Pegboard's tint of its colour here and the colour
+ * Surfaces a marble rolls over in a theme without Color by Note: Pegboard's tint of its color here and the color
  * itself on the film's platform, Brass's gold bars, Neon's deep body in its hue. `marble_surfaces` in themes.py.
  */
 function marbleSurfaces(theme: string, color: string): string[] {
@@ -274,24 +274,24 @@ function deepColor(color: string, target = DEEP_LUMINANCE): string {
 	return saturate(color, low);
 }
 
-/** Share of white in a pearl marble's body in display colours, `PEARL_WHITE` in themes.py */
+/** Share of white in a pearl marble's body in display colors, `PEARL_WHITE` in themes.py */
 const PEARL_WHITE = 0.8;
 /** Relative luminance of a deep marble, `DEEP_LUMINANCE` in themes.py */
 const DEEP_LUMINANCE = 0.05;
 /** A deep body on a lighter wall can be lighter too, so a warm wall shows its hue rather than a near-black ball */
 const DEEP_LUMINANCE_LIGHTEST = 0.09;
-/** Darker still where its own Pegboard platform is a dark lane colour, `DEEP_LUMINANCE_DARKEST` in themes.py */
+/** Darker still where its own Pegboard platform is a dark lane color, `DEEP_LUMINANCE_DARKEST` in themes.py */
 const DEEP_LUMINANCE_DARKEST = 0.03;
 /** Brightness of a Neon body in its hue */
 const NEON_BODY_VALUE = 0.62;
 
-/** WCAG contrast ratio of two display colours, 1 to 21 */
+/** WCAG contrast ratio of two display colors, 1 to 21 */
 export function contrastRatio(a: string, b: string): number {
 	const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
 	return (high + 0.05) / (low + 0.05);
 }
 
-/** Distance between two display colours in RGB, 0 to about 441 */
+/** Distance between two display colors in RGB, 0 to about 441 */
 function colorDistance(a: string, b: string): number {
 	const channels = (color: string): number[] => {
 		const value = Number.parseInt(color.replace('#', '').slice(0, 6), 16);
@@ -304,7 +304,7 @@ function colorDistance(a: string, b: string): number {
 // RGB distance at which a glass swirl stands apart from what is around it
 const GLASS_COLOR_DISTANCE = 120;
 
-/** WCAG relative luminance of a display colour */
+/** WCAG relative luminance of a display color */
 export function luminance(color: string): number {
 	const value = Number.parseInt(color.replace('#', '').slice(0, 6), 16);
 	if (!Number.isFinite(value)) return 0;
@@ -322,11 +322,11 @@ export function draftGlows(theme: string): boolean {
 
 /**
  * Neon pieces in the hue of their marble or note at full saturation, after `neon_colors` in skins.py: what reads
- * is the glow, so platforms, tunnels and windmills show their lit colour with a deeper body, and rails and
+ * is the glow, so platforms, tunnels and windmills show their lit color with a deeper body, and rails and
  * Bowls are tube lights on dark posts
  */
 function neonColors(type: string, color: string, glowColor: string | null): TDraftColors {
-	// A project theme's Glow lights every edge in one colour, like `neon_colors` with `glow`
+	// A project theme's Glow lights every edge in one color, like `neon_colors` with `glow`
 	const glow = glowColor ?? saturate(color, 1);
 	const body = saturate(color, NEON_BODY_VALUE);
 	switch (type) {
@@ -340,7 +340,7 @@ function neonColors(type: string, color: string, glowColor: string | null): TDra
 	}
 }
 
-/** `color` at full saturation and brightness `value`, like `neon_color` in themes.py; a grey turns a cool blue-white */
+/** `color` at full saturation and brightness `value`, like `neon_color` in themes.py; a gray turns a cool blue-white */
 function saturate(color: string, value: number): string {
 	const rgb = Number.parseInt(color.replace('#', '').slice(0, 6), 16);
 	if (!Number.isFinite(rgb)) return color;
@@ -360,7 +360,7 @@ function saturate(color: string, value: number): string {
 export const TITLE_FADE = 0.25;
 
 /**
- * Height of a screen title's centre above the frame centre, as a fraction of the half frame height: the same as
+ * Height of a screen title's center above the frame center, as a fraction of the half frame height: the same as
  * `SCREEN_HEIGHTS` in walltext.py and `SCREEN_TITLE_HEIGHTS` in render.py
  */
 export const SCREEN_TITLE_HEIGHT: Record<'caption' | 'songName' | 'endCard', number> = { caption: 0.7, songName: 0.3, endCard: 0 };
@@ -429,7 +429,7 @@ export function titleOpacity(time: number, range: { in?: number; out?: number })
 	return Math.max(0, Math.min(1, opacity));
 }
 
-/** Share of white mixed into Pegboard pieces in the marble's colour */
+/** Share of white mixed into Pegboard pieces in the marble's color */
 const PEGBOARD_TINT = 0.4;
 
 function tint(color: string, amount: number): string {

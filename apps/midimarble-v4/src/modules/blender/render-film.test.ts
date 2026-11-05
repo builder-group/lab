@@ -125,7 +125,7 @@ describe('renderFilm function', () => {
 	it('should cancel the job when the signal aborts', async () => {
 		vi.spyOn(blender, 'writePackageFile').mockResolvedValue(Ok('/tmp/x'));
 		vi.spyOn(blender, 'startRenderFilm').mockResolvedValue(Ok(started));
-		const cancel = vi.spyOn(blender, 'cancelJob').mockResolvedValue(Ok({ jobId: 'film-1', cancelled: true }));
+		const cancel = vi.spyOn(blender, 'cancelJob').mockResolvedValue(Ok({ jobId: 'film-1', canceled: true }));
 		const controller = new AbortController();
 		let calls = 0;
 		vi.spyOn(blender, 'pollJob').mockImplementation(async () => {
@@ -134,7 +134,7 @@ describe('renderFilm function', () => {
 				controller.abort();
 				return Ok({ progress, done: false });
 			}
-			return Ok({ progress: null, done: true, error: new BlenderError('CANCELLED', 'The render was cancelled') });
+			return Ok({ progress: null, done: true, error: new BlenderError('CANCELED', 'The render was canceled') });
 		});
 		const project = createProject({ title: 'Song', id: 'project-1' });
 
@@ -145,7 +145,7 @@ describe('renderFilm function', () => {
 		});
 
 		expect(isOk).toBe(false);
-		expect(error?.code).toBe('CANCELLED');
+		expect(error?.code).toBe('CANCELED');
 		expect(cancel).toHaveBeenCalledTimes(1);
 	});
 });

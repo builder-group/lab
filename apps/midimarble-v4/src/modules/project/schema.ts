@@ -1,7 +1,7 @@
 import { defineSchema, type TSchemaValue } from 'versjon';
 import { z } from 'zod';
 
-// Wall-plane coordinates in metres: x points right, y points up, the wall surface is z = 0
+// Wall-plane coordinates in meters: x points right, y points up, the wall surface is z = 0
 const SVec2 = z.strictObject({ x: z.number(), y: z.number() });
 
 const SId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
@@ -109,11 +109,11 @@ const SPathComponent = z.strictObject({
 
 /**
  * A skin's properties, the same names on every skin. Absent fields come from the theme (while the piece shows the
- * theme's skin), else from the skin. `colour`: `skin` its own, `marble` its marble's film colour, `note` the note it plays. `onHit`
+ * theme's skin), else from the skin. `colorSource`: `skin` its own, `marble` its marble's film color, `note` the note it plays. `onHit`
  * is the reaction, `glowColor` what a glow shines in, `variant` an id from the skin's variants.
  */
 const skinPropertyShape = {
-	colour: z.enum(['skin', 'marble', 'note']).optional(),
+	colorSource: z.enum(['skin', 'marble', 'note']).optional(),
 	onHit: z.enum(['none', 'press', 'wobble', 'glow']).optional(),
 	glowColor: z
 		.string()
@@ -127,7 +127,7 @@ const SSkinComponent = z.strictObject({
 	// below
 	assetId: z.string().optional(),
 	...skinPropertyShape,
-	// A marble's own film colour, what Colour: Marble shows on it and on the pieces it plays. Never the lane's label colour
+	// A marble's own film color, what Color: Marble shows on it and on the pieces it plays. Never the lane's label color
 	color: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
@@ -153,7 +153,7 @@ const SWallTextComponent = z.strictObject({
 	text: z.string(),
 	font: z.string(),
 	size: z.number().positive(),
-	// Absent reads in the colour that stands apart from the wall (`defaultTitleColor`)
+	// Absent reads in the color that stands apart from the wall (`defaultTitleColor`)
 	color: z.string().optional(),
 	// Film time in seconds when the title appears and disappears; absent means the start and the end of the film
 	in: z.number().nonnegative().optional(),
@@ -166,7 +166,7 @@ const SWallTextComponent = z.strictObject({
 });
 
 /**
- * The ride a marble took along a rail, relative to where it entered: the frames are x, y (micrometres)
+ * The ride a marble took along a rail, relative to where it entered: the frames are x, y (micrometers)
  * and rolled angle (1e-4 rad) per physics step after the entry. `key` says which shape of the piece it was made on.
  */
 const STransitComponent = z.strictObject({
@@ -193,7 +193,7 @@ export const SComponents = z.strictObject({
 export const SEntity = z.strictObject({
 	id: SId,
 	name: z.string().optional(),
-	// Organises Layers, like Blender's collection colour tags; the film never reads it. A marble's is its lane's `color`
+	// Organizes Layers, like Blender's collection color tags; the film never reads it. A marble's is its lane's `color`
 	labelColor: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
@@ -214,8 +214,8 @@ const SShot = z.strictObject({
 const SHexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /**
- * The few colours a project theme changes on top of its built-in base, in display sRGB. Absent fields keep the
- * base's look. `glowColor` replaces the marble-coloured glowing edges of a theme that has them (Neon).
+ * The few colors a project theme changes on top of its built-in base, in display sRGB. Absent fields keep the
+ * base's look. `glowColor` replaces the marble-colored glowing edges of a theme that has them (Neon).
  */
 const SThemeOverrides = z.strictObject({
 	wallColor: SHexColor.optional(),
@@ -224,7 +224,7 @@ const SThemeOverrides = z.strictObject({
 	backgroundColor: SHexColor.optional()
 });
 
-/** The wall's skin in Film: `plain` is one smooth colour with no pattern at all, `grid` the Neon wall's lit grid */
+/** The wall's skin in Film: `plain` is one smooth color with no pattern at all, `grid` the Neon wall's lit grid */
 const SWallKind = z.enum(['plain', 'plaster', 'pegboard', 'grid']);
 
 /**
@@ -237,7 +237,7 @@ const lightPoseShape = {
 	height: z.number().min(-1).max(1)
 };
 
-/** What a project theme changes on the Key Light besides its colour; absent fields keep the base's */
+/** What a project theme changes on the Key Light besides its color; absent fields keep the base's */
 const SKeyLightPose = z.strictObject({
 	strength: lightPoseShape.strength.optional(),
 	side: lightPoseShape.side.optional(),
@@ -294,16 +294,16 @@ export const SProjectTheme = z.strictObject({
 const SDecor = z.strictObject({
 	id: SId,
 	name: z.string(),
-	// Organises Layers; the film never reads it
+	// Organizes Layers; the film never reads it
 	labelColor: SHexColor.optional(),
 	source: z.string().min(1),
-	// Wall point in metres the item is centred on
+	// Wall point in meters the item is centered on
 	position: SVec2,
 	// A share of the item's own size
 	scale: z.number().positive(),
 	// Radians, counter-clockwise as seen from the front
 	rotation: z.number(),
-	// A Snowfall's settings: how many flakes (0..1), their size and fall speed as shares of the usual, and their colour
+	// A Snowfall's settings: how many flakes (0..1), their size and fall speed as shares of the usual, and their color
 	snowfall: z.strictObject({ density: z.number().min(0).max(1), size: z.number().positive(), speed: z.number().nonnegative(), color: SHexColor }).optional(),
 	// Half width and half height of an asset at scale 1, from its manifest; built-in items know their own
 	footprint: z.strictObject({ x: z.number().positive(), y: z.number().positive() }).optional(),

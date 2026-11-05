@@ -75,7 +75,7 @@ describe('smoothLead', () => {
 });
 
 describe('keepInView', () => {
-	it('moves the centre just enough to bring the point inside the edge', () => {
+	it('moves the center just enough to bring the point inside the edge', () => {
 		const center = keepInView(view.center, view.scale, viewport, { x: 0, y: -1 });
 		expect(worldToScreen({ center, scale: view.scale }, viewport, { x: 0, y: -1 }).y).toBeCloseTo(600 - 30, 6);
 		expect(keepInView(view.center, view.scale, viewport, { x: 0.1, y: 0.1 })).toEqual(view.center);

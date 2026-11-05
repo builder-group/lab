@@ -8,7 +8,7 @@ Each mesh paints by material slot and then by face order, and has no collider an
 Snowfall moves in Geometry Nodes from the scene's frame alone: same frame, same picture, whatever rendered before it, so
 a resumed render matches. It is seeded by the layer's ID.
 
-`mm_rgba` carries colour and alpha per vertex. Workbench can't read it, so each slot's `diffuse_color` stands in for
+`mm_rgba` carries color and alpha per vertex. Workbench can't read it, so each slot's `diffuse_color` stands in for
 Flat Light. Workbench also outlines every silhouette, which turns soft things into rings, so Flat Light leaves out the snow
 (`flat_settings`). The preview's ID pass hides it too
 (`id_pass_settings`), so they never catch a click.
@@ -37,7 +37,7 @@ SNOW_COUNT = (30, 360)
 # Wide frames of snow fall the same screens per second
 SNOW_OVERSCAN = 1.08
 GROUP_NAME = 'MM · snowfall motion'
-# Share of the flakes, diameter in frame widths, fall in frame heights per second and centre alpha of each depth: far,
+# Share of the flakes, diameter in frame widths, fall in frame heights per second and center alpha of each depth: far,
 # middle and near, the near ones large, quick and soft like snow close to a lens
 SNOW_DEPTHS = (
     (0.62, 0.0120, 0.075, 0.95, 0.42),
@@ -118,7 +118,7 @@ def attach(entries, managed, camera, scene, fps, duration, theme):
 
 
 def frame_half(camera, scene, depth):
-    """Half width and half height of the frame, in metres, at `depth` in front of the camera"""
+    """Half width and half height of the frame, in meters, at `depth` in front of the camera"""
     corners = camera.data.view_frame(scene=scene)
     xs = [abs(corner.x) for corner in corners]
     ys = [abs(corner.y) for corner in corners]
@@ -132,8 +132,8 @@ def frame_half(camera, scene, depth):
 
 
 def overlay_material(key, flat_color, exposure, render_alpha=True):
-    """Unlit, blended, coloured by `mm_rgba` and faded by the layer's `mm_visible`. The strength undoes the theme's
-    exposure, so a colour reads the same in every theme."""
+    """Unlit, blended, colored by `mm_rgba` and faded by the layer's `mm_visible`. The strength undoes the theme's
+    exposure, so a color reads the same in every theme."""
     name = 'overlay %s %.3f' % (key, exposure)
     gain = 2.0 ** -exposure
 
@@ -169,7 +169,7 @@ def overlay_material(key, flat_color, exposure, render_alpha=True):
 
 
 def _write_mesh(obj, verts, faces, rgba, slots, materials):
-    """Replaces the mesh of `obj`: arrays of positions, triangles or fans as index tuples, colours and each face's slot"""
+    """Replaces the mesh of `obj`: arrays of positions, triangles or fans as index tuples, colors and each face's slot"""
     old = obj.data
     mesh = bpy.data.meshes.new(old.name)
     mesh.from_pydata(verts.tolist(), [], faces)

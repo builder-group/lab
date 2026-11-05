@@ -53,21 +53,21 @@ describe('design commands', () => {
 	it('should write property overrides as one edit, keep them through a skin change and reset to the theme', () => {
 		const project = createStaircaseProject();
 		const ids = pieceIds(project).slice(0, 2);
-		const commands = skinPropertyCommands(project, ids, { colour: 'note', onHit: 'glow', glowColor: '#00ff88' });
+		const commands = skinPropertyCommands(project, ids, { colorSource: 'note', onHit: 'glow', glowColor: '#00ff88' });
 		expect(commands).toHaveLength(2);
 		const set = apply(project, commands);
 		const skinOf = (next: TProject) => next.entities.find((entity) => entity.id === ids[0])?.components.skin;
-		expect(skinOf(set)).toEqual({ colour: 'note', onHit: 'glow', glowColor: '#00ff88' });
+		expect(skinOf(set)).toEqual({ colorSource: 'note', onHit: 'glow', glowColor: '#00ff88' });
 		const skinned = apply(set, skinCommands(set, { kind: 'entities', entityIds: ids }, 'platform:key'));
-		expect(skinOf(skinned)).toMatchObject({ assetId: 'platform:key', colour: 'note' });
+		expect(skinOf(skinned)).toMatchObject({ assetId: 'platform:key', colorSource: 'note' });
 		const cleared = apply(skinned, skinPropertyCommands(skinned, ids, { glowColor: null }));
 		expect(skinOf(cleared)).not.toHaveProperty('glowColor');
-		const extra = apply(set, skinPropertyCommands(set, ids, { property: { name: 'Ribbon Colour', value: '#ff0000' } }));
-		expect(skinOf(extra)?.properties).toEqual({ 'Ribbon Colour': '#ff0000' });
+		const extra = apply(set, skinPropertyCommands(set, ids, { property: { name: 'Ribbon Color', value: '#ff0000' } }));
+		expect(skinOf(extra)?.properties).toEqual({ 'Ribbon Color': '#ff0000' });
 		const reset = apply(skinned, resetToThemeCommands(skinned, ids));
 		expect(reset.entities.some((entity) => entity.components.skin != null)).toBe(false);
 		// Only overrides that leave nothing remove the component
-		const back = apply(set, skinPropertyCommands(set, ids, { colour: null, onHit: null, glowColor: null }));
+		const back = apply(set, skinPropertyCommands(set, ids, { colorSource: null, onHit: null, glowColor: null }));
 		expect(skinOf(back)).toBeUndefined();
 	});
 
@@ -129,7 +129,7 @@ describe('design commands', () => {
 		expect(build.description.wallTexts).toEqual([expect.objectContaining({ id: entityId, text: 'Fin', position: { x: 0.1, y: 0.3 } })]);
 	});
 
-	it('should map the preview centre to the frame band centre at the release height', () => {
+	it('should map the preview center to the frame band center at the release height', () => {
 		const project = createStaircaseProject();
 		const release = project.entities.find((entity) => entity.components.release != null)?.components.release;
 		const point = previewPointToWall(project, null, 0, 0.5, 0.5);
@@ -171,15 +171,15 @@ describe('itemFitsPieceType function', () => {
 		expect(itemFitsPieceType(item('platform'), 'marble')).toBe(false);
 	});
 
-	it('should say what a skin did on a selection with other piece types or under Colour by Note', () => {
+	it('should say what a skin did on a selection with other piece types or under Color by Note', () => {
 		const piece = (id: string, type: string, name: string): TProject['entities'][number] => ({ id, name, components: { piece: { type, params: {} } } }) as TProject['entities'][number];
 		const platforms = [1, 2, 3, 4, 5].map((index) => piece(`p${index}`, 'platform', `Platform ${index}`));
 		const rail = piece('r1', 'rail', 'Rail 1');
 		expect(pieceCountLabel([...platforms, rail])).toBe('5 Platforms, 1 Rail');
 		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: [...platforms, rail], keepsSkinColor: false })).toBe('Copper applied to 5 platforms; Rail 1 kept its skin');
 		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, keepsSkinColor: false })).toBeNull();
-		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms.slice(0, 1), keepsSkinColor: true })).toBe("Copper applied to 1 platform. It keeps Copper's colour with Colour by Note");
-		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, keepsSkinColor: true })).toBe("Copper applied to 5 platforms. They keep Copper's colour with Colour by Note");
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms.slice(0, 1), keepsSkinColor: true })).toBe("Copper applied to 1 platform. It keeps Copper's color with Color by Note");
+		expect(skinAppliedMessage({ skinLabel: 'Copper', pieceType: 'platform', selected: platforms, keepsSkinColor: true })).toBe("Copper applied to 5 platforms. They keep Copper's color with Color by Note");
 	});
 
 	it('should give a title style its size and default timing, keeping times set by hand', () => {
@@ -222,7 +222,7 @@ describe('itemFitsPieceType function', () => {
 		expect(titleStyleTiming('songName', { playhead: 0, end: 2 })).toEqual({});
 	});
 
-	it('should recolour titles that still have the old theme\'s title colour when the theme changes', () => {
+	it('should recolor titles that still have the old theme\'s title color when the theme changes', () => {
 		const project = createStaircaseProject();
 		const title = { id: 'text-1', name: 'Title', components: { wallText: { text: 'Title', font: 'Bfont Regular', size: 0.03, color: themeTitleColor(project.design.theme) }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
 		const custom = { ...title, id: 'text-2', components: { ...title.components, wallText: { ...title.components.wallText, color: '#ff0000' } } };
@@ -248,8 +248,8 @@ describe('hand changes', () => {
 	});
 });
 
-describe('a skin and the label colour', () => {
-	it("should leave a marble's label colour and film colour alone when a skin is applied", () => {
+describe('a skin and the label color', () => {
+	it("should leave a marble's label color and film color alone when a skin is applied", () => {
 		const project = createStaircaseProject();
 		const marble = project.entities.find((entity) => entity.components.marble != null);
 		const target = { kind: 'entities' as const, entityIds: [marble?.id as string] };

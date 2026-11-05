@@ -65,11 +65,11 @@ function catchAlong(piece: TResolvedPiece, track: TMarbleTrack, enterTime: numbe
 	const wire = piece.paths?.[0] ?? [];
 	const radius = piece.params['radius'] ?? 0.0025;
 	const reach = track.radius + radius + CATCH_MARGIN;
-	const { centre } = bowlGeometry(piece.params, piece.position, track.radius);
+	const { center } = bowlGeometry(piece.params, piece.position, track.radius);
 	const size = piece.params['size'] ?? 0.06;
-	// The side of the wire the marble rides on: toward the centre of the catch curve
-	const middle = projectOnPath(wire, centre.x, centre.y);
-	const inside = Math.sign(cross(middle.tangent, { x: centre.x - middle.point.x, y: centre.y - middle.point.y }));
+	// The side of the wire the marble rides on: toward the center of the catch curve
+	const middle = projectOnPath(wire, center.x, center.y);
+	const inside = Math.sign(cross(middle.tangent, { x: center.x - middle.point.x, y: center.y - middle.point.y }));
 	let hasLanded = false;
 	for (const sample of track.samples) {
 		if (sample.time < enterTime) continue;
@@ -81,7 +81,7 @@ function catchAlong(piece: TResolvedPiece, track: TMarbleTrack, enterTime: numbe
 			hasLanded = true;
 		}
 		// Inside the catch curve, or riding the wire
-		const isInside = Math.hypot(sample.position.x - centre.x, sample.position.y - centre.y) <= size;
+		const isInside = Math.hypot(sample.position.x - center.x, sample.position.y - center.y) <= size;
 		if (!isInside && projected.distance > reach) return { status: 'escaped', enterTime, enterPoint };
 	}
 	return { status: 'caught', enterTime, enterPoint };

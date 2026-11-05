@@ -159,7 +159,7 @@ export const windmillDefinition: TPieceDefinition = {
 		bladeCount: { default: 4, min: 2, max: 8, label: 'Number of arms', short: 'Arms', unit: '', integer: true },
 		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Arm length', short: 'Arm Length', unit: 'm' },
 		bladeThickness: { default: kit(0.006), min: 0.003, max: 0.02, label: 'Arm width', short: 'Arm Width', unit: 'm' },
-		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Size of the centre the arms turn on', short: 'Centre Size', unit: 'm' },
+		hubRadius: { default: kit(0.008), min: 0.004, max: 0.03, label: 'Size of the center the arms turn on', short: 'Center Size', unit: 'm' },
 		damping: { default: 0.5, min: 0, max: 10, label: 'Brake: how quickly the spin slows down', short: 'Brake', unit: '' },
 		motorSpeed: { default: 0, min: -20, max: 20, label: 'Spin on its own; 0 turns only when the marble pushes it', short: 'Spin', unit: 'rad/s' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
@@ -174,14 +174,14 @@ export const windmillDefinition: TPieceDefinition = {
 
 /**
  * Bowl: what collects a marble. A piece that catches the marble and plays no note: an arc of radius `size` with rims
- * curling inward, drawn as a clear wire cage, that holds it. `mirror` picks the side of the marble its centre lies on.
+ * curling inward, drawn as a clear wire cage, that holds it. `mirror` picks the side of the marble its center lies on.
  * A Bowl anchored to a marble's last hit enters the run at that marble, its mouth around the marble (`bowlGeometry`).
  */
 export const bowlDefinition: TPieceDefinition = {
 	type: 'bowl',
 	label: 'Bowl',
 	params: {
-		mirror: { default: 0, min: 0, max: 1, label: 'Which side of the marble the centre lies on', short: 'Mirror', unit: '', integer: true },
+		mirror: { default: 0, min: 0, max: 1, label: 'Which side of the marble the center lies on', short: 'Mirror', unit: '', integer: true },
 		size: { default: kit(0.04), min: 0.035, max: 0.15, label: 'Size of the curve that catches the marble', short: 'Size', unit: 'm' },
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of the rails', short: 'Thickness', unit: 'm' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }

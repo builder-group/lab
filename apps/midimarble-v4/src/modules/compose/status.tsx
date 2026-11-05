@@ -1,7 +1,7 @@
 import React from 'react';
 import type { THitResult, TPieceStatus } from '@/modules/simulation';
 
-// Hit status colours always come with a glyph, so they stay readable without colour
+// Hit status colors always come with a glyph, so they stay readable without color
 
 /** A hit's status, or `struck` for a piece another marble hits outside a note */
 export type TBadgeStatus = Exclude<THitResult['status'], 'open'> | 'struck';
@@ -26,7 +26,7 @@ export function badgeStatus(pieceStatus: TPieceStatus | undefined, hit: THitResu
 	return hit.status;
 }
 
-/** Badge glyph centred on the origin, for use inside an SVG */
+/** Badge glyph centered on the origin, for use inside an SVG */
 export const StatusBadge: React.FC<{ status: TBadgeStatus; radius?: number }> = (props) => {
 	const { status, radius = 6 } = props;
 	const style = badgeStyles[status];

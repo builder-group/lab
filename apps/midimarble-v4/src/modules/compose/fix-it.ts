@@ -432,7 +432,7 @@ export async function sceneryFix(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	deps: Pick<TFixDeps, 'simulate'> & Partial<Pick<TFixDeps, 'gapPiece'>> & { isCancelled?: () => boolean }
+	deps: Pick<TFixDeps, 'simulate'> & Partial<Pick<TFixDeps, 'gapPiece'>> & { isCanceled?: () => boolean }
 ): Promise<TPieceFix> {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
@@ -463,8 +463,8 @@ export async function sceneryFix(
 	// A bridge suggested again for its gap, for the run without it
 	const gap = findLongGaps(project, link.laneId).find((item) => item.bridgedBy === entityId);
 	if (gap != null && deps.gapPiece != null) {
-		const commands = await bridgeCommands({ gapPiece: deps.gapPiece, isCancelled: () => deps.isCancelled?.() === true }, project, gap, entity);
-		if (deps.isCancelled?.() === true) return { commands: null, message: '' };
+		const commands = await bridgeCommands({ gapPiece: deps.gapPiece, isCanceled: () => deps.isCanceled?.() === true }, project, gap, entity);
+		if (deps.isCanceled?.() === true) return { commands: null, message: '' };
 		const run = commands == null ? null : await check(commands, `Placing ${name} again`);
 		if (commands != null && run != null) return { commands, run, message: `${name} placed again for its gap, clear of ${runs}'s run` };
 	}
@@ -539,7 +539,7 @@ export interface TFixDeps {
 	commit: (project: TProject, commands: TProjectCommand[], isFirst: boolean) => TProject | null;
 	/** `done` of `total` broken hits are fixed and `fraction` (0 to 1) is how far through the song the work is */
 	onProgress?: (done: number, total: number, fraction: number) => void;
-	isCancelled?: () => boolean;
+	isCanceled?: () => boolean;
 }
 
 export interface TFixOutcome {
@@ -598,12 +598,12 @@ export async function fixTrack(project: TProject, result: TSimulationResult, dep
 	// and the platforms after it are fitted once more to the run with the piece in it
 	for (let pass = 0; pass < 2; pass++) {
 		if (!(await fixPlatforms(fixing, progress))) return fixOutcome(fixing, true);
-		if (pass > 0 || isCancelled(fixing)) break;
+		if (pass > 0 || isCanceled(fixing)) break;
 		if (!(await fixScenery(fixing))) return fixOutcome(fixing, true);
 		if (!fixing.cleared.length) break;
 	}
 	if (!(await fixPieces(fixing))) return fixOutcome(fixing, true);
-	return fixOutcome(fixing, isCancelled(fixing));
+	return fixOutcome(fixing, isCanceled(fixing));
 }
 
 /** One Fix run: where it started, where it has got to and what it worked out on the way */
@@ -644,8 +644,8 @@ interface TFixProgress {
 	fraction: number;
 }
 
-function isCancelled(fixing: TFixing): boolean {
-	return fixing.deps.isCancelled?.() === true;
+function isCanceled(fixing: TFixing): boolean {
+	return fixing.deps.isCanceled?.() === true;
 }
 
 function fixOutcome(fixing: TFixing, isStopped: boolean): TFixOutcome {
@@ -724,7 +724,7 @@ function reportProblem(fixing: TFixing, progress: TFixProgress, problem: THitRes
 }
 
 /** A new rail or tunnel for `gap` in place of `bridge`, for the run in `base` without it */
-async function bridgeCommands(deps: Pick<TFixDeps, 'gapPiece'> & { isCancelled: () => boolean }, base: TProject, gap: TLongGap, bridge: TEntity): Promise<TProjectCommand[] | null> {
+async function bridgeCommands(deps: Pick<TFixDeps, 'gapPiece'> & { isCanceled: () => boolean }, base: TProject, gap: TLongGap, bridge: TEntity): Promise<TProjectCommand[] | null> {
 	const bridgePiece = bridge.components.piece;
 	if (bridgePiece == null || !isGapPieceType(bridgePiece.type)) return null;
 	const bridgeType = gapPieceTypeOf(bridgePiece);
@@ -738,7 +738,7 @@ async function bridgeCommands(deps: Pick<TFixDeps, 'gapPiece'> & { isCancelled: 
 		} catch {
 			suggested = null;
 		}
-		if (deps.isCancelled()) return null;
+		if (deps.isCanceled()) return null;
 		if (suggested == null) continue;
 		// A bridge of another kind takes that kind's name
 		const name = type === bridgeType ? bridge.name : (suggested.name ?? bridge.name);
@@ -757,8 +757,8 @@ async function suggestBridge(fixing: TFixing, base: TProject, run: TSimulationRe
 	const angle = base.entities.find((item) => item.id === launch.pieceEntityId)?.components.hitLink?.angle;
 	const key = `${bridge.id}@${dot?.x.toFixed(4)},${dot?.y.toFixed(4)},${angle?.toFixed(5)}`;
 	if (fixing.bridges.has(key)) return fixing.bridges.get(key) ?? null;
-	const commands = await bridgeCommands({ gapPiece: fixing.deps.gapPiece, isCancelled: () => isCancelled(fixing) }, base, gap, bridge);
-	if (!isCancelled(fixing)) fixing.bridges.set(key, commands);
+	const commands = await bridgeCommands({ gapPiece: fixing.deps.gapPiece, isCanceled: () => isCanceled(fixing) }, base, gap, bridge);
+	if (!isCanceled(fixing)) fixing.bridges.set(key, commands);
 	return commands;
 }
 
@@ -779,7 +779,7 @@ async function replaceStep(fixing: TFixing, base: TProject, run: TSimulationResu
 	} else {
 		const open = gap == null ? base : { ...base, entities: base.entities.filter((item) => item.id !== gap.bridgedBy) };
 		const placed = await placeAgain(fixing, open, target);
-		if (placed == null || isCancelled(fixing)) return null;
+		if (placed == null || isCanceled(fixing)) return null;
 		commands = replaceCommands(base, placed);
 	}
 	if (gap == null) return commands;
@@ -838,7 +838,7 @@ async function keepFix(fixing: TFixing, base: TProject, trial: TSimulationResult
 	if (!advances(fixing, base, trial, problem) || crossesLanes(fixing, base, trial, problem, commands)) return null;
 	const whole = { ...base, end: current.end };
 	const run = trial.duration >= current.end - 1e-6 ? trial : await deps.simulate(whole);
-	if (isCancelled(fixing) || !advances(fixing, whole, run, problem)) return null;
+	if (isCanceled(fixing) || !advances(fixing, whole, run, problem)) return null;
 	const added = addedProblems(current, latest, whole, run, { laneId: problem.laneId, from: problem.targetTime });
 	return added.length ? null : { commands, run };
 }
@@ -873,7 +873,7 @@ async function rebuild(fixing: TFixing, run: THitResult[], index: number, depth:
 			const target = trial.hits.find((hit) => hitKeyOf(hit) === key);
 			if (target == null) return null;
 			step = await replaceStep(fixing, base, trial, target, stepTurn);
-			if (isCancelled(fixing)) return null;
+			if (isCanceled(fixing)) return null;
 			steps.set(memoKey, step);
 		}
 		// The platform just before the problem must take a new tilt; earlier ones may keep theirs. When the first
@@ -899,12 +899,12 @@ async function fixProblem(fixing: TFixing, problem: THitResult): Promise<TFix | 
 	if (previous == null) return null;
 	// Before a long gap the bridge alone may be what no longer fits
 	const bridge = await suggestBridge(fixing, clipped(fixing, problem), latest, previous);
-	if (bridge != null && !isCancelled(fixing)) {
+	if (bridge != null && !isCanceled(fixing)) {
 		const base = withCommands(clipped(fixing, problem), bridge);
 		const kept = await keepFix(fixing, base, await deps.simulate(base), problem, bridge);
 		if (kept != null) return kept;
 	}
-	for (let depth = 0; depth <= MAX_BACKTRACK && index - 1 - depth >= 0 && !isCancelled(fixing); depth++) {
+	for (let depth = 0; depth <= MAX_BACKTRACK && index - 1 - depth >= 0 && !isCanceled(fixing); depth++) {
 		const rebuilt = await rebuild(fixing, run, index, depth, problem);
 		if (rebuilt != null) return rebuilt;
 	}
@@ -912,7 +912,7 @@ async function fixProblem(fixing: TFixing, problem: THitResult): Promise<TFix | 
 	// the problem, or the one before that, by hand, and placing from there
 	for (let depth = 0; depth < TURN_DEPTH && index - 1 - depth >= 0; depth++) {
 		for (const degrees of TURNS) {
-			if (isCancelled(fixing)) return null;
+			if (isCanceled(fixing)) return null;
 			const rebuilt = await rebuild(fixing, run, index, depth, problem, degrees * DEGREE);
 			if (rebuilt != null) return rebuilt;
 		}
@@ -925,12 +925,12 @@ async function fixPlatforms(fixing: TFixing, progress: TFixProgress): Promise<bo
 	const { left, leftCount } = fixing;
 	left.clear();
 	leftCount.clear();
-	while (!isCancelled(fixing)) {
+	while (!isCanceled(fixing)) {
 		const problem = firstProblem(fixing, fixing.latest);
 		if (problem == null) break;
 		reportProblem(fixing, progress, problem);
 		const fixed = await fixProblem(fixing, problem);
-		if (isCancelled(fixing)) return false;
+		if (isCanceled(fixing)) return false;
 		if (fixed != null) {
 			if (!(await commitFix(fixing, fixed.commands, true, fixed.run))) return false;
 			continue;
@@ -951,8 +951,8 @@ async function fixScenery(fixing: TFixing): Promise<boolean> {
 		.filter((id) => isStrayScenery(fixing.current, id));
 	const pieces = [...new Set([...blockedScenery(fixing.current, fixing.latest).map((piece) => piece.entityId), ...strays])];
 	for (const entityId of pieces) {
-		const fixed = await sceneryFix(fixing.current, fixing.latest, entityId, { simulate: deps.simulate, gapPiece: deps.gapPiece, isCancelled: () => isCancelled(fixing) });
-		if (isCancelled(fixing)) return false;
+		const fixed = await sceneryFix(fixing.current, fixing.latest, entityId, { simulate: deps.simulate, gapPiece: deps.gapPiece, isCanceled: () => isCanceled(fixing) });
+		if (isCanceled(fixing)) return false;
 		if (fixed.commands == null || fixed.run == null) {
 			fixing.failed++;
 			continue;
@@ -968,10 +968,10 @@ async function fixPieces(fixing: TFixing): Promise<boolean> {
 	const { deps } = fixing;
 	if (brokenHits(fixing.latest.hits).length > 0 || blockedScenery(fixing.current, fixing.latest).length > 0) return true;
 	for (const entityId of problemPieces(fixing.current, fixing.latest)) {
-		if (isCancelled(fixing)) return false;
+		if (isCanceled(fixing)) return false;
 		if (!problemPieces(fixing.current, fixing.latest).includes(entityId)) continue;
 		const fixed = await fixPiece(fixing.current, fixing.latest, entityId, deps);
-		if (isCancelled(fixing)) return false;
+		if (isCanceled(fixing)) return false;
 		if (fixed.commands != null && !(await commitFix(fixing, fixed.commands, true, fixed.run))) return false;
 	}
 	return true;

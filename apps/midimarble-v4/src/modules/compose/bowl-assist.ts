@@ -18,7 +18,7 @@ import { withEntity } from './attach-edit';
 // and stays, no hit that played breaks, no other marble touches it and the marble touches no other lane's piece.
 
 /**
- * How far below its last hit the marble may fall before the Bowl catches it, nearest first, in metres: the first
+ * How far below its last hit the marble may fall before the Bowl catches it, nearest first, in meters: the first
  * clears the last platform and its bounce, the last stays well inside the held ending's frame
  */
 const BOWL_DROPS = [0.07, 0.1, 0.13, 0.17, 0.22, 0.28, 0.35];
@@ -29,7 +29,7 @@ const BOWL_WATCH = 0.6;
 
 export interface TBowlDeps {
 	simulate: (project: TProject) => Promise<TSimulationResult> | TSimulationResult;
-	isCancelled?: () => boolean;
+	isCanceled?: () => boolean;
 }
 
 export interface TBowlPlacement {
@@ -95,7 +95,7 @@ export async function findBowl(
 	let reason = '';
 	const struck = hit.actualTime;
 	for (const drop of BOWL_DROPS) {
-		if (deps.isCancelled?.() === true) return { error: '' };
+		if (deps.isCanceled?.() === true) return { error: '' };
 		const at = samples.find(
 			(sample) =>
 				sample.time > struck + 0.02 &&
@@ -106,7 +106,7 @@ export async function findBowl(
 		if (at == null || tried.has(at.time)) continue;
 		tried.add(at.time);
 		const entryDelay = Math.round((at.time - last.time) * 1e4) / 1e4;
-		// The centre lies on the side the marble moves toward; the other side second
+		// The center lies on the side the marble moves toward; the other side second
 		const toward = at.velocity.x < 0 ? 1 : 0;
 		for (const mirror of [toward, 1 - toward]) {
 			const entity: TEntity = {

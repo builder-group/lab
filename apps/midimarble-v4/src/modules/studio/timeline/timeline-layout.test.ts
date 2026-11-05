@@ -14,7 +14,7 @@ describe('zoom slider', () => {
 
 describe('time origin', () => {
 	it('should leave room for the whole playhead head at 0:00', () => {
-		// The head is 13 px wide and centred on the time
+		// The head is 13 px wide and centered on the time
 		expect(TIME_INSET).toBeGreaterThanOrEqual(7);
 		expect(TIME_ORIGIN).toBe(HEADER_WIDTH + TIME_INSET);
 	});

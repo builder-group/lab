@@ -57,7 +57,7 @@ describe('fitPattern function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
 		const tight = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag' }, { sim });
 		const wide = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.17 }, { sim });
-		// Where the marble strikes is what's solved: a quarter of a bar inside each bar's centre
+		// Where the marble strikes is what's solved: a quarter of a bar inside each bar's center
 		const apart = (fit: typeof tight): number => {
 			const hits = sim.simulate(fit.project).hits;
 			return Math.abs((hits.find((hit) => hit.hitId === 'h2')?.dot?.x ?? 0) - (hits.find((hit) => hit.hitId === 'h3')?.dot?.x ?? 0));

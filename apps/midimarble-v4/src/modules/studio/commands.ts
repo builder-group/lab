@@ -128,7 +128,7 @@ function hasPieces(cx: StudioCx): boolean {
 let isDuplicating = false;
 
 /**
- * Duplicate for the selected pieces: free copies clear of every marble's path, selected afterwards, as one undo step.
+ * Duplicate for the selected pieces: free copies clear of every marble's path, selected afterward, as one undo step.
  * The spot is checked with what-if runs first, so a copy never breaks a hit; a newer edit in the meantime wins.
  */
 async function duplicateSelection(cx: StudioCx): Promise<void> {
@@ -541,7 +541,7 @@ export const commands: readonly TCommand[] = [
 
 	// MARK: - Marble
 	// MARK: - Layers and settings, found by name in ⌘K
-	selectLayerCommand('layer.wall', 'Wall', WALL_KEY, 'warm cold colour color background plaster pegboard grid skin'),
+	selectLayerCommand('layer.wall', 'Wall', WALL_KEY, 'warm cold color background plaster pegboard grid skin'),
 	selectLayerCommand('layer.keyLight', 'Key Light', KEY_LIGHT_KEY, 'warm cold bright dark sun main lighting'),
 	{ ...selectLayerCommand('layer.camera', 'Camera', CAMERA_KEY, 'closer zoom distance turn orbit rotate sway shake tilt angle'), workspace: 'compose' },
 	{

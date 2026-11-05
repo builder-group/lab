@@ -47,7 +47,7 @@ describe('view', () => {
 		const grid = gridLayers(view, viewport);
 		expect(grid.size).toBeGreaterThanOrEqual(18);
 		expect(grid.size).toBeLessThan(36);
-		// The world origin lands on a dot centre: tile offset plus half a tile
+		// The world origin lands on a dot center: tile offset plus half a tile
 		const origin = worldToScreen(view, viewport, { x: 0, y: 0 });
 		expect((((origin.x - grid.offset.x - grid.size / 2) % grid.size) + grid.size) % grid.size).toBeCloseTo(0, 6);
 		// At exactly the threshold the fine layer is invisible, at double it fully visible

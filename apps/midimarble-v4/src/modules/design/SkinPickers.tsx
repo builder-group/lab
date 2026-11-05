@@ -68,7 +68,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 			detail: tile.detail,
 			previewUrl: tile.previewUrl,
 			isCurrent: tile.isCurrent,
-			title: tile.id === THEME_DEFAULT_TILE ? `Back to the theme, with its colours and properties: click for the selection, ⌥-click for all ${plural.toLowerCase()}` : tileTitle(`${tile.label} (${tile.detail})`),
+			title: tile.id === THEME_DEFAULT_TILE ? `Back to the theme, with its colors and properties: click for the selection, ⌥-click for all ${plural.toLowerCase()}` : tileTitle(`${tile.label} (${tile.detail})`),
 			onApply: (toAll: boolean) => apply(tile.id, tile.label, toAll),
 			onMenu: () => menu((toAll) => apply(tile.id, tile.label, toAll))
 		})),
@@ -115,7 +115,7 @@ function libraryTile(cx: StudioCx, project: TProject, entry: TLibraryEntry, enti
 	};
 }
 
-/** The Wall's skin, drawn in the wall's colour */
+/** The Wall's skin, drawn in the wall's color */
 export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const color = wallLayer(project.design).color;
@@ -126,7 +126,7 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 		previewUrl: null,
 		thumb: <WallThumb kind={tile.shownKind} color={color} />,
 		isCurrent: tile.isCurrent,
-		title: tile.kind == null ? "Back to the theme's wall, with its colours" : `A ${tile.label} wall`,
+		title: tile.kind == null ? "Back to the theme's wall, with its colors" : `A ${tile.label} wall`,
 		onApply: () => {
 			const commands = wallCommands(project, tile.kind == null ? { kind: null, color: null, backgroundColor: null } : { kind: tile.kind });
 			if (commands.length > 0) cx.execute(commands);
@@ -147,7 +147,7 @@ const WallThumb: React.FC<{ kind: TWallKind; color: string }> = ({ kind, color }
 
 /**
  * Says what a skin did when the film alone doesn't show it: other piece types kept, or platforms keeping the skin's
- * colour with Colour by Note on. `assetId` is the applied skin, null for the theme's default.
+ * color with Color by Note on. `assetId` is the applied skin, null for the theme's default.
  */
 function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[], assetId: string | null): void {
 	const keepsSkinColor = isThemeColorByNote(project.design) && !resolveElementLook(project.design, 'platform', assetId != null ? { assetId } : null).isThemeSkin;

@@ -76,7 +76,7 @@ describe('songDisplayName function', () => {
 	});
 });
 
-describe('title colour', () => {
+describe('title color', () => {
 	const DARK = '#1f3a5f';
 	const WHITE = '#ffffff';
 
@@ -85,13 +85,13 @@ describe('title colour', () => {
 		expect(titleColorOnWall('#141a2a')).toBe(WHITE);
 	});
 
-	it("should keep the built-in themes' title colours", () => {
+	it("should keep the built-in themes' title colors", () => {
 		expect(themeTitleColor('pegboard')).toBe(WHITE);
 		expect(themeTitleColor('brass')).toBe(WHITE);
 		expect(themeTitleColor('neon')).toBe(WHITE);
 	});
 
-	it('should follow the wall the project shows: its own colour, then its theme', () => {
+	it('should follow the wall the project shows: its own color, then its theme', () => {
 		const project = createProject({ id: 'p', title: 'T' });
 		const christmas = { id: 'theme-x', name: 'Christmas', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
 		expect(defaultTitleColor({ ...project.design, theme: 'brass' })).toBe(WHITE);

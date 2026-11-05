@@ -1,6 +1,6 @@
 import React from 'react';
 
-/** In-place text field for renaming, committed on Return or blur and cancelled with Escape */
+/** In-place text field for renaming, committed on Return or blur and canceled with Escape */
 export const RenameField: React.FC<{ value: string; onDone: (value: string | null) => void }> = (props) => {
 	const { value, onDone } = props;
 	const [draft, setDraft] = React.useState(value);

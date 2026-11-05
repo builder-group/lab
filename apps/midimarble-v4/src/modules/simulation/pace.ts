@@ -7,7 +7,7 @@ import { platformDefinition } from './pieces';
 // lanes' rhythm: it is the steady descent of the default platform bounce at the median hit interval.
 
 export interface TDescentPace {
-	/** Descent rate in metres per second */
+	/** Descent rate in meters per second */
 	rate: number;
 	/** y*(t) = anchorY − rate · (t − anchorTime). The anchor is the earliest hit dot of any lane. */
 	anchorTime: number;
@@ -25,7 +25,7 @@ export const PACE_LIMIT = 0.25;
  * bounce at half gravity rose through the two pieces above it.
  */
 export const MAX_BOUNCE_RISE = 0.4;
-// The range of descent, in metres per second, Next and Build Track aim for: only what they aim at, never a limit on a person's edit
+// The range of descent, in meters per second, Next and Build Track aim for: only what they aim at, never a limit on a person's edit
 const MIN_DEFAULT_RATE = 0.15;
 const MAX_DEFAULT_RATE = 0.8;
 // Intervals longer than this are long notes, not the rhythm

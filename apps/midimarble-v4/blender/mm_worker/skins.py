@@ -25,7 +25,7 @@ from .util import DEFAULT_MARBLE_RADIUS, DEFAULT_PIECE_DEPTH, MARBLE_WALL_GAP, O
 
 DEFAULT_SKIN = 'default'
 REACTION_PATHS = (('location', 2), ('rotation_euler', 1), ('["mm_flash"]', -1))
-# Asset reaction parts move through their delta transforms, so their modelled transform stays intact
+# Asset reaction parts move through their delta transforms, so their modeled transform stays intact
 ASSET_REACTION_PATHS = (
     ('delta_location', 0), ('delta_location', 1), ('delta_location', 2),
     ('delta_rotation_euler', 0), ('delta_rotation_euler', 1), ('delta_rotation_euler', 2), ('["mm_flash"]', -1),
@@ -53,7 +53,7 @@ def skin_context(theme, marble_radius=DEFAULT_MARBLE_RADIUS, reactions=None, par
             merged[name] = float(value)
     parts = skin_catalog.clean_parts(parts)
     context = {'theme': themes.theme_name(theme), 'marbleRadius': float(marble_radius), 'reactions': merged, 'parts': parts}
-    # A project theme's Glow: one colour for every glowing edge instead of each marble's
+    # A project theme's Glow: one color for every glowing edge instead of each marble's
     if settings.get('glow') is not None:
         context['glow'] = tuple(settings['glow'])
     return context
@@ -160,7 +160,7 @@ def release_root_flash(obj):
 def piece_reaction(piece, context):
     """Reaction amounts of a piece: the theme's, or the preset its skin's On Hit names.
 
-    `press` (metres along the contact normal) and `dip` (degrees of tilt) for presses, `wobble` (degrees) and
+    `press` (meters along the contact normal) and `dip` (degrees of tilt) for presses, `wobble` (degrees) and
     `frequency` (Hz) for a decaying wobble, `flash` for the emission strength of a glow.
     """
     theme = context['reactions']
@@ -248,11 +248,11 @@ def fingerprint(skin):
 
 def skin_key(kind, entity, context):
     if kind == 'marble':
-        # The body follows the Wall colour of a project theme, so a wall edit rebuilds the marble
+        # The body follows the Wall color of a project theme, so a wall edit rebuilds the marble
         look = marble_look(entity, context)
         values = ['marble', context['theme'], round(float(entity['radius']), 6), entity.get('color'),
                   themes.marble_look(context['theme'], entity.get('color') or '#d0d4dc')['body'],
-                  look['skin'], look['colour'], look['glowColor'], look['variant']]
+                  look['skin'], look['colorSource'], look['glowColor'], look['variant']]
     else:
         frame = PieceFrame(entity, context)
         values = [
@@ -263,7 +263,7 @@ def skin_key(kind, entity, context):
             [[[round(value, 5) for value in point] for point in wire] for wire in frame.local_wires()],
             math.copysign(1.0, frame.angle), sorted(piece_reaction(entity, context).items()), frame.skin,
             None if frame.note_pitch is None else int(round(frame.note_pitch)) % 12,
-            frame.look['colour'], frame.look['glowColor'], frame.look['variant'],
+            frame.look['colorSource'], frame.look['glowColor'], frame.look['variant'],
         ]
         # Only set properties join the key, so skins built before they existed stay current
         if frame.look['properties']:
@@ -373,7 +373,7 @@ def marble_look(marble, context):
 BAR_FINISHES = ('gold', 'silver', 'copper', 'dark')
 DEVICES = ('device', 'key', 'knob')
 KNOB_GLOW = (0.9, 0.02, 0.012)
-# Colour: Skin on a glowing skin, which has no marble to take its colour from
+# Color: Skin on a glowing skin, which has no marble to take its color from
 GLOW_SKIN_COLOR = '#39c8ff'
 
 
@@ -408,37 +408,37 @@ class PieceFrame:
         self.skin = self.look['skin']
         self.style = self.skin.split(':', 1)[1]
         self.glows_as_neon = self.style in ('neon', 'glow')
-        self.colour = self.look['colour']
-        # Colour: By Note: a platform that plays a note takes its pitch class colour; without a note it takes its marble's
+        self.color_source = self.look['colorSource']
+        # Color: By Note: a platform that plays a note takes its pitch class color; without a note it takes its marble's
         pitch = piece.get('notePitch')
-        self.note_pitch = float(pitch) if self.colour == 'note' and isinstance(pitch, (int, float)) else None
+        self.note_pitch = float(pitch) if self.color_source == 'note' and isinstance(pitch, (int, float)) else None
         self.device, self.trim = device_parts(self.style)
         if self.device == 'device' and self.look['variant'] in BAR_FINISHES:
             self.trim = self.look['variant']
 
     def metal(self, fallback):
-        """Material of a skin's metal: its own with Colour: Skin, its note's or a metal in the marble's colour otherwise"""
+        """Material of a skin's metal: its own with Color: Skin, its note's or a metal in the marble's color otherwise"""
         if self.note_pitch is not None:
             return themes.note_material(self.note_pitch)
-        return skin_materials.tinted_metal_material(self.color) if self.colour != 'skin' else fallback
+        return skin_materials.tinted_metal_material(self.color) if self.color_source != 'skin' else fallback
 
     def toy(self, roughness=0.35, coat=0.4):
-        """Material of a painted toy part: its note's or its marble's colour, or bare wood with Colour: Skin"""
+        """Material of a painted toy part: its note's or its marble's color, or bare wood with Color: Skin"""
         if self.note_pitch is not None:
             return themes.note_material(self.note_pitch)
-        return themes.wood_material() if self.colour == 'skin' else themes.flat_material(self.color, roughness, coat)
+        return themes.wood_material() if self.color_source == 'skin' else themes.flat_material(self.color, roughness, coat)
 
     def toy_wood(self, own):
-        """Material of varnished wood: `own` with Colour: Skin, painted in its note's or marble's colour otherwise"""
+        """Material of varnished wood: `own` with Color: Skin, painted in its note's or marble's color otherwise"""
         if self.note_pitch is not None:
             return themes.note_material(self.note_pitch)
-        return own if self.colour == 'skin' else themes.flat_material(self.color, 0.25, 0.8)
+        return own if self.color_source == 'skin' else themes.flat_material(self.color, 0.25, 0.8)
 
     def wrap(self, own):
-        """Material of a Gift's paper: `own` with Colour: Skin, its note's or its marble's colour otherwise"""
+        """Material of a Gift's paper: `own` with Color: Skin, its note's or its marble's color otherwise"""
         if self.note_pitch is not None:
             return themes.note_material(self.note_pitch)
-        return skin_materials.paper_material(own if self.colour == 'skin' else self.color)
+        return skin_materials.paper_material(own if self.color_source == 'skin' else self.color)
 
     def pick(self, choices, salt=''):
         """One of `choices` for this piece, the same on every apply"""
@@ -446,8 +446,8 @@ class PieceFrame:
         return choices[digest[0] % len(choices)]
 
     def ribbon(self, own=None):
-        """Ribbon Colour: the piece's own, or the skin's, which `own` gives when it goes with the paper"""
-        color = self.look['properties'].get('Ribbon Colour')
+        """Ribbon Color: the piece's own, or the skin's, which `own` gives when it goes with the paper"""
+        color = self.look['properties'].get('Ribbon Color')
         valid = isinstance(color, str) and len(color) == 7 and color.startswith('#')
         return skin_materials.paper_material(color if valid else own or RIBBON_COLOR, 0.24, 0.7)
 
@@ -478,7 +478,7 @@ class PieceFrame:
 
 
 RIBBON_COLOR = '#d9a520'
-# Gift: a colour of its own per piece, so a run of them reads as a pile of presents
+# Gift: a color of its own per piece, so a run of them reads as a pile of presents
 # (paper, ribbon)
 GIFT_PAPERS = (('#a01522', RIBBON_COLOR), ('#14603a', RIBBON_COLOR), ('#ece4d2', '#a81a26'), ('#a01522', RIBBON_COLOR), ('#14603a', '#ece4d2'))
 # Height of a Gift at the 16 mm marble of the Marble Race Kit: its top face is the contact surface
@@ -559,9 +559,9 @@ STUDIO_LIGHTS = (
     ((-0.55, -0.45, 0.70), 0.90, 0.97, 4.0),
     ((0.85, -0.50, -0.15), 0.92, 0.975, 2.4),
 )
-# The room around them by the mirrored direction's height: dark floor, wall colour, pale ceiling
+# The room around them by the mirrored direction's height: dark floor, wall color, pale ceiling
 STUDIO_ROOM = ((0.0, 0.03), (0.42, 0.07), (0.50, 0.30), (0.70, 0.14), (0.80, 0.22), (0.85, 2.6), (0.90, 0.5), (1.0, 0.25))
-# How far a face's mirror direction swings per metre along it, so flat faces show gradients like a slightly crowned plate
+# How far a face's mirror direction swings per meter along it, so flat faces show gradients like a slightly crowned plate
 STUDIO_CROWN = (6.0, 7.0, 6.0)
 POLISHED_METALS = {
     'gold': ((1.0, 0.50, 0.06), 0.12),
@@ -581,7 +581,7 @@ PAINT_SHEEN = 0.34
 
 
 def studio_light(tree):
-    """Colour of the studio in the direction this surface mirrors"""
+    """Color of the studio in the direction this surface mirrors"""
     geometry = tree.nodes.new('ShaderNodeNewGeometry')
     view = tree.nodes.new('ShaderNodeVectorMath')
     view.operation = 'SCALE'
@@ -686,7 +686,7 @@ def add_wood_grain(tree, principled, base):
 
 
 def polished_frame(frame, thickness):
-    """Dimensions every polished skin shares: back at the wall stub, front towards the camera, the contact's top face"""
+    """Dimensions every polished skin shares: back at the wall stub, front toward the camera, the contact's top face"""
     k = frame.marble_radius / 0.008
     standoff = 0.002 * k
     back = frame.wall_y - standoff
@@ -694,14 +694,14 @@ def polished_frame(frame, thickness):
     return k, back, front, thickness / 2
 
 
-def add_wheels(builder, length, back, front, z, k, tyre=0, hub=1):
+def add_wheels(builder, length, back, front, z, k, tire=0, hub=1):
     """A small wheel on each side at both ends of a plate, half hidden under it"""
     radius = min(0.0026 * k, (back - front) * 0.12)
     width = min(0.0024 * k, length * 0.1)
     inset = radius * 1.5
     for x in (-length / 2 + width * 0.3, length / 2 - width * 0.3):
         for y in (front + inset, back - inset):
-            builder.cylinder(radius, width, (x, y, z), axis='X', material=tyre, segments=20, bevel=width * 0.25)
+            builder.cylinder(radius, width, (x, y, z), axis='X', material=tire, segments=20, bevel=width * 0.25)
             builder.cylinder(radius * 0.5, width * 1.15, (x, y, z), axis='X', material=hub, segments=14)
 
 
@@ -733,7 +733,7 @@ def plate_spec(frame, length, thickness, finish):
 
 
 def chrome_device_spec(frame, length, thickness):
-    """A gold pad under the marble's lane that presses, and towards the camera a chrome body with a ball housing, hazard
+    """A gold pad under the marble's lane that presses, and toward the camera a chrome body with a ball housing, hazard
     ribs and a gold end block. The body stays clear of the lane, so only the pad meets the marble."""
     k, back, front, top = polished_frame(frame, thickness)
     edge = min(0.0014 * k, thickness * 0.25, length * 0.18)
@@ -764,7 +764,7 @@ def chrome_device_spec(frame, length, thickness):
         y = body_front + pitch * (index + 0.5)
         body.cylinder(radius * 0.92, pitch * 0.82, (0.0, y, axis_z), axis='Y', material=2 if index % 2 else 4, segments=24, bevel=pitch * 0.12)
     body.box((length, block, thickness * 1.1), (0.0, front + block / 2, top - thickness * 0.55), bevel=edge, material=1, segments=4)
-    add_wheels(body, length, back, front, axis_z - radius * 0.55, k, tyre=4, hub=0)
+    add_wheels(body, length, back, front, axis_z - radius * 0.55, k, tire=4, hub=0)
     body.cylinder(0.005 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, axis_z - radius * 0.45), axis='Y', material=3, bevel=0.0006 * k)
     pad = MeshBuilder()
     pad.box((length, back - pad_front, thickness * 0.8), (0.0, (back + pad_front) / 2, top - thickness * 0.4), bevel=edge, segments=4)
@@ -777,7 +777,7 @@ def chrome_device_spec(frame, length, thickness):
 
 
 def dark_housing_spec(frame, length, thickness):
-    """A slate housing, chamfered towards the camera, with a chrome-ringed lens and a long white key over the marble's
+    """A slate housing, chamfered toward the camera, with a chrome-ringed lens and a long white key over the marble's
     lane that presses. The key's top is the contact surface; the housing sits just below it."""
     k, back, front, top = polished_frame(frame, thickness)
     depth = back - front
@@ -869,7 +869,7 @@ def platform_spec(frame, piece):
 
 
 def neon_platform_spec(frame, length, thickness):
-    """Neon platform: a glossy deep-coloured bar whose rounded edges are a glowing outline, on a dark peg. The
+    """Neon platform: a glossy deep-colored bar whose rounded edges are a glowing outline, on a dark peg. The
     outline is the bar's own bevel, so the top face stays the collider's contact surface."""
     body, trim = neon_colors(frame)
     bar = MeshBuilder()
@@ -895,9 +895,9 @@ NEON_EDGE_SHARE = 0.3
 
 
 def neon_colors(frame):
-    """(body, trim) linear colours of a glowing piece: its note's colour with Colour: By Note, its marble's with Colour:
-    Marble, the skin's own with Colour: Skin, all pushed to full saturation; the trim is the brighter one"""
-    source = themes.note_color(frame.note_pitch) if frame.note_pitch is not None else GLOW_SKIN_COLOR if frame.colour == 'skin' else frame.color
+    """(body, trim) linear colors of a glowing piece: its note's color with Color: By Note, its marble's with Color:
+    Marble, the skin's own with Color: Skin, all pushed to full saturation; the trim is the brighter one"""
+    source = themes.note_color(frame.note_pitch) if frame.note_pitch is not None else GLOW_SKIN_COLOR if frame.color_source == 'skin' else frame.color
     glow = frame.context.get('glow')
     return themes.neon_color(source, 0.16), tuple(glow) if glow is not None else themes.neon_color(source, 1.0)
 
@@ -957,12 +957,12 @@ def device_spec(frame, length, thickness):
         side = -1.0 if frame.angle >= 0 else 1.0
         body.box((lens, 0.0024 * k, height * 0.56), (side * (length / 2 - lens / 2 - 0.003 * k), front - 0.0004 * k, top - height / 2),
                  bevel=min(0.0011 * k, height * 0.25), material=1, segments=4)
-        glow = themes.note_color(frame.note_pitch) if frame.note_pitch is not None else KNOB_GLOW if frame.colour == 'skin' else parse_color(frame.color)[:3]
+        glow = themes.note_color(frame.note_pitch) if frame.note_pitch is not None else KNOB_GLOW if frame.color_source == 'skin' else parse_color(frame.color)[:3]
         materials = [themes.housing_material(), themes.glow_material(glow)]
     return {'root': root, 'parts': [{'role': 'bar', 'mesh': body.to_mesh('MM ' + frame.device, materials), 'reactive': True}]}
 
 
-# Colour: Skin of a Candy Rail
+# Color: Skin of a Candy Rail
 CANDY_COLOR = '#c8202c'
 
 
@@ -977,7 +977,7 @@ def rail_spec(frame, piece):
     if frame.style == 'chrome':
         wire_material, post_material = frame.metal(themes.wire_material()), themes.wire_material()
     elif frame.style == 'candy':
-        wire_material = skin_materials.candy_material(CANDY_COLOR if frame.colour == 'skin' else frame.color)
+        wire_material = skin_materials.candy_material(CANDY_COLOR if frame.color_source == 'skin' else frame.color)
         post_material = themes.chrome_material()
     elif frame.style == 'glow':
         # Glow rails are tube lights; dimmer than a platform's trim since they run long
@@ -989,7 +989,7 @@ def rail_spec(frame, piece):
         reach = frame.marble_radius + radius
         half = min(gap / 2, reach * 0.95)
         rise = math.sqrt(reach * reach - half * half)
-        # Wire centres sit lower than the physics support line so the marble rests between the two wires
+        # Wire centers sit lower than the physics support line so the marble rests between the two wires
         line = frame.offset_path(frame.marble_radius + physics_radius - rise)
         for side in (-1, 1):
             y = frame.marble_y + side * gap / 2
@@ -1025,7 +1025,7 @@ def rail_paths_spec(frame):
 
     Chrome draws every wire as a pair of thin chrome wires like the rails, one on each side of the marble's plane and
     set back toward the wire's far side so the marble touches both where it touches the capsule, with ties at the
-    ends and posts to the wall at the ends and the bend. Wood draws each wire as one toy-coloured rod on the
+    ends and posts to the wall at the ends and the bend. Wood draws each wire as one toy-colored rod on the
     capsule line with wooden pegs to the wall at the same places, Glow as a tube light on dark posts."""
     wires = [wire for wire in frame.local_wires() if len(wire) >= 2]
     physics_radius = frame.params.get('radius', 0.0025)
@@ -1035,7 +1035,7 @@ def rail_paths_spec(frame):
         builder.box((0.02, 0.01, 0.004), (0.0, frame.marble_y, 0.0))
         return {'root': builder.to_mesh('MM rail', [themes.chrome_material()]), 'parts': []}
     points = [point for wire in wires for point in wire]
-    centre = (sum(x for x, _ in points) / len(points), sum(z for _, z in points) / len(points))
+    center = (sum(x for x, _ in points) / len(points), sum(z for _, z in points) / len(points))
     if frame.style != 'chrome':
         for wire in wires:
             builder.tube([(x, frame.marble_y, z) for x, z in wire], physics_radius * 0.9, material=0, sides=12)
@@ -1045,7 +1045,7 @@ def rail_paths_spec(frame):
         if frame.style == 'glow':
             materials = [themes.neon_trim_material(neon_colors(frame)[1], 1.6), themes.neon_mount_material()]
         elif frame.style == 'candy':
-            materials = [skin_materials.candy_material(CANDY_COLOR if frame.colour == 'skin' else frame.color), themes.chrome_material()]
+            materials = [skin_materials.candy_material(CANDY_COLOR if frame.color_source == 'skin' else frame.color), themes.chrome_material()]
         else:
             materials = [frame.toy(), themes.wood_material()]
         return {'root': builder.to_mesh('MM rail', materials), 'parts': []}
@@ -1054,10 +1054,10 @@ def rail_paths_spec(frame):
     gap = frame.params.get('gap', 1.25 * frame.marble_radius)
     reach = frame.marble_radius + radius
     half = min(gap / 2, reach * 0.95)
-    # Wire centres sit back from the capsule line so the marble rests on both wires where it would touch the capsule
+    # Wire centers sit back from the capsule line so the marble rests on both wires where it would touch the capsule
     setback = frame.marble_radius + physics_radius - math.sqrt(reach * reach - half * half)
     for wire in wires:
-        line = offset_wire(wire, -setback * marble_side(wire, centre))
+        line = offset_wire(wire, -setback * marble_side(wire, center))
         for side in (-1, 1):
             builder.tube([(x, frame.marble_y + side * half, z) for x, z in line], radius, material=0, sides=10)
         for index in wire_post_indices(line):
@@ -1074,7 +1074,7 @@ def bowl_spec(frame, piece):
     catcher: two wires under the marble's path, one on each side of the marble's plane and set back so the marble rests
     on both where it touches the capsule, tied across every 2.5 cm and held by posts that end in a ball at the wall.
     Chrome and Wood draw clear chrome wires; Wood's posts are wooden pegs. Glow draws the wires as glowing tube edges on
-    dark posts. Colour: By Note never applies: a Bowl plays no note."""
+    dark posts. Color: By Note never applies: a Bowl plays no note."""
     wires = [wire for wire in frame.local_wires() if len(wire) >= 2]
     physics_radius = frame.params.get('radius', 0.0025)
     k = frame.marble_radius / 0.008
@@ -1107,7 +1107,7 @@ def bowl_spec(frame, piece):
     return {'root': builder.to_mesh('MM bowl', materials), 'parts': []}
 
 
-def marble_side(wire, centre):
+def marble_side(wire, center):
     """+1 when the marble rides on the left of the wire's direction, -1 on the right.
 
     A bent wire turns toward the marble: it rolls inside the bend, above the leg and inside the wall. A straight
@@ -1119,7 +1119,7 @@ def marble_side(wire, centre):
         return 1.0 if turn > 0 else -1.0
     (ax, az), (bx, bz) = wire[0], wire[-1]
     left = (-(bz - az), bx - ax)
-    return 1.0 if (centre[0] - (ax + bx) / 2) * left[0] + (centre[1] - (az + bz) / 2) * left[1] >= 0 else -1.0
+    return 1.0 if (center[0] - (ax + bx) / 2) * left[0] + (center[1] - (az + bz) / 2) * left[1] >= 0 else -1.0
 
 
 def offset_wire(wire, distance):
@@ -1172,12 +1172,12 @@ def subdivided(line, spacing=0.02):
 def post_indices(line, spacing=0.08):
     if not line:
         return []
-    indices, travelled, last = [0], 0.0, 0.0
+    indices, traveled, last = [0], 0.0, 0.0
     for index in range(1, len(line)):
-        travelled += math.dist(line[index - 1], line[index])
-        if travelled - last >= spacing and index < len(line) - 1:
+        traveled += math.dist(line[index - 1], line[index])
+        if traveled - last >= spacing and index < len(line) - 1:
             indices.append(index)
-            last = travelled
+            last = traveled
     if len(line) - 1 not in indices:
         indices.append(len(line) - 1)
     return indices
@@ -1259,7 +1259,7 @@ def rotated_blade(builder, reach, length, thickness, depth, center_y, angle):
 
 
 def marble_mesh(marble, context):
-    """A marble in its skin. The theme's default keeps a body colour that stays apart from its wall and pieces
+    """A marble in its skin. The theme's default keeps a body color that stays apart from its wall and pieces
     (`themes.marble_look`): Neon's pearl marble with a glowing rim, Brass's glass core, Pegboard's gloss. Physics never
     reads any of this: the sphere has the marble's radius in every skin."""
     theme = context['theme']
@@ -1268,15 +1268,15 @@ def marble_mesh(marble, context):
     color = marble.get('color') or '#d0d4dc'
     skin = look['skin']
     if skin == 'marble:glass':
-        material = skin_materials.glass_marble_material(skin_materials.GLASS_SKIN if look['colour'] == 'skin' else color, look['variant'])
+        material = skin_materials.glass_marble_material(skin_materials.GLASS_SKIN if look['colorSource'] == 'skin' else color, look['variant'])
     elif skin == 'marble:glass-green':
-        material = skin_materials.glass_marble_material(skin_materials.GLASS_GREEN_SKIN if look['colour'] == 'skin' else color, look['variant'], skin_materials.GLASS_GREEN_VANES)
+        material = skin_materials.glass_marble_material(skin_materials.GLASS_GREEN_SKIN if look['colorSource'] == 'skin' else color, look['variant'], skin_materials.GLASS_GREEN_VANES)
     elif skin == 'marble:metal':
-        material = skin_materials.metal_marble_material(color if look['colour'] == 'marble' else None)
+        material = skin_materials.metal_marble_material(color if look['colorSource'] == 'marble' else None)
     elif skin == 'marble:magic':
-        material = skin_materials.magic_marble_material(skin_materials.MAGIC_SKIN if look['colour'] == 'skin' else color, look['glowColor'])
+        material = skin_materials.magic_marble_material(skin_materials.MAGIC_SKIN if look['colorSource'] == 'skin' else color, look['glowColor'])
     elif skin == 'marble:pearl':
-        material = themes.neon_marble_material('#d0d4dc' if look['colour'] == 'skin' else color)
+        material = themes.neon_marble_material('#d0d4dc' if look['colorSource'] == 'skin' else color)
     elif skin == 'marble:deep':
         material = themes.glossy_marble_material(themes.deep_color(color))
     else:

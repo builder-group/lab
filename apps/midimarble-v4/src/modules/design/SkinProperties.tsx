@@ -9,7 +9,7 @@ import { skinPropertyCommands, type TSkinPropertyPatch } from './design-commands
 import { resolveElementLook } from './project-themes';
 import { themeOriginLabel } from './scene-layers';
 import { SkinPicker } from './SkinPickers';
-import { catalogSkin, COLOUR_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties, type TSkinColour } from './skin-catalog';
+import { catalogSkin, COLOR_SOURCE_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties, type TSkinColorSource } from './skin-catalog';
 
 // The standard skin properties in the Skin panel, the same rows for pieces and marbles.
 
@@ -17,7 +17,7 @@ const MIXED = '__mixed__';
 const FROM_THEME = '__theme__';
 
 /**
- * Colour, On Hit, Glow Colour, Variant and a library skin's extra properties for the selected entities: what their skins
+ * Color, On Hit, Glow Color, Variant and a library skin's extra properties for the selected entities: what their skins
  * share, each with its theme's value as the first choice. Every change is one undo step.
  */
 export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
@@ -37,7 +37,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	}
 
 	/** The row's value: the one override, the theme's when nothing is overridden, or Mixed */
-	function valueOf(field: 'colour' | 'onHit' | 'variant'): string {
+	function valueOf(field: 'colorSource' | 'onHit' | 'variant'): string {
 		const values = new Set(entities.map((entity) => entity.components.skin?.[field] ?? FROM_THEME));
 		return values.size > 1 ? MIXED : ([...values][0] ?? FROM_THEME);
 	}
@@ -51,29 +51,29 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	const firstSkin = first != null ? catalogSkin(first.look.skin) : null;
 	// Showing the theme's skin, a value not set here comes from the theme: "From Brass"; on a skin of its own, it is that skin's
 	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.design);
-	// On a marble, Marble means a colour of its own, set in the row below
+	// On a marble, Marble means a color of its own, set in the row below
 	const isMarbles = looks.length > 0 && looks.every(({ element }) => element === 'marble');
-	const colourLabel = (colour: TSkinColour): string => (isMarbles && colour === 'marble' ? 'Custom' : COLOUR_LABELS[colour]);
-	const hasOwnColour = isMarbles && looks.every(({ look }) => look.colour === 'marble');
+	const colorSourceLabel = (colorSource: TSkinColorSource): string => (isMarbles && colorSource === 'marble' ? 'Custom' : COLOR_SOURCE_LABELS[colorSource]);
+	const hasOwnColor = isMarbles && looks.every(({ look }) => look.colorSource === 'marble');
 
 	return (
 		<>
-			{shared.colours.length > 1 ? (
+			{shared.colorSources.length > 1 ? (
 				<SelectField
-					id="skin-colour"
-					label="Colour"
-					value={valueOf('colour')}
-					options={options(valueOf('colour'), first != null ? `${colourLabel(first.look.colour)} · ${origin}` : origin, shared.colours.map((colour) => ({ value: colour, label: colourLabel(colour) })))}
+					id="skin-color"
+					label="Color"
+					value={valueOf('colorSource')}
+					options={options(valueOf('colorSource'), first != null ? `${colorSourceLabel(first.look.colorSource)} · ${origin}` : origin, shared.colorSources.map((colorSource) => ({ value: colorSource, label: colorSourceLabel(colorSource) })))}
 					onChange={(value) => {
-						if (value !== MIXED) set({ colour: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colour']>) });
+						if (value !== MIXED) set({ colorSource: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colorSource']>) });
 					}}
 				/>
 			) : null}
-			{hasOwnColour ? (
-				<ColourRow
+			{hasOwnColor ? (
+				<ColorRow
 					cx={cx}
-					id="skin-own-colour"
-					label="Marble Colour"
+					id="skin-own-color"
+					label="Marble Color"
 					value={sameOf(entities.map((entity) => entity.components.skin?.color))}
 					fallback={first?.entity.components.marble != null ? marbleFilmColor(project, first.entity.components.marble.laneId) : '#ffffff'}
 					origin="Default"
@@ -91,7 +91,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					}}
 				/>
 			) : null}
-			{shared.glowColor ? <ColourRow cx={cx} id="skin-glow" label="Glow Colour" value={sameOf(entities.map((entity) => entity.components.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
+			{shared.glowColor ? <ColorRow cx={cx} id="skin-glow" label="Glow Color" value={sameOf(entities.map((entity) => entity.components.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
 			{shared.variants.length > 0 ? (
 				<SelectField
 					id="skin-variant"
@@ -104,8 +104,8 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 				/>
 			) : null}
 			{extras.map((extra) =>
-				extra.type === 'colour' ? (
-					<ColourRow
+				extra.type === 'color' ? (
+					<ColorRow
 						key={extra.name}
 						cx={cx}
 						id={`skin-extra-${extra.name}`}
@@ -151,8 +151,8 @@ function sharedExtras(project: TProject, entities: TEntity[], items: readonly { 
 	return (lists[0] ?? []).filter((property) => lists.every((list) => list.some((item) => item.name === property.name && item.type === property.type)));
 }
 
-/** A colour well with a reset; dragging in the colour picker is one undo step */
-const ColourRow: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; origin: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
+/** A color well with a reset; dragging in the color picker is one undo step */
+const ColorRow: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; origin: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
 	const { cx, id, label, value, fallback, origin, patch } = props;
 	const groupRef = React.useRef<number | null>(null);
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import type { TDraftDecor } from './DraftPreviewCx';
 
-// A decoration in the Draft Preview: a cheap stand-in for what Blender builds, drawn in the item's own metres (x right,
-// y down, centred) through a matrix that keeps it flat on the wall. Blender's preview shows the real look.
+// A decoration in the Draft Preview: a cheap stand-in for what Blender builds, drawn in the item's own meters (x right,
+// y down, centered) through a matrix that keeps it flat on the wall. Blender's preview shows the real look.
 
 export const DraftDecorShape: React.FC<{ decor: TDraftDecor }> = (props) => {
 	const { decor } = props;

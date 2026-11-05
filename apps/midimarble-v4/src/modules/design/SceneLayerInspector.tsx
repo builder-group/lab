@@ -20,7 +20,7 @@ import {
 // Inspectors of the Wall and Lights layers of Film. Values the theme sets read "From Brass"; a value the project sets
 // keeps its reset, like a piece's skin.
 
-/** The Wall layer: its Skin, Wall colour and the Background behind it */
+/** The Wall layer: its Skin, Wall color and the Background behind it */
 export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const { design } = project;
@@ -38,22 +38,22 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 					cx={cx}
 					id="wall-color"
 					label="Wall"
-					name="Wall colour"
+					name="Wall color"
 					own={wall.own.color ?? null}
 					shown={wall.color}
 					origin={origin}
-					resetTitle={`Use ${themeName}'s wall colour again`}
+					resetTitle={`Use ${themeName}'s wall color again`}
 					commandsFor={(color) => wallCommands(requireProject(cx), { color })}
 				/>
 				<ColorWell
 					cx={cx}
 					id="wall-background"
 					label="Background"
-					name="Background colour"
+					name="Background color"
 					own={wall.own.backgroundColor ?? null}
 					shown={wall.backgroundColor}
 					origin={origin}
-					resetTitle={`Use ${themeName}'s background colour again`}
+					resetTitle={`Use ${themeName}'s background color again`}
 					commandsFor={(backgroundColor) => wallCommands(requireProject(cx), { backgroundColor })}
 				/>
 			</Panel>
@@ -89,12 +89,12 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 				<ColorWell
 					cx={cx}
 					id="key-light-color"
-					label="Colour"
-					name="Key Light colour"
+					label="Color"
+					name="Key Light color"
 					own={key.own.color ?? null}
 					shown={key.color}
 					origin={origin}
-					resetTitle={`Use ${themeName}'s light colour again`}
+					resetTitle={`Use ${themeName}'s light color again`}
 					commandsFor={(color) => keyLightCommands(requireProject(cx), { color })}
 				/>
 				<LightSliders idPrefix="key-light" strength={key.strength} side={key.side} height={key.height} onChange={(patch) => cx.execute(keyLightCommands(requireProject(cx), patch))} />
@@ -115,7 +115,7 @@ export const LightInspector: React.FC<{ cx: StudioCx; project: TProject; light: 
 				onRename={(name) => cx.execute(updateLightCommands(requireProject(cx), light.id, { name }))}
 			/>
 			<Panel id="design.light" title="Light">
-				<ColorWell cx={cx} id="light-color" label="Colour" name={`${light.name} colour`} own={light.color} shown={light.color} commandsFor={(color) => (color != null ? updateLightCommands(requireProject(cx), light.id, { color }) : [])} />
+				<ColorWell cx={cx} id="light-color" label="Color" name={`${light.name} color`} own={light.color} shown={light.color} commandsFor={(color) => (color != null ? updateLightCommands(requireProject(cx), light.id, { color }) : [])} />
 				<LightSliders idPrefix="light" strength={light.strength} side={light.side} height={light.height} onChange={(patch) => cx.execute(updateLightCommands(requireProject(cx), light.id, patch))} />
 			</Panel>
 		</>
@@ -135,7 +135,7 @@ const LightSliders: React.FC<{ idPrefix: string; strength: number; side: number;
 	);
 };
 
-/** A hex colour typed by hand; what isn't one stays out of the project and goes back to the colour on leaving */
+/** A hex color typed by hand; what isn't one stays out of the project and goes back to the color on leaving */
 const HexInput: React.FC<{ name: string; value: string; onCommit: (color: string) => void }> = (props) => {
 	const { name, value, onCommit } = props;
 	const [draft, setDraft] = React.useState(value.toUpperCase());
@@ -151,7 +151,7 @@ const HexInput: React.FC<{ name: string; value: string; onCommit: (color: string
 			className="mm-ifield-value text-[11px] uppercase"
 			aria-label={name}
 			aria-invalid={parsed == null}
-			title={parsed == null ? 'A colour has six hex digits, like #3478F6' : undefined}
+			title={parsed == null ? 'A color has six hex digits, like #3478F6' : undefined}
 			spellCheck={false}
 			value={draft}
 			onChange={(event) => setDraft(event.target.value)}
@@ -164,8 +164,8 @@ const HexInput: React.FC<{ name: string; value: string; onCommit: (color: string
 };
 
 /**
- * One colour well of a layer. An inherited colour names where it comes from, a set one shows its hex with a reset.
- * Dragging in the colour picker is one undo step: changes fold into the first while it is still the latest edit, until
+ * One color well of a layer. An inherited color names where it comes from, a set one shows its hex with a reset.
+ * Dragging in the color picker is one undo step: changes fold into the first while it is still the latest edit, until
  * the well loses focus.
  */
 export const ColorWell: React.FC<{
@@ -173,7 +173,7 @@ export const ColorWell: React.FC<{
 	id: string;
 	label: string;
 	name: string;
-	/** The colour the project set; null reads as `origin` */
+	/** The color the project set; null reads as `origin` */
 	own: string | null;
 	shown: string;
 	origin?: string;
@@ -205,7 +205,7 @@ export const ColorWell: React.FC<{
 				type="color"
 				className="mm-color"
 				aria-label={name}
-				// An outline keeps a light colour visible on the white panel
+				// An outline keeps a light color visible on the white panel
 				style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }}
 				value={shown}
 				onChange={(event) => set(event.target.value)}

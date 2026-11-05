@@ -27,7 +27,7 @@ export interface TSimulationClient {
 	 * Assists run in a second worker so a slow search never holds up the live trajectory. Each kind keeps
 	 * only its newest waiting request; replaced requests reject with a `SupersededError`. Auto place spreads its
 	 * tries over a pool of assists workers, started on its first use, when the machine has the cores for it;
-	 * the pool picks the angle the single worker would. `isCancelled` stops a pool search between its stages.
+	 * the pool picks the angle the single worker would. `isCanceled` stops a pool search between its stages.
 	 */
 	autoPlace: (request: Omit<Extract<TWorkerRequest, { kind: 'autoPlace' }>, 'kind'>, options?: TSearchRunOptions) => Promise<TAutoPlaceAnswer>;
 	continueRun: (request: Omit<Extract<TWorkerRequest, { kind: 'continue' }>, 'kind'>) => Promise<TContinueAnswer | null>;

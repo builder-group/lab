@@ -138,7 +138,7 @@ describe('buildTrack function', () => {
 				steps++;
 				return true;
 			},
-			isCancelled: () => steps >= 1
+			isCanceled: () => steps >= 1
 		});
 		expect(outcome.isStopped).toBe(true);
 		expect(outcome.project.entities.filter((entity) => entity.components.piece != null).length).toBeGreaterThan(0);

@@ -37,18 +37,18 @@ describe('bowlGeometry', () => {
 		const params = resolvePieceParams('bowl', {});
 		const plain = bowlGeometry(params, { x: 0, y: 0 }, 0.012);
 		const mirrored = bowlGeometry({ ...params, mirror: 1 }, { x: 0, y: 0 }, 0.012);
-		expect(plain.centre.x).toBeLessThan(0);
-		expect(mirrored.centre.x).toBeGreaterThan(0);
+		expect(plain.center.x).toBeLessThan(0);
+		expect(mirrored.center.x).toBeGreaterThan(0);
 		expect(plain.top).toBeGreaterThan(0);
 		expect(plain.bottom).toBeLessThan(-0.05);
 	});
 
-	it('closes into a bowl with both rims over the centre', () => {
+	it('closes into a bowl with both rims over the center', () => {
 		const bowl = bowlGeometry(resolvePieceParams('bowl', {}), { x: 0, y: 0 }, 0.012);
 		const first = bowl.wire[0];
 		const last = bowl.wire[bowl.wire.length - 1];
 		expect(first?.y).toBeCloseTo(last?.y ?? 0, 6);
-		expect((first?.y ?? 0) - bowl.centre.y).toBeGreaterThan(0.03);
+		expect((first?.y ?? 0) - bowl.center.y).toBeGreaterThan(0.03);
 	});
 });
 

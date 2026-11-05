@@ -27,7 +27,7 @@ export type TGapPieceRequest = Omit<Extract<TWorkerRequest, { kind: 'gapPiece' }
 
 export interface TSearchRunOptions {
 	/** Checked between the search's stages; a stopped search rejects */
-	isCancelled?: () => boolean;
+	isCanceled?: () => boolean;
 }
 
 export interface TAssistPool {
@@ -188,7 +188,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 	async function run(item: TRun): Promise<TAutoPlaceAnswer | TGapAnswer> {
 		const startedAt = performance.now();
 		const search = `search-${nextSearch++}`;
-		const isCancelled = (): boolean => isDisposed || item.options.isCancelled?.() === true;
+		const isCanceled = (): boolean => isDisposed || item.options.isCanceled?.() === true;
 		// One id for every worker, which would otherwise each name a new piece differently
 		const entityId = item.request.entityId ?? createId('piece');
 		if (item.assist === 'autoPlace') {
@@ -198,7 +198,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 					const answer = await evaluate(search, prepare, tries);
 					return { plan: answer.plan as TAutoPlacePlan, evaluations: answer.evaluations as TAngleEvaluation[] };
 				},
-				{ isCancelled, ...(item.request.range != null ? { range: item.request.range } : {}) }
+				{ isCanceled, ...(item.request.range != null ? { range: item.request.range } : {}) }
 			);
 			if (!isOk) throw error;
 			return {
@@ -214,7 +214,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 		const steps = gapSearch(plan as TGapSearchPlan);
 		let step = steps.next();
 		while (step.done !== true) {
-			if (isCancelled()) throw new Error('The gap search was stopped');
+			if (isCanceled()) throw new Error('The gap search was stopped');
 			const answer = await evaluate(search, prepare, step.value);
 			step = steps.next(answer.evaluations as TGapEvaluation[]);
 		}

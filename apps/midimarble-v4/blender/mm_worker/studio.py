@@ -1,6 +1,6 @@
 """Studio: wall, sun, added lights, world light, camera and render look.
 
-The studio objects are created once. Afterwards the app changes a studio object only while it still holds what the
+The studio objects are created once. Afterward the app changes a studio object only while it still holds what the
 app last wrote (`mm_written` fingerprints); a wall, sun or world the user edited belongs to Blender. A theme
 switch re-themes the untouched objects and resets the render look. The camera is framed or rig-baked unless the user
 took it over.
@@ -24,11 +24,11 @@ FRAME_MARGIN = 1.15
 
 def ensure_studio(scene, theme):
     """Creates missing studio objects and applies `theme` to untouched ones. Returns `{created, themed}`. The wall
-    is sized afterwards by `fit_wall`, once the camera is known."""
+    is sized afterward by `fit_wall`, once the camera is known."""
     theme = themes.theme_name(theme)
     created = not scene.get('mm_studio_version')
     collection = ensure_collection(STUDIO_COLLECTION)
-    # A project theme's colours count as a switch too, so changing one re-themes the untouched studio
+    # A project theme's colors count as a switch too, so changing one re-themes the untouched studio
     key = themes.theme_key(theme)
     switched = scene.get('mm_theme') != key
     if studio_object('studio.wall') is None and created:
@@ -124,7 +124,7 @@ def wall_bounds(wall):
 
 def update_wall(wall, bounds, theme):
     """Fits an untouched wall to `bounds` with a margin and gives it the theme's material. The plaster and pegboard
-    materials use object coordinates in metres, so their scale does not change with the wall size."""
+    materials use object coordinates in meters, so their scale does not change with the wall size."""
     if wall.type != 'MESH' or not untouched(wall, wall_signature(wall)):
         return False
     (min_x, min_y), (max_x, max_y) = bounds

@@ -8,11 +8,11 @@ const DEGREE = Math.PI / 180;
 export interface TPatternMeasures {
 	hits: number;
 	onTime: number;
-	/** Median sideways distance, in metres, between a bar and the bar two hits before: 0 is a straight column */
+	/** Median sideways distance, in meters, between a bar and the bar two hits before: 0 is a straight column */
 	columnStraightness: number | null;
-	/** Median fall between two hits, in metres */
+	/** Median fall between two hits, in meters */
 	dropPerHit: number | null;
-	/** The largest fall between two hits, in metres */
+	/** The largest fall between two hits, in meters */
 	largestDrop: number | null;
 	/** Median bar tilt in degrees, and the steepest */
 	medianTilt: number | null;

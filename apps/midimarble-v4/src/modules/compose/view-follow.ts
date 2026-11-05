@@ -2,7 +2,7 @@ import type { TVec2 } from '@/modules/project';
 import { clampScale, type TView, type TViewport } from './view';
 
 // Smooth view motion for the Wall view: Follow keeps the marble in sight like the film camera, and stepping to a
-// time or a hit glides there instead of jumping. One critically damped spring moves the view's centre (and, for
+// time or a hit glides there instead of jumping. One critically damped spring moves the view's center (and, for
 // navigation only, its zoom in log space) toward a goal view. Follow never touches the zoom, so it cannot pump.
 
 export interface TFollowSettings {
@@ -14,7 +14,7 @@ export interface TFollowSettings {
 	leadHalfLife: number;
 	/** Half size of the box around `anchor` the followed point moves in freely, as a share of the half view */
 	deadZone: TVec2;
-	/** Where the followed point rests, from the view centre, as a share of the half view with y up */
+	/** Where the followed point rests, from the view center, as a share of the half view with y up */
 	anchor: TVec2;
 	/** The marble never comes closer to the edge than this share of the half view */
 	edge: number;
@@ -43,7 +43,7 @@ export interface TViewMotion {
 	scaleVelocity: number;
 	/** View the spring moves toward */
 	goal: TView;
-	/** Smoothed look-ahead in wall metres */
+	/** Smoothed look-ahead in wall meters */
 	lead: TVec2;
 }
 
@@ -87,7 +87,7 @@ export function smoothLead(lead: TVec2, velocity: TVec2, scale: number, viewport
 }
 
 /**
- * Goal centre that keeps `point` inside the dead zone around the anchor: unchanged while it is inside, moved only by
+ * Goal center that keeps `point` inside the dead zone around the anchor: unchanged while it is inside, moved only by
  * how far it left otherwise, so the view drifts with the run instead of paging
  */
 export function deadZoneGoal(goal: TVec2, scale: number, viewport: TViewport, point: TVec2, settings = FOLLOW_SETTINGS): TVec2 {
@@ -104,7 +104,7 @@ export function deadZoneGoal(goal: TVec2, scale: number, viewport: TViewport, po
 	};
 }
 
-/** Centre moved just enough that `point` lies `edge` of the half view inside the view */
+/** Center moved just enough that `point` lies `edge` of the half view inside the view */
 export function keepInView(center: TVec2, scale: number, viewport: TViewport, point: TVec2, edge = FOLLOW_SETTINGS.edge): TVec2 {
 	const half = halfSize(scale, viewport);
 	const reach = { x: half.x * (1 - edge), y: half.y * (1 - edge) };
@@ -114,7 +114,7 @@ export function keepInView(center: TVec2, scale: number, viewport: TViewport, po
 	};
 }
 
-/** Follow for one frame: eases the look-ahead and moves the goal centre with the marble's look-ahead point */
+/** Follow for one frame: eases the look-ahead and moves the goal center with the marble's look-ahead point */
 export function followMarble(motion: TViewMotion, position: TVec2, velocity: TVec2, viewport: TViewport, dt: number, settings = FOLLOW_SETTINGS): void {
 	const scale = motion.goal.scale;
 	motion.lead = smoothLead(motion.lead, velocity, scale, viewport, dt, settings);

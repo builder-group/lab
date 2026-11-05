@@ -12,7 +12,7 @@ const BACK_SHORTEST = 0.25;
 /**
  * Stretches in which the follow camera leaves a playing marble out of frame, from the camera track the Draft
  * Preview draws and the film bakes. A marble plays from PLAYING_MARGIN before its first note to PLAYING_MARGIN after
- * its last; it is out while its centre is outside the frame. Stretches longer than OUT_LONGEST that hold at least one
+ * its last; it is out while its center is outside the frame. Stretches longer than OUT_LONGEST that hold at least one
  * of its notes count, in time order.
  */
 export function framingStretches(result: TSimulationResult, track: TCameraTrack): TFramingStretch[] {
@@ -64,7 +64,7 @@ export interface TFramingStretch {
 	notes: number[];
 }
 
-/** Whether the marble's centre at `time` lies inside the frame of the track's `frame` */
+/** Whether the marble's center at `time` lies inside the frame of the track's `frame` */
 export function isInFrame(track: TCameraTrack, frame: number, marble: TMarbleTrack, time: number): boolean {
 	const position = marblePosition(marble, time);
 	if (position == null) return true;
@@ -94,7 +94,7 @@ export function projectToFrame(track: TCameraTrack, frame: number, x: number, y:
 	return [0.5 + (local[0] ?? 0) / depth / halfWidth / 2, 0.5 + (local[1] ?? 0) / depth / halfHeight / 2];
 }
 
-/** Marble centre at `time` between its samples, or null before its release */
+/** Marble center at `time` between its samples, or null before its release */
 function marblePosition(marble: TMarbleTrack, time: number): { x: number; y: number } | null {
 	const samples = marble.samples;
 	const first = samples[0];

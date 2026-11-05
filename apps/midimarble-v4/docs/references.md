@@ -9,7 +9,7 @@ Source: `~/Downloads/Legendary-Meme-Songs-SnapYT.App.mp4` from [@virtual3dworld_
 **Structure**
 
 - One continuous shot without cuts
-- A medley of six songs, each about 8 to 14 seconds. Each song is a section with its own piece skins: gold bars with chrome devices, copper bars, dark grey housings with white keys, silver bars and dark knobs with glowing red tops.
+- A medley of six songs, each about 8 to 14 seconds. Each song is a section with its own piece skins: gold bars with chrome devices, copper bars, dark gray housings with white keys, silver bars and dark knobs with glowing red tops.
 - The song title appears as screen-fixed text at the start of each section, with a channel watermark
 - A short curved wire rail joins each section to the next
 - The run ends in a catch: the marble drops into a curved cage of four chrome wires, posted to the wall with ball ends, and the film ends with it in frame
@@ -24,17 +24,17 @@ Source: `~/Downloads/Legendary-Meme-Songs-SnapYT.App.mp4` from [@virtual3dworld_
 
 **Timing.** 3.7 to 4.4 audio onsets per second with a median gap of about 240 ms. Hits follow a subset, so a run needs reliable hits at 250 to 500 ms and occasional passages near the 180 ms minimum.
 
-**Camera.** Steeply down along the wall, which reads almost as a floor. Travels continuously, marble slightly above the frame's centre. The roll changes slowly, turning the columns from diagonal to almost vertical and back. No hard moves.
+**Camera.** Steeply down along the wall, which reads almost as a floor. Travels continuously, marble slightly above the frame's center. The roll changes slowly, turning the columns from diagonal to almost vertical and back. No hard moves.
 
-**Look.** Pale lavender-grey wall with subtle texture, one soft sun from the upper left with long diagonal shadows, metallic and glossy materials with clear reflections.
+**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the upper left with long diagonal shadows, metallic and glossy materials with clear reflections.
 
-## Second reference: pitch-coloured tubes
+## Second reference: pitch-colored tubes
 
 A frame from @marvinblend, "Internet Classics", Boomwhackers section. Not stored in the repository.
 
 - Two marbles share one frame, each with a dense column, so two lanes are a legitimate format
 - Tubes about 15 to 20 % of the frame width, marbles about 5 %
-- Tubes are coloured by note, so pitch is visible
+- Tubes are colored by note, so pitch is visible
 - Tubes point into depth at varied angles on wire brackets, adding depth without changing the contact surface
 - Titles are a screen overlay, not wall text
 
@@ -53,13 +53,13 @@ Measured from the reference short and an earlier Jingle Bells film, with both ch
 2. Bar 20 to 27 % W, marble 6 to 8 % W, marble about 0.33 of a bar
 3. Same-column step 0.8 to 1.0 L, drop per hit 0.4 to 0.6 L
 4. Straight columns within a phrase: same-column sideways shift at most 0.2 L median, 0.7 L at p90; drift over 8 hits at most 1 L
-5. Column centres 1.0 to 1.2 L apart, inner ends 0 to 0.25 L apart, strikes on the inner third
+5. Column centers 1.0 to 1.2 L apart, inner ends 0 to 0.25 L apart, strikes on the inner third
 6. A repeated phrase repeats its shape: tilt correlation at the phrase lag at least 0.8. Blocks of 3 to 5 parallel pieces, with a jog of 0.5 to 1 L only at phrase boundaries
-7. About ±10° of tilt, opposite between columns, same-column tilt within ±3° on at least 80 % of neighbours
+7. About ±10° of tilt, opposite between columns, same-column tilt within ±3° on at least 80 % of neighbors
 8. Roll at most 1°/s median and 2.5°/s at p95, heading changes between sections, marble at x 0.3 to 0.65 and y 0.35 to 0.53 from the top
 9. A new skin set every 6 to 14 s, one skin per column; a screen-fixed title for about 2 s, starting 1 to 2 s before the rail
 10. Gaps of 0.55 s or more (about 8 % of hits) bridged by one thin curve of 1.4 to 1.9 L, at section changes first
-11. One strike per piece: 0 double bounces in 161 hops. In flight the marble may pass within 0.1 to 0.5 d of a neighbour in the image, without touching
+11. One strike per piece: 0 double bounces in 161 hops. In flight the marble may pass within 0.1 to 0.5 d of a neighbor in the image, without touching
 12. Played pieces change state and stay changed; decor stays large, sparse and beside the columns
 
 ## Bars long in Z, a side-turned camera, a steep pitch
@@ -110,12 +110,12 @@ Bounce doesn't lower tilt; Gravity does. Build Track on the same hits falls 35, 
 
 **Film endings.** The tail after the last note is 0.4 s (`SONG_TAIL`), the longest that keeps the last marble in the final frame on the song fixtures. With Bowls catching it, 0.6 to 1.5 s.
 
-**Flat Light against Fast.** The wall's median colour stays within 5 per 8-bit channel per theme (`check_flat_colors.py`), at about 16 ms per 360 × 640 frame, through a per-theme exposure and sheen. A project theme's changed light or background isn't modelled in Flat Light, only its wall.
+**Flat Light against Fast.** The wall's median color stays within 5 per 8-bit channel per theme (`check_flat_colors.py`), at about 16 ms per 360 × 640 frame, through a per-theme exposure and sheen. A project theme's changed light or background isn't modeled in Flat Light, only its wall.
 
 **Bloom** is cheap at quality Low and only runs while `bloom > 0`; Flat Light skips it.
 
 ## Scale
 
-Blender's unit is the metre, and the purchased Marble Race Kit uses real scale: marbles 16 mm, track modules about 0.2 m. MidiMarble works in the same units, with a default kit 1.5 times that size (24 mm marbles), so Rapier and Blender share units and lighting and depth of field behave like real objects.
+Blender's unit is the meter, and the purchased Marble Race Kit uses real scale: marbles 16 mm, track modules about 0.2 m. MidiMarble works in the same units, with a default kit 1.5 times that size (24 mm marbles), so Rapier and Blender share units and lighting and depth of field behave like real objects.
 
 The Marble Race Kit (`assets/3D/blender/Marble Race Kit_v2.2`) is a purchased local reference for proportions and a personal library. It doesn't ship with the app.

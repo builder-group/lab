@@ -59,7 +59,7 @@ def apply(worker, root, value):
 
 
 def write_asset(path):
-    """An asset file with one collection `MM_ASSET`, its origin at the centre of the back face, in a separate library"""
+    """An asset file with one collection `MM_ASSET`, its origin at the center of the back face, in a separate library"""
     mesh = bpy.data.meshes.new('holly')
     mesh.from_pydata([(-0.02, -0.01, 0.0), (0.02, -0.01, 0.0), (0.02, 0.01, 0.0), (-0.02, 0.01, 0.0)], [], [(0, 1, 2, 3)])
     obj = bpy.data.objects.new('holly', mesh)
@@ -171,7 +171,7 @@ def main():
     for item in ('bauble-red', 'bauble-gold', 'snowflake-gold', 'fairy-light', 'gift-box', 'star'):
         reach = max(vertex.co.z for vertex in objects['decor:' + item].data.vertices)
         check(reach < 0.02, '%s stays close to the wall (%.0f mm out)' % (item, reach * 1000))
-    check(objects['decor:bauble-red'].data is not objects['decor:bauble-gold'].data, 'baubles have their own colours')
+    check(objects['decor:bauble-red'].data is not objects['decor:bauble-gold'].data, 'baubles have their own colors')
     holders = [obj for obj in managed.objects if obj.get('mm_role') == 'piece']
     check(not holders, 'decor adds no pieces')
 

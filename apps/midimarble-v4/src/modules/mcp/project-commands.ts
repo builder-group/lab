@@ -212,7 +212,7 @@ function entityProblem(project: TProject, items: readonly TLibraryItem[], entity
 		if (problem != null) return problem;
 	}
 	if (marble != null) {
-		if (marble.radius < MARBLE_RADIUS.min || marble.radius > MARBLE_RADIUS.max) return `A marble's radius is in metres, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marble.radius} is outside that. get_state.marbles[].radius has the current one.`;
+		if (marble.radius < MARBLE_RADIUS.min || marble.radius > MARBLE_RADIUS.max) return `A marble's radius is in meters, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marble.radius} is outside that. get_state.marbles[].radius has the current one.`;
 		if (!project.music.lanes.some((lane) => lane.id === marble.laneId)) return `There is no lane ${marble.laneId}. get_state.marbles[].laneId lists them.`;
 	}
 	return null;

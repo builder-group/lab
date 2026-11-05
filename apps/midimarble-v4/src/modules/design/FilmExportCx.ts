@@ -81,7 +81,7 @@ export class FilmExportCx {
 			return;
 		}
 		if (abort.signal.aborted) {
-			this.$job.set({ ...this.$job.get(), phase: 'cancelled' });
+			this.$job.set({ ...this.$job.get(), phase: 'canceled' });
 			return;
 		}
 		this.$job.set({ ...this.$job.get(), step: 'Adding the song…' });
@@ -110,7 +110,7 @@ export class FilmExportCx {
 		});
 		this.abort = null;
 		if (!isRenderedOk) {
-			if (abort.signal.aborted) this.$job.set({ ...this.$job.get(), phase: 'cancelled' });
+			if (abort.signal.aborted) this.$job.set({ ...this.$job.get(), phase: 'canceled' });
 			else this.fail(renderedErr.message);
 			return;
 		}
@@ -121,7 +121,7 @@ export class FilmExportCx {
 
 	cancel(): void {
 		this.abort?.abort();
-		if (this.$job.get().phase === 'preparing') this.$job.set({ ...this.$job.get(), phase: 'cancelled' });
+		if (this.$job.get().phase === 'preparing') this.$job.set({ ...this.$job.get(), phase: 'canceled' });
 	}
 
 	private fail(message: string): void {
@@ -158,7 +158,7 @@ export interface TExportSettings {
 }
 
 export interface TExportJob {
-	phase: 'idle' | 'preparing' | 'rendering' | 'encoding' | 'done' | 'failed' | 'cancelled';
+	phase: 'idle' | 'preparing' | 'rendering' | 'encoding' | 'done' | 'failed' | 'canceled';
 	/** What happens before frames render, such as updating the scene */
 	step: string | null;
 	startedAt: number | null;

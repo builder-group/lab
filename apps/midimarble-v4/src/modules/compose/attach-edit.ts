@@ -123,7 +123,7 @@ export function asAnchored(project: TProject, entity: TEntity, pose: TPose, lane
 	};
 }
 
-/** How far from its note, in metres, a dragged platform still plays it; a drop further away frees it */
+/** How far from its note, in meters, a dragged platform still plays it; a drop further away frees it */
 export const KEEP_PLAYS_REACH = 0.25;
 
 /**
@@ -288,7 +288,7 @@ export const ROTOR_CLEARANCE = 0.004;
 /**
  * Hub position for a windmill that follows the marble at `at`: beside the fall, perpendicular to it, so its arm
  * circle of radius `reach` clears every marble's path and every piece by `ROTOR_CLEARANCE` and the run stays as
- * it was. The side towards the frame centre is tried first, then further out. Without a clear spot, the roomiest
+ * it was. The side toward the frame center is tried first, then further out. Without a clear spot, the roomiest
  * one tried.
  */
 export function clearRotorPosition(project: TProject, result: TSimulationResult, at: { position: TVec2; velocity: TVec2 }, reach: number, laneId: string): TVec2 {

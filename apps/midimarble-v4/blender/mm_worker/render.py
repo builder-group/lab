@@ -14,8 +14,8 @@ The live worker notices jobs that exit without an answer and reports them as fai
 Frames are rendered by time, not by frame number: output frame i shows time i / preset fps, so 30 and 60 fps
 presets work regardless of the frame rate the keyframes were written at.
 
-The draft preset renders the same scene with Workbench instead of the requested engine: solid colours from each
-material's viewport colour under flat lighting, through the scene's view transform and look so it matches what Fast
+The draft preset renders the same scene with Workbench instead of the requested engine: solid colors from each
+material's viewport color under flat lighting, through the scene's view transform and look so it matches what Fast
 shows; shadows, cavity and outlines, and no depth of field or motion blur. Like every
 engine setting, it is applied only inside the job process, so the saved scene keeps its own engine.
 """
@@ -36,7 +36,7 @@ from .preview import temporary
 from .util import MANAGED_COLLECTION, WorkerError, resolve_package_path, write_json_atomic
 
 PRESETS = {
-    # Draft always renders with Workbench: solid theme colours, no lighting or materials, for judging motion fast
+    # Draft always renders with Workbench: solid theme colors, no lighting or materials, for judging motion fast
     # Its frames go through JPEG: writing PNG took as long as rendering the frame
     'draft': {'short': 720, 'fps': 30, 'engine': 'workbench', 'workbench': 8, 'frames': 'jpg', 'x264': 'veryfast',
               'crf': 23},
@@ -59,7 +59,7 @@ FILM_AUDIO_FADE = 0.4
 SCREEN_TITLE_FONT_SCALE = 1.4
 # Screen title styles the encoder burns in (`walltext.SCREEN_STYLES`)
 SCREEN_TITLE_STYLES = ('caption', 'songName', 'endCard')
-# Height of a screen title's centre above the frame centre, as a fraction of the half frame height
+# Height of a screen title's center above the frame center, as a fraction of the half frame height
 # (`walltext.SCREEN_HEIGHTS`)
 SCREEN_TITLE_HEIGHTS = {'caption': 0.7, 'songName': 0.3, 'endCard': 0.0}
 
@@ -159,7 +159,7 @@ def cancel(worker, args):
             stop_process(process)
     finish_orphan(worker.project_dir, job_id)
     worker.jobs.pop(job_id, None)
-    return {'jobId': job_id, 'cancelled': True}
+    return {'jobId': job_id, 'canceled': True}
 
 
 def stop_process(process):
@@ -195,8 +195,8 @@ def finish_orphan(project_dir, job_id):
     job_dir = Path(project_dir) / JOB_FOLDER / job_id
     if (job_dir / 'result.json').is_file():
         return
-    cancelled = (job_dir / 'cancel').is_file()
-    error = {'code': 'CANCELLED', 'message': 'The render was cancelled'} if cancelled else {
+    canceled = (job_dir / 'cancel').is_file()
+    error = {'code': 'CANCELED', 'message': 'The render was canceled'} if canceled else {
         'code': 'FAILED', 'message': 'The render process ended unexpectedly. See ' + str(job_dir / 'render.log')}
     finish(Path(project_dir) / '.bridge' / 'outbox', job_dir, job_id, error=error)
 
@@ -272,16 +272,16 @@ def engine_settings(scene, engine, samples, width, height):
 WORKBENCH_AA = ((0, 'OFF'), (1, 'FXAA'), (5, '5'), (8, '8'), (11, '11'), (16, '16'), (32, '32'))
 DEFAULT_DIFFUSE = (0.8, 0.8, 0.8)
 DRAFT_LIGHT = (-0.25, 0.55, 0.8)
-# Flat Light has no reflections: metal, which only mirrors the darker room in Eevee, comes back as a darker colour, and
+# Flat Light has no reflections: metal, which only mirrors the darker room in Eevee, comes back as a darker color, and
 # the satin sheen on painted surfaces as a small lift (`themes.flat_look`). Measured against Fast frames (references.md).
 FLAT_METAL = 0.4
-# Neon's glowing bodies and trim have no emission in Workbench; a brighter colour stands in for it
+# Neon's glowing bodies and trim have no emission in Workbench; a brighter color stands in for it
 FLAT_NEON = 2.2
 
 
 def workbench_settings(scene, samples):
-    """Flat Light: Workbench solid colours with shadows and outlines so pieces and marbles read against the wall, no
-    depth of field or motion blur. Flat lighting keeps a surface's colour at any camera angle, and the scene's own
+    """Flat Light: Workbench solid colors with shadows and outlines so pieces and marbles read against the wall, no
+    depth of field or motion blur. Flat lighting keeps a surface's color at any camera angle, and the scene's own
     view transform and look with the theme's exposure offset (`themes.flat_look`) bring it to what Fast shows."""
     shading = scene.display.shading
     exposure, sheen = themes.flat_look(scene.get('mm_theme'))
@@ -316,8 +316,8 @@ def workbench_settings(scene, samples):
 
 
 def flat_color(material, sheen):
-    """The colour Workbench shows for `material`: its viewport colour, or its base colour if that kept the default
-    grey, with the reflections it loses made up for"""
+    """The color Workbench shows for `material`: its viewport color, or its base color if that kept the default
+    gray, with the reflections it loses made up for"""
     color = tuple(material.diffuse_color)
     base = base_color(material)
     if base is not None and all(abs(a - b) < 1e-3 for a, b in zip(color[:3], DEFAULT_DIFFUSE)):
@@ -391,7 +391,7 @@ def render_still(scene, path, seconds, width, engine='eevee', samples=None):
 # Job process side
 
 
-class Cancelled(Exception):
+class Canceled(Exception):
     pass
 
 
@@ -404,8 +404,8 @@ def run_job(job_path):
     try:
         result = render_job(job, job_dir, outbox)
         finish(outbox, job_dir, job_id, result=result)
-    except Cancelled:
-        finish(outbox, job_dir, job_id, error={'code': 'CANCELLED', 'message': 'The render was cancelled'})
+    except Canceled:
+        finish(outbox, job_dir, job_id, error={'code': 'CANCELED', 'message': 'The render was canceled'})
     except Exception as error:  # noqa: BLE001 - every failure must reach the host as an answer
         import traceback
         traceback.print_exc()
@@ -482,13 +482,13 @@ def frame_extension(job):
 
 def check_cancel(job, job_dir):
     if (job_dir / 'cancel').is_file():
-        raise Cancelled()
+        raise Canceled()
     host = job.get('hostPid')
     if host:
         try:
             os.kill(int(host), 0)
         except ProcessLookupError:
-            raise Cancelled()
+            raise Canceled()
         except PermissionError:
             pass
 
@@ -535,7 +535,7 @@ def remove_screen_titles(scene):
 
 
 def screen_title_filters(job, job_dir):
-    """FFmpeg drawtext filters for the job's screen titles: plain text, centred, faded in and out, like the preview's
+    """FFmpeg drawtext filters for the job's screen titles: plain text, centered, faded in and out, like the preview's
     title; a title that asks for a plate also gets a soft dark box and shadow"""
     titles = job.get('screenTitles') or []
     font = next((candidate for candidate in SCREEN_TITLE_FONTS if Path(candidate).is_file()), None)
@@ -551,14 +551,14 @@ def screen_title_filters(job, job_dir):
         fade = SCREEN_TITLE_FADE
         alpha = ('if(lt(t,{s}),0,if(lt(t,{s}+{f}),(t-{s})/{f},if(lt(t,{e}-{f}),1,if(lt(t,{e}),({e}-t)/{f},0))))'
                  .format(s='%.4f' % start, e='%.4f' % end, f='%.4f' % fade))
-        centre_y = job['height'] / 2 * (1 - SCREEN_TITLE_HEIGHTS.get(title['style'], 0.0))
+        center_y = job['height'] / 2 * (1 - SCREEN_TITLE_HEIGHTS.get(title['style'], 0.0))
         color = '0x' + str(title['color']).lstrip('#')[:6]
         plate = (':box=1:boxcolor=black@0.28:boxborderw=%d:shadowcolor=black@0.35:shadowx=0:shadowy=%d'
                  % (max(4, size // 3), max(1, size // 24))) if title.get('plate') else ''
         filters.append(
             "drawtext=fontfile='{font}':textfile='{text}':fontsize={size}:fontcolor={color}:alpha='{alpha}'"
             ":x=(w-text_w)/2:y={y:.1f}-text_h/2{plate}".format(
-                font=font, text=text_file, size=size, color=color, alpha=alpha, y=centre_y, plate=plate))
+                font=font, text=text_file, size=size, color=color, alpha=alpha, y=center_y, plate=plate))
     return filters
 
 
@@ -592,7 +592,7 @@ def encode(job, job_dir, frames_dir, output):
             if (job_dir / 'cancel').is_file():
                 process.terminate()
                 process.wait()
-                raise Cancelled()
+                raise Canceled()
             time.sleep(0.1)
     if process.returncode != 0:
         raise RuntimeError('FFmpeg failed: ' + (job_dir / 'ffmpeg.log').read_text()[-2000:])

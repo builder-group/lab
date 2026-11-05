@@ -401,11 +401,11 @@ mod tests {
             "$schema": PACK_SCHEMA,
             "name": name,
             "version": "2.1",
-            "description": "A cosy film",
+            "description": "A cozy film",
             "author": "Ann",
             "link": "https://example.com/christmas",
             "items": [
-                { "kind": "theme", "id": "cosy", "label": "Cosy" },
+                { "kind": "theme", "id": "cozy", "label": "Cozy" },
                 { "kind": "decor", "id": "bauble", "label": "Bauble", "origin": "agent" }
             ]
         })
@@ -415,7 +415,7 @@ mod tests {
     fn exported(root: &Path, name: &str) -> PathBuf {
         let package = root.join(format!("{}.marble", name));
         write_item(&package.join(ASSETS_FOLDER), "bauble", json!({}));
-        let themes = [PackThemeDto { id: "cosy".to_string(), json: "{\"name\":\"Cosy\"}".to_string() }];
+        let themes = [PackThemeDto { id: "cozy".to_string(), json: "{\"name\":\"Cozy\"}".to_string() }];
         return export_pack(&package, &root.join(name), &manifest(name), &themes, &["bauble".to_string()]).unwrap();
     }
 
@@ -425,15 +425,15 @@ mod tests {
         let pack = exported(&root, "Christmas");
         assert!(pack.ends_with("Christmas.marblepack"));
         assert!(pack.join(PACK_FILE).is_file());
-        assert!(pack.join("themes/cosy.json").is_file());
+        assert!(pack.join("themes/cozy.json").is_file());
         assert!(pack.join("assets/bauble/asset.blend").is_file());
 
         let library = root.join(PACKS_FOLDER);
         let imported = import_pack(&pack, &library).unwrap();
         assert_eq!(imported.id, "christmas");
         assert_eq!(imported.author.as_deref(), Some("Ann"));
-        assert_eq!(imported.description.as_deref(), Some("A cosy film"));
-        assert_eq!(imported.themes_json, ["{\"name\":\"Cosy\"}"]);
+        assert_eq!(imported.description.as_deref(), Some("A cozy film"));
+        assert_eq!(imported.themes_json, ["{\"name\":\"Cozy\"}"]);
         assert_eq!(imported.items[0].pack_id.as_deref(), Some("christmas"));
         let item: Value = serde_json::from_str(imported.items[0].manifest_json.as_ref().unwrap()).unwrap();
         assert_eq!(item["pack"], json!({ "packId": "christmas", "packName": "Christmas", "version": "2.1", "author": "Ann", "link": "https://example.com/christmas" }));

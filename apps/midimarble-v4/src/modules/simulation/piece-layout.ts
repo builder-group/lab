@@ -8,7 +8,7 @@ import type { TPieceLayoutKind } from './types';
 // touches the marble at the placement time, offset by the marble radius along the surface normal.
 
 export interface TPieceLayout {
-	/** Pose origin: box centre for platforms, support anchor for rails and tunnels, hub for windmills */
+	/** Pose origin: box center for platforms, support anchor for rails and tunnels, hub for windmills */
 	position: TVec2;
 	angle: number;
 	contactPoint: TVec2 | null;
@@ -47,7 +47,7 @@ export interface TLayoutInput {
 	marbleRadius: number;
 }
 
-/** Places the piece so its contact surface touches a marble centred at `position` */
+/** Places the piece so its contact surface touches a marble centered at `position` */
 export function layoutAtMarble(
 	input: TLayoutInput,
 	position: TVec2,
@@ -525,10 +525,10 @@ function bentWire(
 	const legDirection: [number, number] = [along * Math.cos(slope), -Math.sin(slope)];
 	const start: [number, number] = [wallU, highY + reach];
 	const end: [number, number] = [wallU + legDirection[0] * reach, highY + legDirection[1] * reach];
-	// The centre lies one radius inside the bend from the wall
-	const centre: [number, number] = [wallU + along * radius, highY + reach];
-	const from = Math.atan2(start[1] - centre[1], start[0] - centre[0]);
-	const to = Math.atan2(end[1] - centre[1], end[0] - centre[0]);
+	// The center lies one radius inside the bend from the wall
+	const center: [number, number] = [wallU + along * radius, highY + reach];
+	const from = Math.atan2(start[1] - center[1], start[0] - center[0]);
+	const to = Math.atan2(end[1] - center[1], end[0] - center[0]);
 	let sweep = to - from;
 	// The bend turns the short way: counterclockwise from a wall on the left, clockwise from one on the right
 	if (along > 0 && sweep < 0) sweep += 2 * Math.PI;
@@ -536,7 +536,7 @@ function bentWire(
 	points.push(start);
 	for (let i = 1; i < BEND_POINTS; i++) {
 		const angle = from + (sweep * i) / BEND_POINTS;
-		points.push([centre[0] + radius * Math.cos(angle), centre[1] + radius * Math.sin(angle)]);
+		points.push([center[0] + radius * Math.cos(angle), center[1] + radius * Math.sin(angle)]);
 	}
 	points.push(end, [lowU, lowY]);
 	return points;
@@ -612,23 +612,23 @@ export function chainGeometry(params: Record<string, number>, angle: number, con
 	for (let k = 0; k < turns; k++) {
 		const along = k % 2 === 0 ? 1 : -1;
 		const wallU = k % 2 === 0 ? 0 : width;
-		const centreY = top - k * step;
-		const centreU = wallU + along * curve;
-		const previousLip = centreY + step - curve + lipRise;
-		const wallTop = k === 0 ? rim + (moving < 0 ? lip : 0) : k === 1 ? (moving > 0 ? Math.max(rim + lip, previousLip + catchHeight) : Math.max(centreY, Math.min(rim, previousLip + catchHeight))) : Math.max(centreY, previousLip + catchHeight);
+		const centerY = top - k * step;
+		const centerU = wallU + along * curve;
+		const previousLip = centerY + step - curve + lipRise;
+		const wallTop = k === 0 ? rim + (moving < 0 ? lip : 0) : k === 1 ? (moving > 0 ? Math.max(rim + lip, previousLip + catchHeight) : Math.max(centerY, Math.min(rim, previousLip + catchHeight))) : Math.max(centerY, previousLip + catchHeight);
 		const count = Math.max(6, Math.ceil(sweep / (4 * DEGREE)));
 		const canonical: [number, number][] = [[wallU, wallTop]];
 		for (let i = 0; i <= count; i++) {
 			const turned = (sweep * i) / count;
-			canonical.push([centreU - along * curve * Math.cos(turned), centreY - curve * Math.sin(turned)]);
+			canonical.push([centerU - along * curve * Math.cos(turned), centerY - curve * Math.sin(turned)]);
 		}
 		const points = canonical.map(([u, y]) => toWorld(u, y));
 		wires.push(points);
-		walls.push([points[0] as TVec2, toWorld(wallU, centreY)]);
+		walls.push([points[0] as TVec2, toWorld(wallU, centerY)]);
 		const end = canonical[canonical.length - 1] as [number, number];
 		lastLip = toWorld(end[0], end[1]);
 		lastLipU = end[0];
-		legs.push([toWorld(wallU, centreY), lastLip]);
+		legs.push([toWorld(wallU, centerY), lastLip]);
 	}
 	const exitU = (turns - 1) % 2 === 0 ? width : 0;
 	return {
@@ -701,7 +701,7 @@ function generatedLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | nu
 
 // Bowls
 
-// How far the rims curl over the arc's centre
+// How far the rims curl over the arc's center
 const BOWL_RIM = 40 * DEGREE;
 // Points per 90° of arc
 const ARC_POINTS = 16;
@@ -709,8 +709,8 @@ const ARC_POINTS = 16;
 export interface TBowlGeometry {
 	/** The wire the marble rides inside, from the far rim down through the bottom to the near one */
 	wire: TVec2[];
-	/** Centre of the catch curve */
-	centre: TVec2;
+	/** Center of the catch curve */
+	center: TVec2;
 	/** The mouth, where the marble is when the Bowl enters the run */
 	mouth: TVec2;
 	/** Highest and lowest wire point, wire thickness included */
@@ -719,27 +719,27 @@ export interface TBowlGeometry {
 }
 
 /**
- * The wire of a Bowl whose mouth is at `mouth`. The catch curve is an arc of radius `size` around a centre just below
+ * The wire of a Bowl whose mouth is at `mouth`. The catch curve is an arc of radius `size` around a center just below
  * the mouth, so a marble falling through the mouth lands on the inside of the arc, whatever its speed, and loses most
  * of its speed into the wire (restitution 0.1). It runs from rim to rim through the bottom, both rims curling over the
- * centre, so the marble stays inside it.
+ * center, so the marble stays inside it.
  */
 export function bowlGeometry(params: Record<string, number>, mouth: TVec2, marbleRadius: number): TBowlGeometry {
 	const size = params['size'] ?? 0.06;
 	const radius = params['radius'] ?? 0.0025;
 	const side = Math.round(params['mirror'] ?? 0) === 1 ? -1 : 1;
-	// Radius of the marble's centre when it touches the inside of the arc
+	// Radius of the marble's center when it touches the inside of the arc
 	const inner = Math.max(0.001, size - radius - marbleRadius);
-	const centre = { x: mouth.x - side * 0.25 * inner, y: mouth.y - 0.25 * inner };
+	const center = { x: mouth.x - side * 0.25 * inner, y: mouth.y - 0.25 * inner };
 	const from = BOWL_RIM;
 	const to = -Math.PI - BOWL_RIM;
 	const count = Math.max(2, Math.ceil((Math.abs(to - from) / (Math.PI / 2)) * ARC_POINTS));
 	const wire = Array.from({ length: count + 1 }, (_, index) => {
 		const angle = from + ((to - from) * index) / count;
-		return { x: centre.x + side * size * Math.cos(angle), y: centre.y + size * Math.sin(angle) };
+		return { x: center.x + side * size * Math.cos(angle), y: center.y + size * Math.sin(angle) };
 	});
 	const ys = wire.map((point) => point.y);
-	return { wire, centre, mouth: { ...mouth }, top: Math.max(...ys) + radius, bottom: Math.min(...ys) - radius };
+	return { wire, center, mouth: { ...mouth }, top: Math.max(...ys) + radius, bottom: Math.min(...ys) - radius };
 }
 
 function catcherLayout(input: TLayoutInput, mouth: TVec2): TPieceLayout {

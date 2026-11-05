@@ -16,14 +16,14 @@ export interface TThemePreset {
 	id: string;
 	label: string;
 	description: string;
-	/** Rendered still of Jingle Bells in the theme, plain and with Colour by Note */
+	/** Rendered still of Jingle Bells in the theme, plain and with Color by Note */
 	previewUrl: string;
 	notePreviewUrl: string;
 }
 
 /** Themes the Blender worker ships; unknown themes fall back to Pegboard there */
 export const themePresets: readonly TThemePreset[] = [
-	themePreset('pegboard', 'Pegboard', 'Birch pegboard and toy colours, like Compose'),
+	themePreset('pegboard', 'Pegboard', 'Birch pegboard and toy colors, like Compose'),
 	themePreset('brass', 'Brass', 'Plaster wall, brass bars and warm studio light'),
 	themePreset('neon', 'Neon', 'Dark navy wall, glossy pieces with glowing edges that flash on a hit')
 ];
@@ -60,7 +60,7 @@ function skinValueCommand(entityId: string, skin: TSkinComponent): TProjectComma
 }
 
 /** The skin properties the inspector edits, with null removing an override so the theme's value shows again */
-export type TSkinPropertyPatch = { [K in 'colour' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
+export type TSkinPropertyPatch = { [K in 'colorSource' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
 
 /**
  * Changes skin properties on the target entities, as one edit.
@@ -88,7 +88,7 @@ export function resetToThemeCommands(project: TProject, entityIds: readonly stri
 		.flatMap((entity): TProjectCommand[] => {
 			const skin = entity.components.skin;
 			if (skin == null) return [];
-			// A marble keeps its film colour: it isn't the theme's to give back
+			// A marble keeps its film color: it isn't the theme's to give back
 			return skin.color != null ? [{ type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: { color: skin.color } } }] : [{ type: 'removeComponent', entityId: entity.id, name: 'skin' }];
 		});
 }
@@ -164,8 +164,8 @@ export function pieceCountLabel(pieces: TEntity[]): string {
 }
 
 /**
- * Notice for a skin applied to a selection with other piece types, or to platforms that keep the skin's colour with
- * Colour by Note on, where the film alone would not show what happened: `Copper applied to 5 platforms; Rail 1 kept
+ * Notice for a skin applied to a selection with other piece types, or to platforms that keep the skin's color with
+ * Color by Note on, where the film alone would not show what happened: `Copper applied to 5 platforms; Rail 1 kept
  * its skin`. Null when the change speaks for itself.
  */
 export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: TEntity[]; keepsSkinColor: boolean }): string | null {
@@ -180,7 +180,7 @@ export function skinAppliedMessage(options: { skinLabel: string; pieceType: stri
 		const names = kept.map((entity) => entity.name ?? getPieceDefinition(entity.components.piece?.type ?? '')?.label ?? 'Piece');
 		message += kept.length === 1 ? `; ${names[0]} kept its skin` : kept.length === 2 ? `; ${names[0]} and ${names[1]} kept their skins` : `; ${kept.length} other pieces kept their skins`;
 	}
-	if (isColorKept) message += `. ${applied.length === 1 ? 'It keeps' : 'They keep'} ${skinLabel}'s colour with Colour by Note`;
+	if (isColorKept) message += `. ${applied.length === 1 ? 'It keeps' : 'They keep'} ${skinLabel}'s color with Color by Note`;
 	return message;
 }
 
@@ -316,13 +316,13 @@ function roundTime(time: number): number {
 }
 
 function wallTitleSize(style: TTitleStyle, frameHeight: number): number {
-	// Rounded to half a centimetre, between 1 cm and 50 cm like the Size field
+	// Rounded to half a centimeter, between 1 cm and 50 cm like the Size field
 	return Math.min(0.5, Math.max(0.01, Math.round((TITLE_HEIGHT[style] * frameHeight) / 0.005) * 0.005));
 }
 
 /**
  * Wall point under a click on the preview, in 0..1 image coordinates, through the film's follow camera at `time`.
- * Without a camera track it approximates the film camera as a front view of the frame band centred on the marble
+ * Without a camera track it approximates the film camera as a front view of the frame band centered on the marble
  * at the playhead; the inspector refines the position.
  */
 export function previewPointToWall(

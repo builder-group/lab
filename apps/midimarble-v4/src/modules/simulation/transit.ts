@@ -5,7 +5,7 @@ import { shapeDistance } from './shapes';
 import { PHYSICS_HZ, type TSimulationResult } from './types';
 
 // A marble rolling along a rail repeats nothing: a turn of a thousandth of a degree before it
-// changes where it comes out by tens of centimetres. So once a track is edited its gap pieces keep the ride they gave,
+// changes where it comes out by tens of centimeters. So once a track is edited its gap pieces keep the ride they gave,
 // as frames relative to where the marble entered, and every later piece stays where it is. A ride is used while the
 // marble enters within `TRANSIT_TOLERANCE` of the speed it was made with; past that the piece is simulated again.
 
@@ -122,7 +122,7 @@ function wrap(angle: number): number {
 	return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
 
-/** Velocity of a ride's frame from its neighbours; the last is how the marble comes out */
+/** Velocity of a ride's frame from its neighbors; the last is how the marble comes out */
 export function rideVelocity(transit: TTransit, index: number): TVec2 {
 	if (index >= rideLength(transit) - 1) return transit.exit.velocity;
 	const after = rideFrame(transit, index + 1);

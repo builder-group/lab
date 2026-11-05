@@ -4,7 +4,7 @@ import type { TSkinComponent, TThemeParts } from '@/modules/project';
 
 // Contract between the app and the bundled Blender worker. The app sends a scene description with
 // `apply_scene`; the worker creates or updates app-owned objects and keyframes from it.
-// Units: metres, seconds, radians. Wall-plane x right, y up; Blender uses x right, z up, y into the wall,
+// Units: meters, seconds, radians. Wall-plane x right, y up; Blender uses x right, z up, y into the wall,
 // so a wall point (x, y) at distance d from the wall becomes Blender (x, -d, y). A wall angle a (counter-clockwise
 // seen from the front) becomes a rotation of -a around Blender +Y. Frame f shows time f / fps; scenes start at frame 0.
 
@@ -24,16 +24,16 @@ export interface TSceneDescription {
 	frame: { width: number; height: number };
 	/**
 	 * Built-in theme the look starts from: `pegboard`, `brass` or `neon`; unknown themes fall back to `pegboard`. A
-	 * project theme sends its base here and its colours in `themeOverrides`.
+	 * project theme sends its base here and its colors in `themeOverrides`.
 	 */
 	theme: string;
 	/** What a project theme dresses each element type with, on top of its base's (`resolve_look` in skin_catalog.py). Optional and additive. */
 	themeParts?: TThemeParts;
-	/** Colours a project theme changes on top of `theme`; absent keeps the built-in look. Additive like `wallTexts`. */
+	/** Colors a project theme changes on top of `theme`; absent keeps the built-in look. Additive like `wallTexts`. */
 	themeOverrides?: TSceneThemeOverrides;
 	/** The Wall layer's skin when it is not the theme's own. Optional and additive. */
 	wallKind?: TSceneWallKind;
-	/** What the Key Light layer changes on the theme's sun besides its colour (`themeOverrides.lightColor`). Optional and additive. */
+	/** What the Key Light layer changes on the theme's sun besides its color (`themeOverrides.lightColor`). Optional and additive. */
 	keyLight?: TSceneKeyLight;
 	/** Lights added in Film, created as app-owned suns. Optional and additive; absent has none. */
 	lights?: TSceneLight[];
@@ -58,7 +58,7 @@ export interface TSceneDescription {
 export interface TSceneCamera {
 	/** `manual` leaves the camera to Blender */
 	mode: 'rig' | 'manual';
-	/** Camera distance from the followed point in metres */
+	/** Camera distance from the followed point in meters */
 	distance: number;
 	/** Downward angle from the wall normal in radians; larger looks more steeply along the wall */
 	pitch: number;
@@ -77,8 +77,8 @@ export interface TSceneCamera {
 	 */
 	focusMarbleId?: string | null;
 	/**
-	 * Shared descent pace y*(t) of the lanes from the simulation, in wall metres. The camera frames a group of
-	 * marbles at this height instead of their bouncing centre. Optional and additive.
+	 * Shared descent pace y*(t) of the lanes from the simulation, in wall meters. The camera frames a group of
+	 * marbles at this height instead of their bouncing center. Optional and additive.
 	 */
 	descent?: TSceneDescentPoint[] | null;
 	/**
@@ -87,7 +87,7 @@ export interface TSceneCamera {
 	 */
 	holdAfter?: number | null;
 	/**
-	 * Mouths of the Bowls that catch the marbles playing last, in wall metres. With `holdAfter` the held ending
+	 * Mouths of the Bowls that catch the marbles playing last, in wall meters. With `holdAfter` the held ending
 	 * frames them and the last hit together. Absent or empty holds on the last pieces. Optional and additive.
 	 */
 	holdBowl?: TVec2Like[] | null;
@@ -117,7 +117,7 @@ export interface TSceneShot {
 export interface TSceneReactions {
 	/** Bar tilt at a hit in degrees */
 	dip?: number;
-	/** Bar press along its normal at a hit in metres */
+	/** Bar press along its normal at a hit in meters */
 	press?: number;
 	/** Emission strength of the hit flash; 0 turns it off */
 	flash?: number;
@@ -178,7 +178,7 @@ export interface TScenePiece {
 	sampleCount: number;
 	/**
 	 * Support line of rails and tunnels in wall coordinates: the resolved, smoothed polyline the simulation
-	 * collides with (derived from the entity's `path` component). The marble centre rides `radius + wire radius`
+	 * collides with (derived from the entity's `path` component). The marble center rides `radius + wire radius`
 	 * above it.
 	 */
 	path?: { x: number; y: number }[] | null;
@@ -196,7 +196,7 @@ export interface TScenePiece {
 	 */
 	assetPath?: string | null;
 	color: string;
-	/** MIDI pitch of the note a platform plays, for themes that colour pieces by note; absent for other pieces */
+	/** MIDI pitch of the note a platform plays, for themes that color pieces by note; absent for other pieces */
 	notePitch?: number;
 }
 
@@ -205,7 +205,7 @@ export interface TSceneWallText {
 	id: string;
 	text: string;
 	font: string;
-	/** Letter height in metres; for a screen title (`caption`, `songName`, `endCard`) a fraction of the frame height */
+	/** Letter height in meters; for a screen title (`caption`, `songName`, `endCard`) a fraction of the frame height */
 	size: number;
 	color: string;
 	position: { x: number; y: number };
@@ -218,7 +218,7 @@ export interface TSceneWallText {
 	out?: number;
 	/**
 	 * `wall` (absent) sits on the wall at `position`; `caption` (top of the frame), `songName` (upper third) and
-	 * `endCard` (centre) hang from the film camera, and the film encoder draws them onto the film. Optional and additive.
+	 * `endCard` (center) hang from the film camera, and the film encoder draws them onto the film. Optional and additive.
 	 */
 	style?: 'wall' | 'caption' | 'songName' | 'endCard';
 	/** A screen title's soft dark plate and shadow behind its text; absent is plain text */
@@ -226,7 +226,7 @@ export interface TSceneWallText {
 }
 
 /**
- * A project theme's colours as display sRGB `#rrggbb`, resolved by `resolve_theme` in themes.py: the wall, the key
+ * A project theme's colors as display sRGB `#rrggbb`, resolved by `resolve_theme` in themes.py: the wall, the key
  * light, the glowing edges of a theme that has them (Neon) and the world surroundings
  */
 export interface TSceneThemeOverrides {

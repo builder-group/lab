@@ -103,7 +103,7 @@ function arc(center: TVec2, radius: number, facing: number): TVec2[] {
 	});
 }
 
-/** Left normal at a vertex, longer at a bend so both neighbouring sides stay `radius` from the wire */
+/** Left normal at a vertex, longer at a bend so both neighboring sides stay `radius` from the wire */
 function vertexOffset(previous: TVec2 | undefined, point: TVec2, next: TVec2 | undefined): TVec2 {
 	const incoming = direction(previous ?? point, previous != null ? point : (next ?? point));
 	const outgoing = direction(next != null ? point : (previous ?? point), next ?? point);

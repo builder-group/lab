@@ -41,7 +41,7 @@ const EmptyLaneHint: React.FC<{ cx: StudioCx; lane: TLane; top: number }> = (pro
 
 /**
  * A marble's track: its hits in one flat row, each drawn by its timing status: green On Time, amber Early or
- * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so colour is never the only signal.
+ * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so color is never the only signal.
  */
 export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 	const { cx, lane, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;

@@ -2,11 +2,11 @@
 
 The camera looks steeply along the wall and travels with the marbles, like the reference short:
 
-1. Follow point per frame. With several marbles the camera frames the group: the follow point is the weighted centre
+1. Follow point per frame. With several marbles the camera frames the group: the follow point is the weighted center
    of the marbles in flight (a marble weighs 1 while its samples cover the time, up to a moment after its last note
    when another marble plays on (`activeUntil`), and 0.05 before and after) and the distance widens as far as every
    marble needs, never cropping one. With a shared descent curve (`descent`, the common pace y*(t) of the lanes) the
-   group centre's height follows it. The distance is measured along the camera's own axes, with its pitch, side and
+   group center's height follows it. The distance is measured along the camera's own axes, with its pitch, side and
    roll, around the smoothed target of a first pass, and eases slowly (DISTANCE_TAU).
 2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
    zero-phase critically damped filter (a forward and a backward pass of a second-order filter with time constant
@@ -51,7 +51,7 @@ SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
 # The lead may move the target at most this fraction of the camera distance ahead of the marble
 LEAD_LIMIT = 0.0235
-# While the follow point falls faster than FALL_START metres per second, the frame looks FALL_AHEAD seconds of the
+# While the follow point falls faster than FALL_START meters per second, the frame looks FALL_AHEAD seconds of the
 # extra speed below it, at most FALL_LIMIT of the camera distance; the speed is taken over FALL_WINDOW seconds either
 # side, the lead lasts FALL_HOLD seconds past the fall and eases over FALL_EASE seconds
 FALL_START = 0.3
@@ -71,7 +71,7 @@ GROUP_KEEP_X = 0.85
 GROUP_KEEP_Y = 0.85
 # Margin on the distance a framed group needs
 GROUP_MARGIN = 1.2
-# Weight in the group centre of a marble past its `activeUntil`
+# Weight in the group center of a marble past its `activeUntil`
 FINISHED_WEIGHT = 0.001
 SENSOR = 36.0
 # Seconds over which the camera settles once it holds on the last hit, and the stretch of the run before that hit
@@ -95,7 +95,7 @@ LEAD_EASE = 2.5
 # A shot at this fraction of the rig distance or closer frames only the leading marble
 PUSH_FOCUS = 0.7
 # The opening frames the release points and up to OPENING_PIECES of the first struck pieces (those within LEAD_AHEAD
-# seconds of the first hit), centred in the image in OPENING_STEPS steps, and eases into the follow over OPENING_EASE
+# seconds of the first hit), centered in the image in OPENING_STEPS steps, and eases into the follow over OPENING_EASE
 # seconds after the first hit, so the film opens on the track rather than on marbles over an empty wall
 OPENING_PIECES = 3
 OPENING_EASE = 1.5
@@ -231,7 +231,7 @@ def in_flight(marble, motion, times):
 
 
 def follow_points(marbles, motions, times):
-    """Weighted centre of the marbles at each time; returns an (n, 2) array and the depth of the marble plane"""
+    """Weighted center of the marbles at each time; returns an (n, 2) array and the depth of the marble plane"""
     total = np.zeros((len(times), 2))
     weights = np.zeros(len(times))
     depth = 0.0
@@ -242,7 +242,7 @@ def follow_points(marbles, motions, times):
         x = np.interp(times, motion[:, 0], motion[:, 1])
         y = np.interp(times, motion[:, 0], motion[:, 2])
         inside = in_flight(marble, motion, times)
-        # A marble that has finished playing falls away fast, so even a small weight would drag the centre
+        # A marble that has finished playing falls away fast, so even a small weight would drag the center
         finished = marble.get('activeUntil') is not None and times > float(marble['activeUntil']) + 1e-9
         weight = np.where(inside, 1.0, np.where(finished, FINISHED_WEIGHT, 0.05))
         total[:, 0] += x * weight
@@ -355,11 +355,11 @@ def view_axes(side, roll, pitch):
     return right, image_up, toward
 
 
-def spread_need(marbles, motions, times, centre, lens, axes):
-    """Distance at which every marble in flight stays inside the framing box around the centre, per frame.
+def spread_need(marbles, motions, times, center, lens, axes):
+    """Distance at which every marble in flight stays inside the framing box around the center, per frame.
 
-    Each marble's offset from the centre is seen along the camera's axes, so the steep view's foreshortening and the
-    roll count: an offset across the image needs reach_x per metre of distance, one up the image `reach`, and an
+    Each marble's offset from the center is seen along the camera's axes, so the steep view's foreshortening and the
+    roll count: an offset across the image needs reach_x per meter of distance, one up the image `reach`, and an
     offset toward the camera that much more distance."""
     reach = SENSOR / 2 / lens * GROUP_KEEP_Y
     reach_x = SENSOR / 2 / lens * GROUP_KEEP_X * ASPECT_GUESS
@@ -370,8 +370,8 @@ def spread_need(marbles, motions, times, centre, lens, axes):
         if motion is None or not len(motion):
             continue
         inside = in_flight(marble, motion, times)
-        dx = np.interp(times, motion[:, 0], motion[:, 1]) - centre[:, 0]
-        dy = np.interp(times, motion[:, 0], motion[:, 2]) - centre[:, 1]
+        dx = np.interp(times, motion[:, 0], motion[:, 1]) - center[:, 0]
+        dy = np.interp(times, motion[:, 0], motion[:, 2]) - center[:, 1]
         across = np.abs(dx * right[:, 0] + dy * right[:, 2])
         high = np.abs(dx * image_up[:, 0] + dy * image_up[:, 2])
         along = dx * toward[:, 0] + dy * toward[:, 2]
@@ -380,19 +380,19 @@ def spread_need(marbles, motions, times, centre, lens, axes):
     return required
 
 
-def paced_height(marbles, motions, times, centre_y, descent):
+def paced_height(marbles, motions, times, center_y, descent):
     """The group's height from the shared descent pace, which has no per-lane bounces. It applies while several
     marbles are in flight within the curve's time range, and stays within a quarter of the marbles' vertical spread
     from their midpoint, so a lane that briefly falls ahead does not pull the frame off the group."""
     heights = [np.interp(times, motion[:, 0], motion[:, 2]) for motion in
                (motions.get(marble['id']) for marble in marbles) if motion is not None and len(motion)]
     if len(heights) < 2:
-        return centre_y
+        return center_y
     low, high = np.min(heights, axis=0), np.max(heights, axis=0)
     middle, quarter = (low + high) / 2, (high - low) / 4
     paced = np.clip(np.interp(times, descent[:, 0], descent[:, 1]), middle - quarter, middle + quarter)
     covered = (times >= descent[0, 0]) & (times <= descent[-1, 0]) & (in_flight_count(marbles, motions, times) >= 2)
-    return np.where(covered, paced, centre_y)
+    return np.where(covered, paced, center_y)
 
 
 def held(values, fps, seconds, reduce=np.max):
@@ -421,18 +421,18 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     """Follow points (current and `lead` ahead) and distance per time, or None without motion.
 
     `heading` is the run direction the camera turns with and `aim` the smoothed look target, (n, 2), which size the
-    group; without an aim the group is sized around its centre. From the hold time on, the marbles are read at the
+    group; without an aim the group is sized around its center. From the hold time on, the marbles are read at the
     hold time, so the camera settles on the last hit."""
     hold = settings.get('hold')
     sample = times if hold is None else np.minimum(times, hold)
     lead_sample = times + settings['lead'] if hold is None else np.minimum(times + settings['lead'], hold)
-    centre, depth = follow_points(marbles, motions, sample)
+    center, depth = follow_points(marbles, motions, sample)
     ahead, _ = follow_points(marbles, motions, lead_sample)
-    if centre is None:
+    if center is None:
         return None
     descent = settings.get('descent')
     if descent is not None:
-        centre[:, 1] = paced_height(marbles, motions, sample, centre[:, 1], descent)
+        center[:, 1] = paced_height(marbles, motions, sample, center[:, 1], descent)
         ahead[:, 1] = paced_height(marbles, motions, lead_sample, ahead[:, 1], descent)
     # Shots scale the automatic framing: a Push In to 0.7 of the rig distance comes to 0.7 of whatever the camera frames
     # then, so it reads also where a group has widened the frame
@@ -441,8 +441,8 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     base = settings['distance']
     side, roll = view_turn(times, heading, hold, settings['side'], settings['sway'])
     axes = view_axes(side, roll, settings['pitch'])
-    raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'], axes)
-    # The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its centre would widen it again
+    raw = spread_need(marbles, motions, sample, center if aim is None else aim, settings['lens'], axes)
+    # The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its center would widen it again
     opening = opening_frame(marbles, motions, times, sample, settings, fps, axes)
     zoom_need = raw if opening is None else np.maximum(raw * (1 - opening['weight']), opening['need'] * opening['weight'])
     # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
@@ -467,23 +467,23 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
         lead = mix_points(marbles, motions, sample, shares)
         lead_ahead = mix_points(marbles, motions, lead_sample, shares)
         keep = (1 - push)[:, None]
-        centre = keep * centre + (1 - keep) * lead
+        center = keep * center + (1 - keep) * lead
         ahead = keep * ahead + (1 - keep) * lead_ahead
     if opening is not None:
         # The opening frames its box; it leads no fall
         fall_scale = fall_scale * (1 - opening['weight'])
         weight = opening['weight'][:, None]
-        centre = weight * opening['point'] + (1 - weight) * centre
+        center = weight * opening['point'] + (1 - weight) * center
         ahead = weight * opening['point'] + (1 - weight) * ahead
     if hold is not None:
         bowl = settings.get('bowl')
-        centre, ahead = settled(centre, times, hold, bowl), settled(ahead, times, hold, bowl)
-    return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'fall_scale': fall_scale, 'opening_weight': None if opening is None else opening['weight']}
+        center, ahead = settled(center, times, hold, bowl), settled(ahead, times, hold, bowl)
+    return {'current': center, 'ahead': ahead, 'depth': depth, 'distance': distance, 'fall_scale': fall_scale, 'opening_weight': None if opening is None else opening['weight']}
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes):
-    """Until the first hit the camera frames the box around the release points and the first struck pieces, centred in the image, and eases into the follow over OPENING_EASE seconds after
-    it. Returns the box centre (n, 2), the distance the box needs and the opening's weight per frame, which eases to 0
+    """Until the first hit the camera frames the box around the release points and the first struck pieces, centered in the image, and eases into the follow over OPENING_EASE seconds after
+    it. Returns the box center (n, 2), the distance the box needs and the opening's weight per frame, which eases to 0
     where the box needs more than its limit; or None without opening pieces"""
     pieces = settings.get('opening')
     if not pieces:
@@ -529,7 +529,7 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
                 widest = max(widest, along + max(across / reach_x, high / reach) * OPENING_MARGIN)
             return widest
 
-        # Centre the box in the image rather than on the wall: the steep view enlarges what lies near the camera
+        # Center the box in the image rather than on the wall: the steep view enlarges what lies near the camera
         determinant = rx * uz - rz * ux
         for _ in range(OPENING_STEPS):
             if abs(determinant) <= 1e-9:
@@ -629,10 +629,10 @@ def look_rotation(position, target, up):
 
 
 def fall_lead(point_y, distance, fps, times, hold):
-    """How far below the follow point the camera looks while it falls, per frame. Above FALL_START metres per second
+    """How far below the follow point the camera looks while it falls, per frame. Above FALL_START meters per second
     the frame leads by FALL_AHEAD seconds of the extra speed, at most FALL_LIMIT of the camera distance, held FALL_HOLD
     seconds past the fall (the smoothed target slows before the marble lands) and eased over FALL_EASE seconds, so a
-    falling marble sits above the centre with the pieces it falls toward in frame. Over the HOLD_SPAN seconds before
+    falling marble sits above the center with the pieces it falls toward in frame. Over the HOLD_SPAN seconds before
     the hold the lead fades out, so the held frame still shows the last pieces."""
     count = len(point_y)
     window = max(1, int(round(FALL_WINDOW * fps)))
@@ -700,7 +700,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     frames = np.arange(scene.frame_start, scene.frame_end + 1, dtype=np.float64)
     times = frames / fps
     # The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
-    # and sized around the group's centre gives the run direction and the smoothed target that size the second
+    # and sized around the group's center gives the run direction and the smoothed target that size the second
     framing = group_framing(marbles, motions, times, settings, fps, np.zeros(len(times)))
     if framing is None:
         return 0

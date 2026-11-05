@@ -37,14 +37,14 @@ describe('lookupFrame', () => {
 		expect(lookupFrame(frames([10, 11, 12]), 11 / 30)).toBe(11);
 	});
 
-	it('uses a neighbour within the tolerance, else nothing', () => {
+	it('uses a neighbor within the tolerance, else nothing', () => {
 		const cached = frames([10]);
 		expect(lookupFrame(cached, 11 / 30)).toBe(10);
 		expect(lookupFrame(cached, 12 / 30)).toBeNull();
 		expect(lookupFrame(cached, 12 / 30, 2)).toBe(10);
 	});
 
-	it('honours the start time of a scene that starts later', () => {
+	it('honors the start time of a scene that starts later', () => {
 		const cached = { ...frames([0]), startTime: 2 };
 		expect(lookupFrame(cached, 2)).toBe(0);
 		expect(lookupFrame(cached, 0)).toBeNull();

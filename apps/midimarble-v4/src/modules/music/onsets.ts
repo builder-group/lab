@@ -43,7 +43,7 @@ export function detectOnsets(
 		if (value <= threshold) continue;
 		if (frame - lastFrame < minGapFrames) continue;
 		lastFrame = frame;
-		// A sharp attack peaks the flux in the frame where it lies closest to the window centre
+		// A sharp attack peaks the flux in the frame where it lies closest to the window center
 		onsets.push((frame * hop + size / 2) / sampleRate);
 	}
 	return onsets;

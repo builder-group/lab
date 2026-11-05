@@ -129,7 +129,7 @@ describe('follow camera', () => {
 		expect(targetX(unnoted, 9.5)).toBeLessThan(-0.7);
 	});
 
-	it('leads the frame downward while the marble falls, so it sits above the centre', () => {
+	it('leads the frame downward while the marble falls, so it sits above the center', () => {
 		const time = Float64Array.from({ length: 601 }, (_, index) => index / 100);
 		// A slow roll for 2 s, a drop at 2.5 m/s for 1.5 s, then a slow roll again
 		const y = time.map((t) => (t < 2 ? -0.3 * t : t < 3.5 ? -0.6 - 2.5 * (t - 2) : -4.35 - 0.3 * (t - 3.5)));

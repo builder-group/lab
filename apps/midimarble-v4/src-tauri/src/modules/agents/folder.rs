@@ -228,10 +228,10 @@ mod tests {
         fs::write(&wall, b"PNG").unwrap();
         fs::write(&tree, b"JPG").unwrap();
         let paths = [wall.display().to_string(), tree.display().to_string()];
-        let set = set_references(&package, "Song", &paths, "Warm and cosy").unwrap();
+        let set = set_references(&package, "Song", &paths, "Warm and cozy").unwrap();
         assert_eq!(set.images.len(), 2);
         assert!(set.images[0].ends_with("agent/references/01-wall.png"));
-        assert_eq!(set.text, "Warm and cosy");
+        assert_eq!(set.text, "Warm and cozy");
 
         // Setting them from their own folder keeps them and drops the rest
         let again = set_references(&package, "Song", &[set.images[1].clone()], "").unwrap();

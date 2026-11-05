@@ -89,7 +89,7 @@ export interface TBoxPlacement {
 }
 
 /**
- * Places a box so its contact face touches a marble of `radius` centred at `position`. The face normal is
+ * Places a box so its contact face touches a marble of `radius` centered at `position`. The face normal is
  * flipped when it would face away from the incoming `velocity`.
  */
 export function placeBoxAtMarble(

@@ -98,18 +98,18 @@ def check_marbles():
     check('BSDF_TRANSPARENT' in node_types(glass) and glass.surface_render_method == 'BLENDED', 'Glass is a clear blended surface')
     swirl, cats_eye = glass.name, build('marble:glass', variant='cats-eye').materials[0].name
     check(swirl != cats_eye and 'cats-eye' in cats_eye, "Variant picks Glass's Cat's-Eye (%s)" % cats_eye)
-    check('#3478f6' in swirl and skin_materials.GLASS_SKIN in build('marble:glass', colour='skin').materials[0].name, "Colour picks Glass's swirl colour")
+    check('#3478f6' in swirl and skin_materials.GLASS_SKIN in build('marble:glass', colorSource='skin').materials[0].name, "Color picks Glass's swirl color")
     metal = meshes['metal'].materials[0]
     principled = themes._principled(metal)
     check(principled.inputs['Metallic'].default_value == 1.0 and 'steel' in metal.name, 'Metal is a steel ball bearing')
-    check('#3478f6' in build('marble:metal', colour='marble').materials[0].name, 'Colour: Marble tints the metal')
+    check('#3478f6' in build('marble:metal', colorSource='marble').materials[0].name, 'Color: Marble tints the metal')
     magic = meshes['magic'].materials[0]
     check('TEX_NOISE' in node_types(magic) and not any(link.to_socket.name == 'Volume' for link in magic.node_tree.links), 'Magic is noise on a surface, with no volume to pay for')
     tree = magic.node_tree
     drivers = tree.animation_data.drivers if tree.animation_data else []
     check(len(drivers) == 1 and drivers[0].data_path.startswith('nodes["' + skin_materials.SMOKE_TIME_NODE), "Magic's smoke drifts with a driver")
     glow = build('marble:magic', glowColor='#00ff88').materials[0]
-    check(glow.name != magic.name, 'Glow Colour changes the smoke (%s)' % glow.name)
+    check(glow.name != magic.name, 'Glow Color changes the smoke (%s)' % glow.name)
     deep = themes.deep_color('#3478f6')
     check(deep in meshes['deep'].materials[0].name, 'Deep is the marble hue made deep')
     check('pearl' in meshes['pearl'].materials[0].name, 'Pearl is the pearl marble')
@@ -122,15 +122,15 @@ def check_properties():
     brass = skins.skin_context('brass', RADIUS)
     names = materials(skins.build_spec('piece', dict(piece(None), notePitch=69), brass))
     check('MM · bar' not in ' '.join(names) and 'MM · brass' in names, 'Brass dresses a platform in Gold (%s)' % names)
-    names = materials(skins.build_spec('piece', dict(piece({'colour': 'note'}), notePitch=69), brass))
-    check('MM · note A' in names, 'Colour: By Note on a selection without a skin of its own (%s)' % names)
-    names = materials(skins.build_spec('piece', dict(piece(linked_skin('platform:copper', colour='note')), notePitch=69), brass))
-    check('MM · note A' in names, 'Colour: By Note on a chosen skin (%s)' % names)
-    names = materials(skins.build_spec('piece', piece({'colour': 'marble'}), brass))
-    check('MM · metal #3478f6' in names, 'Colour: Marble tints a metal skin (%s)' % names)
+    names = materials(skins.build_spec('piece', dict(piece({'colorSource': 'note'}), notePitch=69), brass))
+    check('MM · note A' in names, 'Color: By Note on a selection without a skin of its own (%s)' % names)
+    names = materials(skins.build_spec('piece', dict(piece(linked_skin('platform:copper', colorSource='note')), notePitch=69), brass))
+    check('MM · note A' in names, 'Color: By Note on a chosen skin (%s)' % names)
+    names = materials(skins.build_spec('piece', piece({'colorSource': 'marble'}), brass))
+    check('MM · metal #3478f6' in names, 'Color: Marble tints a metal skin (%s)' % names)
     pegboard = skins.skin_context('pegboard', RADIUS)
-    names = materials(skins.build_spec('piece', piece({'colour': 'skin'}), pegboard))
-    check('MM · wood' in names and not any(name.startswith('MM · flat') for name in names), 'Colour: Skin shows Pegboard bare (%s)' % names)
+    names = materials(skins.build_spec('piece', piece({'colorSource': 'skin'}), pegboard))
+    check('MM · wood' in names and not any(name.startswith('MM · flat') for name in names), 'Color: Skin shows Pegboard bare (%s)' % names)
     names = materials(skins.build_spec('piece', piece(linked_skin('platform:device', variant='copper')), brass))
     check('MM · bar copper' in names, 'Variant picks a Device trim (%s)' % names)
     # On Hit
@@ -139,19 +139,19 @@ def check_properties():
     spec = skins.build_spec('piece', piece({'onHit': 'glow'}, 'rail'), brass)
     check(spec.get('flash', 0) > 0 and all(themes._principled(material).inputs['Emission Strength'].is_linked for material in spec['root'].materials),
           'On Hit: Glow flashes a piece with no moving part')
-    # Glow Colour
+    # Glow Color
     spec = skins.build_spec('piece', piece({'onHit': 'glow', 'glowColor': '#00ff88'}), brass)
     bar = spec['parts'][0]['mesh'].materials[0]
     emission = themes._principled(bar).inputs['Emission Color'].default_value
-    check(all(abs(a - b) < 1e-4 for a, b in zip(emission[:3], parse_color('#00ff88')[:3])) and '#00ff88' in bar.name, 'Glow Colour sets the emission on a copy (%s)' % bar.name)
-    # Theme parts and the old Colour by Note option
+    check(all(abs(a - b) < 1e-4 for a, b in zip(emission[:3], parse_color('#00ff88')[:3])) and '#00ff88' in bar.name, 'Glow Color sets the emission on a copy (%s)' % bar.name)
+    # Theme parts and the old Color by Note option
     parts = {'platform': {'skin': 'platform:copper', 'onHit': 'wobble'}}
     context = skins.skin_context('neon', RADIUS, parts=parts)
     names = materials(skins.build_spec('piece', piece(None), context))
     check('MM · bar copper' in names, 'a project theme says platforms: Copper (%s)' % names)
     check(skins.piece_reaction(piece(None), context)['preset'] == 'wobble', 'a project theme says platforms: On Hit Wobble')
     # The key rebuilds a skin when a property changes
-    keys = {skins.skin_key('piece', piece(fields or None), brass) for fields in ({}, {'colour': 'marble'}, {'glowColor': '#00ff88'}, {'onHit': 'glow'})}
+    keys = {skins.skin_key('piece', piece(fields or None), brass) for fields in ({}, {'colorSource': 'marble'}, {'glowColor': '#00ff88'}, {'onHit': 'glow'})}
     check(len(keys) == 4, 'each property change rebuilds the skin')
 
 
@@ -160,15 +160,15 @@ def check_extra_properties():
     material.use_nodes = True
     tree = material.node_tree
     rgb = tree.nodes.new('ShaderNodeRGB')
-    rgb.label = 'Ribbon Colour'
+    rgb.label = 'Ribbon Color'
     value = tree.nodes.new('ShaderNodeValue')
     value.label = 'Shine'
     mesh = bpy.data.meshes.new('Ribbon')
     mesh.materials.append(material)
     obj = bpy.data.objects.new('Ribbon', mesh)
-    manifest = {'properties': [{'name': 'Ribbon Colour', 'type': 'colour'}, {'name': 'Shine', 'type': 'number', 'default': 0.5}, {'name': 'Missing', 'type': 'number', 'default': 1.0}]}
-    values = assets.property_values(piece({'properties': {'Ribbon Colour': '#ff0000'}}), manifest)
-    check(values == {'Ribbon Colour': '#ff0000', 'Shine': 0.5, 'Missing': 1.0}, 'manifest defaults sit under a piece value (%s)' % values)
+    manifest = {'properties': [{'name': 'Ribbon Color', 'type': 'color'}, {'name': 'Shine', 'type': 'number', 'default': 0.5}, {'name': 'Missing', 'type': 'number', 'default': 1.0}]}
+    values = assets.property_values(piece({'properties': {'Ribbon Color': '#ff0000'}}), manifest)
+    check(values == {'Ribbon Color': '#ff0000', 'Shine': 0.5, 'Missing': 1.0}, 'manifest defaults sit under a piece value (%s)' % values)
     assets.apply_properties([obj], values)
     own = obj.material_slots[0].material
     check(own is not material, 'a skin with its own values wears a copy of the material')
@@ -203,7 +203,7 @@ def check_apply():
     check(skin_of('marble-1').data.materials[0].name.startswith('MM · glass swirl'), 'theme parts dress the marble as Glass')
     bar = next(child for child in skin_of('platform').children if child.get('mm_part') == 'bar')
     check('MM · bar copper' in [material.name for material in bar.data.materials], 'theme parts dress the platform as Copper')
-    write(parts={'marble': {'skin': 'marble:glass'}}, marble_skin=linked_skin('marble:magic'), piece_skin={'colour': 'skin'})
+    write(parts={'marble': {'skin': 'marble:glass'}}, marble_skin=linked_skin('marble:magic'), piece_skin={'colorSource': 'skin'})
     check(skin_of('marble-1').data.materials[0].name.startswith('MM · magic'), "a marble's own skin beats the theme's")
     # Magic drifts: its noise time moves with the frame
     material = skin_of('marble-1').data.materials[0]
@@ -237,12 +237,12 @@ def check_gift_candy():
         check(max(vertex.y for vertex in vertices) <= frame.wall_y + 1e-4, '%s stops at the wall' % skin_id)
         check(min(vertex.y for vertex in vertices) < frame.marble_y - RADIUS * 0.8, '%s is deep enough for the marble to roll on' % skin_id)
         check(len(vertices) < 3000, '%s stays cheap (%d vertices)' % (skin_id, len(vertices)))
-        ribbon = materials(skins.build_spec('piece', piece(linked_skin(skin_id, properties={'Ribbon Colour': '#00ff88'})), brass))
-        check(any('#00ff88' in name for name in ribbon), '%s takes its Ribbon Colour (%s)' % (skin_id, ribbon))
-        check(any('#3478f6' in name for name in materials(skins.build_spec('piece', piece(linked_skin(skin_id, colour='marble')), brass))), '%s takes Colour: Marble' % skin_id)
-        check(any('note' in name for name in materials(skins.build_spec('piece', dict(piece(linked_skin(skin_id, colour='note')), notePitch=69), brass))), '%s takes Colour: By Note' % skin_id)
-        check(skins.skin_key('piece', piece(linked_skin(skin_id)), brass) != skins.skin_key('piece', piece(linked_skin(skin_id, properties={'Ribbon Colour': '#00ff88'})), brass),
-              'a changed Ribbon Colour rebuilds %s' % skin_id)
+        ribbon = materials(skins.build_spec('piece', piece(linked_skin(skin_id, properties={'Ribbon Color': '#00ff88'})), brass))
+        check(any('#00ff88' in name for name in ribbon), '%s takes its Ribbon Color (%s)' % (skin_id, ribbon))
+        check(any('#3478f6' in name for name in materials(skins.build_spec('piece', piece(linked_skin(skin_id, colorSource='marble')), brass))), '%s takes Color: Marble' % skin_id)
+        check(any('note' in name for name in materials(skins.build_spec('piece', dict(piece(linked_skin(skin_id, colorSource='note')), notePitch=69), brass))), '%s takes Color: By Note' % skin_id)
+        check(skins.skin_key('piece', piece(linked_skin(skin_id)), brass) != skins.skin_key('piece', piece(linked_skin(skin_id, properties={'Ribbon Color': '#00ff88'})), brass),
+              'a changed Ribbon Color rebuilds %s' % skin_id)
         glow = skins.build_spec('piece', piece(linked_skin(skin_id, onHit='glow')), brass)
         check(skins.piece_reaction(piece(linked_skin(skin_id, onHit='glow')), brass)['flash'] > 0 and glow['parts'], '%s can glow on a hit' % skin_id)
     # Each piece keeps its own wrapping on every apply, and the papers vary along a run
@@ -254,8 +254,8 @@ def check_gift_candy():
     for element in ('rail',):
         names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy'), element), brass))
         check(any(name.startswith('MM · candy #c8202c') for name in names), 'Candy %s is striped red and white (%s)' % (element, names))
-        names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy', colour='marble'), element), brass))
-        check(any(name.startswith('MM · candy #3478f6') for name in names), 'Candy %s takes Colour: Marble' % element)
+        names = materials(skins.build_spec('piece', piece(linked_skin(element + ':candy', colorSource='marble'), element), brass))
+        check(any(name.startswith('MM · candy #3478f6') for name in names), 'Candy %s takes Color: Marble' % element)
     marble = skins.build_spec('marble', {'radius': RADIUS, 'color': '#3478f6', 'skin': linked_skin('marble:glass-green')}, brass)
     check(materials(marble)[0].startswith('MM · glass swirl ' + skin_materials.GLASS_GREEN_SKIN), 'Green Glass has a green swirl (%s)' % materials(marble))
     check(abs(max(abs(vertex.co.length) for vertex in marble['root'].vertices) - RADIUS) < 1e-5, 'Green Glass keeps the marble radius')

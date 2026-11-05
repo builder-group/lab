@@ -16,7 +16,7 @@ import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, ty
 
 // Pure derivations from a project and its simulation result that the canvas draws and picks against
 
-/** Marble centre at `time`, interpolated between samples. Before release it waits at its release point. */
+/** Marble center at `time`, interpolated between samples. Before release it waits at its release point. */
 export function marblePositionAt(track: TMarbleTrack | undefined, time: number, release: TVec2): TVec2 {
 	const samples = track?.samples ?? [];
 	const first = samples[0];
@@ -204,7 +204,7 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
 
 /**
  * Per lane, the last moment Zoom to Fit frames: its last hit with a piece, or the first open hit after it, which
- * is the next step. Open dots after that lie on a free fall that runs for metres (8 tapped hits fall 19 m), so
+ * is the next step. Open dots after that lie on a free fall that runs for meters (8 tapped hits fall 19 m), so
  * framing them would shrink every dot to a speck.
  */
 function workEnds(hits: readonly THitResult[]): Map<string, number> {
@@ -225,7 +225,7 @@ function workEnds(hits: readonly THitResult[]): Map<string, number> {
 /**
  * What Zoom to Fit frames, like Figma's, which fits the layers and not the page. `all` holds the releases, the
  * pieces, the hit dots and each marble's trajectory up to its lane's last hit with a piece and the next open hit
- * after it, but not the fall past that, which can run for metres, nor the rest of the film's length. `pieces`
+ * after it, but not the fall past that, which can run for meters, nor the rest of the film's length. `pieces`
  * holds the work a fit never cuts off: the pieces and those hit dots, or the releases while there are none. A
  * release high above the first hit is framed when it fits, but never shrinks the pieces and dots to specks.
  */

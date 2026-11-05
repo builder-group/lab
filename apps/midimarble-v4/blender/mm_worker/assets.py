@@ -1,7 +1,7 @@
 """Library skins: `assets/<id>/asset.blend` models placed on piece holders.
 
-An asset holds one collection `MM_ASSET`. Its origin is the centre of the contact surface and +Z points away from
-the contact face; a marble's asset has its origin at the marble's centre and scales evenly to the marble's radius. Optional reaction parts are objects named `MM_REACT_<Name>` with `mm_reaction` = `press`,
+An asset holds one collection `MM_ASSET`. Its origin is the center of the contact surface and +Z points away from
+the contact face; a marble's asset has its origin at the marble's center and scales evenly to the marble's radius. Optional reaction parts are objects named `MM_REACT_<Name>` with `mm_reaction` = `press`,
 `wobble` or `glow`.
 
 Appended, not linked: the worker appends `MM_ASSET` once per asset file into a template collection that is not
@@ -10,7 +10,7 @@ template that share its meshes and materials. The scene file then carries everyt
 move and film jobs, which render a saved copy of the scene, need no library paths. The template is reloaded when
 the file's size or modification time changes, which rebuilds the skins that use it.
 
-A manifest may declare extra skin properties (`properties`: number or colour, such as Ribbon Colour). A piece's value
+A manifest may declare extra skin properties (`properties`: number or color, such as Ribbon Color). A piece's value
 goes to every node input and every Value or RGB node of that name in the skin's materials; a material without one
 ignores it. The skin then wears its own copy of the material, so other pieces keep theirs.
 
@@ -47,7 +47,7 @@ def layout(piece_type):
 
 
 def marble_piece(marble):
-    """A marble as a skin sees it: a piece with only a radius, on its holder, whose origin is the marble's centre"""
+    """A marble as a skin sees it: a piece with only a radius, on its holder, whose origin is the marble's center"""
     return {**marble, 'type': 'marble', 'params': {'radius': float(marble['radius'])}, 'position': {'x': 0.0, 'y': 0.0}, 'angle': 0.0}
 
 

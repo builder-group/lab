@@ -13,8 +13,8 @@ import { KEYBOARD_WIDTH, NOTE_ROW_HEIGHT } from './timeline-layout';
 import { $noteLength, $rollHasFocus } from './timeline-state';
 
 /**
- * The expanded Song track: every note of the song in one piano roll, coloured by the marble that plays it and
- * grey for Backing, the one place notes show by pitch. Click selects a note, Shift-click adds it, dragging a note
+ * The expanded Song track: every note of the song in one piano roll, colored by the marble that plays it and
+ * gray for Backing, the one place notes show by pitch. Click selects a note, Shift-click adds it, dragging a note
  * moves it in time and in pitch, dragging its right edge changes its length and dragging on empty space selects a box
  * of notes. A double-click adds a note for the marble in focus; number keys or the context menu hand the selection to a
  * marble or to Backing.
@@ -242,7 +242,7 @@ export interface TSongNote {
 }
 
 /**
- * Vertical keyboard of the Song's piano roll, one key per semitone row, C keys labelled; a click plays the key.
+ * Vertical keyboard of the Song's piano roll, one key per semitone row, C keys labeled; a click plays the key.
  * `offset` scrolls it with a roll that is taller than its track. Keys light while their notes sound (`useSoundingKeys`).
  */
 export const Keyboard: React.FC<TKeyboardProps> = (props) => {

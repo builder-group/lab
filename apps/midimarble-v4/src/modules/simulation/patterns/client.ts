@@ -5,17 +5,17 @@ import type { TGroupChange, TGroupRunProgress } from './run-group';
 /** A preview running longer than this is ended for a newer one; a quicker one finishes first, as starting the worker costs more */
 const PREVIEW_PATIENCE = 800;
 
-export class PatternCancelledError extends Error {
+export class PatternCanceledError extends Error {
 	constructor() {
 		super('The Pattern run was stopped');
-		this.name = 'PatternCancelledError';
+		this.name = 'PatternCanceledError';
 	}
 }
 
 export interface TPatternClient {
 	/** Runs a Group change for real, ending whatever runs now */
 	run: (project: TProject, change: TGroupChange, onProgress?: (progress: TGroupRunProgress) => void) => Promise<TPatternAnswer>;
-	/** Asks for the ghost of a change. Only the newest waiting one runs; older ones reject as cancelled */
+	/** Asks for the ghost of a change. Only the newest waiting one runs; older ones reject as canceled */
 	preview: (project: TProject, change: TGroupChange) => Promise<TPatternAnswer>;
 	/** Ends what runs and what waits */
 	cancel: () => void;
@@ -84,11 +84,11 @@ export function createPatternClient(): TPatternClient {
 		current = null;
 		worker?.terminate();
 		worker = null;
-		job.reject(new PatternCancelledError());
+		job.reject(new PatternCanceledError());
 	}
 
 	function dropWaiting(): void {
-		waiting?.reject(new PatternCancelledError());
+		waiting?.reject(new PatternCanceledError());
 		waiting = null;
 	}
 
@@ -103,7 +103,7 @@ export function createPatternClient(): TPatternClient {
 				const job: TJob = { project, change, isPreview: true, resolve, reject };
 				dropWaiting();
 				if (current == null) return start(job);
-				if (!current.isPreview) return reject(new PatternCancelledError());
+				if (!current.isPreview) return reject(new PatternCanceledError());
 				if (performance.now() - current.startedAt < PREVIEW_PATIENCE) {
 					waiting = job;
 					return;

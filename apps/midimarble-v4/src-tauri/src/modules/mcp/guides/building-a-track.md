@@ -1,12 +1,12 @@
 # Building a track
 
-Each marble falls and bounces. A **hit** is a moment in the song a marble must strike a note. A **platform** tied to a hit plays that note. Units are metres and seconds; y points up.
+Each marble falls and bounces. A **hit** is a moment in the song a marble must strike a note. A **platform** tied to a hit plays that note. Units are meters and seconds; y points up.
 
 ## Fastest way
 
 `run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms and rails across long gaps, starts each bare marble on a short Rail and ends each marble in a Bowl; both are ordinary pieces you can delete. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
 
-**Patterns (prototype): chain them instead of running Build Track again.** `project.execute` with one command `{ type: 'applyPattern', laneId, from, to, kind, width, bounce, dryRun }` fits `zigzag` or `staircase` over the notes between `from` and `to` (seconds), or `longRail` over the silence there, as a Group: ordinary pieces in one Undo step, named after the Pattern. Work from the first note on; each starts where the last left the marble, and changing an earlier one fits the later ones again. `width` is in metres, `bounce` asks for less fall per hit when higher (0.3 to 0.7). `dryRun: true` changes nothing and answers the same `problems` in plain words plus `measures`: `onTime`, `columnStraightness`, `dropPerHit`, `medianTilt`. A problem means it did not fit as asked. It never falls back silently. Tilt follows Gravity, not Bounce.
+**Patterns (prototype): chain them instead of running Build Track again.** `project.execute` with one command `{ type: 'applyPattern', laneId, from, to, kind, width, bounce, dryRun }` fits `zigzag` or `staircase` over the notes between `from` and `to` (seconds), or `longRail` over the silence there, as a Group: ordinary pieces in one Undo step, named after the Pattern. Work from the first note on; each starts where the last left the marble, and changing an earlier one fits the later ones again. `width` is in meters, `bounce` asks for less fall per hit when higher (0.3 to 0.7). `dryRun: true` changes nothing and answers the same `problems` in plain words plus `measures`: `onTime`, `columnStraightness`, `dropPerHit`, `medianTilt`. A problem means it did not fit as asked. It never falls back silently. Tilt follows Gravity, not Bounce.
 
 A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.fix` (Fix) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
 
@@ -63,7 +63,7 @@ The project's own commands work too:
 
 - `{ type: 'setEnd', end }`, `{ type: 'setTempo', tempo: { bpm, beatsPerBar } }`, `{ type: 'setDesign', design: { ... } }`: see `film-look`
 - `{ type: 'setPhysics', physics: { gravityScale } }`: Gravity, 0.05 to 2, 0.5 by default (`get_state.physics`). `run_command('marble.speed', { value })` is the same.
-- `{ type: 'setComponent', entityId, component: { name, value } }`, with the component's whole value; `marble`, `skin` and `wallText` take only what changes. A marble's `{ radius }`: `get_state.marbles[]` has it. The radius, in metres and 0.012 as usual, changes the run, so hits can move; change it only on purpose and read `hits` in the reply. Moving a marble's start: `component: { name: 'release', value: { position: { x, y }, time } }`. Turning a platform: `component: { name: 'hitLink', value: { laneId, hitId, angle, contactAt } }`.
+- `{ type: 'setComponent', entityId, component: { name, value } }`, with the component's whole value; `marble`, `skin` and `wallText` take only what changes. A marble's `{ radius }`: `get_state.marbles[]` has it. The radius, in meters and 0.012 as usual, changes the run, so hits can move; change it only on purpose and read `hits` in the reply. Moving a marble's start: `component: { name: 'release', value: { position: { x, y }, time } }`. Turning a platform: `component: { name: 'hitLink', value: { laneId, hitId, angle, contactAt } }`.
 - `{ type: 'removeEntities', entityIds }`, `{ type: 'upsertEntity', entity: { id, name, components } }`
 - `{ type: 'removeHits', laneId, hitIds }`, `{ type: 'assignHits', hitIds, laneId }`
 

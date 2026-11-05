@@ -54,7 +54,7 @@ export interface TRotationDrag {
 
 /**
  * Surface angle while dragging a rotation grip around `pivot`. The pointer's change in angle is applied to
- * the start angle, so grabbing the grip off-centre does not jump. Shift snaps the result to 5°. The result
+ * the start angle, so grabbing the grip off-center does not jump. Shift snaps the result to 5°. The result
  * is not folded, so the grip stays under the pointer past 90°.
  */
 export function dragRotation(drag: TRotationDrag, pivot: TVec2, point: TVec2, snap: boolean): number {

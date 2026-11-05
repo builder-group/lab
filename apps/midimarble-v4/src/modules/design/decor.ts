@@ -16,7 +16,7 @@ import { titleSpan } from './titles';
 /** An object in the Blender file the app doesn't own, as the worker reports it */
 export interface TBlenderObject {
 	name: string;
-	/** Its bounds on the wall in metres at the time of the report */
+	/** Its bounds on the wall in meters at the time of the report */
 	bounds: { minX: number; minY: number; maxX: number; maxY: number };
 }
 
@@ -124,7 +124,7 @@ export function deleteDecorCommands(project: TProject, ids: readonly string[]): 
 	return kept.length === list.length ? [] : setDecorList(kept);
 }
 
-/** How far a copy lands from its original, right and down on the wall in metres */
+/** How far a copy lands from its original, right and down on the wall in meters */
 const DUPLICATE_OFFSET = { x: 0.03, y: -0.03 };
 
 /** Duplicate: copies a little right of and below the originals, as one edit. A copy is the user's, not Scatter Decor's. */

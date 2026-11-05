@@ -130,7 +130,7 @@ def id_color(index):
 
 @contextmanager
 def temporary(settings):
-    """Applies attribute values for the duration of a render and restores them afterwards"""
+    """Applies attribute values for the duration of a render and restores them afterward"""
     previous = []
     try:
         for owner, name, value in settings:

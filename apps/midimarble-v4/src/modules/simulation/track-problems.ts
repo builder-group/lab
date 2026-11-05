@@ -9,7 +9,7 @@ import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleTrack, type TResolvedPiece, ty
 // note, a marble rolling on a platform. They're Problems, with no taste in them: every number here says what breaks.
 
 /**
- * Least air between two pieces in the wall plane, in metres: a default marble's radius. A skin's body counts: every
+ * Least air between two pieces in the wall plane, in meters: a default marble's radius. A skin's body counts: every
  * built-in platform skin keeps the hitbox's top face and length but hangs below it (`visualShapes`). Pieces that only
  * lie over each other in the film's view are fine: the reference does that too.
  */
@@ -61,7 +61,7 @@ export interface TTouchingPair {
 	/** Entity IDs, the piece that plays first first */
 	a: string;
 	b: string;
-	/** Air between them in the wall plane, in metres; negative when they overlap */
+	/** Air between them in the wall plane, in meters; negative when they overlap */
 	gap: number;
 	/** Where the two come closest, for bringing them into view */
 	point: TVec2;
@@ -156,7 +156,7 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 	return strikes.sort((a, b) => a.time - b.time);
 }
 
-/** How far into a skin's body a marble's centre must come to count as passing through it: a graze of the edge isn't one */
+/** How far into a skin's body a marble's center must come to count as passing through it: a graze of the edge isn't one */
 const PASS_DEPTH_RADII = 0.25;
 
 /** A piece whose skin a marble goes through, where it has no hitbox */
@@ -211,7 +211,7 @@ export interface TRollingHit {
 	entityId: string;
 	laneId: string;
 	hitId: string;
-	/** Height the marble reached above the platform in the time a bounce has, in metres */
+	/** Height the marble reached above the platform in the time a bounce has, in meters */
 	rise: number;
 	time: number;
 	position: TVec2;

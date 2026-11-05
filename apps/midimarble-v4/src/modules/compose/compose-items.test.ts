@@ -87,10 +87,10 @@ describe('a dot click before it places', () => {
 		expect(ghostReducer(shown, { type: 'revision', revision: 2 }).ghost).toBeNull();
 	});
 
-	it('should leave Continue on offer when a preview is cancelled, unlike Escape on Continue itself', () => {
-		const cancelled = ghostReducer(ghostReducer(atOne, { type: 'preview', answer }), { type: 'previewCancelled' });
-		expect(cancelled.ghost).toBeNull();
-		expect(cancelled.dismissedRevision).toBeNull();
+	it('should leave Continue on offer when a preview is canceled, unlike Escape on Continue itself', () => {
+		const canceled = ghostReducer(ghostReducer(atOne, { type: 'preview', answer }), { type: 'previewCanceled' });
+		expect(canceled.ghost).toBeNull();
+		expect(canceled.dismissedRevision).toBeNull();
 	});
 
 	/** AssistCx on a small stand-in for the studio; `autoPlace` answers when the test says so */
@@ -232,7 +232,7 @@ describe('hit dots', () => {
 	it('should give the nearer of a placed dot and its platform the click, a tie to the platform', () => {
 		expect(pick({ x: 100, y: 99 }, scene)).toEqual({ kind: 'dot', laneId: 'l', hitId: 'placed' });
 		expect(pick({ x: 100, y: 106 }, scene)).toEqual({ kind: 'piece', entityId: 'p' });
-		// 2 px from the dot's centre but on the bar, as at low zoom
+		// 2 px from the dot's center but on the bar, as at low zoom
 		const low = { ...scene, pieces: [{ entityId: 'p', corners: [{ x: 70, y: 98 }, { x: 130, y: 98 }, { x: 130, y: 104 }, { x: 70, y: 104 }] }] };
 		expect(pick({ x: 101, y: 100 }, low)).toEqual({ kind: 'piece', entityId: 'p' });
 	});

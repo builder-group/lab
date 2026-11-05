@@ -18,7 +18,7 @@ export const DEFAULT_GRAVITY_SCALE = 0.5;
  */
 export const DEFAULT_CAMERA_DISTANCE = 1.36;
 export const DEFAULT_CAMERA_PITCH = 1;
-/** Distance between the releases of neighbouring marbles, and between their lanes' bands in the frame */
+/** Distance between the releases of neighboring marbles, and between their lanes' bands in the frame */
 export const LANE_SPACING = 0.26;
 
 export function createId(prefix: string): string {
@@ -68,8 +68,8 @@ interface TCreateProjectOptions {
 export const laneColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff'];
 
 /**
- * The colour a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
- * reads the lane's `color`, which is only a label for organising.
+ * The color a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
+ * reads the lane's `color`, which is only a label for organizing.
  */
 export function marbleFilmColor(project: Pick<TProject, 'music' | 'entities'>, laneId: string): string {
 	const own = project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.skin?.color;

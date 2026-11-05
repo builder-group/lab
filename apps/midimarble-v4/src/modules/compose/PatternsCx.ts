@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, groupsOfLane, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
+import { createPatternClient, flattenCommands, groupsOfLane, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
 import { parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -96,7 +96,7 @@ export class PatternsCx {
 					if (middle != null) this.studio.$reveal.set({ ids: [], point: middle.position });
 				})
 				.catch((error: unknown) => {
-					if (!(error instanceof PatternCancelledError)) console.warn(error);
+					if (!(error instanceof PatternCanceledError)) console.warn(error);
 				});
 		}, HOVER_DELAY);
 	}
@@ -213,7 +213,7 @@ export class PatternsCx {
 			return answer;
 		} catch (error) {
 			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
-			if (error instanceof PatternCancelledError) {
+			if (error instanceof PatternCanceledError) {
 				if (!run.isReplaced) this.studio.notify(`Stopped fitting ${label}. Nothing changed.`);
 				return null;
 			}

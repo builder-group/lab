@@ -28,7 +28,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	const swallowClickRef = React.useRef(false);
 	const hasResult = useFeatureState(studio.simulation.$result) != null;
 	const design = useFeatureState(studio.$history)?.present.design;
-	// A Background colour the theme or the Wall layer set shows around the frame, where the film has no wall
+	// A Background color the theme or the Wall layer set shows around the frame, where the film has no wall
 	const background = design != null ? appliedOverrides(design).backgroundColor : undefined;
 
 	React.useEffect(() => {
@@ -147,7 +147,7 @@ interface TDraftPreviewProps {
 	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
 }
 
-/** Rails, tunnels and Bowls as lines in the theme's colours and titles as text */
+/** Rails, tunnels and Bowls as lines in the theme's colors and titles as text */
 const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	const { draft } = props;
 	useFeatureState(draft.$frame);
@@ -167,7 +167,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				<polygon key={outline.key} points={toPoints(outline.points)} fill="none" stroke="currentColor" strokeOpacity={0.35 * outline.opacity} strokeWidth={1} strokeDasharray="4 3" />
 			))}
 			{glows ? (
-				// Neon's bloom, cheaply: every piece's outline in its glow colour, blurred once as a group and added onto the frame
+				// Neon's bloom, cheaply: every piece's outline in its glow color, blurred once as a group and added onto the frame
 				<g style={{ filter: `blur(${Math.max(2, Math.min(8, scale * 0.012))}px)`, mixBlendMode: 'screen' }} opacity={0.85}>
 					{pieces.map((piece) => {
 						const palette = draft.colorsOf(piece);
@@ -247,7 +247,7 @@ const MarbleFinish: React.FC<{ finish: NonNullable<TDraftMarble['finish']>; cent
 	);
 };
 
-/** One S-shaped vane through the marble's centre */
+/** One S-shaped vane through the marble's center */
 function swirl(center: TVec2, r: number, side: 1 | -1): string {
 	const [x, y] = [center.x, center.y];
 	return `M ${x - side * r * 0.72} ${y - r * 0.4} C ${x - side * r * 0.2} ${y - r * 0.85} ${x + side * r * 0.2} ${y + r * 0.85} ${x + side * r * 0.72} ${y + r * 0.4}`;
@@ -339,7 +339,7 @@ const WallTitle: React.FC<{ title: TDraftTitle }> = (props) => {
 	);
 };
 
-/** A Caption, Song Name or End Card as the encoded film draws it: bold and centred, on a soft dark plate with a shadow if it asks for one */
+/** A Caption, Song Name or End Card as the encoded film draws it: bold and centered, on a soft dark plate with a shadow if it asks for one */
 const ScreenTitle: React.FC<{ title: TDraftTitle; screen: TScreenTitleLayout }> = (props) => {
 	const { title, screen } = props;
 	const width = textWidth(title.text, screen.fontSize);
@@ -382,7 +382,7 @@ function textWidth(text: string, fontSize: number): number {
 	return measureContext.measureText(text).width;
 }
 
-/** Picking boxes of titles: the text's approximate extent around its centre, turned with it, plus a small margin */
+/** Picking boxes of titles: the text's approximate extent around its center, turned with it, plus a small margin */
 function titleBoxes(titles: TDraftTitle[]): Map<string, TVec2[]> {
 	const boxes = new Map<string, TVec2[]>();
 	for (const title of titles) {

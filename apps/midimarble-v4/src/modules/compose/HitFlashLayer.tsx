@@ -4,7 +4,7 @@ import type { THitFlash } from '@/modules/studio/timeline/hit-flash';
 import type { ComposeCx } from './ComposeCx';
 
 /**
- * Timing shown on the wall: a ring in the hit's status colour where the marble lands, gone with its animation.
+ * Timing shown on the wall: a ring in the hit's status color where the marble lands, gone with its animation.
  * It renders only when a hit lands, and pans with the view while a ring is up.
  */
 export const HitFlashLayer: React.FC<{ compose: ComposeCx }> = (props) => {

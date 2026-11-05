@@ -70,7 +70,7 @@ export const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; s
 	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	const palette = paletteOf(piece.type);
 	const outline = compose.screenOutline(piece);
-	// Colours come in as variables so dark mode can lighten the outline and raise the fill (styles.css)
+	// Colors come in as variables so dark mode can lighten the outline and raise the fill (styles.css)
 	const style = { '--ghost-fill': palette.bar, '--ghost-stroke': isOk ? palette.nub : 'var(--bad)' } as React.CSSProperties;
 	return <polygon className="mm-ghost-piece" data-ok={isOk} points={toPoints(outline)} style={style} strokeWidth={1.25} strokeDasharray="4 3" strokeLinejoin="round" />;
 };

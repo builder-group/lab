@@ -1,7 +1,7 @@
 """Wall text: native Blender text objects on the wall from `TSceneDescription.wallTexts`.
 
 Each text is a FONT object in `MidiMarble · managed` tagged `mm_role = 'text'` and its entity's `mm_id`. It is
-centred on its wall position, raised toward the camera by its extrusion and turned by its wall angle. The text is
+centered on its wall position, raised toward the camera by its extrusion and turned by its wall angle. The text is
 app-owned: re-applying updates it while it still holds what the app last wrote (`mm_written`). A text the user
 edited in Blender, or marked `mm_link = 'unlinked'`, is left alone; when its entity is removed it moves to
 `MidiMarble · detached` instead of being deleted.
@@ -14,7 +14,7 @@ from 0 to 1 over `FADE` seconds after `in` and back to 0 over the `FADE` seconds
 mixes to transparent by it, and `hide_render` keeps the title out of renders and the ID pass while it is hidden.
 
 Styles: `style` `wall` (the default) sits on the wall as above. `caption` (near the top of the frame), `songName`
-(above the centre) and `endCard` (centred) are screen titles: `attach_screen_texts` parents them to the film camera, after the camera
+(above the center) and `endCard` (centered) are screen titles: `attach_screen_texts` parents them to the film camera, after the camera
 exists, and drivers on its lens and distance keep them the same size and place in the frame while it moves. Their
 `size` is the letter height as a fraction of the frame height; they cast no shadow and have no extrusion.
 """
@@ -37,9 +37,9 @@ BOLD_FONTS = ('/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf', '/Sys
 BOLD_OFFSET = 0.03
 # Gap between the back of the letters and the wall plane so they never z-fight with it
 WALL_GAP = 0.0002
-# How far a wall title stands out of the wall, in metres; a bevel on it catches the light and the relief casts its soft shadow
+# How far a wall title stands out of the wall, in meters; a bevel on it catches the light and the relief casts its soft shadow
 TITLE_RELIEF = 0.004
-# Glow of a wall title on top of the light it takes: the themes darken the film, and a white title would read grey
+# Glow of a wall title on top of the light it takes: the themes darken the film, and a white title would read gray
 WALL_GLOW = 1.2
 # Seconds a timed title takes to fade in after its `in` time and out before its `out` time
 FADE = 0.25
@@ -51,9 +51,9 @@ SCREEN_STYLES = ('caption', 'songName', 'endCard')
 SCREEN_PROPERTY = 'mm_screen'
 # Screen titles sit this far along the way to the nearest wall in the frame's upper part, so they're as close to the focus as the steep wall allows
 SCREEN_DEPTH = 0.96
-# Glow of a screen title: the themes darken the film (Brass exposure -1.25), so plain strength 1 reads grey
+# Glow of a screen title: the themes darken the film (Brass exposure -1.25), so plain strength 1 reads gray
 SCREEN_GLOW = 3.0
-# Height of a screen title's centre above the frame centre, as a fraction of the half frame height; matches
+# Height of a screen title's center above the frame center, as a fraction of the half frame height; matches
 # `render.SCREEN_TITLE_HEIGHTS` and the Draft Preview's `SCREEN_TITLE_HEIGHT`
 SCREEN_HEIGHTS = {'caption': 0.7, 'songName': 0.3, 'endCard': 0.0}
 # Font size over letter height, the same as `render.SCREEN_TITLE_FONT_SCALE` and the Draft Preview's: the encoder
@@ -152,7 +152,7 @@ def attach_screen_texts(managed, camera, scene):
     """
     if camera is None or camera.type != 'CAMERA' or managed is None:
         return 0
-    # The sensor spans the longer image side, so the half frame height per metre is shorter in landscape
+    # The sensor spans the longer image side, so the half frame height per meter is shorter in landscape
     width, height = scene.render.resolution_x, max(scene.render.resolution_y, 1)
     fit = min(1.0, height / max(width, 1))
     # An orthographic camera (the framed still camera) sees the same frame height at every distance
@@ -222,8 +222,8 @@ def detach_from_camera(obj):
 
 def title_material(color, emissive=False):
     """
-    Title colour that mixes to transparent by the object's `mm_visible`, shared per colour. Screen titles glow in
-    their colour instead of taking the scene's light, so a white caption reads white over any wall.
+    Title color that mixes to transparent by the object's `mm_visible`, shared per color. Screen titles glow in
+    their color instead of taking the scene's light, so a white caption reads white over any wall.
     """
     def build(material):
         linear = parse_color(color)

@@ -36,7 +36,7 @@ const FIX_HELD_BUDGET_MS = 10000;
 
 const DEGREE = Math.PI / 180;
 
-/** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterwards */
+/** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterward */
 export const AUTO_PLACE_WAIT_MS = 150;
 
 /**
@@ -239,7 +239,7 @@ export class AssistCx {
 
 	/**
 	 * Places a piece at an open hit. Platforms and windmills ask Auto place for the angle and wait up to
-	 * 150 ms; a slower answer refines the default angle afterwards within the same undo step.
+	 * 150 ms; a slower answer refines the default angle afterward within the same undo step.
 	 */
 	async place(hit: THitResult, type: string): Promise<void> {
 		this.isPlacing = true;
@@ -363,7 +363,7 @@ export class AssistCx {
 		this.previewKey = null;
 		this.previewRun++;
 		this.continueKey = null;
-		this.dispatch({ type: 'previewCancelled' });
+		this.dispatch({ type: 'previewCanceled' });
 		this.refresh();
 	}
 
@@ -456,7 +456,7 @@ export class AssistCx {
 	readonly $building = createState<TBuildProgress | null>(null);
 	/** What the latest Build Track of this session left, for `get_state` */
 	readonly $lastBuild = createState<TBuildReport | null>(null);
-	private buildRun: { isCancelled: boolean } | null = null;
+	private buildRun: { isCanceled: boolean } | null = null;
 
 	get isBuilding(): boolean {
 		return this.buildRun != null;
@@ -474,25 +474,25 @@ export class AssistCx {
 
 	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Fix; what it did stays */
 	stopBuild(): void {
-		if (this.buildRun != null) this.buildRun.isCancelled = true;
-		if (this.fixRun != null) this.fixRun.isCancelled = true;
+		if (this.buildRun != null) this.buildRun.isCanceled = true;
+		if (this.fixRun != null) this.fixRun.isCanceled = true;
 	}
 
 	private buildAction(): { label: string; title: string; run: () => void } {
 		return { label: 'Build Track', title: 'Build every open hit, in time order', run: () => void this.buildTrack() };
 	}
 
-	/** The worker calls a build needs. Searches stop between their stages once `isCancelled` says so. */
-	private buildDeps(isCancelled: () => boolean): TBuildTrackDeps | null {
+	/** The worker calls a build needs. Searches stop between their stages once `isCanceled` says so. */
+	private buildDeps(isCanceled: () => boolean): TBuildTrackDeps | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
 		return {
 			// The assists worker, so its runs resume from the snapshots of the run before
 			simulate: (project) => client.simulateAssist(project),
-			autoPlace: (request) => client.autoPlace(request, { isCancelled }),
-			gapPiece: (request) => client.gapPiece(request, { isCancelled }),
+			autoPlace: (request) => client.autoPlace(request, { isCanceled }),
+			gapPiece: (request) => client.gapPiece(request, { isCanceled }),
 			continueRun: (request) => client.continueRun(request),
-			isCancelled
+			isCanceled
 		};
 	}
 
@@ -512,10 +512,10 @@ export class AssistCx {
 			this.studio.notify('Every hit already has a platform');
 			return null;
 		}
-		const run = { isCancelled: false };
+		const run = { isCanceled: false };
 		let expected = project.revision;
-		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
-		const deps = this.buildDeps(isCancelled);
+		const isCanceled = (): boolean => run.isCanceled || (this.studio.project?.revision ?? expected) !== expected;
+		const deps = this.buildDeps(isCanceled);
 		if (deps == null) return null;
 		this.buildRun = run;
 		this.clearQueuedNext();
@@ -524,7 +524,7 @@ export class AssistCx {
 		const startedAt = performance.now();
 		// A build's first hits come fast and say little about the stuck ones to come
 		const estimate = createEstimate({ minElapsedMs: 10000 });
-		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCancelled = true) };
+		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCanceled = true) };
 		// A back-up undoes steps; what the bar and the count show never goes back with it
 		let furthest = { done: 0, fraction: 0 };
 		// Hits a rebuild keeps were done from the start: the rate counts only what this build plays
@@ -578,7 +578,7 @@ export class AssistCx {
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
 		this.lastFixRevision = result.revision;
 		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
-		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterwards
+		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
 		const report = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
 		this.$lastBuild.set(report);
@@ -607,7 +607,7 @@ export class AssistCx {
 
 	/** How far the running Fix is, null when none runs */
 	readonly $fixing = createState<{ done: number; total: number } | null>(null);
-	private fixRun: { isCancelled: boolean } | null = null;
+	private fixRun: { isCanceled: boolean } | null = null;
 	/** Hits of the latest current result, to tell which hits an edit broke */
 	private baseline: { projectId: string; revision: number; hits: THitResult[] } | null = null;
 	/** Per marble, its hits from the latest result in which none of them was broken, for moving a release back */
@@ -668,10 +668,10 @@ export class AssistCx {
 	}
 
 	/** The worker calls Fix and Add Bowl need: runs, Auto place and a new bridge for a long gap */
-	private fixDeps(isCancelled?: () => boolean): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'settle'> | null {
+	private fixDeps(isCanceled?: () => boolean): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'settle'> | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
-		const options = isCancelled != null ? { isCancelled } : undefined;
+		const options = isCanceled != null ? { isCanceled } : undefined;
 		return {
 			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
@@ -719,7 +719,7 @@ export class AssistCx {
 	private async fixOnePiece(project: TProject, result: TSimulationResult, entityId: string): Promise<void> {
 		const deps = this.fixDeps();
 		if (deps == null) return;
-		this.fixRun = { isCancelled: false };
+		this.fixRun = { isCanceled: false };
 		this.$fixing.set({ done: 0, total: 1 });
 		try {
 			const fix = await fixPiece(project, result, entityId, deps);
@@ -744,13 +744,13 @@ export class AssistCx {
 	 * undo step when the run ends with fewer problems, or not at all, and the notice says so. Progress and Stop in the notice.
 	 */
 	private async fixWholeRun(project: TProject, result: TSimulationResult): Promise<void> {
-		const run = { isCancelled: false };
-		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision;
-		const deps = this.fixDeps(isCancelled);
+		const run = { isCanceled: false };
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project?.revision !== project.revision;
+		const deps = this.fixDeps(isCanceled);
 		if (deps == null) return;
 		this.fixRun = run;
 		this.dispatch({ type: 'dismiss' });
-		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCancelled = true) };
+		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCanceled = true) };
 		const progressId = this.studio.notify('Fixing', 'info', { progress: 0, actions: [stop] });
 		const commands: TProjectCommand[] = [];
 		let furthest = 0;
@@ -773,13 +773,13 @@ export class AssistCx {
 						furthest = Math.max(furthest, Math.min(1, Math.max(0, fraction)));
 						this.studio.updateNotice(progressId, { message: `Fixing · ${done} of ${total} hits`, progress: furthest });
 					},
-					isCancelled
+					isCanceled
 				},
 				[...this.lastGood.values()].flat()
 			);
 			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 			// Another edit while it ran makes the copy stale
-			if (outcome != null && this.studio.project?.revision === project.revision) this.landWholeRun(project, result, outcome, commands, run.isCancelled);
+			if (outcome != null && this.studio.project?.revision === project.revision) this.landWholeRun(project, result, outcome, commands, run.isCanceled);
 		} catch (error: unknown) {
 			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 			this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -829,13 +829,13 @@ export class AssistCx {
 			if (this.studio.project?.revision !== project.revision) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
 			return;
 		}
-		const run = { isCancelled: false };
+		const run = { isCanceled: false };
 		const startedAt = performance.now();
-		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
-		const deps = this.fixDeps(isCancelled);
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
+		const deps = this.fixDeps(isCanceled);
 		if (deps == null) return;
 		this.fixRun = run;
-		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCancelled = true) };
+		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCanceled = true) };
 		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
 		let fixed: TProject | null = null;
 		let isWorse = false;
@@ -853,7 +853,7 @@ export class AssistCx {
 					onProgress: (done, total, fraction) => {
 						this.studio.updateNotice(progressId, { message: `Fixing the break · ${done} of ${total} hits`, progress: Math.min(1, Math.max(0, fraction)) });
 					},
-					isCancelled
+					isCanceled
 				});
 				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) {
 					const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
@@ -872,7 +872,7 @@ export class AssistCx {
 		if (fixed == null) {
 			const from = firstHeld != null ? { laneId: firstHeld.laneId, hitId: firstHeld.hitId } : null;
 			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(from) }] : [];
-			const words = isWorse ? 'Fix would add problems, so nothing changed. Undo the edit, or rebuild from the break.' : run.isCancelled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.';
+			const words = isWorse ? 'Fix would add problems, so nothing changed. Undo the edit, or rebuild from the break.' : run.isCanceled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.';
 			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
 			return;
 		}

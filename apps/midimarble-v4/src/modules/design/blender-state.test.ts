@@ -7,7 +7,7 @@ describe('blenderState function', () => {
 		expect(blenderState('idle', '4.5.1')).toMatchObject({ tone: 'ready', label: 'Ready' });
 	});
 
-	it('should mark a missing Blender in grey and work without a version', () => {
+	it('should mark a missing Blender in gray and work without a version', () => {
 		expect(blenderState('missing', null)).toMatchObject({ tone: 'idle', label: 'Not Installed' });
 		expect(blenderState('rendering', null)).toMatchObject({ label: 'Rendering Preview', detail: 'Blender: rendering the preview…' });
 	});

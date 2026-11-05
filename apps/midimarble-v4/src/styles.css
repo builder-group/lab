@@ -74,7 +74,7 @@
 		--shadow-popover: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 10px 30px rgb(0 0 0 / 0.5);
 		--accent: #ffd60a;
 		--accent-strong: #ffd60a;
-		/* Yellow over dark grey turns olive, so secondary selection stays neutral in dark mode */
+		/* Yellow over dark gray turns olive, so secondary selection stays neutral in dark mode */
 		--selection: rgb(255 255 255 / 0.1);
 		--layer-group-tint: rgb(255 255 255 / 0.045);
 		--playhead: #ff453a;
@@ -485,7 +485,7 @@ textarea {
 		color-mix(in srgb, var(--content) 55%, transparent);
 }
 
-/* GarageBand-style track toggles: a speaker for Mute that turns grey and crossed out, headphones for Solo that light up in the accent */
+/* GarageBand-style track toggles: a speaker for Mute that turns gray and crossed out, headphones for Solo that light up in the accent */
 /* A Part's Sound in its timeline row: plain text with a chevron until hovered, so a tall Song stays quiet */
 .mm-part-sound {
 	display: inline-flex;
@@ -671,7 +671,7 @@ textarea {
 	border-bottom: 1px solid var(--separator);
 }
 
-/* Hit diamonds use Blender's keyframe vocabulary: selected keys turn the accent colour */
+/* Hit diamonds use Blender's keyframe vocabulary: selected keys turn the accent color */
 .mm-hit {
 	position: absolute;
 	display: grid;
@@ -690,7 +690,7 @@ textarea {
 	border: 1px solid color-mix(in srgb, var(--lane) 70%, black);
 }
 
-/* A marble landing the hit: a brief swell and glow in the status colour, large enough to catch at normal playback */
+/* A marble landing the hit: a brief swell and glow in the status color, large enough to catch at normal playback */
 .mm-hit[data-flash] > span {
 	animation: mm-hit-flash 420ms ease-out;
 }
@@ -801,7 +801,7 @@ textarea {
 	}
 }
 
-/* A marble track's flat row shows each hit's timing status by colour and shape: a green diamond On Time, an
+/* A marble track's flat row shows each hit's timing status by color and shape: a green diamond On Time, an
    amber circle Early or Late, a red square Missed, Blocked or Stopped, a hollow diamond Open */
 .mm-hit[data-state='onTime'] > span {
 	background: var(--good);
@@ -820,7 +820,7 @@ textarea {
 	transform: none;
 }
 
-/* Notes of the expanded Song track: blocks as long as the note, in the colour of the marble that plays it */
+/* Notes of the expanded Song track: blocks as long as the note, in the color of the marble that plays it */
 .mm-song-note {
 	position: absolute;
 	z-index: 1;
@@ -1371,7 +1371,7 @@ button.mm-hit-summary:hover {
 	aspect-ratio: 1;
 }
 
-/* A tile with a star beside its main button, like Figma's asset favourites */
+/* A tile with a star beside its main button, like Figma's asset favorites */
 .mm-tile-wrap {
 	position: relative;
 	min-width: 0;
@@ -1745,14 +1745,14 @@ button.mm-hit-summary:hover {
 /* Document title bar: tabs like Paper's, on the window background like a macOS unified toolbar */
 .mm-titlebar {
 	display: grid;
-	/* The sides never shrink below their controls; the title stays centred while there is room, then truncates */
+	/* The sides never shrink below their controls; the title stays centered while there is room, then truncates */
 	grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
 	align-items: center;
 	background: var(--window);
 	border-bottom: 1px solid var(--separator);
 }
 
-/* Centred document title of a one-document window, like macOS: the name and an edited dot */
+/* Centered document title of a one-document window, like macOS: the name and an edited dot */
 .mm-titlebar-title {
 	display: inline-flex;
 	align-items: center;
@@ -1792,7 +1792,7 @@ button.mm-hit-summary:hover {
 	background: var(--warn);
 }
 
-/* Blender and Agent: one secondary style, like Figma's secondary buttons and Xcode's neutral status display. Colour is left to the Blender logo and to Export Film…, the one accent button */
+/* Blender and Agent: one secondary style, like Figma's secondary buttons and Xcode's neutral status display. Color is left to the Blender logo and to Export Film…, the one accent button */
 .mm-titlebar-chip {
 	position: relative;
 	display: inline-flex;
@@ -1842,7 +1842,7 @@ button.mm-hit-summary:hover {
 	box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--on-accent) 25%, transparent);
 }
 
-/* Final Cut's background-task ring, drawn in the button's text colour */
+/* Final Cut's background-task ring, drawn in the button's text color */
 .mm-progress-ring {
 	flex-shrink: 0;
 }
@@ -2603,7 +2603,7 @@ button.mm-layer-disclosure:hover {
 	opacity: 1;
 }
 
-/* Repeat on: a quiet fill and full-strength icon. Play has no colour of its own: its icon says Play or Pause. */
+/* Repeat on: a quiet fill and full-strength icon. Play has no color of its own: its icon says Play or Pause. */
 .mm-transport-button[data-repeat='true'] {
 	background: var(--selection);
 	color: var(--accent-strong);

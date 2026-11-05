@@ -51,7 +51,7 @@ function baseScene(base: string): (typeof BASE_SCENES)[string] {
 // MARK: - Wall
 
 export interface TWallLayer {
-	/** The colours the film uses */
+	/** The colors the film uses */
 	color: string;
 	backgroundColor: string;
 	kind: TWallKind;

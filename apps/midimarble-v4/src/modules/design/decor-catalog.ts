@@ -12,7 +12,7 @@ export interface TDecorItem {
 	origin?: string;
 	/** Renders where a project has it, and is no longer offered */
 	previewUrl: string;
-	/** Half width and half height on the wall in metres at scale 1 */
+	/** Half width and half height on the wall in meters at scale 1 */
 	halfWidth: number;
 	halfHeight: number;
 	color: string;

@@ -60,7 +60,7 @@ export function gapPieceReads(check: TGapPieceCheck, paceLimit: number): boolean
 export interface TGapPieceOptions {
 	/** When the marble enters. Defaults to shortly after the bounce apex following the first hit. */
 	entryTime?: number;
-	/** Horizontal run downhill from the entry in metres. Defaults to what fits in the frame band, at most 0.375 m. */
+	/** Horizontal run downhill from the entry in meters. Defaults to what fits in the frame band, at most 0.375 m. */
 	length?: number;
 	/** Downhill slope along the travel direction in radians, 6° by default */
 	slope?: number;
@@ -160,7 +160,7 @@ export interface TGapSearchPlan {
 	candidates: TGapTry[];
 	/** What is proposed without simulating */
 	fallback: TGapTry;
-	/** Neighbouring slopes of the best switchback are tried once more */
+	/** Neighboring slopes of the best switchback are tried once more */
 	isRefined: boolean;
 }
 
@@ -190,7 +190,7 @@ export function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGa
 /**
  * The gap search as stages of candidates: each yield asks for one stage, whose candidates are independent of each
  * other, and the answers are reduced in the order asked, with ties going to the first, so the choice never depends
- * on how the stage was computed. Switchbacks then try the best one's neighbouring slopes.
+ * on how the stage was computed. Switchbacks then try the best one's neighboring slopes.
  */
 export function* gapSearch(plan: TGapSearchPlan): Generator<TGapTry[], TResult<TGapPieceProposal, Error>, TGapEvaluation[]> {
 	let best: { score: number; candidate: TGapTry; check: TGapPieceCheck } | null = null;
@@ -207,14 +207,14 @@ export function* gapSearch(plan: TGapSearchPlan): Generator<TGapTry[], TResult<T
 	const found = best as { score: number; candidate: TGapTry; check: TGapPieceCheck } | null;
 	if (found == null)
 		return Err(new Error(hasTurns ? 'Every candidate crosses the earlier trajectory or another lane, or holds the marble' : 'Every candidate crosses the earlier trajectory or another lane'));
-	// Steeper legs hold shorter and drop the marble lower; one round of neighbouring slopes
+	// Steeper legs hold shorter and drop the marble lower; one round of neighboring slopes
 	if (plan.isRefined) {
-		const neighbours: TGapTry[] = [];
+		const neighbors: TGapTry[] = [];
 		for (const offset of [-2, 2, -4, 4]) {
 			const slope = found.candidate.slope + offset * DEGREE;
-			if (slope >= 2 * DEGREE && slope <= 25 * DEGREE) neighbours.push({ ...found.candidate, slope });
+			if (slope >= 2 * DEGREE && slope <= 25 * DEGREE) neighbors.push({ ...found.candidate, slope });
 		}
-		if (neighbours.length) reduce(neighbours, yield neighbours);
+		if (neighbors.length) reduce(neighbors, yield neighbors);
 	}
 	const chosen = best as { score: number; candidate: TGapTry; check: TGapPieceCheck } | null;
 	return Ok(gapProposal(plan, chosen?.candidate ?? found.candidate, chosen?.check ?? found.check));
@@ -570,7 +570,7 @@ function turnsParams(layout: TTurnsLayout, candidate: Pick<TTurnsCandidate, 'tur
 /**
  * Switchback that catches the marble after `fromHitId` and holds it in the lane's frame band, so it
  * leaves shortly before `toHitId` near the shared pace y*. The entry lies where the marble has fallen a
- * few centimetres below the launching hit, so its earlier path stays above the switchback. Leg counts
+ * few centimeters below the launching hit, so its earlier path stays above the switchback. Leg counts
  * and slopes are ranked by their estimated hold time (`switchbackHoldTime`) and the height the marble
  * would reach at the next hit after falling from the exit; with `simulate` the best estimates are
  * simulated for two widths, both directions and three entry positions, scored by the pace error of the

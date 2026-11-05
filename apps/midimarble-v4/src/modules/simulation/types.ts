@@ -4,7 +4,7 @@ import type { TDescentPace, TDescentPoint } from './pace';
 import type { TPieceShape } from './shapes';
 
 // Contract between the simulation engine and its consumers (Compose view, Blender handoff, fixtures).
-// Units: metres, seconds, radians. Wall-plane coordinates: x right, y up; the wall surface is z = 0.
+// Units: meters, seconds, radians. Wall-plane coordinates: x right, y up; the wall surface is z = 0.
 
 /** Fixed physics rate. Samples, contacts and snapshots use this clock. */
 export const PHYSICS_HZ = 240;
@@ -63,7 +63,7 @@ export interface TMarbleSample {
 export interface TResolvedPiece {
 	entityId: string;
 	type: string;
-	/** Pose of the piece origin. For platforms the origin is the centre of the collider box. */
+	/** Pose of the piece origin. For platforms the origin is the center of the collider box. */
 	position: TVec2;
 	angle: number;
 	/** Physical parameters after defaults are applied */
@@ -120,7 +120,7 @@ export interface TContact {
 	position: TVec2;
 	/**
 	 * Speed at which the marble approached the piece along the contact normal, relative to the piece's
-	 * surface, in metres per second. Set for piece contacts.
+	 * surface, in meters per second. Set for piece contacts.
 	 */
 	speed?: number;
 }
@@ -131,7 +131,7 @@ export interface THitResult {
 	targetTime: number;
 	/** Entity of the piece linked to this hit, if any */
 	pieceEntityId: string | null;
-	/** Marble centre at the target time on the current trajectory: the dot the user clicks */
+	/** Marble center at the target time on the current trajectory: the dot the user clicks */
 	dot: TVec2 | null;
 	/** Marble velocity at the target time, used for default angles and guardrails */
 	velocity: TVec2 | null;
@@ -165,7 +165,7 @@ export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'generated' |
 export interface TPieceDefinition {
 	type: string;
 	label: string;
-	/** Parameter defaults and limits, in metres or radians */
+	/** Parameter defaults and limits, in meters or radians */
 	params: Record<
 		string,
 		{

@@ -12,7 +12,7 @@ CATALOG = json.loads(Path(__file__).with_name('skin_catalog.json').read_text())
 ELEMENTS = CATALOG['elements']
 THEME_PARTS = CATALOG['themes']
 _SKINS = {skin['id']: skin for element in ELEMENTS.values() for skin in element['skins']}
-PART_FIELDS = ('colour', 'onHit', 'glowColor', 'variant')
+PART_FIELDS = ('colorSource', 'onHit', 'glowColor', 'variant')
 
 
 def skin_entry(skin_id):
@@ -32,7 +32,7 @@ def resolve_look(base, parts, element, component=None):
     """What a piece of `element` wears: its own skin or the theme's, with each property from its own override, the
     theme's part (only while it shows the theme's skin) or the skin's default.
 
-    Returns skin (id), isThemeSkin, colour, onHit (None keeps the theme's reaction), glowColor, variant, properties."""
+    Returns skin (id), isThemeSkin, colorSource, onHit (None keeps the theme's reaction), glowColor, variant, properties."""
     element = element_of(element)
     theme = THEME_PARTS.get(base) or THEME_PARTS['pegboard']
     part = (parts or {}).get(element) or {}
@@ -50,14 +50,14 @@ def resolve_look(base, parts, element, component=None):
             return value
         return part.get(field) if is_theme else None
 
-    colour = choose('colour')
+    color_source = choose('colorSource')
     variant = choose('variant')
     variants = [item['id'] for item in entry.get('variants', [])]
     on_hit = choose('onHit')
     return {
         'skin': skin,
         'isThemeSkin': is_theme,
-        'colour': colour if colour in entry['colours'] else entry['colour'],
+        'colorSource': color_source if color_source in entry['colorSources'] else entry['colorSource'],
         'onHit': on_hit if on_hit in ELEMENTS[element]['onHit'] else None,
         'glowColor': choose('glowColor'),
         'variant': variant if variant in variants else entry.get('variant'),

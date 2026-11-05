@@ -87,19 +87,19 @@ export class DraftPreviewCx {
 		return this.pose != null ? imageToWall(this.pose, this.aspect(), u, v) : null;
 	}
 
-	/** CSS pixels per wall metre at the followed point, for line widths */
+	/** CSS pixels per wall meter at the followed point, for line widths */
 	screenScale(): number {
 		if (this.pose == null) return 1000;
 		const halfFrame = Math.tan((verticalFov(this.pose.lens, this.aspect()) * Math.PI) / 360);
 		return this.size.height / 2 / (halfFrame * Math.max(this.pose.focus, 1e-3));
 	}
 
-	/** Scene description entry of a piece, for its theme colours */
+	/** Scene description entry of a piece, for its theme colors */
 	scenePiece(entityId: string): TScenePiece | undefined {
 		return this.camera?.value.build.description.pieces.find((piece) => piece.id === entityId);
 	}
 
-	/** Theme colours of a piece in the draft */
+	/** Theme colors of a piece in the draft */
 	colorsOf(piece: TResolvedPiece): TDraftColors {
 		const project = this.studio.project;
 		const scene = this.scenePiece(piece.entityId);
@@ -114,7 +114,7 @@ export class DraftPreviewCx {
 	}
 
 	/**
-	 * A platform's skin marks on its front face in CSS pixels, each a quad with its colour: the chrome caps, key, lens
+	 * A platform's skin marks on its front face in CSS pixels, each a quad with its color: the chrome caps, key, lens
 	 * or grille that tell a Brass skin apart
 	 */
 	skinMarks(piece: TResolvedPiece): { id: string; points: TVec2[]; color: string }[] {
@@ -126,7 +126,7 @@ export class DraftPreviewCx {
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
 		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, shownDepth(piece)];
 		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
-		// A point on the front face, in shares of the bar's length and thickness from its centre
+		// A point on the front face, in shares of the bar's length and thickness from its center
 		const at = (x: number, y: number): TVec2 =>
 			this.toScreen({ x: piece.position.x + cos * x * length - sin * y * thickness, y: piece.position.y + sin * x * length + cos * y * thickness }, depth);
 		return marks.map((mark) => ({ id: `${mark.x0}:${mark.y0}`, color: mark.color, points: [at(mark.x0, mark.y0), at(mark.x1, mark.y0), at(mark.x1, mark.y1), at(mark.x0, mark.y1)] }));
@@ -157,15 +157,15 @@ export class DraftPreviewCx {
 			const center = this.toScreen(transform.position, 0);
 			const step = 0.01;
 			const along = this.toScreen({ x: transform.position.x + Math.cos(transform.angle) * step, y: transform.position.y + Math.sin(transform.angle) * step }, 0);
-			const pixelsPerMetre = Math.hypot(along.x - center.x, along.y - center.y) / step;
-			if (!Number.isFinite(pixelsPerMetre) || !Number.isFinite(center.x)) return [];
+			const pixelsPerMeter = Math.hypot(along.x - center.x, along.y - center.y) / step;
+			if (!Number.isFinite(pixelsPerMeter) || !Number.isFinite(center.x)) return [];
 			return [
 				{
 					entityId: entity.id,
 					text: text.text,
 					color,
 					center,
-					fontSize: text.size * pixelsPerMetre,
+					fontSize: text.size * pixelsPerMeter,
 					angle: (Math.atan2(along.y - center.y, along.x - center.x) * 180) / Math.PI,
 					opacity: titleOpacity(time, text)
 				}
@@ -276,7 +276,7 @@ export class DraftPreviewCx {
 		].map(([x = 0, y = 0]) => this.toScreen({ x: box.x + x * cos - y * sin, y: box.y + x * sin + y * cos }, 0));
 	}
 
-	/** SVG matrix from a decoration's own metres (x right, y down) to CSS pixels, through the film camera at its spot */
+	/** SVG matrix from a decoration's own meters (x right, y down) to CSS pixels, through the film camera at its spot */
 	private wallMatrix(center: TVec2, angle: number, scale: number): string | null {
 		const step = 0.01;
 		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
@@ -291,7 +291,7 @@ export class DraftPreviewCx {
 		return `matrix(${a} ${b} ${c} ${d} ${origin.x} ${origin.y})`;
 	}
 
-	/** Marbles at the playhead in the theme's look: their wall position, radius, body and rim colours, apart from the wall */
+	/** Marbles at the playhead in the theme's look: their wall position, radius, body and rim colors, apart from the wall */
 	marbles(): (TDraftMarble & { entityId: string; radius: number; position: TVec2 })[] {
 		const project = this.studio.project;
 		if (project == null) return [];
@@ -305,7 +305,7 @@ export class DraftPreviewCx {
 			const motion = result?.marbles.find((item) => item.entityId === entity.id);
 			const look = resolveElementLook(project.design, 'marble', entity.components.skin);
 			const draft = draftMarble(theme.base, marbleFilmColor(project, marble.laneId), appliedOverrides(project.design), look);
-			// Draft isn't the film: a marble no skin dresses shows its label colour, so it reads as the same marble as in Compose
+			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Compose
 			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.lanes.find((lane) => lane.id === marble.laneId)?.color : undefined;
 			return [
 				{
@@ -390,7 +390,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		const result = this.studio.simulation.$result.get();
 		if (project == null || result == null) return null;
-		// The result changes with every edit; the description also carries skins, colours and theme options
+		// The result changes with every edit; the description also carries skins, colors and theme options
 		const key = `${result.revision}:${project.revision}`;
 		if (this.camera?.key !== key) {
 			this.camera = { key, value: filmCamera(project, result) };
@@ -436,10 +436,10 @@ export interface TDraftDecor {
 	key: string;
 	/** Null for an asset */
 	item: TDecorItem | null;
-	/** SVG transform from the item's own metres to CSS pixels */
+	/** SVG transform from the item's own meters to CSS pixels */
 	matrix: string;
 	opacity: number;
-	/** Half width and height in the item's own metres */
+	/** Half width and height in the item's own meters */
 	extent: { x: number; y: number };
 	/** An asset's still */
 	previewUrl: string | null;

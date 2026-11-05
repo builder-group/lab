@@ -215,7 +215,7 @@ const DEGREE = Math.PI / 180;
  * - clearance: `CLEARANCE_WEIGHT` per share of `CLEARANCE` that the new piece's colliders, the next
  *   piece's colliders or the marble path come closer than `CLEARANCE` to another piece, overlaps
  *   included. Other lanes' open hits count as flat platforms at their dots from their hit time on.
- * - band: `BAND_WEIGHT` times the squared offset of the next dot from the band centre, in half widths,
+ * - band: `BAND_WEIGHT` times the squared offset of the next dot from the band center, in half widths,
  *   plus `TRAVEL_WEIGHT` per half width the path leaves the band. With several marbles the search first
  *   stays in the lane, since a piece in another lane stands in that marble's way later, and when no angle
  *   fits tries the whole frame: a marble may cross another's path, as long as it touches neither that marble
@@ -229,12 +229,12 @@ const DEGREE = Math.PI / 180;
  * - comfort: `COMFORT_WEIGHT` times the relative difference between the travel and a comfortable
  *   travel: the previous hit's travel when that was long enough, `COMFORT_TRAVEL` piece lengths (at most
  *   the band's half width) otherwise, and `LAUNCH_TRAVEL` piece lengths before a long gap
- * - pattern: `PATTERN_WEIGHT` when the travel goes the other way than the neighbours suggest, which is
+ * - pattern: `PATTERN_WEIGHT` when the travel goes the other way than the neighbors suggest, which is
  *   back after a single step (zigzag) and onward after two steps the same way (staircase), plus
  *   `ANGLE_WEIGHT` times the distance to the previous piece's angle or its mirror, in 40° units
  * - look, what makes the track read as designed rather than scattered, among angles that all play:
  *   `COLUMN_WEIGHT` per piece length the next dot lies from the lane's other column, two columns
- *   `columnOffset` either side of the lane's centre, so the marble zigzags between the same two places;
+ *   `columnOffset` either side of the lane's center, so the marble zigzags between the same two places;
  *   `TILT_WEIGHT` when the tilt does not lean toward that column, which alternates the tilts;
  *   `REPEAT_WEIGHT` per 40° from the tilt the lane used last for the same interval, so a rhythm that repeats
  *   repeats its shape; and `STEEP_WEIGHT` per 10° past `STEEP_TILT`. A note sooner than `FULL_COLUMN_INTERVAL` cannot
@@ -299,7 +299,7 @@ const STEEP_WEIGHT = 0.5;
 const STEEP_TILT = 20 * DEGREE;
 // A note sooner than this cannot cross the lane at a gentle tilt, so its column counts for less in proportion
 const FULL_COLUMN_INTERVAL = 0.4;
-// A dot this close to the lane's centre counts as on neither column, and goes back the way it came
+// A dot this close to the lane's center counts as on neither column, and goes back the way it came
 const COLUMN_DEADBAND = 0.01;
 // Intervals this close count as the same rhythm, as Continue and Mirror judge it
 const RHYTHM_TOLERANCE = 0.015;
@@ -389,16 +389,16 @@ export function autoPlace(
 /**
  * Runs the Auto place search with each stage's tries answered by `evaluate`, for example spread over a pool of
  * workers. The answers are reduced in the order the tries were asked, so the choice is the one `autoPlace` makes
- * however the work was split. `isCancelled` is checked between stages.
+ * however the work was split. `isCanceled` is checked between stages.
  */
 export async function runAutoPlaceSearch(
 	evaluate: (tries: TAngleTry[]) => Promise<TAutoPlaceBatch>,
-	options: { range?: [number, number]; isCancelled?: () => boolean } = {}
+	options: { range?: [number, number]; isCanceled?: () => boolean } = {}
 ): Promise<TResult<TAutoPlacement, Error>> {
 	const steps = autoPlaceSearch(options.range);
 	let step = steps.next();
 	while (step.done !== true) {
-		if (options.isCancelled?.() === true) return Err(new Error('Auto place was stopped'));
+		if (options.isCanceled?.() === true) return Err(new Error('Auto place was stopped'));
 		step = steps.next(await evaluate(step.value));
 	}
 	return step.value;
@@ -560,7 +560,7 @@ function placementContext(
 						)
 					: null;
 	const band = frameBand(project, laneId);
-	// The limit of what stays in frame, whichever lane's centre the marble prefers
+	// The limit of what stays in frame, whichever lane's center the marble prefers
 	const stage = frameBand(project);
 	// A dot stays a tenth of a lane inside the frame's edge
 	const dotShare = 1 - (0.1 * band.halfWidth) / stage.halfWidth;
@@ -925,7 +925,7 @@ function placementScore(
 	const { angle, travel, end, nextDot, side, toward, heading, visualShortfall, shortfall, shorter, ownLength, outside, outsideLane, restrikes, isRolling, limit } = placement;
 	const distance = Math.abs(travel);
 	const centrality = end != null ? (end.x - band.centerX) / band.halfWidth : 0;
-	// A centred zigzag travels about the band's half width per hit, which caps the default in narrow lanes
+	// A centered zigzag travels about the band's half width per hit, which caps the default in narrow lanes
 	const comfort = isLaunch
 		? LAUNCH_TRAVEL * length
 		: (pattern.travel ?? Math.min(COMFORT_TRAVEL * length, band.halfWidth));
@@ -1031,7 +1031,7 @@ function* autoPlaceSearch(
 	// Narrow lanes leave windows of a degree or two, so several marbles search them in half degrees
 	const step = isShared ? 0.5 : 1;
 	coarse ??= yield* search(steps(near[0], near[1], step * DEGREE), null, near, 0, step);
-	// A fast arrival turns every degree of tilt into several centimetres of travel per tenth of a second
+	// A fast arrival turns every degree of tilt into several centimeters of travel per tenth of a second
 	const flat: [number, number] = [-3 * DEGREE, 3 * DEGREE];
 	if (coarse == null && known.plan?.isFast === true) {
 		coarse = yield* search(steps(flat[0], flat[1], DEGREE / 4), null, flat, 0, 0.25);
@@ -1130,7 +1130,7 @@ function reservedSpots(
 }
 
 /**
- * Travel the neighbours suggest for the hit at `index`: the side is back after one step (zigzag) and
+ * Travel the neighbors suggest for the hit at `index`: the side is back after one step (zigzag) and
  * onward after two long enough steps the same way (staircase); the travel is the last step's distance
  * when it was long enough. Steps count only between consecutive hits that have pieces.
  */
@@ -1203,7 +1203,7 @@ const CONTINUE_TURN_TRIES = 48;
 /**
  * Ghost pieces that continue the lane's recent pattern. The last two to four placed pieces must repeat
  * one angle or alternate it mirrored, and each following open hit must keep the rhythm: its
- * inter-onset interval matches the interval one pattern period earlier. A ghost's dot may leave the lane's centre but
+ * inter-onset interval matches the interval one pattern period earlier. A ghost's dot may leave the lane's center but
  * not the frame. Ghosts stop before a hit that
  * starts a long gap, which needs a launch from Auto place, before the hit ahead of it, which must strike the
  * launch firmly, and after one, and with several marbles before a

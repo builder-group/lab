@@ -43,7 +43,7 @@ export type TGhostAction =
 	| { type: 'gapAnswer'; answer: TGapAnswer }
 	| { type: 'gapFailed'; revision: number }
 	| { type: 'preview'; answer: TPlaceAnswer }
-	| { type: 'previewCancelled' }
+	| { type: 'previewCanceled' }
 	| { type: 'dismiss' }
 	| { type: 'accepted' };
 
@@ -84,7 +84,7 @@ export function ghostReducer(state: TGhostState, action: TGhostAction): TGhostSt
 		case 'preview':
 			return { ...state, revision: action.answer.revision, ghost: { kind: 'place', answer: action.answer }, pendingGap: null };
 		// Unlike Escape on Continue ghosts, nothing is hidden for the rest of this revision: the click only looked
-		case 'previewCancelled':
+		case 'previewCanceled':
 			if (state.ghost == null && state.pendingGap == null) return state;
 			return { ...state, ghost: null, pendingGap: null };
 		case 'dismiss':

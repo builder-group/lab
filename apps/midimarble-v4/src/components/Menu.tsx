@@ -217,7 +217,7 @@ export interface TMenuItem {
 	disabled?: boolean;
 	/** Shows a check mark column entry, like View menu toggles */
 	checked?: boolean;
-	/** A colour dot before the label, like Finder's tags */
+	/** A color dot before the label, like Finder's tags */
 	swatch?: string;
 	/** Entries of a submenu that opens beside the item on hover, click or Right Arrow, like Piece ▸ */
 	submenu?: TMenuEntry[];

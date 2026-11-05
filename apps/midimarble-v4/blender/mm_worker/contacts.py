@@ -5,7 +5,7 @@ clear of its piece and the hit looks like it happened in mid-air. The worker the
 playback time locally so every hit falls exactly on a frame of the snap grid. The grid is 1/30 s when the frame
 rate is a multiple of 30, so the hit shows at both 30 and 60 fps output; otherwise it is the frame rate. The
 shift is at most half a grid step (17 ms at 30 fps), applied with a triangular blend over a short window that
-never reaches a neighbouring hit, so the motion stays continuous and hit sounds stay within 17 ms of their frame.
+never reaches a neighboring hit, so the motion stays continuous and hit sounds stay within 17 ms of their frame.
 Hit values (`mm_hit`) use the same snapped times, so reactions start on the contact frame. Scenery has no hits;
 windmill blade strikes from `contactTimes` snap the same way.
 
@@ -55,7 +55,7 @@ def marble_contacts(motion, radius, pieces):
 
 def with_contact_samples(motion, contacts):
     """Inserts a sample at each contact, extrapolated from the incoming flight. Physics samples straddle a
-    bounce, and interpolating between them would cut off the bottom of the bounce by a few millimetres."""
+    bounce, and interpolating between them would cut off the bottom of the bounce by a few millimeters."""
     if len(motion) < 3 or not contacts:
         return motion
     rows = []
@@ -124,7 +124,7 @@ def distance_along(points, line):
     """Distance of each point to a polyline, the arc length of its closest point and the polyline length"""
     best = np.full(len(points), np.inf)
     along = np.zeros(len(points))
-    travelled = 0.0
+    traveled = 0.0
     for (ax, ay), (bx, by) in zip(line, line[1:]):
         segment = np.array([bx - ax, by - ay])
         length = float(np.hypot(*segment)) or 1e-9
@@ -134,6 +134,6 @@ def distance_along(points, line):
         distance = np.hypot(*(points - closest).T)
         better = distance < best
         best = np.where(better, distance, best)
-        along = np.where(better, travelled + t * length, along)
-        travelled += length
-    return best, along, travelled
+        along = np.where(better, traveled + t * length, along)
+        traveled += length
+    return best, along, traveled

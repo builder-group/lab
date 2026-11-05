@@ -93,7 +93,7 @@ describe('follow camera on whole songs', () => {
 		const hits = result.hits.map((hit) => hit.actualTime ?? Number.NaN).filter(Number.isFinite);
 		const first = pyRound(Math.min(...hits) * 30);
 		const last = pyRound(Math.max(...hits) * 30);
-		// Distance of a marble centre to the nearest frame edge in frame fractions, negative outside
+		// Distance of a marble center to the nearest frame edge in frame fractions, negative outside
 		const nearest = (frame: number): number[] =>
 			result.marbles.map((marble) => {
 				const sample = required(marble.samples.find((item) => item.time >= frame / 30));

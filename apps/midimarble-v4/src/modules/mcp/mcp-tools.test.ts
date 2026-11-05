@@ -373,14 +373,14 @@ describe('MCP tools', () => {
 			expect(reply).toContain('hitLink');
 		});
 
-		it('should change a marble colour without a radius, and warn when a radius changes', async () => {
+		it('should change a marble color without a radius, and warn when a radius changes', async () => {
 			const { cx } = studio();
 			const id = marbleOf(cx).id;
 			const radius = marbleOf(cx).components.marble?.radius;
-			const colour = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'skin', value: { color: '#22ff66' } } }))) as { notices?: string[] };
+			const color = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'skin', value: { color: '#22ff66' } } }))) as { notices?: string[] };
 			expect(marbleOf(cx).components.skin?.color).toBe('#22ff66');
 			expect(marbleOf(cx).components.marble?.radius).toBe(radius);
-			expect(colour.notices).toBeUndefined();
+			expect(color.notices).toBeUndefined();
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; filmColor: string }[] };
 			expect(state.marbles[0]).toMatchObject({ radius, filmColor: '#22ff66' });
 			const bigger = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 0.0125 } } }))) as { notices: string[] };

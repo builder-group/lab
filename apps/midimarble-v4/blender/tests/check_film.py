@@ -3,7 +3,7 @@
 Builds a synthetic but representative run (a zigzag of platform hits on brackets, a rail at the end and a spinning
 windmill), renders stills at hit times with Eevee and Cycles, then renders a film through `render_film` with a test
 soundtrack and checks the MP4 with ffprobe. Then renders the same film with the draft preset (Workbench) and checks its
-size, soundtrack and colours. Outputs are copied to `.local/look/` for review.
+size, soundtrack and colors. Outputs are copied to `.local/look/` for review.
 
 Run: Blender --background --factory-startup --python-exit-code 1 --python blender/tests/check_film.py [-- --quick]
 """
@@ -95,8 +95,8 @@ def build_run():
                 progress = min(1.0, (t - landing) / RAIL_TIME)
                 eased = progress * (2 - progress)
                 x[index], y[index] = point_on_rail(rail_path, eased * 0.95, RADIUS + wire)
-    travelled = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
-    angle = -travelled / RADIUS
+    traveled = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+    angle = -traveled / RADIUS
     records = np.stack([times, x, y, angle], axis=1).astype('<f4')
     return records, hits, rail_path
 
@@ -205,7 +205,7 @@ def check_draft_film(worker, root, scene, final_started):
     check(streams['audio']['codec_name'] == 'aac', 'draft film carries the AAC soundtrack')
     check(started['frames'] == final_started['frames'] and started['fps'] == 30, 'draft film covers the same frames as final')
     # A frame at the fourth hit: the blue marble, deep navy against Brass's light wall and gold bars, and the brass
-    # bars must read as their colours on the wall
+    # bars must read as their colors on the wall
     pixels = film_frame(film, started['width'], started['height'], math.ceil(FIRST_HIT * 30 + 3 * HIT_GAP * 30) / 30)
     red, green, blue = (pixels[..., channel].astype(float) for channel in range(3))
     marble = int(((blue > red + 30) & (blue > green + 15) & (blue < 140)).sum())
@@ -264,7 +264,7 @@ def main():
         views.append((view.x, view.y))
     views = np.array(views)
     check(views.min() > 0.05 and views.max() < 0.95, 'marble stays in frame for the whole run')
-    check(0.4 < float(np.median(views[:, 1])) < 0.7, 'marble sits slightly above frame centre (median %.2f)' % np.median(views[:, 1]))
+    check(0.4 < float(np.median(views[:, 1])) < 0.7, 'marble sits slightly above frame center (median %.2f)' % np.median(views[:, 1]))
     rotations = []
     for frame in range(scene.frame_start, scene.frame_end + 1, 6):
         scene.frame_set(frame)

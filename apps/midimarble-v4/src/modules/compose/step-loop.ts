@@ -23,7 +23,7 @@ export function openHits(result: TSimulationResult, laneId?: string): THitResult
 		.sort((a, b) => a.targetTime - b.targetTime);
 }
 
-/** The first open hit per lane, which the canvas emphasises as the next step */
+/** The first open hit per lane, which the canvas emphasizes as the next step */
 export function nextOpenHitPerLane(result: TSimulationResult): Map<string, THitResult> {
 	const next = new Map<string, THitResult>();
 	for (const hit of openHits(result)) if (!next.has(hit.laneId)) next.set(hit.laneId, hit);
@@ -134,7 +134,7 @@ export function followerAt(
 }
 
 /**
- * A Bowl for the marble of its anchor: its centre on the side the marble moves toward, and the marble's own Bowl
+ * A Bowl for the marble of its anchor: its center on the side the marble moves toward, and the marble's own Bowl
  * kept, moved to the new spot, since a marble has at most one
  */
 export function asLaneBowl(project: TProject, entity: TEntity, velocity: TVec2 | null): TEntity {

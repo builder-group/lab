@@ -4,7 +4,7 @@ import { audibleProject, BACKING_COLOR, backingNoteLength, laneNoteLength, sound
 import type { THit, TProject } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 
-/** One note as it sounds: when it starts and ends, and the colour its key lights in */
+/** One note as it sounds: when it starts and ends, and the color its key lights in */
 export interface TNoteSpan {
 	pitch: number;
 	color: string;
@@ -19,7 +19,7 @@ const SCRUB_HOLD_MS = 180;
 
 const NOTHING_SOUNDS: ReadonlyMap<number, string> = new Map();
 
-/** The notes a project plays, in the order they start: marbles in their colours, Backing in grey */
+/** The notes a project plays, in the order they start: marbles in their colors, Backing in gray */
 export function noteSpans(project: TProject): TNoteSpan[] {
 	if (!soundsNotes(project)) return [];
 	const pitched = (hits: THit[]): TPitchedHit[] => hits.filter((hit): hit is TPitchedHit => hit.pitch != null).sort((a, b) => a.time - b.time);
@@ -33,7 +33,7 @@ export function noteSpans(project: TProject): TNoteSpan[] {
 	return [...lanes, ...backing].sort((a, b) => a.start - b.start);
 }
 
-/** The keys sounding at `time` with their colours; of two notes on one key the later one shows */
+/** The keys sounding at `time` with their colors; of two notes on one key the later one shows */
 export function soundingKeys(spans: readonly TNoteSpan[], time: number): Map<number, string> {
 	const keys = new Map<number, string>();
 	for (const span of spans) {

@@ -180,8 +180,8 @@ describe('older files', () => {
 	});
 });
 
-describe('label colour and film colour', () => {
-	it('should keep a lane\'s label colour out of the film', () => {
+describe('label color and film color', () => {
+	it('should keep a lane\'s label color out of the film', () => {
 		const project = createProject({ id: 'p', title: 'T' });
 		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
 		const film = marbleFilmColor(project, lane.id);
@@ -190,7 +190,7 @@ describe('label colour and film colour', () => {
 		expect(marbleFilmColor(next as TProject, lane.id)).toBe(film);
 	});
 
-	it('should read a marble\'s film colour from its skin', () => {
+	it('should read a marble\'s film color from its skin', () => {
 		const project = createProject({ id: 'p', title: 'T' });
 		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
 		const marble = project.entities.find((entity) => entity.components.marble != null) as TProject['entities'][number];

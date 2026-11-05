@@ -110,9 +110,9 @@ def apply(worker):
 
 def box(bm, minimum, maximum):
     result = bmesh.ops.create_cube(bm, size=1.0)
-    centre = [(a + b) / 2 for a, b in zip(minimum, maximum)]
+    center = [(a + b) / 2 for a, b in zip(minimum, maximum)]
     size = [b - a for a, b in zip(minimum, maximum)]
-    bmesh.ops.transform(bm, matrix=Matrix.Translation(centre) @ Matrix.Diagonal((*size, 1.0)), verts=result['verts'])
+    bmesh.ops.transform(bm, matrix=Matrix.Translation(center) @ Matrix.Diagonal((*size, 1.0)), verts=result['verts'])
 
 
 def mesh_object(name, minimum, maximum, material):
@@ -136,7 +136,7 @@ def material(name, color, roughness):
 
 
 def build_asset(folder):
-    """A piano key: origin at the centre of the key top, +Z up out of it, X along the key, Y into the wall"""
+    """A piano key: origin at the center of the key top, +Z up out of it, X along the key, Y into the wall"""
     folder.mkdir(parents=True, exist_ok=True)
     collection = bpy.data.collections.new('MM_ASSET')
     ivory = material('Test ivory', (0.92, 0.88, 0.78, 1.0), 0.25)
@@ -226,24 +226,24 @@ def main():
     check(bpy.data.collections.get('MM asset · ' + ASSET_PATH) is not None, 'the asset is appended once as a template')
     check(not any(obj.users_collection[0].name.startswith('MM asset') for obj in scene.objects), 'the template is not rendered')
 
-    # Orientation: asset origin on the contact surface centre, +Z along the contact normal, X along the piece
+    # Orientation: asset origin on the contact surface center, +Z along the contact normal, X along the piece
     skin.location = (0.0, 0.0, 0.0)
     scene.frame_set(0)
     frame = asset_frame(skin).matrix_world
-    centre = world_point(PLATFORM_POSITION['x'], PLATFORM_POSITION['y'], PLATFORM['depth'] / 2) + contact_normal() * PLATFORM['thickness'] / 2
-    check((frame.translation - centre).length < 1e-6, 'asset origin sits on the contact surface centre')
+    center = world_point(PLATFORM_POSITION['x'], PLATFORM_POSITION['y'], PLATFORM['depth'] / 2) + contact_normal() * PLATFORM['thickness'] / 2
+    check((frame.translation - center).length < 1e-6, 'asset origin sits on the contact surface center')
     z_axis = (frame.to_3x3() @ Vector((0, 0, 1))).normalized()
     check((z_axis - contact_normal()).length < 1e-6, 'asset +Z equals the contact normal (%s)' % str(tuple(round(v, 4) for v in z_axis)))
     tip = asset_part(skin, 'Tip').matrix_world.translation
     along = Vector((math.cos(PLATFORM_ANGLE), 0.0, math.sin(PLATFORM_ANGLE)))
-    expected_tip = centre + along * (FITTED_LENGTH / 2 * PLATFORM['length'] / FITTED_LENGTH) - contact_normal() * 0.01
+    expected_tip = center + along * (FITTED_LENGTH / 2 * PLATFORM['length'] / FITTED_LENGTH) - contact_normal() * 0.01
     check((tip - expected_tip).length < 1e-6, 'fittedParams stretch the asset to the platform length')
     # A deeper plate: an asset fitted by depth scales across it about mid depth, one without takes its measured depth
     deep = SimpleNamespace(params={'length': 0.09, 'thickness': 0.012, 'depth': 0.09}, depth=0.09)
     fitted_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09, 'depth': 0.045}})
-    check(abs(fitted_deep[1][1] - 2.0) < 1e-6 and abs(fitted_deep[1][3]) < 1e-9, 'an asset fitted to 4.5 cm doubles on a 9 cm plate, centred mid depth')
+    check(abs(fitted_deep[1][1] - 2.0) < 1e-6 and abs(fitted_deep[1][3]) < 1e-9, 'an asset fitted to 4.5 cm doubles on a 9 cm plate, centered mid depth')
     plain_deep = assets.contact_matrix(deep, 'box', {'fittedParams': {'length': 0.09}}, 0.045)
-    check(abs(plain_deep[1][1] - 2.0) < 1e-6 and abs(plain_deep[1][3]) < 1e-9, 'an asset measured at 4.5 cm doubles on a 9 cm plate, centred mid depth')
+    check(abs(plain_deep[1][1] - 2.0) < 1e-6 and abs(plain_deep[1][3]) < 1e-9, 'an asset measured at 4.5 cm doubles on a 9 cm plate, centered mid depth')
     skin.location = offset
 
     # The press part follows mm_hit; the holder and marble keys are untouched
@@ -344,13 +344,13 @@ def main():
     check(sorted(report['texts']['created']) == ['text-1', 'text-2'] and text is not None, 'wall texts are created')
     check(text.data.body == 'MIDI' and abs(text.data.size - 0.04) < 1e-9 and abs(text.data.extrude - walltext.TITLE_RELIEF / 2) < 1e-9, 'text body, size and relief')
     check(text.name in bpy.data.collections[MANAGED_COLLECTION].objects, 'wall text lives in the managed collection')
-    towards_camera = (text.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
+    toward_camera = (text.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
     reading = (text.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized()
-    check((towards_camera - Vector((0, -1, 0))).length < 1e-6, 'wall text faces the camera side')
+    check((toward_camera - Vector((0, -1, 0))).length < 1e-6, 'wall text faces the camera side')
     check((reading - Vector((math.cos(0.1), 0, math.sin(0.1)))).length < 1e-6, 'wall angle turns the text counter-clockwise')
     check(abs(text.location.x) < 1e-6 and abs(text.location.z - 0.23) < 1e-6 and abs(text.location.y + walltext.TITLE_RELIEF / 2 + walltext.WALL_GAP) < 1e-6,
           'wall text sits on the wall at its position, raised by its relief')
-    check(text.data.materials[0].diffuse_color[0] > 0.9, 'wall text gets its colour material')
+    check(text.data.materials[0].diffuse_color[0] > 0.9, 'wall text gets its color material')
     write_package(root, records, hit, asset=True, texts=[dict(title, text='MARBLE', color='#c9a227'), second])
     report = apply(worker)
     check(report['texts']['updated'] == ['text-1', 'text-2'] and text_object('text-1').data.body == 'MARBLE', 'an unedited text updates')
@@ -410,7 +410,7 @@ def main():
     check(visible_at(text_object('text-timed'), 0.0) == (1.0, False), 'a range covering the film clears the timing')
     scene.frame_set(0)
 
-    # Screen titles: a caption near the top and an end card in the centre hang from the camera at a fixed frame size
+    # Screen titles: a caption near the top and an end card in the center hang from the camera at a fixed frame size
     caption = dict(title, id='text-caption', text='CAPTION', style='caption', size=0.06, color='#ffffff')
     end_card = dict(title, id='text-end', text='END', style='endCard', size=0.08, color='#ffffff')
     song_name = dict(title, id='text-song', text='SONG', style='songName', size=0.07, color='#ffffff')
@@ -424,18 +424,18 @@ def main():
     for frame in (0, round(DURATION * FPS)):
         scene.frame_set(frame)
         bpy.context.view_layer.update()
-        centre = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
+        center = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
         top = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world @ Vector((0.0, 0.5, 0.0)))
-        end_centre = world_to_camera_view(scene, camera_obj, end_obj.matrix_world.translation)
-        check(abs(centre.y - 0.85) < 0.01 and abs(centre.x - 0.5) < 0.01 and 0 < centre.z,
-              'the caption sits at the top centre of the frame at frame %d (%.3f, %.3f; focus %.3f, camera %s, caption %s, lens %.1f)' % (
-                  frame, centre.x, centre.y, camera_obj.data.dof.focus_distance, tuple(round(v, 3) for v in camera_obj.matrix_world.translation),
+        end_center = world_to_camera_view(scene, camera_obj, end_obj.matrix_world.translation)
+        check(abs(center.y - 0.85) < 0.01 and abs(center.x - 0.5) < 0.01 and 0 < center.z,
+              'the caption sits at the top center of the frame at frame %d (%.3f, %.3f; focus %.3f, camera %s, caption %s, lens %.1f)' % (
+                  frame, center.x, center.y, camera_obj.data.dof.focus_distance, tuple(round(v, 3) for v in camera_obj.matrix_world.translation),
                   tuple(round(v, 3) for v in caption_obj.matrix_world.translation), camera_obj.data.lens))
-        check(abs((top.y - centre.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004, 'the caption keeps its size in the frame at frame %d, its font 1.4 times its letter height like the encoder' % frame)
-        check(abs(end_centre.y - 0.5) < 0.01, 'the end card sits in the centre at frame %d' % frame)
-        song_centre = world_to_camera_view(scene, camera_obj, song_obj.matrix_world.translation)
-        check(abs(song_centre.y - 0.65) < 0.01 and abs(song_centre.x - 0.5) < 0.01 and song_obj.parent == camera_obj,
-              'the song name sits upright in the upper third of the frame at frame %d (%.3f)' % (frame, song_centre.y))
+        check(abs((top.y - center.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004, 'the caption keeps its size in the frame at frame %d, its font 1.4 times its letter height like the encoder' % frame)
+        check(abs(end_center.y - 0.5) < 0.01, 'the end card sits in the center at frame %d' % frame)
+        song_center = world_to_camera_view(scene, camera_obj, song_obj.matrix_world.translation)
+        check(abs(song_center.y - 0.65) < 0.01 and abs(song_center.x - 0.5) < 0.01 and song_obj.parent == camera_obj,
+              'the song name sits upright in the upper third of the frame at frame %d (%.3f)' % (frame, song_center.y))
     # The film's rig camera is perspective and moves; the drivers follow its distance to the wall and its focus
     camera_obj.data.type = 'PERSP'
     camera_obj.data.dof.focus_distance = 0.5
@@ -443,9 +443,9 @@ def main():
     for location in ((0.0, -0.6, 0.1), (0.05, -0.35, 0.2)):
         camera_obj.location = location
         bpy.context.view_layer.update()
-        centre = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
+        center = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
         top = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world @ Vector((0.0, 0.5, 0.0)))
-        check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004 and 0 < centre.z,
+        check(abs(center.y - 0.85) < 0.01 and abs((top.y - center.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004 and 0 < center.z,
               'a perspective camera %.2f m from the wall keeps the caption at the top' % abs(location[1]))
     states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
     check(states == {'text-caption': 'linked', 'text-end': 'linked', 'text-song': 'linked'}, 'camera drivers do not detach a screen title')
@@ -462,7 +462,7 @@ def main():
           'a caption switched back to a wall title leaves the camera')
     scene.frame_set(0)
 
-    # Project themes: a base theme with a few colours on top. The wall, the key light and Neon's glowing edges follow
+    # Project themes: a base theme with a few colors on top. The wall, the key light and Neon's glowing edges follow
     def studio(role):
         return next(obj for obj in bpy.data.collections[STUDIO_COLLECTION].objects if obj.get('mm_role') == role)
 
@@ -473,13 +473,13 @@ def main():
     report = apply(worker)
     wall_material = studio('studio.wall').data.materials[0]
     check(report['themed'] and wall_material.name.startswith('MM · wall plaster ') and near(wall_material.diffuse_color, '#336699'),
-          "a project theme's Wall colour paints the wall (%s)" % wall_material.name)
-    check(near(studio('studio.sun').data.color, '#ff8800'), "a project theme's Light colour tints the key light")
+          "a project theme's Wall color paints the wall (%s)" % wall_material.name)
+    check(near(studio('studio.sun').data.color, '#ff8800'), "a project theme's Light color tints the key light")
     write_package(root, records, hit, theme='neon', overrides={'glowColor': '#00ff00'})
     apply(worker)
     trims = [slot.material.name for obj in holder('platform-1').children_recursive if obj.type == 'MESH' for slot in obj.material_slots
              if slot.material is not None and slot.material.name.startswith('MM · neon trim')]
-    check(trims and all(name.startswith('MM · neon trim 0.000 1.000 0.000') for name in trims), "a Neon project theme's Glow colours every edge (%s)" % trims)
+    check(trims and all(name.startswith('MM · neon trim 0.000 1.000 0.000') for name in trims), "a Neon project theme's Glow colors every edge (%s)" % trims)
     # The Wall and Lights layers: an override on a built-in theme applies, and the theme's default returns on reset.
     # The worker starts from an empty scene, so its world is its own; this check started from the factory scene's
     own_world = bpy.data.worlds.new('MM studio')
@@ -504,12 +504,12 @@ def main():
     check(bloom is not None and scene.render.use_compositing and bloom.nodes['Bloom'].inputs['Type'].default_value == 'Bloom' and abs(bloom.nodes['Bloom'].inputs['Strength'].default_value - 0.4 * themes.BLOOM_STRENGTH) < 1e-4, 'Bloom composites a Glare over the render')
     wall_material = studio('studio.wall').data.materials[0]
     check(wall_material.name.startswith('MM · wall neon ') and near(wall_material.diffuse_color, '#336699'),
-          "the Wall layer's Skin and colour apply on a built-in theme (%s)" % wall_material.name)
-    check(near(sun.data.color, '#ff8800') and abs(sun.data.energy - 9.0) < 1e-4, "the Key Light's colour and strength apply")
+          "the Wall layer's Skin and color apply on a built-in theme (%s)" % wall_material.name)
+    check(near(sun.data.color, '#ff8800') and abs(sun.data.energy - 9.0) < 1e-4, "the Key Light's color and strength apply")
     # Side 50 %, Height 0: the light stands to the right in front of the wall, so it travels left and into the wall
     travel = sun.rotation_euler.to_matrix() @ Vector((0.0, 0.0, -1.0))
     check(close(travel, (-math.sqrt(0.5), math.sqrt(0.5), 0.0), 1e-3), "the Key Light's Side and Height set its direction (%s)" % str(tuple(travel)))
-    check(near(bpy.context.scene.world.color, '#102030'), 'the Background colour reaches the world')
+    check(near(bpy.context.scene.world.color, '#102030'), 'the Background color reaches the world')
 
     def added_light(light_id):
         return next((obj for obj in bpy.data.collections[STUDIO_COLLECTION].objects if obj.get('mm_light_id') == light_id), None)
@@ -517,7 +517,7 @@ def main():
     light = added_light('light-1')
     check(light is not None and light.type == 'LIGHT' and light.data.type == 'SUN' and light.get('mm_owner') == 'midimarble' and report['lights']['created'] == ['light-1'],
           'an added light becomes an app-owned sun')
-    check(near(light.data.color, '#00ff88') and abs(light.data.energy - 4.0) < 1e-4 and light.name == 'Fill', 'an added light takes its colour, strength and name')
+    check(near(light.data.color, '#00ff88') and abs(light.data.energy - 4.0) < 1e-4 and light.name == 'Fill', 'an added light takes its color, strength and name')
     fill['strength'] = 6.0
     write_package(root, records, hit, asset=True, layers={'lights': [fill]})
     # (the next apply takes Bloom away again)
@@ -564,7 +564,7 @@ def main():
 
     marble_body = marble_materials[0].diffuse_color if marble_materials else (0.0, 0.0, 0.0, 1.0)
     check(marble_materials and marble_materials[0].name.startswith('MM · neon pearl marble') and saturation(marble_body) < 0.2,
-          'a Neon marble is pearl white, not its lane colour (%s, saturation %.2f)' % (marble_materials[0].name if marble_materials else None, saturation(marble_body)))
+          'a Neon marble is pearl white, not its lane color (%s, saturation %.2f)' % (marble_materials[0].name if marble_materials else None, saturation(marble_body)))
     lane_glows = [tuple(material.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value) for material in platform_materials
                   if material.name.startswith('MM · neon trim')]
     lane_bodies = [tuple(material.diffuse_color) for material in platform_materials]

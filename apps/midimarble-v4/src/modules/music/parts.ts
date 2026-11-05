@@ -1,7 +1,7 @@
 import { BACKING_ID, type TProject, type TProjectCommand } from '@/modules/project';
 import { DEFAULT_BACKING_INSTRUMENT } from './synthesize';
 
-/** Backing notes are grey: heard, but no marble plays them */
+/** Backing notes are gray: heard, but no marble plays them */
 export const BACKING_COLOR = '#8e8e93';
 
 /** The one mute and solo of a recording, which cannot be split into marbles */

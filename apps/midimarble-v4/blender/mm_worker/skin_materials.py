@@ -16,14 +16,14 @@ import bpy
 from . import themes
 from .util import parse_color
 
-# `Skin` colours of the marble skins that have one, as `#rrggbb`
+# `Skin` colors of the marble skins that have one, as `#rrggbb`
 GLASS_SKIN = '#1f6fe0'
 GLASS_GREEN_SKIN = '#0c8a3a'
 GLASS_GREEN_VANES = 0.28
 MAGIC_SKIN = '#7a3cff'
 # The drift of Magic's smoke in noise units per second; slow enough to read as smoke, not as boiling
 SMOKE_DRIFT = 0.16
-# Radians per metre along a Candy Rail: a stripe about 16 mm long
+# Radians per meter along a Candy Rail: a stripe about 16 mm long
 CANDY_STRIPES = 200.0
 SMOKE_TIME_NODE = 'MM smoke time'
 
@@ -85,7 +85,7 @@ def _camera_normal(tree):
 
 
 def painted_studio(tree, horizon=True):
-    """Colour a mirror ball shows, in camera space so it looks the same from every camera angle and on every wall.
+    """Color a mirror ball shows, in camera space so it looks the same from every camera angle and on every wall.
     With `horizon`, chrome: a pale sky, a curved horizon above the middle, near-black under it fading to a soft floor.
     Without, for glass: only a band of sky along the top edge. Both have a softbox high on the left and a small window
     low on the right."""
@@ -128,7 +128,7 @@ def _white(tree):
 
 
 def tinted_metal_material(color):
-    """Polished metal in a `#rrggbb` colour: Colour: Marble on a metal skin"""
+    """Polished metal in a `#rrggbb` color: Color: Marble on a metal skin"""
     def build(material):
         linear = parse_color(color)
         material.diffuse_color = linear
@@ -141,7 +141,7 @@ def tinted_metal_material(color):
 
 
 def paper_material(color, roughness=0.46, coat=0.2):
-    """Satin wrapping paper in a `#rrggbb` colour, with the flash a reaction drives"""
+    """Satin wrapping paper in a `#rrggbb` color, with the flash a reaction drives"""
     def build(material):
         linear = parse_color(color)
         material.diffuse_color = linear
@@ -207,7 +207,7 @@ def flash_ready(material):
 
 
 def glow_tinted(material, color):
-    """A copy of a shared material that glows in the `#rrggbb` Glow Colour; one that never glows stays as it is"""
+    """A copy of a shared material that glows in the `#rrggbb` Glow Color; one that never glows stays as it is"""
     if material is None or material.node_tree is None:
         return material
     principled = themes._principled(material)
@@ -232,7 +232,7 @@ def glow_tinted(material, color):
 
 
 def _hue(color, value=1.0, saturation=None, shift=0.0):
-    """Linear RGB of a `#rrggbb` colour's hue at a brightness; a grey stays cool"""
+    """Linear RGB of a `#rrggbb` color's hue at a brightness; a gray stays cool"""
     linear = parse_color(color)
     hue, sat, _ = colorsys.rgb_to_hsv(*linear[:3])
     if sat < 0.08:
@@ -249,13 +249,13 @@ def _blended(material):
 
 
 def _inside_ray(tree):
-    """(surface point in radii from the centre, direction into the sphere away from the camera), in the marble's space"""
+    """(surface point in radii from the center, direction into the sphere away from the camera), in the marble's space"""
     coordinates = tree.nodes.new('ShaderNodeTexCoord')
-    centred = tree.nodes.new('ShaderNodeVectorMath')
-    centred.operation = 'SUBTRACT'
-    tree.links.new(coordinates.outputs['Generated'], centred.inputs[0])
-    centred.inputs[1].default_value = (0.5, 0.5, 0.5)
-    position = _scale(tree, centred.outputs[0], 2.0)
+    centered = tree.nodes.new('ShaderNodeVectorMath')
+    centered.operation = 'SUBTRACT'
+    tree.links.new(coordinates.outputs['Generated'], centered.inputs[0])
+    centered.inputs[1].default_value = (0.5, 0.5, 0.5)
+    position = _scale(tree, centered.outputs[0], 2.0)
     geometry = tree.nodes.new('ShaderNodeNewGeometry')
     transform = tree.nodes.new('ShaderNodeVectorTransform')
     transform.vector_type = 'VECTOR'
@@ -286,9 +286,9 @@ GLASS_SHEETS = {
 
 
 def glass_marble_material(color, variant='swirl', vane_value=0.85):
-    """A play marble: tinted clear glass with a dark coloured edge where its glass bends the wall away, light gathered low
+    """A play marble: tinted clear glass with a dark colored edge where its glass bends the wall away, light gathered low
     in the ball, the painted studio on top, and in the middle the vanes: Swirl two bands winding with a pale ribbon between
-    them, Cat's-Eye three blades that meet along the axis. `vane_value` is the vanes' brightness: lower keeps them coloured
+    them, Cat's-Eye three blades that meet along the axis. `vane_value` is the vanes' brightness: lower keeps them colored
     in a bright theme's light"""
     sheets = GLASS_SHEETS.get(variant, GLASS_SHEETS['swirl'])
 
@@ -329,7 +329,7 @@ def glass_marble_material(color, variant='swirl', vane_value=0.85):
                 links.new(tone.outputs[0], mix.inputs['B'])
                 layer_color = mix.outputs['Result']
                 alpha = _math(tree, 'MAXIMUM', alpha, amount)
-        # The vanes take the scene's light and a little of their own, so they stay coloured in the shade
+        # The vanes take the scene's light and a little of their own, so they stay colored in the shade
         lit = nodes.new('ShaderNodeBsdfDiffuse')
         links.new(layer_color, lit.inputs['Color'])
         own = nodes.new('ShaderNodeEmission')
@@ -374,7 +374,7 @@ def glass_marble_material(color, variant='swirl', vane_value=0.85):
 
 
 def metal_marble_material(color=None):
-    """A polished ball bearing: steel with the painted studio in it, in `color` for Colour: Marble"""
+    """A polished ball bearing: steel with the painted studio in it, in `color` for Color: Marble"""
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links
@@ -400,7 +400,7 @@ def metal_marble_material(color=None):
 
 
 def _smoke_layer(tree, position, into, depth, time, colors):
-    """Colour of one layer of smoke at `depth` along the view ray, in radii below the surface"""
+    """Color of one layer of smoke at `depth` along the view ray, in radii below the surface"""
     a, b = colors
     offset = _add_vectors(tree, position, _scale(tree, into, depth))
     length = tree.nodes.new('ShaderNodeVectorMath')
@@ -430,7 +430,7 @@ def _smoke_layer(tree, position, into, depth, time, colors):
 
 
 def magic_marble_material(color, glow=None):
-    """A dark glass orb holding softly glowing smoke in `color` and a neighbouring hue, or `glow` as the second"""
+    """A dark glass orb holding softly glowing smoke in `color` and a neighboring hue, or `glow` as the second"""
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links

@@ -23,7 +23,7 @@ A first-time user who knows Figma or GarageBand should finish each without help.
 - Every interaction has a reference app that does it the same way (Blender, Figma, Final Cut, Logic), or a reason why not
 - One natural place per action; no duplicate buttons
 - Hover every row and control, in light and dark, including every Layers row kind and long names. Nothing moves or disappears.
-- Screenshots of the title bar and panels beside Xcode, Figma and Final Cut at the same scale: control height, weight, contrast, spacing, how much colour
+- Screenshots of the title bar and panels beside Xcode, Figma and Final Cut at the same scale: control height, weight, contrast, spacing, how much color
 
 ## Budgets
 

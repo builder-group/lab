@@ -52,7 +52,7 @@ export interface TSettled {
 	heldFrom: THitResult[];
 	/** Runs it took */
 	runs: number;
-	/** How far from the asked-for spot a moved dot landed, in metres; null without a move */
+	/** How far from the asked-for spot a moved dot landed, in meters; null without a move */
 	moveMiss: number | null;
 }
 
@@ -625,7 +625,7 @@ export interface TSettleAnswer {
 	broken: { laneId: string; hitId: string; time: number; status: string }[];
 	heldFrom: { laneId: string; hitId: string; time: number }[];
 	runs: number;
-	/** For a moved dot: how far it went and how far from the asked-for spot it landed, in metres, and what fixes its spot */
+	/** For a moved dot: how far it went and how far from the asked-for spot it landed, in meters, and what fixes its spot */
 	move: TMoveOutcome | null;
 }
 

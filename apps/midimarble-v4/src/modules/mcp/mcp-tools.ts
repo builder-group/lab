@@ -151,7 +151,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			await waitFor(() => cx.$compose.get()?.assist.isBuilding === true, 1500);
 			return text(cx, { started: true, note: 'Building. get_state shows building and, when done, lastBuild; build.stop stops it.' });
 		}
-		// What Undo and Redo take back, named beforehand since the step is gone afterwards
+		// What Undo and Redo take back, named beforehand since the step is gone afterward
 		const undoName = command.id === 'edit.undo' ? (cx.undoLabel ?? 'a step of your own') : command.id === 'edit.redo' ? (cx.redoLabel ?? 'a step of your own') : null;
 		const history = cx.$history.get();
 		const canStep = command.id === 'edit.undo' ? (history?.past.length ?? 0) > 0 : command.id === 'edit.redo' ? (history?.future.length ?? 0) > 0 : false;
@@ -352,7 +352,7 @@ const STitleArgs = z.object({
 	text: z.string().regex(/\S/, 'A title needs words').optional(),
 	style: z.enum(titleStyles.map((item) => item.style) as [TTitleStyle, ...TTitleStyle[]]).optional(),
 	at: z.strictObject({ x: z.number(), y: z.number() }).optional(),
-	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'A colour is like #1d1d1f').optional(),
+	color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'A color is like #1d1d1f').optional(),
 	in: z.number().nonnegative().optional(),
 	out: z.number().nonnegative().optional()
 });

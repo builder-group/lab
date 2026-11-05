@@ -21,13 +21,13 @@ export interface TFitPatternRequest {
 	/** The hits to play, in time order. A Long Rail takes the two hits around its silence */
 	hitIds: string[];
 	kind: TPatternKind;
-	/** Bar centres apart (Zigzag) or sideways per hit (Staircase), in metres: what's asked is what's built */
+	/** Bar centers apart (Zigzag) or sideways per hit (Staircase), in meters: what's asked is what's built */
 	width?: number;
 	/** The steepest a bar may tilt, in degrees; `MAX_TILT` unless asked */
 	maxTilt?: number;
 	/** The same bounce on every bar */
 	bounce?: number;
-	/** A bounce per bar instead, aiming for this wall drop per hit, in metres */
+	/** A bounce per bar instead, aiming for this wall drop per hit, in meters */
 	drop?: number;
 	/** Bar size, the default plate's otherwise: Length changes the run, Depth is only how far it stands out */
 	barLength?: number;
@@ -61,7 +61,7 @@ export interface TFitPatternResult {
 	/** How the marble leaves it: at the next note, or 0.3 s after the last */
 	exit: TPatternExit | null;
 	width: number;
-	/** The drop aimed for: a neighbouring one when the asked one left problems */
+	/** The drop aimed for: a neighboring one when the asked one left problems */
 	drop: number | null;
 	/** Why it can't fit, in plain words; empty when it fits */
 	problems: TPatternProblem[];
@@ -177,7 +177,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	const shape: TBarShape = {
 		kind,
 		width: asked,
-		// A quarter of a bar from its centre, toward where the marble flies next
+		// A quarter of a bar from its center, toward where the marble flies next
 		strike: kind === 'zigzag' ? (request.barLength ?? BAR_LENGTH) / 4 : 0,
 		...(request.barLength != null ? { barLength: request.barLength } : {}),
 		...(request.barDepth != null ? { barDepth: request.barDepth } : {}),
@@ -315,7 +315,7 @@ function columnWords(bar: TBar, width: number, maxTilt: number): string {
 	return `The ${formatSeconds(bar.hop)} hop lands ${formatCm(Math.abs(bar.errX))} off its column at Width ${formatCm(width)}.`;
 }
 
-function formatCm(metres: number): string {
-	return `${Math.round(metres * 100)} cm`;
+function formatCm(meters: number): string {
+	return `${Math.round(meters * 100)} cm`;
 }
 

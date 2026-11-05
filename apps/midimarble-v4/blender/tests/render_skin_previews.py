@@ -10,7 +10,7 @@ Writes `<prefix>-<type>.png` for the theme default of each type, and `<element>-
 (applied to the first piece of the first type), such as `platform-copper.png`, the name `skin_catalog.json` gives it.
 `--marbles marble:glass,marble:metal` renders marble skins on their own the same way, close up. The committed previews in
 `public/skins/` were rendered from Jingle Bells (platform, rail, bowl, marbles), Long Gap (rail, tunnel) and
-Windmill, then quantized to 192 colours with Pillow to keep them small.
+Windmill, then quantized to 192 colors with Pillow to keep them small.
 """
 import argparse
 import json
@@ -28,7 +28,7 @@ from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.util import descendants  # noqa: E402
 
 PREVIEW_DESCRIPTION = '.cache/scene-preview.json'
-NEUTRAL = (0.42, 0.42, 0.43, 1.0)  # linear; reads as a light warm grey in sRGB
+NEUTRAL = (0.42, 0.42, 0.43, 1.0)  # linear; reads as a light warm gray in sRGB
 
 parser = argparse.ArgumentParser()
 parser.add_argument('package')
@@ -101,8 +101,8 @@ def frame(objects):
     corners = [to_camera @ (obj.matrix_world @ Vector(corner)) for obj in objects for corner in obj.bound_box]
     low = Vector((min(c.x for c in corners), min(c.y for c in corners), min(c.z for c in corners)))
     high = Vector((max(c.x for c in corners), max(c.y for c in corners), max(c.z for c in corners)))
-    centre = Vector(((low.x + high.x) / 2, (low.y + high.y) / 2, high.z + 1.0))
-    camera.location = camera.matrix_world @ centre
+    center = Vector(((low.x + high.x) / 2, (low.y + high.y) / 2, high.z + 1.0))
+    camera.location = camera.matrix_world @ center
     camera.data.ortho_scale = max(high.x - low.x, high.y - low.y) * 1.3
     camera.data.clip_end = 10.0
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { noteName, parseHexColor, parseNoteName, stepPitch } from './format';
 
 describe('parseHexColor function', () => {
-	it('should read a typed colour with or without its #, also the short form', () => {
+	it('should read a typed color with or without its #, also the short form', () => {
 		expect(parseHexColor('#3478F6')).toBe('#3478f6');
 		expect(parseHexColor(' 3478f6 ')).toBe('#3478f6');
 		expect(parseHexColor('#3af')).toBe('#33aaff');

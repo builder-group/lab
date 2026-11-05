@@ -41,7 +41,7 @@ function draw(canvas: HTMLCanvasElement, effects: readonly TDraftEffect[], time:
 
 const sprites = new Map<string, HTMLCanvasElement>();
 
-/** A soft round flake, drawn once per colour */
+/** A soft round flake, drawn once per color */
 function flakeSprite(color: string): HTMLCanvasElement {
 	const known = sprites.get(color);
 	if (known != null) return known;

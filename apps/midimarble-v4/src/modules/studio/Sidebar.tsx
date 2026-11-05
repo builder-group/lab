@@ -16,7 +16,7 @@ import { patternOfPiece, soundsHit, type THitResult, type TResolvedPiece } from 
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
-import { entityLabelEntries, labelColourEntries, labelColourItem, laneLabelEntries, laneMenu, pieceMenu, songMenu } from './menus';
+import { entityLabelEntries, labelColorEntries, labelColorItem, laneLabelEntries, laneMenu, pieceMenu, songMenu } from './menus';
 import { groupSelection } from '@/modules/compose/PatternsCx';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { SCENE_KEY, toDecorKey } from './selection';
@@ -210,7 +210,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
-		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), labelColourItem(entityLabelEntries(cx, row.entity)), commandItem(cx, 'edit.delete')]);
+		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, row.entity)), commandItem(cx, 'edit.delete')]);
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
@@ -219,7 +219,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 
 	useAgentTouchedRows(cx, treeRef);
 
-	// One object for every row and render, so a memoised row re-renders only when its own props change; each action is this render's
+	// One object for every row and render, so a memoized row re-renders only when its own props change; each action is this render's
 	const latestRef = React.useRef({ select, openMenu, toggleGroup });
 	React.useLayoutEffect(() => {
 		latestRef.current = { select, openMenu, toggleGroup };
@@ -449,10 +449,10 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 function decorLabelEntries(cx: StudioCx, ids: readonly string[]): TMenuEntry[] {
 	const project = cx.project;
 	const current = project == null ? undefined : project.design.decor.find((item) => ids.includes(item.id))?.labelColor;
-	return labelColourEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
+	return labelColorEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
 }
 
-/** What clicking a row's icon or dot opens: its Label Colour, on the layers that have one */
+/** What clicking a row's icon or dot opens: its Label Color, on the layers that have one */
 function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 	switch (row.kind) {
 		case 'marble':
@@ -482,7 +482,7 @@ function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 				if (cx.execute(commands)) cx.$selection.set(decorIds.map(toDecorKey));
 			}
 		},
-		labelColourItem(decorLabelEntries(cx, ids)),
+		labelColorItem(decorLabelEntries(cx, ids)),
 		{
 			label: 'Delete',
 			shortcut: '⌫',
@@ -656,7 +656,7 @@ const LayerRow: React.FC<TLayerRowProps> = (props) => {
 			<span
 				className="mm-layer-icon"
 				style={onIconClick != null ? { cursor: 'pointer' } : undefined}
-				title={onIconClick != null ? 'Label Colour' : undefined}
+				title={onIconClick != null ? 'Label Color' : undefined}
 				onClick={
 					onIconClick != null
 						? (event) => {
@@ -701,7 +701,7 @@ interface TLayerRowProps {
 	onClick: (event: React.MouseEvent) => void;
 	onDoubleClick: () => void;
 	onContextMenu: (event: React.MouseEvent) => void;
-	/** Clicking the icon or dot opens the layer's Label Colour */
+	/** Clicking the icon or dot opens the layer's Label Color */
 	onIconClick?: ((event: React.MouseEvent) => void) | undefined;
 }
 

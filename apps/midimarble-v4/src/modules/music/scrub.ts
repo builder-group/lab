@@ -62,7 +62,7 @@ export function createScrubber(context: TScrubContext, destination: AudioNode): 
 		envelope.gain.linearRampToValueAtTime(1, startAt + fade);
 		envelope.gain.setValueAtTime(1, startAt + length - fade);
 		envelope.gain.linearRampToValueAtTime(0, startAt + length);
-		// A gain of its own for the release, since cancelling a running ramp makes the envelope jump
+		// A gain of its own for the release, since canceling a running ramp makes the envelope jump
 		const release = context.createGain();
 		source.connect(envelope);
 		envelope.connect(release);

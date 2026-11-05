@@ -3,7 +3,7 @@ import type { TWorkspace } from './StudioCx';
 /**
  * Regions Quick Help labels in place, like GarageBand's Quick Help. An element marks its region with
  * `data-quick-help`; the label sits in the wall's gutter on the side of the region (`gutter`), so it points at the
- * region without covering any of its controls. The wall's own label sits at its centre. Controls explain themselves
+ * region without covering any of its controls. The wall's own label sits at its center. Controls explain themselves
  * with their own tooltips; these lines only name the regions.
  */
 export const quickHelpRegions: TQuickHelpRegion[] = [
@@ -53,7 +53,7 @@ export const QUICK_HELP_LABEL = { width: 220, height: 52, gap: 8 };
 
 /**
  * Lays out the region labels in the wall's gutters, so none covers a control of its region, another label or
- * `reserved` (the Quick Help panel): the wall's own label at its centre, the sidebar's and tool rail's down its left
+ * `reserved` (the Quick Help panel): the wall's own label at its center, the sidebar's and tool rail's down its left
  * edge, the title bar's and inspector's down its right edge from their region's height, and the timeline's along its
  * bottom edge from their region's left edge. A label whose spot is taken moves down (up for the bottom edge) to the
  * next free one, so a narrow wall stacks them in one column. Without a wall the window takes its place.
@@ -90,11 +90,11 @@ export function placeQuickHelpLabels(
 		places.set(id, { left: x, top: y });
 	}
 
-	const centre = (rect: TRect): number => (rect.top + rect.bottom) / 2 - height / 2;
+	const center = (rect: TRect): number => (rect.top + rect.bottom) / 2 - height / 2;
 	const byGutter = (gutter: TQuickHelpRegion['gutter']): { region: TQuickHelpRegion; rect: TRect }[] => items.filter((item) => item.region.gutter === gutter);
 	for (const { region } of byGutter('center')) place(region.id, (area.left + area.right) / 2 - width / 2, (area.top + area.bottom) / 2 - height / 2, 1);
-	for (const { region, rect } of byGutter('left').sort((a, b) => centre(a.rect) - centre(b.rect))) place(region.id, minLeft, centre(rect), 1);
-	for (const { region, rect } of byGutter('right').sort((a, b) => centre(a.rect) - centre(b.rect))) place(region.id, maxLeft, centre(rect), 1);
+	for (const { region, rect } of byGutter('left').sort((a, b) => center(a.rect) - center(b.rect))) place(region.id, minLeft, center(rect), 1);
+	for (const { region, rect } of byGutter('right').sort((a, b) => center(a.rect) - center(b.rect))) place(region.id, maxLeft, center(rect), 1);
 	for (const { region, rect } of byGutter('bottom').sort((a, b) => a.rect.left - b.rect.left)) place(region.id, rect.left, maxTop, -1);
 	return places;
 }

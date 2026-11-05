@@ -5,7 +5,7 @@ These rules extend the lab [AGENTS.md](../../AGENTS.md) for this app. Where they
 ## Documents
 
 - [docs/progress.md](docs/progress.md): current state, what's verified, known problems, next steps. Read it first.
-- [docs/ux.md](docs/ux.md): product behaviour
+- [docs/ux.md](docs/ux.md): product behavior
 - [docs/design-language.md](docs/design-language.md): UI rules and patterns
 - [docs/words.md](docs/words.md): concepts, vocabulary and copy rules every string follows
 - [docs/architecture.md](docs/architecture.md): stack, data model, modules, bridges, tests and fixtures

@@ -37,7 +37,7 @@ function peak(samples: Float32Array, from: number, to: number): number {
 }
 
 describe('songParts function', () => {
-	it('should list each marble that plays notes, coloured by marble, then Backing', () => {
+	it('should list each marble that plays notes, colored by marble, then Backing', () => {
 		const parts = songParts(project([MIDI], [note('a', 1, 72), note('b', 0.5, 67)], [note('c', 1, 48)], [note('d', 1, 60)]));
 
 		expect(parts.map((part) => [part.id, part.color, part.instrument, part.noteCount, part.firstPitch])).toEqual([

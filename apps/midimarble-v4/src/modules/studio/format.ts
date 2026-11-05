@@ -33,7 +33,7 @@ export function stepPitch(pitch: number, semitones: number): number {
 	return Math.min(127, Math.max(0, pitch + semitones));
 }
 
-/** A typed colour as `#rrggbb`, with or without its `#`, also in the short `#rgb`; null when it isn't one */
+/** A typed color as `#rrggbb`, with or without its `#`, also in the short `#rgb`; null when it isn't one */
 export function parseHexColor(value: string): string | null {
 	const digits = value.trim().replace(/^#/, '').toLowerCase();
 	if (/^[0-9a-f]{6}$/.test(digits)) return `#${digits}`;

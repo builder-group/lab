@@ -85,7 +85,7 @@ const SnowfallPanel: React.FC<{ cx: StudioCx; decor: TDecor }> = (props) => {
 			<SliderField id="snowfall-density" label="Density" value={snow.density * 100} min={0} max={100} step={1} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ density: value / 100 }))} />
 			<SliderField id="snowfall-size" label="Size" value={snow.size * 100} min={25} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ size: value / 100 }))} />
 			<SliderField id="snowfall-speed" label="Speed" value={snow.speed * 100} min={0} max={300} step={5} format={asPercent} unit="%" onCommit={(value) => void cx.execute(commands({ speed: value / 100 }))} />
-			<ColorWell cx={cx} id="snowfall-color" label="Colour" name="Particles colour" own={snow.color} shown={snow.color} commandsFor={(color) => commands({ color: color ?? SNOWFALL_DEFAULTS.color })} />
+			<ColorWell cx={cx} id="snowfall-color" label="Color" name="Particles color" own={snow.color} shown={snow.color} commandsFor={(color) => commands({ color: color ?? SNOWFALL_DEFAULTS.color })} />
 		</Panel>
 	);
 };

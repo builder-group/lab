@@ -7,7 +7,7 @@ function hit(hitId: string, status: THitResult['status'], targetTime: number, ac
 }
 
 describe('hitLandings function', () => {
-	it('should give each landing its status colour in time order and leave out open hits', () => {
+	it('should give each landing its status color in time order and leave out open hits', () => {
 		const landings = hitLandings([hit('late', 'drifting', 2, 2.02), hit('on', 'onTime', 1, 1.001), hit('open', 'open', 0.5), hit('miss', 'missed', 3), hit('blocked', 'blocked', 4)]);
 
 		expect(landings.map((item) => [item.hitId, item.tone, item.time])).toEqual([

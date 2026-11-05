@@ -83,7 +83,7 @@ def marble_material(holder):
 
 
 def marble_pixels():
-    """Mean linear colour of the middle of each marble in a rendered frame, and of the wall beside the first"""
+    """Mean linear color of the middle of each marble in a rendered frame, and of the wall beside the first"""
     frame = worker.handle('preview_frame', {'time': TIME, 'width': WIDTH})
     image = bpy.data.images.load(frame['path'])
     width, height = image.size
@@ -153,8 +153,8 @@ def check_skins_reach_blender():
     corners = [meshes[0].matrix_world @ Vector(corner) for corner in meshes[0].bound_box]
     size = max(corner.x for corner in corners) - min(corner.x for corner in corners)
     check(abs(size - 2 * radius) < 2 * radius * 0.15, 'the model scales from its fitted radius to the marble (%.4f wide)' % size)
-    centre = sum(corners, Vector()) / 8
-    check((centre - second.matrix_world.translation).length < radius * 0.2, "the model's origin sits at the marble's centre")
+    center = sum(corners, Vector()) / 8
+    check((center - second.matrix_world.translation).length < radius * 0.2, "the model's origin sits at the marble's center")
     check(meshes[0].get('mm_visibility') is not None, 'a marble in a library skin still hides inside a tunnel')
     pixels = marble_pixels()
     if pixels[1] is not None:

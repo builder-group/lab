@@ -14,32 +14,32 @@ import { deleteHits, playedByMenu } from './timeline/hand-notes';
 const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan'];
 
 /**
- * The choices of a layer's Label Colour, opened from its icon or dot and from Label Colour beside Rename: it organises
- * Layers and the timeline, like Blender's collection colour tags and Logic's track colours, and never changes the film.
+ * The choices of a layer's Label Color, opened from its icon or dot and from Label Color beside Rename: it organizes
+ * Layers and the timeline, like Blender's collection color tags and Logic's track colors, and never changes the film.
  * `commandsFor(null)` takes the label away, where a layer can do without.
  */
-export function labelColourEntries(cx: StudioCx, current: string | undefined, commandsFor: (color: string | null) => TProjectCommand[], canClear = true): TMenuEntry[] {
+export function labelColorEntries(cx: StudioCx, current: string | undefined, commandsFor: (color: string | null) => TProjectCommand[], canClear = true): TMenuEntry[] {
 	return [
 		...(canClear ? [{ label: 'None', checked: current == null, onSelect: () => cx.execute(commandsFor(null)) }] : []),
 		...laneColors.map((color, index) => ({ label: LABEL_NAMES[index] ?? color, swatch: color, checked: current === color, onSelect: () => cx.execute(commandsFor(color)) }))
 	];
 }
 
-/** Label Colour for a menu, beside Rename */
-export function labelColourItem(entries: TMenuEntry[]): TMenuEntry {
-	return { label: 'Label Colour', onSelect: () => undefined, submenu: entries };
+/** Label Color for a menu, beside Rename */
+export function labelColorItem(entries: TMenuEntry[]): TMenuEntry {
+	return { label: 'Label Color', onSelect: () => undefined, submenu: entries };
 }
 
-/** A marble's label is its lane's colour, which it always has */
+/** A marble's label is its lane's color, which it always has */
 export function laneLabelEntries(cx: StudioCx, lane: TLane): TMenuEntry[] {
-	return labelColourEntries(cx, lane.color, (color) => (color != null ? [{ type: 'upsertLane', lane: { ...lane, color } }] : []), false);
+	return labelColorEntries(cx, lane.color, (color) => (color != null ? [{ type: 'upsertLane', lane: { ...lane, color } }] : []), false);
 }
 
-/** The entity's Label Colour, and with it the rest of the selection when it is part of one, as one edit */
+/** The entity's Label Color, and with it the rest of the selection when it is part of one, as one edit */
 export function entityLabelEntries(cx: StudioCx, entity: TEntity): TMenuEntry[] {
 	const selection = cx.$selection.get();
 	const targets = selection.includes(entity.id) ? (cx.project?.entities.filter((item) => selection.includes(item.id)) ?? [entity]) : [entity];
-	return labelColourEntries(cx, entity.labelColor, (color) =>
+	return labelColorEntries(cx, entity.labelColor, (color) =>
 		targets.map((target): TProjectCommand => {
 			const { labelColor: _labelColor, ...rest } = target;
 			return { type: 'upsertEntity', entity: color != null ? { ...rest, labelColor: color } : rest };
@@ -47,10 +47,10 @@ export function entityLabelEntries(cx: StudioCx, entity: TEntity): TMenuEntry[] 
 	);
 }
 
-/** Label Colour for the selected entities' menu */
+/** Label Color for the selected entities' menu */
 function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	const first = cx.project?.entities.find((entity) => cx.$selection.get().includes(entity.id));
-	return first != null ? labelColourItem(entityLabelEntries(cx, first)) : null;
+	return first != null ? labelColorItem(entityLabelEntries(cx, first)) : null;
 }
 
 /** Right-click on a piece, on the canvas or in the sidebar */
@@ -139,7 +139,7 @@ export function laneMenu(cx: StudioCx, lane: TLane, time?: number): TMenuEntry[]
 					}
 				}
 			: null,
-		labelColourItem(laneLabelEntries(cx, lane)),
+		labelColorItem(laneLabelEntries(cx, lane)),
 		commandItem(cx, 'marble.add'),
 		{ label: 'Delete Marble', disabled: project.music.lanes.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', laneId: lane.id }]) }
 	]);

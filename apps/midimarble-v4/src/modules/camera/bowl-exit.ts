@@ -16,7 +16,7 @@ export function exitRunProject(project: TProject): TProject | null {
 
 /**
  * Seconds after the last note until the last marble that plays last has left the film frame through its Bowl, its
- * centre outside the frame in the follow camera of `run` (a run of `exitRunProject`); `Infinity` while one stays in
+ * center outside the frame in the follow camera of `run` (a run of `exitRunProject`); `Infinity` while one stays in
  * frame to the end of the run, as a Bowl's does. Null unless every marble that plays last has a Bowl that catches it.
  */
 export function bowlExit(project: TProject, run: TSimulationResult): number | null {
@@ -48,7 +48,7 @@ export async function fittedSongEnd(project: TProject, simulate: (project: TProj
 	return projectSongEnd(project, bowlExit(trial, await simulate(trial)));
 }
 
-/** Time the marble's centre first leaves the frame after `after`; `Infinity` if it never does in the track */
+/** Time the marble's center first leaves the frame after `after`; `Infinity` if it never does in the track */
 function leavesFrame(track: NonNullable<ReturnType<typeof followCameraTrack>>, marble: TSimulationResult['marbles'][number], after: number): number {
 	for (const sample of marble.samples) {
 		if (sample.time < after) continue;

@@ -142,7 +142,7 @@ describe('createAssistPool function', () => {
 		const request = { project, laneId: lane.id, hitId: hit.id, type: 'platform', entityId };
 
 		// Act: Stop pressed once the first stage went out
-		const stopped = pool.autoPlace(request, { isCancelled: () => posted.length > 0 });
+		const stopped = pool.autoPlace(request, { isCanceled: () => posted.length > 0 });
 		// Replaced at once by the newest, so its rejection is caught right away
 		const waiting = pool.autoPlace(request).catch((error: unknown) => error);
 		const newest = pool.autoPlace(request);

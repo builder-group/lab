@@ -49,7 +49,7 @@ const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProje
 });
 
 /**
- * Screen projection for overlay marks that a pan only slides: marks are drawn once per zoom against a view centred on
+ * Screen projection for overlay marks that a pan only slides: marks are drawn once per zoom against a view centered on
  * the wall's origin, and `transform` on their parent moves them all with the camera, so playback, Follow and panning
  * write one attribute per frame instead of every mark's. Only a zoom, whose strokes keep their pixel width, redraws them.
  */
@@ -165,9 +165,9 @@ interface TShapeProps {
 	scale: number;
 	opacity: number;
 	dashed?: boolean;
-	/** Overrides the wire or wall colour, for ghosts that will not fit */
+	/** Overrides the wire or wall color, for ghosts that will not fit */
 	tint?: string;
-	/** Overrides the piece type's colours, for a theme's look */
+	/** Overrides the piece type's colors, for a theme's look */
 	palette?: { bar: string; nub: string };
 }
 
@@ -226,7 +226,7 @@ const MinimumShape: React.FC<{ compose: TScreenProjection; piece: TResolvedPiece
 	const end = { x: (b.x + c.x) / 2, y: (b.y + c.y) / 2 };
 	const length = Math.hypot(end.x - start.x, end.y - start.y);
 	if (thickness >= 2.5 && length >= 6) return null;
-	// Keep at least 6 px of length around the centre and 2.5 px of thickness
+	// Keep at least 6 px of length around the center and 2.5 px of thickness
 	const grow = Math.max(0, 6 - length) / 2 / (length || 1);
 	const from = { x: start.x - (end.x - start.x) * grow, y: start.y - (end.y - start.y) * grow };
 	const to = { x: end.x + (end.x - start.x) * grow, y: end.y + (end.y - start.y) * grow };

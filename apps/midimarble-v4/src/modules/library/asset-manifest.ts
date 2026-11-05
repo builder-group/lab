@@ -20,7 +20,7 @@ const SHexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
  */
 const SAssetProperty = z.strictObject({
 	name: z.string().regex(/\S/).max(40),
-	type: z.enum(['number', 'colour']),
+	type: z.enum(['number', 'color']),
 	default: z.union([z.number(), SHexColor]).optional(),
 	min: z.number().optional(),
 	max: z.number().optional()
@@ -33,13 +33,13 @@ export const SAssetManifest = z.strictObject({
 	label: z.string().regex(/\S/).max(80),
 	role: z.enum(['skin', 'decoration', 'text']),
 	pieceType: z.string().min(1).optional(),
-	// Physical parameters the model was built for, in metres or radians
+	// Physical parameters the model was built for, in meters or radians
 	fittedParams: z.record(z.string(), z.number()).optional(),
 	reactions: z.array(SAssetReaction).optional(),
-	// Extra skin properties beside Colour, On Hit, Glow Colour and Variant
+	// Extra skin properties beside Color, On Hit, Glow Color and Variant
 	properties: z.array(SAssetProperty).optional(),
 	notes: z.string().optional(),
-	// Read and ignored: a skin no longer sets a marble's label colour
+	// Read and ignored: a skin no longer sets a marble's label color
 	color: SHexColor.optional(),
 	// Where the item comes from: `agent` is set when a Result is accepted; absent means it was brought in another way
 	origin: z.enum(['agent', 'imported']).optional(),

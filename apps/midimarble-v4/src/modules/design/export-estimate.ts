@@ -12,7 +12,7 @@ export interface TRenderPresetInfo {
 }
 
 /**
- * Export qualities from words.md: Draft to check motion in seconds, in flat colours without lighting (Workbench), and
+ * Export qualities from words.md: Draft to check motion in seconds, in flat colors without lighting (Workbench), and
  * Final for the film (Eevee). Blender itself is there for other renderers and sizes.
  */
 export const renderPresets: readonly TRenderPresetInfo[] = [

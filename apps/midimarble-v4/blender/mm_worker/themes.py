@@ -53,7 +53,7 @@ THEMES = {
 }
 
 
-# Colours a project theme changes on top of its base, as `#rrggbb` display values; the same fields as
+# Colors a project theme changes on top of its base, as `#rrggbb` display values; the same fields as
 # `TSceneThemeOverrides` in scene-description.ts. Set for one apply by `set_overrides`.
 OVERRIDE_FIELDS = ('wallColor', 'lightColor', 'glowColor', 'backgroundColor')
 _overrides = {}
@@ -133,13 +133,13 @@ def _with_scene_look(settings):
 
 
 def set_overrides(overrides):
-    """Project theme colours for the apply that follows; None or {} draws the built-in theme as it is"""
+    """Project theme colors for the apply that follows; None or {} draws the built-in theme as it is"""
     global _overrides
     _overrides = clean_overrides(overrides)
 
 
 def resolve_theme(name, overrides=None):
-    """Settings of a built-in theme with a project theme's colours on top. Mirrors `resolveTheme` and
+    """Settings of a built-in theme with a project theme's colors on top. Mirrors `resolveTheme` and
     `sceneThemeOverrides` in project-themes.ts: the base keeps its skins, reactions and render look."""
     base = THEMES.get(name) or THEMES[DEFAULT_THEME]
     overrides = clean_overrides(overrides)
@@ -169,7 +169,7 @@ def theme_name(name):
 
 
 def theme_key(name):
-    """What the studio was last themed with: the base name, plus the project theme's colours when it has any"""
+    """What the studio was last themed with: the base name, plus the project theme's colors when it has any"""
     name = theme_name(name)
     parts = {**_overrides, **_scene_look}
     if not parts:
@@ -179,7 +179,7 @@ def theme_key(name):
 
 def flat_look(key):
     """(stops, sheen) Flat Light adds in the theme of `theme_key`: to the scene's exposure, for the light Eevee's sun and
-    world put on a wall facing the camera, and to the colour of a painted surface, for its satin reflections. Measured
+    world put on a wall facing the camera, and to the color of a painted surface, for its satin reflections. Measured
     per theme against Fast frames; a project theme keeps its base's values."""
     flat = THEMES.get(str(key).split(' ')[0], {}).get('flat', {})
     return flat.get('exposure', 0.0), flat.get('sheen', 0.0)
@@ -333,7 +333,7 @@ def plastic_material(name, color, roughness, coat=0.0, flash=False):
     return _shared('MM · ' + name, build)
 
 
-# Note colours for Colour by Note, one per pitch class from C, after the boomwhacker colour wheel
+# Note colors for Color by Note, one per pitch class from C, after the boomwhacker color wheel
 NOTE_COLORS = (
     (0.86, 0.12, 0.12), (0.93, 0.33, 0.10), (0.98, 0.55, 0.10), (0.98, 0.75, 0.12),
     (0.95, 0.87, 0.16), (0.60, 0.84, 0.18), (0.20, 0.70, 0.32), (0.12, 0.62, 0.62),
@@ -343,15 +343,15 @@ NOTE_NAMES = ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B')
 
 
 def note_color(pitch):
-    """Linear colour of a MIDI pitch's pitch class, or None without a pitch. The table is in display (sRGB) values,
-    so it is converted to the linear values Blender's shaders expect; that keeps the colours saturated"""
+    """Linear color of a MIDI pitch's pitch class, or None without a pitch. The table is in display (sRGB) values,
+    so it is converted to the linear values Blender's shaders expect; that keeps the colors saturated"""
     if pitch is None:
         return None
     return tuple(_srgb_to_linear(value) for value in NOTE_COLORS[int(round(pitch)) % 12])
 
 
 def note_material(pitch):
-    """Glossy coloured plastic like a boomwhacker tube, shared per pitch class; flashes on a hit"""
+    """Glossy colored plastic like a boomwhacker tube, shared per pitch class; flashes on a hit"""
     index = int(round(pitch)) % 12
     return plastic_material('note ' + NOTE_NAMES[index], note_color(index), 0.26, coat=0.7, flash=True)
 
@@ -477,7 +477,7 @@ def glass_marble_material(color):
         wave.inputs['Distortion'].default_value = 4.0
         wave.inputs['Detail'].default_value = 1.5
         wave.inputs['Detail Scale'].default_value = 1.0
-        # Mostly the marble colour, with a thin lighter swirl band
+        # Mostly the marble color, with a thin lighter swirl band
         ramp = nodes.new('ShaderNodeValToRGB')
         deep = tuple(channel * 0.55 for channel in linear[:3]) + (1.0,)
         light = tuple(min(1.0, 0.12 + channel * 1.1) for channel in linear[:3]) + (1.0,)
@@ -526,14 +526,14 @@ def glossy_marble_material(color):
 
 
 def _wall_name(name, color, default):
-    """A wall material per colour; the base theme's own colour keeps the original name"""
+    """A wall material per color; the base theme's own color keeps the original name"""
     if default is not None and all(abs(a - b) < 1e-4 for a, b in zip(color, default)):
         return name
     return name + ' %.4f %.4f %.4f' % tuple(color[:3])
 
 
 def plain_wall_material(color):
-    """One smooth colour: the Wall skin that turns a theme's pattern off"""
+    """One smooth color: the Wall skin that turns a theme's pattern off"""
     def build(material):
         principled = _principled(material)
         material.diffuse_color = (*color, 1.0)
@@ -627,7 +627,7 @@ def pegboard_wall_material(pitch, color=PEGBOARD_COLOR):
 
 
 def neon_wall_material(color, grid, spacing=0.05):
-    """Deep navy wall with faint grid lines every `spacing` metres and a soft satin sheen"""
+    """Deep navy wall with faint grid lines every `spacing` meters and a soft satin sheen"""
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links
@@ -639,9 +639,9 @@ def neon_wall_material(color, grid, spacing=0.05):
         # Distance to the nearest grid line along x and y, as a share of the cell
         fraction = nodes.new('ShaderNodeVectorMath')
         fraction.operation = 'FRACTION'
-        centre = nodes.new('ShaderNodeVectorMath')
-        centre.operation = 'SUBTRACT'
-        centre.inputs[1].default_value = (0.5, 0.5, 0.0)
+        center = nodes.new('ShaderNodeVectorMath')
+        center.operation = 'SUBTRACT'
+        center.inputs[1].default_value = (0.5, 0.5, 0.0)
         absolute = nodes.new('ShaderNodeVectorMath')
         absolute.operation = 'ABSOLUTE'
         separate = nodes.new('ShaderNodeSeparateXYZ')
@@ -652,8 +652,8 @@ def neon_wall_material(color, grid, spacing=0.05):
         line.inputs['From Max'].default_value = 0.5
         links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
         links.new(mapping.outputs['Vector'], fraction.inputs[0])
-        links.new(fraction.outputs['Vector'], centre.inputs[0])
-        links.new(centre.outputs['Vector'], absolute.inputs[0])
+        links.new(fraction.outputs['Vector'], center.inputs[0])
+        links.new(center.outputs['Vector'], absolute.inputs[0])
         links.new(absolute.outputs['Vector'], separate.inputs['Vector'])
         links.new(separate.outputs['X'], nearest.inputs[0])
         links.new(separate.outputs['Y'], nearest.inputs[1])
@@ -680,7 +680,7 @@ def neon_wall_material(color, grid, spacing=0.05):
 
 def wall_material(theme, pitch):
     wall = theme_settings(theme)['wall']
-    # The Wall layer's Skin can put any theme's colour on any kind; a Pegboard theme's own wall has no colour field
+    # The Wall layer's Skin can put any theme's color on any kind; a Pegboard theme's own wall has no color field
     color = wall.get('color', PEGBOARD_COLOR)
     if wall['kind'] == 'plain':
         return plain_wall_material(color)
@@ -695,13 +695,13 @@ def wall_material(theme, pitch):
 
 
 def neon_color(color, value=0.75):
-    """Linear colour of a hex or linear colour pushed to full saturation at brightness `value`, so every piece reads
-    as a strong hue on the dark wall whatever its marble colour"""
+    """Linear color of a hex or linear color pushed to full saturation at brightness `value`, so every piece reads
+    as a strong hue on the dark wall whatever its marble color"""
     import colorsys
     linear = parse_color(color) if isinstance(color, str) else color
     hue, saturation, _ = colorsys.rgb_to_hsv(*linear[:3])
     if saturation < 0.08:
-        # A grey marble keeps a cool white-blue instead of a random hue
+        # A gray marble keeps a cool white-blue instead of a random hue
         return (value * 0.7, value * 0.82, value)
     return colorsys.hsv_to_rgb(hue, max(saturation, 0.88), value)
 
@@ -741,7 +741,7 @@ def neon_trim_material(color, idle=NEON_TRIM_GLOW):
     def build(material):
         tree = material.node_tree
         principled = _principled(material)
-        # A dark base keeps the strip its own colour; a light one would wash the glow out toward white
+        # A dark base keeps the strip its own color; a light one would wash the glow out toward white
         base = tuple(channel * 0.35 for channel in color) + (1.0,)
         material.diffuse_color = base
         _set(principled, 'Base Color', base)
@@ -764,9 +764,9 @@ def neon_mount_material():
 
 
 def neon_marble_core(color):
-    """Linear colour of a Neon marble's body: near-white with a hint of its lane's hue. The pieces glow in the lane's
+    """Linear color of a Neon marble's body: near-white with a hint of its lane's hue. The pieces glow in the lane's
     saturated hue, so a marble in that hue vanished against its own platforms; the reference channels light their
-    marbles white or pearl and keep the colour for the rim"""
+    marbles white or pearl and keep the color for the rim"""
     hue = neon_color(color, 1.0)
     return tuple(NEON_MARBLE_WHITE + (1.0 - NEON_MARBLE_WHITE) * channel for channel in hue)
 
@@ -785,7 +785,7 @@ def neon_marble_material(color):
         _set(principled, 'Roughness', 0.12)
         _set(principled, 'Coat Weight', 1.0)
         _set(principled, 'Coat Roughness', 0.02)
-        # Facing rises toward the silhouette; the power keeps the coloured glow to a thin rim around a white core
+        # Facing rises toward the silhouette; the power keeps the colored glow to a thin rim around a white core
         weight = nodes.new('ShaderNodeLayerWeight')
         weight.inputs['Blend'].default_value = 0.5
         rim = nodes.new('ShaderNodeMath')
@@ -807,7 +807,7 @@ def neon_marble_material(color):
     return _shared('MM · neon pearl marble ' + color, build)
 
 
-# Share of white in a Neon marble's body, its steady self-glow and the strength of its coloured rim
+# Share of white in a Neon marble's body, its steady self-glow and the strength of its colored rim
 NEON_MARBLE_WHITE = 0.86
 NEON_MARBLE_GLOW = 0.35
 NEON_MARBLE_RIM = 3.5
@@ -816,7 +816,7 @@ NEON_MARBLE_RIM = 3.5
 # Marble contrast: the marble is the film's subject, so it stays 3:1 apart from its wall and its own pieces in every
 # theme. Pearl white with its lane's hue on the rim on a dark wall (Neon), its lane's hue made deep on a light one
 # (Pegboard's birch, Brass's lavender), whichever contrasts more with both. The rule works on the Draft Preview's
-# display colours so both previews choose alike: the same values and steps as `draftMarble` in draft-look.ts.
+# display colors so both previews choose alike: the same values and steps as `draftMarble` in draft-look.ts.
 
 MARBLE_CONTRAST = 3.0
 PEARL_WHITE = 0.8
@@ -824,7 +824,7 @@ DEEP_LUMINANCE = 0.05
 # A deep body on a lighter wall can be lighter too, as long as it keeps MARBLE_CONTRAST against all it rolls over, so a
 # warm wall shows the marble's hue rather than a near-black ball. `deepBody` in draft-look.ts
 DEEP_LUMINANCE_LIGHTEST = 0.09
-# Darker still where its own Pegboard platform is a dark lane colour; `DEEP_LUMINANCE_DARKEST` in draft-look.ts
+# Darker still where its own Pegboard platform is a dark lane color; `DEEP_LUMINANCE_DARKEST` in draft-look.ts
 DEEP_LUMINANCE_DARKEST = 0.03
 NEON_BODY_VALUE = 0.62
 PEGBOARD_TINT = 0.4
@@ -843,7 +843,7 @@ def _to_hex(r, g, b):
 
 
 def display_luminance(color):
-    """WCAG relative luminance of a `#rrggbb` display colour"""
+    """WCAG relative luminance of a `#rrggbb` display color"""
     r, g, b = (_srgb_to_linear(channel) for channel in _hex_channels(color))
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
@@ -854,7 +854,7 @@ def contrast_ratio(a, b):
 
 
 def display_saturate(color, value):
-    """`saturate` in draft-look.ts: `color` at full saturation and brightness `value`; a grey turns cool blue-white"""
+    """`saturate` in draft-look.ts: `color` at full saturation and brightness `value`; a gray turns cool blue-white"""
     r, g, b = _hex_channels(color)
     top, bottom = max(r, g, b), min(r, g, b)
     if top == 0 or (top - bottom) / top < 0.08:
@@ -886,18 +886,18 @@ def deep_luminance(around):
 
 
 def marble_surfaces(theme, color):
-    """Display colours a marble rolls over without Colour by Note, `marbleSurfaces` in draft-look.ts"""
+    """Display colors a marble rolls over without Color by Note, `marbleSurfaces` in draft-look.ts"""
     if theme == 'brass':
         return [DRAFT_GOLD]
     if theme == 'neon':
         return [display_saturate(color, NEON_BODY_VALUE)]
-    # The Draft Preview's lighter tint and the lane colour itself, which is what the film's Pegboard platform is painted
+    # The Draft Preview's lighter tint and the lane color itself, which is what the film's Pegboard platform is painted
     return [display_tint(color, PEGBOARD_TINT), color]
 
 
 def marble_look(name, color, overrides=None):
-    """A marble's tone (`pearl` or `deep`), display body colour and lowest contrast against its wall and pieces in
-    theme `name`, with the project theme's Wall colour from `overrides` or this apply's"""
+    """A marble's tone (`pearl` or `deep`), display body color and lowest contrast against its wall and pieces in
+    theme `name`, with the project theme's Wall color from `overrides` or this apply's"""
     theme = theme_name(name)
     overrides = clean_overrides(_overrides if overrides is None else overrides)
     color = color if isinstance(color, str) and len(color) == 7 and color.startswith('#') else '#d0d4dc'
@@ -1001,7 +1001,7 @@ def apply_bloom(scene, amount):
         warm.name = 'Vignette'
         warm.data_type = 'RGBA'
         warm.blend_type = 'MULTIPLY'
-        # Mix keeps a socket per data type: 6, 7 and output 2 are the colour ones
+        # Mix keeps a socket per data type: 6, 7 and output 2 are the color ones
         warm.inputs[7].default_value = (*VIGNETTE_COLOR, 1.0)
         group.links.new(coordinates.outputs['Normalized'], distance.inputs[0])
         group.links.new(distance.outputs['Value'], falloff.inputs['Value'])

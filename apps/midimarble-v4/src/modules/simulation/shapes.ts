@@ -138,7 +138,7 @@ const MERGE_ANGLE = (0.25 * Math.PI) / 180;
 
 /**
  * Smooth polyline through the control points. Uses a centripetal Catmull-Rom spline, which passes
- * through every control point without overshoot, sampled about every centimetre. Nearly straight runs
+ * through every control point without overshoot, sampled about every centimeter. Nearly straight runs
  * merge so a straight rail is a single segment.
  */
 export function smoothPath(points: TVec2[]): TVec2[] {

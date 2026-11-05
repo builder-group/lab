@@ -14,7 +14,7 @@ export const CameraShotSpans: React.FC<TCameraShotSpansProps> = (props) => {
 	return (
 		<>
 			{shotSpans(shots, project.end).map((span) => {
-				const colour = selected.has(span.shotId) ? 'var(--accent)' : 'var(--warn)';
+				const color = selected.has(span.shotId) ? 'var(--accent)' : 'var(--warn)';
 				const fade = span.isRelease ? SHOT_EASE_SECONDS * zoom : 0;
 				return (
 					<div
@@ -25,8 +25,8 @@ export const CameraShotSpans: React.FC<TCameraShotSpansProps> = (props) => {
 							width: Math.max(2, (span.end - span.start) * zoom + fade),
 							borderRadius: span.isRelease ? '0 3px 3px 0' : 0,
 							background: span.isRelease
-								? `linear-gradient(to right, color-mix(in srgb, ${colour} 40%, transparent) calc(100% - ${fade}px), transparent)`
-								: `color-mix(in srgb, ${colour} 40%, transparent)`
+								? `linear-gradient(to right, color-mix(in srgb, ${color} 40%, transparent) calc(100% - ${fade}px), transparent)`
+								: `color-mix(in srgb, ${color} 40%, transparent)`
 						}}
 						aria-hidden
 					/>

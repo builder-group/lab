@@ -1,7 +1,7 @@
 """Decor: the film's decorations, from `TSceneDescription.decor`, and what the user added directly in Blender.
 
-Built-in items are procedural and cheap: one mesh per item, shared by every copy, or a text object. Each is modelled in
-the asset frame the library's decorations use: origin at the centre of the back face, X right, Y up, +Z out of the wall
+Built-in items are procedural and cheap: one mesh per item, shared by every copy, or a text object. Each is modeled in
+the asset frame the library's decorations use: origin at the center of the back face, X right, Y up, +Z out of the wall
 toward the camera. A decoration is one object in `MidiMarble · managed` tagged `mm_role = 'decor'` and the layer's key as
 `mm_id`, so the preview's ID pass picks it. An asset decoration is an empty with copies of its `MM_ASSET` objects below.
 

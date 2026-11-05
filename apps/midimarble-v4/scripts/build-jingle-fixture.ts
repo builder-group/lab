@@ -68,7 +68,7 @@ const CHRISTMAS_THEME: TProjectTheme = {
 	base: 'brass',
 	overrides: { wallColor: '#fcf3df', lightColor: '#ffe6b3', backgroundColor: '#fff2d2' },
 	keyLight: { strength: 5, side: -0.26, height: 0.35, softness: 0.55, exposure: 0.4, bloom: 0.5 },
-	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, marble: { skin: 'marble:glass-green', colour: 'marble' } }
+	parts: { platform: { skin: 'platform:gift' }, rail: { skin: 'rail:candy' }, marble: { skin: 'marble:glass-green', colorSource: 'marble' } }
 };
 const MELODY_RED = '#c8102e';
 const BASS_GREEN = '#0c8a3a';

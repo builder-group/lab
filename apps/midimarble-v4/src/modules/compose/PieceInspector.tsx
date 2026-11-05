@@ -61,9 +61,9 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const cancel = (): void => cx.simulation.endPreview();
 
 	const angleEdit = (degrees: number): TPieceEdit => ({ angle: toRadians(degrees) });
-	const lengthEdit = (centimetres: number): TPieceEdit => ({ params: { length: centimetres / 100 } });
+	const lengthEdit = (centimeters: number): TPieceEdit => ({ params: { length: centimeters / 100 } });
 	const contactEdit = (percent: number): TPieceEdit => ({ hitLink: { contactAt: percent / 100 } });
-	const positionEdit = (axis: 'x' | 'y', centimetres: number): TPieceEdit => ({ position: { [axis]: centimetres / 100 } });
+	const positionEdit = (axis: 'x' | 'y', centimeters: number): TPieceEdit => ({ position: { [axis]: centimeters / 100 } });
 
 	const title = isSingle ? (first.name ?? label) : isSameType ? `${entities.length} ${label}s` : `${entities.length} Pieces`;
 	const subtitle = isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
@@ -436,7 +436,7 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	const run = pathRun(controls);
 	const world = worldRunSlope(piece, controls);
 
-	const withLength = (centimetres: number): TVec2[] => withPathRun(controls, centimetres / 100, run.slope);
+	const withLength = (centimeters: number): TVec2[] => withPathRun(controls, centimeters / 100, run.slope);
 	const withSlope = (degrees: number): TVec2[] => turnPathRun(controls, -(toRadians(degrees) - world.slope) * world.direction);
 	const pathProject = (points: TVec2[]): TProject => ({
 		...project,
@@ -541,7 +541,7 @@ function displayUnit(name: string, unit: string, isInteger: boolean): { unit: st
 	if (isInteger) return { unit: '', factor: 1, step: 0.05, precision: 0 };
 	switch (unit) {
 		case 'm':
-			// Wires and walls are millimetres; lengths are centimetres
+			// Wires and walls are millimeters; lengths are centimeters
 			return name === 'radius' || name === 'gap' || name === 'bore' || name.endsWith('Thickness') || name === 'thickness'
 				? { unit: 'mm', factor: 1000, step: 0.05, precision: 1 }
 				: { unit: 'cm', factor: 100, step: 0.1, precision: 1 };

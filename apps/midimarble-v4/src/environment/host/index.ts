@@ -107,7 +107,7 @@ export const host = {
 		return { name: path.split('/').pop() ?? path, path };
 	},
 
-	/** Open panel for References; empty when cancelled or in the browser */
+	/** Open panel for References; empty when canceled or in the browser */
 	async chooseImages(): Promise<string[]> {
 		if (!isTauri()) return [];
 		const { open } = await import('@tauri-apps/plugin-dialog');
@@ -172,14 +172,14 @@ export const host = {
 		return convertFileSrc(file.path);
 	},
 
-	/** Save panel for an exported film; null when cancelled or in the browser */
+	/** Save panel for an exported film; null when canceled or in the browser */
 	async chooseFilmPath(defaultPath: string): Promise<string | null> {
 		if (!isTauri()) return null;
 		const { save } = await import('@tauri-apps/plugin-dialog');
 		return save({ title: 'Export Film', defaultPath, filters: [{ name: 'MPEG-4 Movie', extensions: ['mp4'] }] });
 	},
 
-	/** Import from File…: open panel for a Pack, a folder until the bundled app registers the `.marblepack` type; null when cancelled */
+	/** Import from File…: open panel for a Pack, a folder until the bundled app registers the `.marblepack` type; null when canceled */
 	async choosePackToImport(): Promise<string | null> {
 		if (!isTauri()) return null;
 		const { open } = await import('@tauri-apps/plugin-dialog');
@@ -187,7 +187,7 @@ export const host = {
 		return typeof path === 'string' ? path : null;
 	},
 
-	/** Save panel for a Pack; null when cancelled */
+	/** Save panel for a Pack; null when canceled */
 	async choosePackPath(name: string): Promise<string | null> {
 		if (!isTauri()) return null;
 		const { save } = await import('@tauri-apps/plugin-dialog');

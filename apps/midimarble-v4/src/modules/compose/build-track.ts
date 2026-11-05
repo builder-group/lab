@@ -42,13 +42,13 @@ import { hitReach } from './reachability';
 // it does what a person tries next: turn the lane's previous platform, turn the other marble's platform in the way,
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
-// few millimetres over, as a person would: what a stuck hit tries costs more than a song's first hits, so a release
+// few millimeters over, as a person would: what a stuck hit tries costs more than a song's first hits, so a release
 // ends at the first hit nothing solves. That goes on until `SEARCHES_PER_HIT` searches per hit are spent; the attempt that got
 // furthest then finishes past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
 // so every choice follows from the project and the same project always gets the same track.
 
 const DEGREE = Math.PI / 180;
-/** Release shifts tried in turn, in metres */
+/** Release shifts tried in turn, in meters */
 const RELEASE_SHIFTS = [0, 0.005, -0.005, 0.01, -0.01, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
 /**
  * Auto place and gap piece searches per hit of the song, over every attempt, before the build stops looking for a clean
@@ -138,7 +138,7 @@ export interface TBuildOutcome {
 	added: number;
 	/** The person's pieces it had to turn, by entity ID */
 	turned: string[];
-	/** How far it moved the releases, in metres; 0 when they stayed */
+	/** How far it moved the releases, in meters; 0 when they stayed */
 	releaseShift: number;
 	/** Hits that are not on time, in time order, or Open after the build */
 	attention: TBuildAttention[];
@@ -180,7 +180,7 @@ export interface TBuildTrackDeps {
 	commit?: (commands: TProjectCommand[], isFirst: boolean, hit: THitResult | null) => boolean;
 	onProgress?: (progress: TBuildProgress) => void;
 	onLog?: (line: string) => void;
-	isCancelled?: () => boolean;
+	isCanceled?: () => boolean;
 }
 
 export type TBuildGapPreference = 'rail' | 'switchback' | 'chain';
@@ -267,8 +267,8 @@ function run(state: TBuildState, project: TProject): Promise<TSimulationResult> 
 	return known;
 }
 
-function isCancelled(state: TBuildState): boolean {
-	return state.deps.isCancelled?.() === true;
+function isCanceled(state: TBuildState): boolean {
+	return state.deps.isCanceled?.() === true;
 }
 
 /** Whether the search budget is gone, which ends the searching but not the build */
@@ -277,7 +277,7 @@ function isSpent(state: TBuildState): boolean {
 }
 
 function shouldStopLooking(state: TBuildState): boolean {
-	return isCancelled(state) || isSpent(state);
+	return isCanceled(state) || isSpent(state);
 }
 
 function reject(state: TBuildState, reason: string): null {
@@ -344,7 +344,7 @@ function gapPieceId(state: TBuildState, current: TProject, type: TGapPieceType, 
 }
 
 /**
- * Applies the commands when every hit with a piece stays on time afterwards (a resting first contact counts as
+ * Applies the commands when every hit with a piece stays on time afterward (a resting first contact counts as
  * missed), in the lane being built and in the other lanes up to the other marbles' next open hits, no switchback,
  * rail or tunnel is blocked, each marble touches only its own pieces, every placed dot of the lane lies in its band,
  * and the lane's next open dot lies in its band and, with several marbles, within the pace limit of y* (or no further
@@ -399,7 +399,7 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 		return contact.kind === 'piece' && lane != null && lane !== laneOfEntity(applied, contact.marbleEntityId);
 	});
 	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleEntityId}/${contact.otherEntityId}`).join(' ')}`);
-	// Every hit of the lane with a piece keeps its dot in frame; its own lane's centre is only Auto place's preference
+	// Every hit of the lane with a piece keeps its dot in frame; its own lane's center is only Auto place's preference
 	const band = frameBand(applied);
 	const outside = result.hits.filter((hit) => hit.laneId === laneId && hit.pieceEntityId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.laneId, hit.hitId)) && !isInBand(hit.dot, band, 1));
 	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
@@ -532,7 +532,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
 		const rodeSwitchback = current.entities.filter((entity) => entity.components.hitLink?.laneId === laneId && entity.components.piece != null && entity.components.piece.type !== 'platform' && !state.own.has(entity.id)).at(-1)?.components.piece?.layout === 'switchback';
 		for (const type of gapPieceOrder(state.gapPiece)) {
-			if (isCancelled(state)) return null;
+			if (isCanceled(state)) return null;
 			const entityId = gapPieceId(state, current, type, laneId);
 			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }));
 			// A piece that ends far from the pace or the lane leaves the gap to the other, which has to do
@@ -563,7 +563,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		}
 		deps.onLog?.(`  ${gap.fromHitId} -> ${gap.toHitId}: no gap piece fits the ${gap.duration.toFixed(2)} s gap (${state.reasons.at(-1) ?? ''})`);
 	}
-	if (isCancelled(state)) return null;
+	if (isCanceled(state)) return null;
 
 	const isLaunch = findLongGaps(current, laneId).some((item) => item.fromHitId === hitId && item.bridgedBy == null);
 	const continued = !isLaunch ? await ask(state, 'continue', () => deps.continueRun({ project: current, laneId, canTurn: false })) : null;
@@ -600,7 +600,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 			return accepted;
 		}
 	}
-	if (isCancelled(state)) return null;
+	if (isCanceled(state)) return null;
 
 	const placed = await ask(state, 'autoPlace', () => deps.autoPlace({ project: current, laneId, hitId, type: 'platform', entityId: id }));
 	const accepted = placed != null ? await accept(state, current, [{ type: 'upsertEntity', entity: placed.entity }], laneId) : null;
@@ -609,7 +609,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		else counts.autoPlace++;
 		return accepted;
 	}
-	if (isCancelled(state)) return null;
+	if (isCanceled(state)) return null;
 	// What a person tries next: turning further than Auto place searches. A search that found nothing already tried these.
 	if (placed != null) {
 		const wide = await ask(state, 'wide autoPlace', () => deps.autoPlace({ project: current, laneId, hitId, type: 'platform', entityId: id, range: [-60 * DEGREE, 60 * DEGREE] }));
@@ -623,7 +623,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	const band = frameBand(current, laneId);
 	let best: { project: TProject; angle: number; offset: number } | null = null;
 	for (let degrees = -24; degrees <= 24; degrees += 3) {
-		if (isCancelled(state)) return null;
+		if (isCanceled(state)) return null;
 		const entity = createLinkedPiece('platform', laneId, hitId, degrees * DEGREE, { id, entities: current.entities });
 		const leaned = await accept(state, current, [{ type: 'upsertEntity', entity }], laneId, false);
 		if (leaned == null) continue;
@@ -635,7 +635,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	}
 	if (best == null) return null;
 	counts.lean++;
-	deps.onLog?.(`  ${hitId}: rotated by hand to ${best.angle}°, next dot ${best.offset.toFixed(2)} m from its band centre (${state.reasons.at(-1) ?? ''})`);
+	deps.onLog?.(`  ${hitId}: rotated by hand to ${best.angle}°, next dot ${best.offset.toFixed(2)} m from its band center (${state.reasons.at(-1) ?? ''})`);
 	return best.project;
 }
 
@@ -779,7 +779,7 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 		// Of the leans that play it, the one whose next dot stays nearest the lane, or a forced run wanders off in a long diagonal
 		let best: { project: TProject; degrees: number; offset: number } | null = null;
 		for (const degrees of LEANS) {
-			if (isCancelled(state)) break;
+			if (isCanceled(state)) break;
 			const entity = createLinkedPiece('platform', target.laneId, target.hitId, degrees * DEGREE, { id, entities: current.entities });
 			const placed = apply(current, [{ type: 'upsertEntity', entity }]);
 			if (placed == null) continue;
@@ -1001,10 +1001,10 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 
 	// Each marble ends in a Bowl after its last note, and the film length follows
 	const bowls: string[] = [];
-	if (!build.isStopped && !isCancelled(best.state)) {
-		const finished = best.finished ?? (await withBowls(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) }));
+	if (!build.isStopped && !isCanceled(best.state)) {
+		const finished = best.finished ?? (await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { lanes: lanesWithHits(current) }));
 		bowls.push(...finished.messages);
-		if (isCancelled(best.state)) build.isStopped = true;
+		if (isCanceled(best.state)) build.isStopped = true;
 		else {
 			current = finished.project;
 			if (!publish(build, current, null)) build.isStopped = true;
@@ -1261,14 +1261,14 @@ async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProjec
 		return true;
 	};
 	for (let step = 0; step < total * 8 + 16; step++) {
-		if (isCancelled(state)) return stopped();
+		if (isCanceled(state)) return stopped();
 		const { current } = progress;
 		const result = await run(state, current);
 		const target = nextTarget(state, current, result);
 		if (target == null) {
 			// The whole run is built, so the camera's answer, the pace and the Bowls are final
-			const finished = await withBowls(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) });
-			if (isCancelled(state)) return stopped();
+			const finished = await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { lanes: lanesWithHits(current) });
+			if (isCanceled(state)) return stopped();
 			const trouble = canForce ? null : (framingTrouble(finished?.project ?? current, finished != null ? await deps.simulate(finished.project) : result) ?? paceTrouble(current, result) ?? bowlTrouble(finished?.project ?? current));
 			if (trouble != null && (await wentBack(trouble))) continue;
 			return { project: current, reached: Infinity, ...(finished != null ? { finished } : {}) };
@@ -1283,7 +1283,7 @@ async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProjec
 		state.counts.next++;
 		reportBuildProgress(build, result, target.targetTime);
 		const next = await solveHit(state, current, target);
-		if (isCancelled(state)) return stopped();
+		if (isCanceled(state)) return stopped();
 		if (next == null && !canForce) {
 			deps.onLog?.(`  ${target.hitId}: nothing solves it at ${target.targetTime.toFixed(2)} s (${state.reasons.join('; ') || 'no assist found a piece'})`);
 			// With another release to try, that comes cheaper than backing up: a song's first hits take few searches, a stuck hit dozens

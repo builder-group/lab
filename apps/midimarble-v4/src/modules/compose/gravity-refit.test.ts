@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHistory, createLane, createMarble, createProject, type TPatternGroup, type TProject } from '@/modules/project';
-import { createLinkedPiece, PatternCancelledError, type TPatternAnswer } from '@/modules/simulation';
+import { createLinkedPiece, PatternCanceledError, type TPatternAnswer } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio/StudioCx';
 import { PatternsCx } from './PatternsCx';
 
@@ -38,7 +38,7 @@ describe('Gravity and live Patterns', () => {
 		const before = cx.project?.physics;
 		run.mockImplementation(async () => {
 			patterns.stop();
-			throw new PatternCancelledError();
+			throw new PatternCanceledError();
 		});
 
 		await patterns.setGravity(0.5);

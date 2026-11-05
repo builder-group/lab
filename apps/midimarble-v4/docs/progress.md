@@ -47,7 +47,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 
 Playground projects and Jingle Bells are the test ground throughout.
 
-1. The owner tests the trimmed app; fix what the test finds. Compose and Film as names are open until then: the coordinator recommends afterwards, compared with Blender workspaces.
+1. The owner tests the trimmed app; fix what the test finds. Compose and Film as names are open until then: the coordinator recommends afterward, compared with Blender workspaces.
 2. A Final film of Jingle Bells
 3. Films: Jingle Bells V4
 4. **Last step and final validation:** recreate the reference short through the app. If the app can't do it, iterate on the app, not the one film.
