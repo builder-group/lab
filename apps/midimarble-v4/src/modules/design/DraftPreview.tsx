@@ -8,10 +8,10 @@ import type { TVec2 } from '@/modules/project';
 import type { TTouched } from '@/modules/mcp/AgentPresenceCx';
 import { filmObjectMenu } from '@/modules/studio/menus';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { placeDecor, startDecorDrag } from './decor-actions';
+import { startDecorDrag } from './decor-actions';
 import { DraftDecorShape } from './DraftDecorShape';
 import { DraftEffects } from './DraftEffects';
-import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
+import { insertDropHandlers } from './FilmInsert';
 import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
 import { HitboxOverlay } from './HitboxOverlay';
@@ -64,23 +64,6 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 		onPick(draft.pick(point, titleBoxes(draft.titles())), event.shiftKey);
 	}
 
-	function onDrop(event: React.DragEvent<HTMLDivElement>): void {
-		setDropTarget(false);
-		if (dropTitle(event, studio)) return;
-		const decor = readDecorDrop(event, studio);
-		if (decor != null) {
-			event.preventDefault();
-			const { u, v } = pointOf(event);
-			placeDecor(studio, decor, u, v);
-			return;
-		}
-		const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
-		if (!data) return;
-		event.preventDefault();
-		const id = draft.pick(pointOf(event).point, new Map());
-		if (id != null) onDropAsset(id, JSON.parse(data) as { id: string; scope: string });
-	}
-
 	// Letterboxed: the frame keeps the film's aspect at the largest size the pane fits, however narrow it is
 	return (
 		<div
@@ -114,14 +97,13 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 							swallowClickRef.current = wasDragged;
 						});
 					}}
-					onDragOver={(event) => {
-						if (!isInsertDrag(event)) return;
-						event.preventDefault();
-						event.dataTransfer.dropEffect = 'copy';
-						setDropTarget(true);
-					}}
-					onDragLeave={() => setDropTarget(false)}
-					onDrop={onDrop}
+					{...insertDropHandlers<HTMLDivElement>({
+						studio,
+						setDropTarget,
+						imagePoint: pointOf,
+						pieceAt: (event) => draft.pick(pointOf(event).point, new Map()),
+						onDropAsset
+					})}
 				>
 					<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 					<DraftOverlay draft={draft} />

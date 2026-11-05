@@ -1,5 +1,4 @@
 import { useFeatureState } from 'feature-react/state';
-import { RotateCcw } from 'lucide-react';
 import React from 'react';
 import { Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
@@ -9,6 +8,7 @@ import { skinPropertyCommands, type TSkinPropertyPatch } from './design-commands
 import { resolveElementLook } from './project-themes';
 import { themeOriginLabel } from './scene-layers';
 import { SkinPicker } from './SkinPickers';
+import { ColorWell } from './SceneLayerInspector';
 import { catalogSkin, COLOR_SOURCE_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties, type TSkinColorSource } from './skin-catalog';
 
 // The standard skin properties in the Skin panel, the same rows for pieces and marbles.
@@ -70,7 +70,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 				/>
 			) : null}
 			{hasOwnColor ? (
-				<ColorRow
+				<SkinColor
 					cx={cx}
 					id="skin-own-color"
 					label="Marble Color"
@@ -91,7 +91,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					}}
 				/>
 			) : null}
-			{shared.glowColor ? <ColorRow cx={cx} id="skin-glow" label="Glow Color" value={sameOf(entities.map((entity) => entity.components.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
+			{shared.glowColor ? <SkinColor cx={cx} id="skin-glow" label="Glow Color" value={sameOf(entities.map((entity) => entity.components.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
 			{shared.variants.length > 0 ? (
 				<SelectField
 					id="skin-variant"
@@ -105,7 +105,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 			) : null}
 			{extras.map((extra) =>
 				extra.type === 'color' ? (
-					<ColorRow
+					<SkinColor
 						key={extra.name}
 						cx={cx}
 						id={`skin-extra-${extra.name}`}
@@ -151,45 +151,10 @@ function sharedExtras(project: TProject, entities: TEntity[], items: readonly { 
 	return (lists[0] ?? []).filter((property) => lists.every((list) => list.some((item) => item.name === property.name && item.type === property.type)));
 }
 
-/** A color well with a reset; dragging in the color picker is one undo step */
-const ColorRow: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; origin: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
+/** A skin's color well; without a color of its own it shows what it gets from `origin` */
+const SkinColor: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; origin: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
 	const { cx, id, label, value, fallback, origin, patch } = props;
-	const groupRef = React.useRef<number | null>(null);
-
-	function set(color: string | null): void {
-		const commands = patch(color);
-		if (color != null && groupRef.current != null && cx.editGroup === groupRef.current) {
-			cx.execute(commands, { group: groupRef.current });
-			return;
-		}
-		if (cx.execute(commands)) groupRef.current = color != null ? cx.editGroup : null;
-	}
-
-	return (
-		<span className="mm-ifield" data-span="2">
-			<label htmlFor={id} className="mm-ifield-label">
-				{label}
-			</label>
-			<input
-				id={id}
-				type="color"
-				className="mm-color"
-				aria-label={label}
-				style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }}
-				value={value ?? fallback}
-				onChange={(event) => set(event.target.value)}
-				onBlur={() => {
-					groupRef.current = null;
-				}}
-			/>
-			{value != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{value}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{origin}</span>}
-			{value != null ? (
-				<button className="mm-icon-button" onClick={() => set(null)} title={`Use ${origin === 'Default' ? 'the default' : "the theme's"} ${label.toLowerCase()} again`} aria-label={`Reset ${label}`} type="button">
-					<RotateCcw size={12} strokeWidth={1.9} />
-				</button>
-			) : null}
-		</span>
-	);
+	return <ColorWell cx={cx} id={id} label={label} name={label} own={value} shown={value ?? fallback} origin={origin} resetTitle={`Use ${origin === 'Default' ? 'the default' : "the theme's"} ${label.toLowerCase()} again`} commandsFor={patch} />;
 };
 
 /** A marble's Skin section in Film: its skin and properties. Its physics never change with its skin. */

@@ -9,8 +9,8 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import { startCameraOrbit } from './camera-orbit';
 import type { DesignCx } from './DesignCx';
 import { decorAtWall } from './decor';
-import { placeDecor, startDecorDrag } from './decor-actions';
-import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
+import { startDecorDrag } from './decor-actions';
+import { insertDropHandlers } from './FilmInsert';
 import { ScatterPanel } from './ScatterPanel';
 import { DraftPreview } from './DraftPreview';
 import { lookupFrame } from './live-preview';
@@ -98,24 +98,6 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 		onPick(await cx.pick(u, v), event.shiftKey);
 	}
 
-	async function onDrop(event: React.DragEvent<HTMLImageElement>): Promise<void> {
-		setDropTarget(false);
-		if (dropTitle(event, studio)) return;
-		const decor = readDecorDrop(event, studio);
-		if (decor != null) {
-			event.preventDefault();
-			const { u, v } = toImage(event);
-			placeDecor(studio, decor, u, v);
-			return;
-		}
-		const data = event.dataTransfer.getData(LIBRARY_DRAG_TYPE);
-		if (!data) return;
-		event.preventDefault();
-		const { u, v } = toImage(event);
-		const id = await cx.pick(u, v);
-		if (id != null) onDropAsset(id, JSON.parse(data) as { id: string; scope: string });
-	}
-
 	return (
 		<div
 			className="relative flex h-full w-full items-center justify-center bg-[var(--canvas)] p-8"
@@ -171,14 +153,16 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 							swallowClickRef.current = wasDragged;
 						});
 					}}
-					onDragOver={(event) => {
-						if (!isInsertDrag(event)) return;
-						event.preventDefault();
-						event.dataTransfer.dropEffect = 'copy';
-						setDropTarget(true);
-					}}
-					onDragLeave={() => setDropTarget(false)}
-					onDrop={(event) => void onDrop(event)}
+					{...insertDropHandlers<HTMLImageElement>({
+						studio,
+						setDropTarget,
+						imagePoint: toImage,
+						pieceAt: (event) => {
+							const { u, v } = toImage(event);
+							return cx.pick(u, v);
+						},
+						onDropAsset
+					})}
 				/>
 			) : (
 				<div
