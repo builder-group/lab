@@ -286,7 +286,7 @@ There is no chat in the window (design-language.md, Round 9). The person chats i
 
 **The Agent button** in the title bar opens a small menu: who is connected ("Claude Code connected", "No agent connected", "MCP is off"), Connect Claude Code, Connect ChatGPT and Codex, Copy Command for Other Apps, Enable MCP and Show Agent Folder. While an agent works its glyph pulses and the word Working opens.
 
-**While a call runs**, a pill at the top of the canvas in Compose and Film says what it is doing ("Agent · Placing Platform 12") with **Stop**. Calls that only read don't show it, and it goes 1.5 s after the last call. Stop ends a running Build Track, Fix Hits or export, turns away calls waiting behind it, and tells the agent in its reply; what's done stays. A Blender frame already rendering finishes, so the pill reads Stopping until then.
+**While a call runs**, the notice at the bottom left of the canvas in Compose and Film says what it is doing ("Agent · Placing Platform 12") with **Stop**. Calls that only read don't show it, and it goes 1.5 s after the last call. Stop ends a running Build Track, Fix Hits or export, turns away calls waiting behind it, and tells the agent in its reply; what's done stays. A Blender frame already rendering finishes, so the pill reads Stopping until then.
 
 **What an edit changed flashes:** an accent outline like the selection's on the piece, and on its row in Layers for any layer (Wall, lights, Camera, Decor, titles), fading in about a second. With Reduce Motion it shows for that second without a fade.
 

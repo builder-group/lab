@@ -2,7 +2,6 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ContextMenuHost } from '@/components';
 import { ExportSheet } from '@/modules/design/ExportSheet';
-import { AgentPresencePill } from './AgentPresencePill';
 import { CommandPalette } from './CommandPalette';
 import { ConfirmAlert } from './ConfirmAlert';
 import { HintLayer } from './HintLayer';
@@ -41,7 +40,6 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 						<ToolRail cx={cx} />
 						<main className="relative min-w-0 flex-1" data-canvas-bounds data-quick-help="wall" aria-label={workspace === 'compose' ? 'Compose wall' : 'Film preview'}>
 							{canvas}
-							<AgentPresencePill cx={cx} />
 							<Notice cx={cx} />
 						</main>
 						{panels.inspector ? <Inspector cx={cx} /> : null}

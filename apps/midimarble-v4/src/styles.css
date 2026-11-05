@@ -1919,8 +1919,12 @@ button.mm-hit-summary:hover {
 	color: var(--text-secondary);
 }
 
+.mm-titlebar-agent-glyph[data-connected='true'],
 .mm-titlebar-agent-glyph[data-working='true'] {
 	color: var(--accent-strong);
+}
+
+.mm-titlebar-agent-glyph[data-working='true'] {
 	animation: mm-chip-pulse 1.6s ease-in-out infinite;
 }
 

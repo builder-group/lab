@@ -197,7 +197,7 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 
 /**
  * The person's own AI app as a collaborator: who is connected, and what connects one. Like Blender's button, its
- * glyph pulses and a state word opens only while an agent is at work.
+ * glyph is yellow while an agent is connected, and pulses with a state word only while it is at work.
  */
 const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
@@ -218,7 +218,7 @@ const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 			onOpen={() => void cx.mcp.refreshConnections()}
 			label={
 				<>
-					<Sparkles className="mm-titlebar-agent-glyph" data-working={isWorking} size={14} strokeWidth={1.7} aria-hidden />
+					<Sparkles className="mm-titlebar-agent-glyph" data-connected={isEnabled && clients.length > 0} data-working={isWorking} size={14} strokeWidth={1.7} aria-hidden />
 					<span>Agent</span>
 					<span className="mm-titlebar-chip-state" data-shown={working.isShown}>
 						{working.word}

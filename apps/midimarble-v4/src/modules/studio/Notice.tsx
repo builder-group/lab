@@ -8,13 +8,31 @@ import type { StudioCx } from './StudioCx';
  * where the run, the hints and the build bar are: one line, two at most, its actions at the right like the Undo of Mail's and
  * Finder's toasts, and a thin progress bar while a long task such as Fix Hits runs. Hovering keeps it open. A
  * notice with details, like Figma's notifications, has a Details disclosure with the full text and a close
- * button, and stays until it is closed or the next edit.
+ * button, and stays until it is closed or the next edit. An agent at work shows here too, one place for what the app is
+ * doing: "Agent · Building track · 12 of 58" with Stop, which stops the agent and any build it started.
  */
 export const Notice: React.FC<TNoticeProps> = (props) => {
 	const { cx } = props;
 	const notice = useFeatureState(cx.$notice);
+	const presence = useFeatureState(cx.mcp.presence.$current);
 	useFeatureState(cx.$history);
 	const [openDetails, setOpenDetails] = React.useState<number | null>(null);
+	if (notice == null && presence == null) return null;
+	// An agent's line wins over passing notices, but not over a failure the person should read
+	if (presence != null && notice?.tone !== 'error') {
+		const doing = presence.isStopping ? 'Stopping' : notice?.progress != null ? notice.message : presence.label;
+		return (
+			<div role="status" className="mm-notice absolute bottom-3 left-3 z-30 w-max max-w-[min(560px,calc(100%-24px))] overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]" style={{ boxShadow: 'var(--shadow-popover)' }}>
+				<div className="flex items-center gap-3 py-1.5 pr-1.5 pl-4" style={{ minHeight: 36 }}>
+					<span className="min-w-0 truncate">Agent · {doing}</span>
+					<button className="mm-notice-action" disabled={presence.isStopping} onClick={() => cx.mcp.stop()} title="Stop what the agent is doing" type="button">
+						Stop
+					</button>
+				</div>
+				{notice?.progress != null ? <NoticeProgress progress={notice.progress} /> : null}
+			</div>
+		);
+	}
 	if (notice == null) return null;
 	// An Undo is shown only while its edit is the latest, as it would take back a later edit otherwise
 	const actions = (notice.actions ?? []).filter((action) => action.undoGroup === undefined || action.undoGroup === cx.editGroup);
@@ -79,14 +97,16 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 					{notice.details}
 				</p>
 			) : null}
-			{notice.progress != null ? (
-				<div className="h-[3px] bg-[var(--field-fill)]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(notice.progress * 100)}>
-					<div className="h-full bg-[var(--accent)] transition-[width] duration-200" style={{ width: `${Math.round(notice.progress * 100)}%` }} />
-				</div>
-			) : null}
+			{notice.progress != null ? <NoticeProgress progress={notice.progress} /> : null}
 		</div>
 	);
 };
+
+const NoticeProgress: React.FC<{ progress: number }> = (props) => (
+	<div className="h-[3px] bg-[var(--field-fill)]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(props.progress * 100)}>
+		<div className="h-full bg-[var(--accent)] transition-[width] duration-200" style={{ width: `${Math.round(props.progress * 100)}%` }} />
+	</div>
+);
 
 interface TNoticeProps {
 	cx: StudioCx;
