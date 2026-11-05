@@ -4,7 +4,7 @@ import React from 'react';
 import { WindowHeader } from '@/components';
 import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
 import { host, newProjectTitle } from '@/environment';
-import type { StudioCx } from '@/modules/studio';
+import type { StartCx } from './StartCx';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
 export const StartScreen: React.FC<TStartScreenProps> = (props) => {
@@ -32,7 +32,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	async function openExample(example: TExample): Promise<void> {
 		const [isExampleOk, exampleErr, loaded] = await loadExample(example);
 		if (!isExampleOk) {
-			cx.notify(exampleErr.message, 'error');
+			void cx.notify(exampleErr.message, 'error');
 			return;
 		}
 		// An example opens unsaved, like a macOS untitled document, so Recent does not fill with copies
@@ -139,7 +139,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 const RECENT_LIMIT = 6;
 
 interface TStartScreenProps {
-	cx: StudioCx;
+	cx: StartCx;
 	extraActions?: React.ReactNode;
 }
 
@@ -164,7 +164,7 @@ const ExampleThumbnail: React.FC<{ id: string; icon: React.ReactNode }> = (props
 	);
 };
 
-export const StartAction: React.FC<TStartActionProps> = (props) => {
+const StartAction: React.FC<TStartActionProps> = (props) => {
 	const { icon, title, detail, onClick } = props;
 	return (
 		<button className="mm-row !mx-0 !h-12 text-left" onClick={onClick} type="button">

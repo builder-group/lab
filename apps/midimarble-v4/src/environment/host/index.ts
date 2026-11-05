@@ -1,9 +1,10 @@
 import { convertFileSrc, isTauri } from '@tauri-apps/api/core';
+import { openUrl, revealItemInDir } from '@tauri-apps/plugin-opener';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { specta } from '../specta';
 
-export const midiExtensions = ['mid', 'midi'];
-export const audioExtensions = ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];
+const midiExtensions = ['mid', 'midi'];
+const audioExtensions = ['wav', 'mp3', 'm4a', 'aac', 'aiff', 'aif', 'flac', 'ogg'];
 
 /**
  * Native project storage. In the browser UI development surface, packages live in localStorage
@@ -198,7 +199,6 @@ export const host = {
 	async openLink(url: string): Promise<TResult<void, Error>> {
 		if (!/^https?:\/\//i.test(url)) return Err(new Error(`${url} isn't a web link`));
 		try {
-			const { openUrl } = await import('@tauri-apps/plugin-opener');
 			await openUrl(url);
 			return Ok(undefined);
 		} catch (error) {
@@ -210,7 +210,6 @@ export const host = {
 	async revealInFinder(path: string): Promise<TResult<void, Error>> {
 		if (!isTauri()) return Err(new Error('Show in Finder works in the desktop app. Open MidiMarble on your Mac.'));
 		try {
-			const { revealItemInDir } = await import('@tauri-apps/plugin-opener');
 			await revealItemInDir(path);
 			return Ok(undefined);
 		} catch (error) {
@@ -246,7 +245,7 @@ export function notSongFileMessage(name: string): string {
 	return `${name} isn't a MIDI file or a recording. Choose a .mid, .wav, .mp3 or .m4a file.`;
 }
 
-export interface THostProject {
+interface THostProject {
 	path: string;
 	projectJson: string;
 }
