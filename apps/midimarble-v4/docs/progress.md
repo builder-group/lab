@@ -16,14 +16,17 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 
 ## Verified
 
-- Last full run of `test:e2e`: before Patterns, Flatten and one Fix; 36 of 38 with the other 2 passing after their change. Jingle Bells then built 115 of 115 on time with a clean preflight, in 77 s on a pool of 6 and 222 s on one thread in Node.
-- After the trim's last slice: `typecheck`, `lint`, `test`.
-- With the chosen look: `camera:check`, `blender:check`, `blender:design`.
+- `test:e2e`: 40 of 40 in 221 s, after the 3×9 fixture rebuild, one Fix and the opening frame. Jingle Bells builds 115 of 115 on time with a clean preflight.
+- Fix on Jingle Bells: 6 Melody notes handed to Backing recover every hit in about 8 s; with 7, Fix cuts 16 broken hits to 10 in about 20 s and says what is left.
+- Titles: a white wall title and a white screen title in Eevee stills on the Christmas wall. The wall title reads, with less contrast than the screen title.
+- `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
+- With the chosen look: `blender:design`.
 - Patterns on the reference's hit times: 58 of 58 on time, no double hits or rolls, at Width 14 cm and Gravity 0.5.
 
 ## Not verified
 
-- `test:e2e` since one Fix, so Fix and Build Track on Jingle Bells are tested on small projects only
+- The opening's push-in watched in motion: Jingle Bells opens at about 2.2 m and comes to the rig by about 7 s, up to 20 cm/s (about 10 % of the distance per second). It's one eased move, judged from numbers and stills, so `follow-camera.e2e` checks 10 cm/s only from 7 s on. If it reads as too fast in a film, lengthen `OPENING_ZOOM_EASE`.
+- Fix in the app, through the worker: the e2e tests call it in Node
 - A Final film since Draft and Final replaced the old presets, and a whole film with the 3×9 bars at 120°
 - Native window: export through the sheet, the unsaved-example save panel, a covered window (music, playhead, export progress), and how the Playback and Track menus show a single key
 - Build Track in the native window against Node's time, read from `get_state.lastBuild.seconds`
@@ -44,7 +47,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 Playground projects and Jingle Bells are the test ground throughout.
 
 1. The owner tests the trimmed app; fix what the test finds. Compose and Film as names are open until then: the coordinator recommends afterwards, compared with Blender workspaces.
-2. `test:e2e` and a Final film of Jingle Bells
+2. A Final film of Jingle Bells
 3. Films: Jingle Bells V4
 4. **Last step and final validation:** recreate the reference short through the app. If the app can't do it, iterate on the app, not the one film.
 
