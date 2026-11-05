@@ -2,6 +2,20 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## UX review round 9 fixes, and the tools move into Insert
+
+**Tool rail (owner).** Marble, Platform and Rail are the first tiles of Insert's Track group, with their keys; the rail keeps Move, Hand and +. Film has no Hand, since its preview follows the film camera and nothing there pans; flagged for the owner. Insert's scrollbar is gone (`overflow-x: hidden`; a classic vertical scrollbar left the 112 px previews too wide) and its tooltips sit beside the panel, positioned against it so the scrolling body can't clip them.
+
+**B3, why drops snapped back.** Two causes, measured with `settle` on Jingle Bells. The settle judged its ways by broken hits, strays and shift and never by whether the moved dot landed, so it often chose one that stayed (10 cm asked, 0 moved), and a way that broke a hit fell back to no change. A platform after a ride can't move at all. Now the landing counts (1 cm short weighs a broken hit), a move that breaks hits lands and holds, and what truly can't move says why in the chip and a notice.
+
+**B5, Rebuild From Here on Jingle Bells from Hit 12.** Budget per hit it builds; attempts differ in the first new platforms' turn, ending at the first unsolved hit as a release shift does; a forced hit takes the lean nearest its lane. Before: about 4 min and a long diagonal. After, pane hidden: 146 s, 106 of 115 hits, 7 other problems. It is not clean: a lane still reaches -0.57 m and the notice says the 9 hits. A rebuild has no release to shift, so this stays weaker than Build Track. The estimate no longer counts kept hits, waits 10 s and goes away at a stuck hit; a run nearing its end can still read "about 2 min".
+
+**F1.** T while stopped places a hit at the playhead. Stepping stays: a second press on the same spot would merge into that hit, so the playhead moves on and further presses keep adding. A film without a song or a Bowl keeps its length until Fit to Song.
+
+**Also.** B1, B2, B4, B6 (with `finishPen`, `finishPlayNote` and comments), B7; F2, F3 (Fix on looks alone was wrongly dead, and a Fix that can't run is hidden), F4, F5 (a break's notice waits for the run, carries its Fix and stays through the length's refit), F6 to F10. Polish: no ⌥ None, Bowl has no rotate handle or tilt as its physics has no angle, hovered rows keep their name, Gravity under Physics.
+
+Seen in the browser: all but F4's success notice (the two Fixes tried found no tilt) and B4's dimmed Add Platform reason. Skipped: Christmas thumbnail, a still would need rendering. Checks: `typecheck`, `lint` (7 warnings, none new), `test` 858. `test:e2e` 38 passed (38). Not run: Blender checks, the native window.
+
 ## Local edits: a small edit no longer wrecks the Track (B1, B2)
 
 **The hypothesis, measured** (`.local/stable-edits/`). Translation alone fails: moving both releases 0.1 mm broke 41 of 115 hits, a 0.0001° tilt of Platform 3 broke 48. The cause is the switchback, not the platforms: 6e-5 m/s entering one comes out as 0.7 m/s at the next hit, median gain 4e3 and up to 3e5, and restitution, friction, CCD and solver iterations don't remove it. Runs of platforms are calm: 0.17° at 6 s on Bass shrinks by about 0.8 per hit and ends a rigid 6 mm away. So absorb only works with gap pieces fixed; with them it is exact. Tilt alone can't match a speed, but tilt and bounce are two numbers for a velocity's two, so the old exit comes back to under 0.1 mm/s once the exit is kept, and spin matters: 3.7 rad/s left over became a 1.7 cm shift and a strike on the other lane at 27 s. A pair restores the old place too, so later pieces don't even shift (under 0.2 mm), which avoids the other lane and the frame. What a 4 px drag did: within snap reach it changed only Lands At, and pinning even at the same spot broke 47 hits, all from the last bits reaching a switchback.

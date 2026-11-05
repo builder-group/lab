@@ -74,7 +74,7 @@ Every skin tile, Decor item and theme shows where it comes from as its quiet ori
 | Undoing those ties | **Detach** | unlink, unanchor | one verb for both |
 | A copy of pieces | **Duplicate** (⌘D): copies tied to nothing, on the nearest spot clear of every marble's path and every piece. Without one nearby the notice ends ", beside the run: no free spot near it"; when every spot would break hits nothing is copied: "Every spot for a copy of Platform 1 would break 3 hits, so nothing changed" | clone, copy | Figma and Finder: a copy changes nothing else |
 | The two workspaces | **Compose** ("Compose: hitboxes and timing") and **Film** ("Film: skins, camera and titles", and export) | Design, Build, Look | "Film" names what you make; camera and export belong there |
-| Inspector with nothing selected | **Scene**: in Film the Theme row and **Format**; in Compose **Gravity**, each in one panel, as a one-field section has no title of its own | World, Settings, Document, Project | an empty selection is the Scene: an empty click or Esc selects it |
+| Inspector with nothing selected | **Scene**: in Film the Theme row and **Format**; in Compose **Gravity** under **Physics**, each in one panel | World, Settings, Document, Project | an empty selection is the Scene: an empty click or Esc selects it |
 | How fast marbles fall | **Gravity**, in Compose's Scene, with the tooltip "How fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time."; ⌘K still finds it by "marble speed" | Marble Speed, physics scale | what it is |
 | The shape of the film | **Format** in Film's Scene: 9:16 Portrait, 1:1 Square, 4:5 Portrait, 16:9 Landscape; ⌘K finds it by aspect, portrait, square | Frame, Aspect, Resolution | Blender's Output › Format |
 | The camera's angles and following | **Tilt** (never Pitch, which is a note), **Distance**, **Sway**; **Look Ahead** and **Smooth** under **Advanced**; the **Automatic** or **Manual** switch alone takes the camera over | Pitch, Lead | Pitch means a note here |
@@ -95,7 +95,7 @@ Every skin tile, Decor item and theme shows where it comes from as its quiet ori
 | Keeping a look | **Export Pack…** (File menu and the bottom of the Theme picker): asks for a name and always includes the current look as a theme under that name, plus any skins and decor ticked | Save as Theme, Duplicate Theme, Duplicate to Edit, Export Theme, Save Look | one action; no edit-theme concept in the UI |
 | Changes on top of a theme | Made on the layer itself: **From Brass** with its reset. Picking a theme restyles everything except these. The Theme row counts them, **Brass · 3 changes**, with a small Reset that clears them as one undo step, with the notice's Undo | Edit Theme, overrides | a theme has nothing to edit |
 | Removing a project theme | **Delete Theme**; the notice says "Neon Copy deleted; the film uses Neon again" when it was in use | Remove Theme | |
-| What you add beyond the rail's tools: the rest of the track and the song in Compose; titles, Decor with Scatter Decor…, a light, a shot, then the song and a marble in Film | **Insert**, the + of the tool rail (⇧I), with ⌘K and the menu bar's **Insert** menu listing the same; skins and themes are in the inspector's pickers | Add menu | | assets, Library tab, Show Library | Paper's insert button, Figma's Assets; one place in both workspaces |
+| What you add: the track (Marble, Platform, Rail, Tunnel, Windmill, Bowl, each tile with its key) and the song in Compose; titles, Decor with Scatter Decor…, a light, a shot, then the song and a marble in Film | **Insert**, the + of the tool rail (⇧I), with ⌘K and the menu bar's **Insert** menu listing the same; skins and themes are in the inspector's pickers | Add menu | | assets, Library tab, Show Library | Paper's insert button, Figma's Assets; one place in both workspaces |
 | Decor the agent made or you imported | In Insert's Decor section, each item with its origin line; **Library** is where they are kept | My Library, In This Project | no storage scopes |
 | Making an item available in every project | **Keep in Library** (star) | save to My Library, publish | |
 | An item the project uses | **In Use** badge | applied, local | |
@@ -164,6 +164,8 @@ A fix sits next to the problem, like Xcode's Fix-its.
 | **Place Bowl Again** | the Fix-it beside a Bowl's Missed, Bounces Out or Blocked pill | Add Bowl's search again for that marble, keeping the Bowl's name and skin; its what-if runs first and the button names why when nothing catches the marble |
 | **Stop** | in the Fix Hits progress notice | keeps the hits fixed so far |
 
+A dropped platform that can't reach its spot says so in the chip, **Stays: the marble leaves Rail 2 here**, and in a notice that names what to move. A fix that changes your tilt names it: "Platform 8 went from 22.9° to 40°. The marble is back on its run".
+
 ## Assists
 
 | Action | Shortcut | Meaning |
@@ -194,7 +196,7 @@ The Hitbox and Physics panels name what a piece looks like or does, not how it i
 | Rail (Chain, C) | **Curve**, **Lip** | the radius of each curved turn and how far it comes round, in degrees | Sweep |
 | Rail | **Thickness**, **Spread** | how thick the rails are and how far apart | Wire, Spacing, Gap |
 | Tunnel | **Wall**, **Room**, **Mouth** | wall thickness, room around the marble, mouth width | bore |
-| Bowl | **Size**, **Thickness** | the curve that catches the marble, how thick the rails are | radius |
+| Bowl | **Size**, **Thickness** | the curve that catches the marble, how thick the rails are; a Bowl always stands upright, so it has no Angle or rotate handle | radius |
 
 ## Capitalization and punctuation
 
