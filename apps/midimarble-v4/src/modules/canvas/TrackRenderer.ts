@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
 import type { TWallLook } from '@/modules/scene';
 import type { TVec2 } from '@/modules/project';
-import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
+import { getPieceDefinition, layoutOf, platformDefinition, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import { pathMeshes } from './path-meshes';
 import { worldToScreen, type TView, type TViewport } from '@/modules/scene';
 
@@ -570,7 +570,7 @@ export class TrackRenderer {
 		const key = colors != null ? `piece:${colors.bar}:${colors.nub}:${part}` : `piece:${type}:${part}`;
 		let material = this.materials.get(key);
 		if (material == null) {
-			const palette = colors ?? piecePalette[type] ?? piecePalette['platform'];
+			const palette = colors ?? paletteOf(type);
 			const color = (part === 'nub' ? palette?.nub : palette?.bar) ?? '#888888';
 			// A Tunnel's tube is clear, with both its sides showing
 			material = part === 'shell' ? new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }) : new THREE.MeshLambertMaterial({ color });
@@ -590,23 +590,13 @@ export class TrackRenderer {
 	}
 }
 
-/** Flat toy colors per piece type: the body and a darker shade for brackets, hubs and outlines */
-export const piecePalette: Record<string, { bar: string; nub: string }> = {
-	platform: { bar: '#f2845c', nub: '#c4603d' },
-	rail: { bar: '#3c9ee0', nub: '#2373ad' },
-	tunnel: { bar: '#9a7bf0', nub: '#6c4fd0' },
-	windmill: { bar: '#4fb879', nub: '#2f8a52' },
-	// Clear wires: pale steel
-	bowl: { bar: '#8fa3b8', nub: '#5f7287' }
-};
-
 /** Blender world to scene: a quarter turn around x, so Blender's y (into the wall) becomes -z */
 const blenderToScene = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 const filmRotation = new THREE.Quaternion();
 const orbitTarget = new THREE.Vector3();
 
 export function paletteOf(type: string): { bar: string; nub: string } {
-	return piecePalette[type] ?? (piecePalette['platform'] as { bar: string; nub: string });
+	return getPieceDefinition(type)?.palette ?? platformDefinition.palette;
 }
 
 interface TPiecePart {

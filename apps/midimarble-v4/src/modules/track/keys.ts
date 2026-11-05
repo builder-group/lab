@@ -1,3 +1,5 @@
+import { PIECE_TYPES, pieceDefinitions, type TPieceType } from '@/modules/simulation';
+
 // Track keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
 // the path tool, ⇧I opens the Insert library like Figma's assets, the build assists
 // keep theirs (N, ⇧N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, F turns Follow on and off like Logic's Catch Playhead, D is 2D or 3D and
@@ -27,8 +29,8 @@ export interface TKeyContext {
 	hasNotes?: boolean;
 }
 
-/** Tools of the Track tool rail, then the pieces the Insert library arms */
-export type TTrackTool = 'select' | 'hand' | 'marble' | 'platform' | 'path' | 'windmill' | 'bowl';
+/** Tools of the Track tool rail, then the pieces the Insert library arms: each piece the path tool doesn't draw has a tool of its own */
+export type TTrackTool = 'select' | 'hand' | 'marble' | 'path' | Exclude<TPieceType, TPathType>;
 
 /** Piece the path tool draws; the inspector switches a drawn path between both */
 export type TPathType = 'rail' | 'tunnel';
@@ -53,24 +55,32 @@ export type TTrackKeyAction =
 	| { type: 'follow' }
 	| { type: 'view3d' };
 
+/** The piece types placed with a click or drag, each by its own tool; the path tool draws the others */
+const placedPieceTypes = PIECE_TYPES.filter((type): type is Exclude<TPieceType, TPathType> => type !== 'rail' && type !== 'tunnel');
+
+/** The key a piece's tile names */
+function pieceKey(type: TPieceType): { code: string; key: string } {
+	const key = pieceDefinitions[type].tile.shortcut ?? '';
+	return { code: `Key${key}`, key };
+}
+
 /** Tool keys, shared by the rail tooltips, the Insert tiles and the command palette */
 export const toolKeys: { tool: TTrackTool; code: string; key: string }[] = [
 	{ tool: 'select', code: 'KeyV', key: 'V' },
 	{ tool: 'hand', code: 'KeyH', key: 'H' },
 	{ tool: 'marble', code: 'KeyO', key: 'O' },
-	{ tool: 'platform', code: 'KeyP', key: 'P' },
-	{ tool: 'path', code: 'KeyB', key: 'B' },
-	{ tool: 'windmill', code: 'KeyW', key: 'W' }
+	{ tool: 'path', ...pieceKey('rail') },
+	...placedPieceTypes.filter((tool) => pieceDefinitions[tool].tile.shortcut != null).map((tool) => ({ tool, ...pieceKey(tool) }))
 ];
 
 /** F turns Follow on and off, shared by the canvas toggle's tooltip and the command palette */
 export const followKey = { code: 'KeyF', key: 'F' };
 
 /** U arms the path tool with the tunnel type, like Figma's shape tools that share one rail slot */
-export const tunnelPathKey = { code: 'KeyU', key: 'U' };
+export const tunnelPathKey = pieceKey('tunnel');
 
 /** Piece type each placing tool puts down with a click or drag; the path tool draws instead */
-export const toolPieceType: Partial<Record<TTrackTool, string>> = { platform: 'platform', windmill: 'windmill', bowl: 'bowl' };
+export const toolPieceType: Partial<Record<TTrackTool, string>> = Object.fromEntries(placedPieceTypes.map((type) => [type, type]));
 
 /** The action a key press asks for, or null when Track leaves it to the studio or the browser */
 export function trackKeyAction(input: TKeyInput, context: TKeyContext): TTrackKeyAction | null {

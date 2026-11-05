@@ -1,5 +1,6 @@
 import { defineSchema, type TSchemaValue } from 'versjon';
 import { z } from 'zod';
+import catalog from '../../../blender/mm_worker/skin_catalog.json';
 
 // Wall-plane coordinates in meters: x points right, y points up, the wall surface is z = 0
 const SVec2 = z.strictObject({ x: z.number(), y: z.number() });
@@ -136,14 +137,9 @@ const SSkin = z.strictObject({
 const SThemePart = z.strictObject({ skin: z.string().optional(), ...skinPropertyShape });
 
 /** A project theme's parts per element type, on top of its base's */
-const SThemeParts = z.strictObject({
-	platform: SThemePart.optional(),
-	rail: SThemePart.optional(),
-	tunnel: SThemePart.optional(),
-	windmill: SThemePart.optional(),
-	bowl: SThemePart.optional(),
-	marble: SThemePart.optional()
-});
+const SThemeParts = z.strictObject(
+	Object.fromEntries(Object.keys(catalog.elements).map((element) => [element, SThemePart.optional()])) as Record<keyof typeof catalog.elements, ReturnType<typeof SThemePart.optional>>
+);
 
 const STitle = z.strictObject({
 	id: SId,

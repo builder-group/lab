@@ -338,7 +338,7 @@ def build_spec(kind, entity, context):
         return {'root': marble_mesh(entity, context), 'parts': []}
     piece_type = entity.get('type', 'platform')
     frame = PieceFrame(entity, context)
-    builder = {'rail': rail_spec, 'tunnel': tunnel_spec, 'windmill': windmill_spec,
+    builder = {'platform': platform_spec, 'rail': rail_spec, 'tunnel': tunnel_spec, 'windmill': windmill_spec,
                'bowl': bowl_spec}.get(piece_type, platform_spec)
     spec = builder(frame, entity)
     meshes = [spec['root'], *(part['mesh'] for part in spec['parts'])]

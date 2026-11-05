@@ -156,7 +156,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				<g style={{ filter: `blur(${Math.max(2, Math.min(8, scale * 0.012))}px)`, mixBlendMode: 'screen' }} opacity={0.85}>
 					{pieces.map((piece) => {
 						const palette = draft.colorsOf(piece);
-						const glow = pieceKind(piece) === 'tube' || piece.type === 'windmill' ? palette.nub : palette.bar;
+						const glow = pieceKind(piece) === 'tube' || pieceKind(piece) === 'rotor' ? palette.nub : palette.bar;
 						return <polygon key={piece.entityId} points={toPoints(draft.selectionOutline(piece))} fill={glow} fillOpacity={0.35} stroke={glow} strokeWidth={Math.max(2, scale * 0.006)} strokeLinejoin="round" />;
 					})}
 				</g>
