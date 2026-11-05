@@ -55,4 +55,43 @@ describe('small edits on Jingle Bells', () => {
 			}
 		}
 	}, 300_000);
+
+	it('should keep every hit when a platform only slides along its bar', async () => {
+		for (const id of ['piece-1-3', 'piece-1-9', 'piece-2-16']) {
+			// Act
+			const after = {
+				...project,
+				revision: project.revision + 1,
+				entities: project.entities.map((entity) => {
+					const link = entity.components.hitLink;
+					return entity.id === id && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, contactAt: 0.4 } } } : entity;
+				})
+			};
+			const settled = answerSettle(simulator, { before: project, after }, memo);
+			memo = settled.memo;
+			const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
+			const run = (await createSimulator()).simulate({ ...after, entities: after.entities.map((entity) => changed.get(entity.id) ?? entity) });
+
+			// Assert
+			expect(run.hits.filter((hit) => hit.status === 'onTime'), id).toHaveLength(run.hits.length);
+		}
+	}, 120_000);
+
+	it('should leave at most a few problems and no heap when a platform goes', async () => {
+		for (const id of ['piece-1-2', 'piece-1-8', 'piece-2-16', 'piece-2-31']) {
+			// Act
+			const after = { ...project, revision: project.revision + 1, entities: project.entities.filter((entity) => entity.id !== id) };
+			const settled = answerSettle(simulator, { before: project, after }, memo);
+			memo = settled.memo;
+			const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
+			const run = (await createSimulator()).simulate({ ...after, entities: after.entities.map((entity) => changed.get(entity.id) ?? entity) });
+
+			// Assert: pieces after a break stay where they were
+			expect(run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked').length, id).toBeLessThanOrEqual(3);
+			for (const piece of run.pieces.filter((item) => item.status === 'held')) {
+				const was = before.pieces.find((item) => item.entityId === piece.entityId);
+				expect(Math.hypot(piece.position.x - (was?.position.x ?? 0), piece.position.y - (was?.position.y ?? 0)), piece.entityId).toBeLessThan(0.002);
+			}
+		}
+	}, 120_000);
 });

@@ -78,7 +78,7 @@ export function layoutAtMarble(
 
 /**
  * Places the piece so its contact surface holds `contactPoint` with `normal` facing the marble. Without a
- * normal the surface keeps its unflipped normal, as pinned pieces do.
+ * normal the surface keeps its unflipped normal.
  */
 export function layoutAtContact(
 	input: TLayoutInput,

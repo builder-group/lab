@@ -584,7 +584,7 @@ export async function settled(cx: StudioCx): Promise<void> {
 			since = Date.now();
 		}
 		const isRunCurrent = cx.project == null || cx.simulation.$result.get()?.revision === current;
-		const isAssistFree = cx.$compose.get()?.assist.isAnswering !== true;
+		const isAssistFree = !cx.simulation.isSettling && cx.$compose.get()?.assist.isAnswering !== true;
 		if (isRunCurrent && isAssistFree && Date.now() - since >= SETTLE_MS) return;
 		if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return;
 	}

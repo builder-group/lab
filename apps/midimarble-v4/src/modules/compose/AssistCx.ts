@@ -35,7 +35,7 @@ import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, ty
 import { commitAtHit, findStepTarget, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
 
 /** How long Fix tries to bring a marble back to pieces waiting behind a break, before it says it can't */
-const FIX_HELD_BUDGET_MS = 15000;
+const FIX_HELD_BUDGET_MS = 10000;
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterwards */
 export const AUTO_PLACE_WAIT_MS = 150;
@@ -912,7 +912,7 @@ export class AssistCx {
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		if (this.studio.project?.revision !== project.revision) return;
 		if (fixed == null) {
-			this.studio.notify(run.isCancelled ? 'The pieces go on waiting where they were.' : "No tilt brings the marble back to the pieces waiting for it. Turn the platforms before the break by hand, undo the edit, or choose Rebuild From Here.");
+			this.studio.notifyEdit(run.isCancelled ? 'The pieces go on waiting where they were.' : "No tilt brings the marble back to the pieces waiting for it. Turn the platforms before the break by hand, undo the edit, or choose Rebuild From Here.", [], { isUndoFirst: true });
 			return;
 		}
 		this.studio.simulation.landSettled(changedEntities(project, fixed), false);

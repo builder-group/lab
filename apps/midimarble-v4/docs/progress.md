@@ -2,6 +2,28 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## Local edits: a small edit no longer wrecks the Track (B1, B2)
+
+**The hypothesis, measured** (`.local/stable-edits/`). Translation alone fails: moving both releases 0.1 mm broke 41 of 115 hits, a 0.0001° tilt of Platform 3 broke 48. The cause is the switchback, not the platforms: 6e-5 m/s entering one comes out as 0.7 m/s at the next hit, median gain 4e3 and up to 3e5, and restitution, friction, CCD and solver iterations don't remove it. Runs of platforms are calm: 0.17° at 6 s on Bass shrinks by about 0.8 per hit and ends a rigid 6 mm away. So absorb only works with gap pieces fixed; with them it is exact. Tilt alone can't match a speed, but tilt and bounce are two numbers for a velocity's two, so the old exit comes back to under 0.1 mm/s once the exit is kept, and spin matters: 3.7 rad/s left over became a 1.7 cm shift and a strike on the other lane at 27 s. A pair restores the old place too, so later pieces don't even shift (under 0.2 mm), which avoids the other lane and the frame. What a 4 px drag did: within snap reach it changed only Lands At, and pinning even at the same spot broke 47 hits, all from the last bits reaching a switchback.
+
+**Shipped** (`simulation/local-edit.ts`, `transit.ts`, `studio/SimulationCx.ts`; architecture.md, Local edits; ux.md, Editing earlier pieces). Rides, kept exits, two platforms solving aim and exit, a hold at a break, `Waiting`. A project with no edit runs bit for bit as before, so Build Track and the fixtures are unchanged. Pins are gone: a drag slides along the bar, and further the platform before it sends the marble there. Fix on waiting pieces first brings the marble back, then tries on a copy for 10 s and lands only if every hit plays. Progress in Build Track and Fix Hits never moves back; a notice about a break leads with Undo. Agents get it through `SimulationCx`, as every history change passes there.
+
+| Jingle Bells, 115 hits | Before | After |
+| --- | --- | --- |
+| Platform 3, drag 5 px (browser) | 83 broken | 115/115, nothing said, Lands At 46 |
+| Platform 3, tilt 3° (browser) | 40 broken | 115/115, 2 strike notes, later pieces 3.8 cm away |
+| 0.17° at 4 s | 40 broken | 115/115, later pieces 0.5 mm away |
+| Platform 3, drag 20 px down (browser) | not measured | 115/115 on the new spot, 3 strike notes |
+| Platform 3, tilt −15° (browser) | heap (review) | 2 Missed, 107 Waiting, no heap; Fix says in about 10 s it can't |
+| First 6 Melody notes to Backing | 37 to 44 broken | 1 Missed, 43 Waiting |
+| Delete a platform, 11 places | 1 to 78 broken | 7 clean, 4 with 1 or 2 problems |
+
+Tilts, 38 platforms across both marbles, no break / at most one or two problems at a hold, later hits' worst shift: 0.17° 38/38 (0.3 cm), 1° 37/38 (1.7 cm), 3° 37/38 (8 cm), −3° 34/38 (18 cm), 5° 16/38, −5° 16/38. Mean 0.45 s to settle, worst about 5 s on a big break; each try about 3 ms.
+
+**What still breaks.** ±5° and more often can't be taken up, mostly because a neighbouring piece is in the way of the moved marble; that gives one problem and waiting pieces, not a cascade. A platform after a gap sits at the 0.95 bounce limit, so the first pair can't aim and the pair after it does. Micro-bounces on such a platform can read as "hits Platform 4 4 times" where the same run before counted one. A platform right after a ride can't be dragged off its line. Rebuild From Here keeps its speed, only its progress is fixed. Fix Hits itself stays as it was; with few broken hits it has less to do, and nothing of it could go yet.
+
+Checks: typecheck, lint (6 warnings, none new), `test`, `test:e2e`, `camera:check`; browser at 1440×900 on Jingle Bells: drag, tilt, Undo, break, Fix.
+
 ## UX review round 8 fixes
 
 B3 to B7, F1 to F10 and the polish list of `.local/ux-review-round8.md`, seen in the browser (F5's click selected correctly as it stood; only Layers selection off-frame was missing). T stays a hit at the playhead while stopped. Starter gained Sphere, Ring and Cube. The Bass warning came from measuring a glass marble's pale tint by lightness; the 3:1 threshold is unchanged and glass is judged by its swirl's colour. Example stills re-rendered in each fixture's own theme (they were all exported in Brass) and `loop.jpg` removed. Project themes still show their base theme's picture in the Theme picker.

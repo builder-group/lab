@@ -278,7 +278,7 @@ interface TPlan {
 	staticPieces: TStaticPiece[];
 	/** Lowest point of the static pieces, which bounds how far a marble may fall */
 	staticLowY: number;
-	/** Hit-linked, unpinned pieces in global hit time order */
+	/** Hit-linked pieces in global hit time order */
 	events: TPlanEvent[];
 	/** Signature of the state just before each event is processed */
 	eventKeys: string[];

@@ -46,7 +46,7 @@ Pegboard view, marble release, one shared Rapier world, trajectory ahead of the 
 Done when:
 
 - `staircase` builds through the UI and every hit lands within 20 ms
-- Rotating an early platform reflows later platforms, keeps their tweaks and leaves pinned pieces in place
+- Rotating an early platform leaves later platforms where they were (`simulation/local-edit.ts`), and pieces waiting behind a break in place
 - Re-simulation after a rotation updates the trajectory within 50 ms for `staircase` and within 250 ms for a 60 second, four marble project
 - Headless simulation of a fixture matches the UI result exactly
 
