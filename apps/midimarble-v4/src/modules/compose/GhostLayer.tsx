@@ -5,7 +5,7 @@ import { PACE_LIMIT, type TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
 import { acceptableCount, type TGhost } from './ghosts';
-import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from './PieceLayer';
+import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from './PieceShapes';
 import { pieceKind } from './scene';
 
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */

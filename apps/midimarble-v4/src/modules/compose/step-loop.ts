@@ -13,15 +13,9 @@ import {
 } from '@/modules/simulation';
 import { parseHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
+import { openHits } from './reachability';
 
 // The step loop builds a run one hit at a time: place a piece at a dot, rotate it, accept and move on.
-
-/** Open hits that a marble reaches, in time order */
-export function openHits(result: TSimulationResult): THitResult[] {
-	return result.hits
-		.filter((hit) => hit.status === 'open' && hit.dot != null)
-		.sort((a, b) => a.targetTime - b.targetTime);
-}
 
 /** The first open hit per lane, which the canvas emphasizes as the next step */
 export function nextOpenHitPerLane(result: TSimulationResult): Map<string, THitResult> {

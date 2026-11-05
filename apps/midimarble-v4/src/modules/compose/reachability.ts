@@ -219,3 +219,10 @@ export function unreachableStatus(project: TProject, result: TSimulationResult |
 	const marble = project.music.lanes.find((lane) => lane.id === hit.laneId)?.name ?? 'The marble';
 	return reachStatus(hitReach(project, result, hit), { marble, time: formatTime(hit.targetTime) });
 }
+
+/** Open hits that a marble reaches, in time order */
+export function openHits(result: TSimulationResult): THitResult[] {
+	return result.hits
+		.filter((hit) => hit.status === 'open' && hit.dot != null)
+		.sort((a, b) => a.targetTime - b.targetTime);
+}

@@ -2,7 +2,7 @@ import { Box, ChevronDown, Search, Star } from 'lucide-react';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { openContextMenu, type TMenuEntry } from '@/components';
-import { InsertPopover } from '@/modules/compose/InsertLibrary';
+import { InsertPopover } from '@/modules/compose/InsertPopover';
 import { filterTiles, showsTileSearch } from './skin-tiles';
 
 /** A tile's quiet second line; with `onClick` a link inside the tile, as a tile is one big button */

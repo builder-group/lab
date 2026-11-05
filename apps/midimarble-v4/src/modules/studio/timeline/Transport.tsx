@@ -4,7 +4,7 @@ import { createState } from 'feature-state';
 import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/design/export-preflight';
-import { useRunPreflight } from '@/modules/design/ExportPreflight';
+import { useRunPreflight } from '@/modules/design/use-run-preflight';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';

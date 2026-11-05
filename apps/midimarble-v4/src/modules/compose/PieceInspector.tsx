@@ -8,7 +8,7 @@ import { bowlCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayout
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import { pieceProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
-import { useRunPreflight } from '@/modules/design/ExportPreflight';
+import { useRunPreflight } from '@/modules/design/use-run-preflight';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { attachState, isPathPieceType, pathPieceTypes, withPathType, withRailLayout, type TPathPieceType } from './attach-edit';

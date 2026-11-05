@@ -2,10 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
+import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/compose/PieceShapes';
 import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
-import type { TTouched } from '@/modules/mcp/AgentPresenceCx';
 import { filmObjectMenu } from '@/modules/studio/menus';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { startDecorDrag } from './decor-actions';
@@ -291,7 +290,7 @@ const AgentTouchedOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	return touched.length > 0 ? <AgentTouchedOutlines draft={draft} touched={touched} /> : null;
 };
 
-const AgentTouchedOutlines: React.FC<{ draft: DraftPreviewCx; touched: readonly TTouched[] }> = (props) => {
+const AgentTouchedOutlines: React.FC<{ draft: DraftPreviewCx; touched: readonly { key: string; stamp: number }[] }> = (props) => {
 	const { draft, touched } = props;
 	useFeatureState(draft.$frame);
 	const pieces = draft.pieces();

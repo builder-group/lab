@@ -1,4 +1,3 @@
-import type { TWallLook } from '@/modules/compose/ComposeRenderer';
 import type { TRenderPreset } from './export-estimate';
 import type { TScenePiece } from '@/modules/blender/scene-description';
 import type { TThemeOverrides, TThemeParts, TWallKind } from '@/modules/project';
@@ -40,6 +39,13 @@ export function noteColor(pitch: number): string {
 
 /** The peg holes on a wall the Wall layer colors */
 const LABELED_WALL_HOLES = 'rgb(72 56 40 / 0.55)';
+
+export interface TWallLook {
+	color: string;
+	holes: string | null;
+	/** Hole radius as a fraction of the 2.5 cm peg pitch; 0.09 when absent */
+	holeRadius?: number;
+}
 
 /** Track's wall in 2D, 3D and Camera, whatever the theme: calm birch from the app's tokens, or the Wall layer's Label Color */
 export function trackWall(element: Element, labelColor: string | undefined): TWallLook {

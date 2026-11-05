@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
+import type { TWallLook } from '@/modules/design/draft-look';
 import type { TVec2 } from '@/modules/project';
 import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import { pathMeshes } from './path-meshes';
@@ -48,13 +49,6 @@ export interface TRenderPiece {
 }
 
 /** Wall surface in the Camera view: its color and the peg hole color, or no holes for a plain wall */
-export interface TWallLook {
-	color: string;
-	holes: string | null;
-	/** Hole radius as a fraction of the 2.5 cm peg pitch; 0.09 when absent */
-	holeRadius?: number;
-}
-
 export interface TRenderMarble {
 	entityId: string;
 	color: string;

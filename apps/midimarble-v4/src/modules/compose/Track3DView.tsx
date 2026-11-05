@@ -10,7 +10,7 @@ import { CAMERA_KEY } from '@/modules/studio/selection';
 import type { StudioCx, TTrackView } from '@/modules/studio/StudioCx';
 import type { ComposeCx } from './ComposeCx';
 import { groupSelection } from './PatternsCx';
-import { toPoints } from './PieceLayer';
+import { toPoints } from './PieceShapes';
 import { canvasMenu } from './menus';
 import { Track3DCx } from './Track3DCx';
 

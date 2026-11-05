@@ -6,7 +6,7 @@ import { host } from '@/environment';
 import { openExternalUrl } from '@/lib';
 import { blenderState, type TBlenderState } from '@/modules/design/blender-state';
 import { workspaceProblems } from '@/modules/design/export-preflight';
-import { useRunPreflight } from '@/modules/design/ExportPreflight';
+import { useRunPreflight } from '@/modules/design/use-run-preflight';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
 import { agentStatusLine, connectedAgents } from '@/modules/mcp/agent-presence';
 import { commandItem } from './commands';

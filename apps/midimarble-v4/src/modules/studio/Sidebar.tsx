@@ -8,7 +8,7 @@ import { badgeStatus, StatusIcon, type TBadgeStatus } from '@/modules/compose/st
 import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
 import { $scatterPanel, revealMadeInBlender } from '@/modules/design/decor-actions';
 import { decorTips, pieceProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
-import { useRunPreflight } from '@/modules/design/ExportPreflight';
+import { useRunPreflight } from '@/modules/design/use-run-preflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
 import { shotKindLabel } from '@/modules/design/shots';
 import { isPatternGroup, type TEntity, type TProject } from '@/modules/project';

@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { toPoints } from '@/modules/compose/PieceLayer';
+import { toPoints } from '@/modules/compose/PieceShapes';
 import type { DraftPreviewCx } from './DraftPreviewCx';
 
 /** Unity's collider green reads on every theme; the dark halo keeps it visible on pale walls */

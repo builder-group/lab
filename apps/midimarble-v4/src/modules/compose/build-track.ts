@@ -29,8 +29,7 @@ import { checkFraming } from '@/modules/design/export-preflight';
 import { BOWL_TYPE, bowlOfLane } from '@/modules/simulation';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';
-import { openHits } from './step-loop';
-import { hitReach } from './reachability';
+import { hitReach, openHits } from './reachability';
 
 // Build Track: the app's own way of building a whole track from a song, one implementation for the command, Next's
 // fallback and the fixture script. Marbles are built together in time order, so each keeps clear of what the others

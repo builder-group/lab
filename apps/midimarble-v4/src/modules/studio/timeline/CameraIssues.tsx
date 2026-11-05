@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRunPreflight } from '@/modules/design/ExportPreflight';
+import { useRunPreflight } from '@/modules/design/use-run-preflight';
 import type { TProject } from '@/modules/project';
 import { formatTime } from '../format';
 import type { StudioCx } from '../StudioCx';

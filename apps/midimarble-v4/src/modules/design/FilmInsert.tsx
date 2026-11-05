@@ -3,7 +3,7 @@ import { Box, Lightbulb, Package, Star, Type } from 'lucide-react';
 import React from 'react';
 import { addedBuiltInDecor, addedPacks } from '@/modules/library';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
-import { InsertPopover } from '@/modules/compose/InsertLibrary';
+import { InsertPopover } from '@/modules/compose/InsertPopover';
 import type { StudioCx } from '@/modules/studio';
 import { builtInSource, type TDecorSource } from './decor';
 import { libraryDecorSource, placeDecor, placeLibraryDecor } from './decor-actions';
