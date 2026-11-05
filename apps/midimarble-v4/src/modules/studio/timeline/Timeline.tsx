@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 
 import { isEditingTarget } from '@/lib';
-import { currentMix, EMPTY_MIX, isAudioSong, isPartAudible, songParts } from '@/modules/music';
+import { currentMix } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
@@ -15,10 +15,9 @@ import { CameraRow } from './CameraRow';
 import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from '@/modules/track';
 import { MarbleTrack, type TDrag, type TDragStart } from './MarbleTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
-import { PartRows } from './PartRows';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
 import { SongTrack } from './SongTrack';
-import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, PART_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
+import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
 import { $songExpanded } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
@@ -28,8 +27,8 @@ import { Transport } from './Transport';
 /**
  * What changes over time, as a Blender-style dope sheet in a Logic-style track
  * area: the transport and hit summary in the header, the Song on top while the project has one, expandable into
- * every note and its Parts when it has notes, with mute and solo on the Song, then the Camera, one flat row per marble
- * with its hits by timing status, and in Film Titles when there are any
+ * every note when it has notes, then the Camera, one flat row per marble with its hits by timing status, and in Film
+ * Titles when there are any. Mute and Solo sit on the song's and each marble's header.
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -65,7 +64,6 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
 	const songRows = React.useMemo(() => (project == null || !hasSong ? null : songRollRange(project, song)), [project, hasSong, song]);
-	const parts = React.useMemo(() => (project == null ? [] : songParts(project)), [project]);
 
 	// The hit a marble just landed flashes in its status color. Set on the element, so no row re-renders while playing.
 	React.useEffect(
@@ -217,12 +215,10 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	}, [zoom, zoomTo]);
 
 	if (project == null) return null;
-	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
-	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
-	const showsParts = isSongExpanded && songRows != null;
+	const audible = currentMix(project, mix);
 	const showsTitles = workspace === 'film' && project.film.titles.length > 0;
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.marbles.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
+	const rowsHeight = project.marbles.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + CAMERA_ROW_HEIGHT;
 
 	// MARK: - UI
 
@@ -265,12 +261,11 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							onDragStart={startDrag}
 						/>
 					) : null}
-					{showsParts ? <PartRows cx={cx} project={project} parts={parts} zoom={zoom} width={trackWidth} isAudible={(id) => isPartAudible(partMix, id)} /> : null}
 					{/* The same layers as Layers, in the same order: Song, the Camera, marbles, then in Film Titles */}
 					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
 					{project.marbles.map((marble) => (
 						<div key={marble.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
-							<TrackHeader cx={cx} marble={marble} selection={selection} />
+							<TrackHeader cx={cx} project={project} marble={marble} selection={selection} />
 							<TimeGutter />
 							<MarbleTrack
 								cx={cx}
@@ -280,7 +275,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 								selection={selection}
 								drag={drag}
 								statuses={hitStatus.get(marble.id)}
-								isAudible={isPartAudible(partMix, marble.id)}
+								mix={audible}
 								onDragStart={startDrag}
 								timeAt={timeAt}
 								onAdd={(time, event) => addHit(cx, marble, snap(time, event.altKey))}

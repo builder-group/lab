@@ -84,7 +84,7 @@ describe('buildOutline function', () => {
 		const group = rows.find((row) => row.id === FREE_PIECES_KEY);
 
 		expect(group?.kind === 'group' ? group.label : null).toBe('Track Pieces');
-		expect(group?.kind === 'group' ? group.help : null).toBe('Parts of the track no marble plays or follows; marbles can still hit them');
+		expect(group?.kind === 'group' ? group.help : null).toBe('Pieces no marble plays or follows; marbles can still hit them');
 	});
 
 	it('should leave out the Song without one and empty groups: Pieces, Titles and Decor', () => {

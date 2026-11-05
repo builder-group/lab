@@ -131,7 +131,7 @@ export const FREE_PIECES_KEY = 'group:free';
 export const PIECES_GROUP_LABEL = 'Track Pieces';
 
 /** The ? beside the Track Pieces group: unlinked pieces still collide */
-export const PIECES_GROUP_HELP = 'Parts of the track no marble plays or follows; marbles can still hit them';
+export const PIECES_GROUP_HELP = 'Pieces no marble plays or follows; marbles can still hit them';
 
 /** Group row of the titles on the wall; its ID is never a selection key */
 export const TITLES_KEY = 'group:titles';

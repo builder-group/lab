@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
+import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TMix } from '@/modules/music';
 import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
@@ -82,8 +82,8 @@ export class StudioCx {
 	// Zero fits the timeline to its marbles until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
-	/** Muted and soloed Parts of the Song. View state, not saved; each opened project starts with everything on. */
-	readonly $mix = createState<TSongMix>(EMPTY_MIX);
+	/** Muted and soloed marbles and songs. View state, not saved; each opened project starts with everything on. */
+	readonly $mix = createState<TMix>(EMPTY_MIX);
 	/** The hits a marble just landed while playing, for their dots to flash (`useHitFlash`) */
 	readonly $hitFlash = createState<THitFlash[]>([]);
 	/** The mounted Track canvas, so commands and menus outside it can drive its tools */
@@ -271,7 +271,7 @@ export class StudioCx {
 
 	/**
 	 * Starts hearing a playhead drag, from the press, which is the gesture WebKit asks for. What plays is the soundtrack
-	 * with the Parts' mute and solo. While playing, a drag already restarts playback at each position, so it adds nothing.
+	 * with its Mute and Solo. While playing, a drag already restarts playback at each position, so it adds nothing.
 	 */
 	beginAudioScrub(): void {
 		const project = this.project;
@@ -862,12 +862,12 @@ export class StudioCx {
 		this.$panels.set((panels) => ({ ...panels, [panel]: !panels[panel] }));
 	}
 
-	toggleMute(partId: string): void {
-		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, partId) }));
+	toggleMute(id: string): void {
+		this.$mix.set((mix) => ({ ...mix, muted: toggleItem(mix.muted, id) }));
 	}
 
-	toggleSolo(partId: string): void {
-		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, partId) }));
+	toggleSolo(id: string): void {
+		this.$mix.set((mix) => ({ ...mix, solo: toggleItem(mix.solo, id) }));
 	}
 
 	/**

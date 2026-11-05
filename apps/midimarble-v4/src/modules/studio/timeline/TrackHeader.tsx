@@ -1,17 +1,18 @@
 import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
-import { findMarbleConflicts } from '@/modules/music';
-import type { TMarble } from '@/modules/project';
+import { findMarbleConflicts, marbleSounds } from '@/modules/music';
+import type { TMarble, TProject } from '@/modules/project';
 import { marbleLabelEntries, marbleMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
+import { MixToggles } from './MixToggles';
 import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
 
 /**
- * A marble's track header: label color chip, which opens its choices, name and hit count. A marble plays nothing, so sound lives on the Song, and
- * its row stays flat: notes open only in the Song layer's piano roll.
+ * A marble's track header: label color chip, which opens its choices, name and hit count, with Mute and Solo once it has
+ * notes that play. Its row stays flat: notes open only in the Song layer's piano roll.
  */
 export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
-	const { cx, marble, selection } = props;
+	const { cx, project, marble, selection } = props;
 	const [isRenaming, setIsRenaming] = React.useState(false);
 	const conflicts = findMarbleConflicts(marble).size;
 	const isSelected = selection.includes(marble.id) || selection.some((key) => key.startsWith(`hit:${marble.id}:`));
@@ -50,12 +51,14 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 					{details}
 				</span>
 			</button>
+			{marbleSounds(project, marble) ? <MixToggles cx={cx} id={marble.id} name={marble.name} /> : null}
 		</div>
 	);
 };
 
 interface TTrackHeaderProps {
 	cx: StudioCx;
+	project: TProject;
 	marble: TMarble;
 	selection: string[];
 }

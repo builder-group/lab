@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BACKING_ID, createMarble, createProject, type THit, type TProject, type TSong, backingOf } from '@/modules/project';
+import { createMarble, createProject, type THit, type TProject, type TSong, backingOf } from '@/modules/project';
 import { createAudioSignature, renderProjectAudio } from './audio-engine';
-import { audibleProject, currentMix, EMPTY_MIX, hasSong, isPartAudible, mixLabel, mutedSoundtrackNote, SONG_MIX_ID, setPartSoundCommands, songParts, soundtrackProject } from './parts';
+import { audibleProject, currentMix, EMPTY_MIX, hasSong, isAudible, isHitAudible, marbleSounds, mutedSoundtrackNote, soundtrackProject } from './mix';
 
 const SAMPLE_RATE = 22050;
 const MIDI: TSong = { id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song.mid', start: 0, backing: [] };
@@ -10,7 +10,7 @@ const AUDIO: TSong = { id: 'audio', kind: 'audio', path: 'audio/song.wav', name:
 const resolve = (source: TSong): string => `asset://${source.path ?? ''}`;
 
 function project(songs: TSong[], melody: THit[], bass: THit[], backing: THit[] = []): TProject {
-	const base = createProject({ title: 'Parts' });
+	const base = createProject({ title: 'Mix' });
 	return {
 		...base,
 		length: 2,
@@ -31,73 +31,63 @@ function peak(samples: Float32Array, from: number, to: number): number {
 	return max;
 }
 
-describe('songParts function', () => {
-	it('should list each marble that plays notes, colored by marble, then Backing', () => {
-		const parts = songParts(project([MIDI], [note('a', 1, 72), note('b', 0.5, 67)], [note('c', 1, 48)], [note('d', 1, 60)]));
+const hitsOf = (song: TProject, id: string): string[] => song.marbles.find((marble) => marble.id === id)?.hits.map((hit) => hit.id) ?? [];
 
-		expect(parts.map((part) => [part.id, part.color, part.instrument, part.noteCount, part.firstPitch])).toEqual([
-			['melody', '#3478f6', 9, 2, 67],
-			['bass', '#ff9f0a', 12, 1, 48],
-			[BACKING_ID, '#8e8e93', 12, 1, 60]
-		]);
-	});
+describe('marbleSounds function', () => {
+	it('should say a marble with notes sounds and one with only tapped hits does not', () => {
+		const song = project([MIDI], [tapped('a', 1)], [note('b', 1)]);
 
-	it('should have no Backing Part without Backing notes', () => {
-		const parts = songParts(project([MIDI], [note('a', 1)], []));
-
-		expect(parts.map((part) => part.id)).toEqual(['melody']);
-		expect(mixLabel(project([MIDI], [note('a', 1)], []), { muted: [BACKING_ID], solo: [] })).toBeNull();
-	});
-
-	it('should leave out a marble with only tapped hits, which plays no notes', () => {
-		const parts = songParts(project([MIDI], [tapped('a', 1)], [note('b', 1)]));
-
-		expect(parts.map((part) => part.id)).toEqual(['bass']);
-	});
-
-	it('should have none for a recording or without a Song', () => {
-		expect(songParts(project([AUDIO], [note('a', 1)], []))).toEqual([]);
-		expect(songParts(project([], [note('a', 1)], []))).toEqual([]);
-	});
-});
-
-describe('setPartSoundCommands function', () => {
-	it('should set the sound of a marble and the sound of Backing', () => {
-		const song = project([MIDI], [note('a', 1)], []);
-
-		expect(setPartSoundCommands(song, BACKING_ID, 8)).toEqual([{ type: 'updateSong', songId: 'midi', patch: { backingSound: 8 } }]);
-		expect(setPartSoundCommands(song, 'melody', 8)).toEqual([{ type: 'updateMarble', marbleId: 'melody', patch: { sound: 8 } }]);
+		expect(song.marbles.map((marble) => marbleSounds(song, marble))).toEqual([false, true]);
 	});
 });
 
 describe('audibleProject function', () => {
+	const tie = (hit: THit): THit => ({ ...hit, songId: 'midi' });
 	const song = project([MIDI], [note('a', 0.5)], [note('b', 1)], [note('c', 1.5)]);
 
-	it('should let a soloed Part win over a mute', () => {
-		expect(isPartAudible({ muted: ['bass'], solo: ['bass'] }, 'bass')).toBe(true);
-		expect(isPartAudible({ muted: [], solo: ['bass'] }, 'melody')).toBe(false);
-		expect(isPartAudible({ muted: ['bass'], solo: [] }, 'bass')).toBe(false);
+	it('should let a soloed marble win over a mute', () => {
+		expect(isAudible({ muted: ['bass'], solo: ['bass'] }, 'bass')).toBe(true);
+		expect(isAudible({ muted: [], solo: ['bass'] }, 'melody')).toBe(false);
+		expect(isAudible({ muted: ['bass'], solo: [] }, 'bass')).toBe(false);
 	});
 
 	it('should return the project itself with everything on', () => {
 		expect(audibleProject(song, EMPTY_MIX)).toBe(song);
 	});
 
-	it('should leave only the slice of a soloed marble', () => {
+	it('should leave only the hits of a soloed marble', () => {
 		const solo = audibleProject(song, { muted: [], solo: ['bass'] });
 
-		expect(solo.marbles.map((marble) => marble.id)).toEqual(['bass']);
+		expect(hitsOf(solo, 'melody')).toEqual([]);
+		expect(hitsOf(solo, 'bass')).toEqual(['b']);
 		expect(backingOf(solo)).toEqual([]);
 	});
 
-	it('should mute and solo Backing like a marble', () => {
-		expect(backingOf(audibleProject(song, { muted: [BACKING_ID], solo: [] }))).toEqual([]);
-		const solo = audibleProject(song, { muted: [], solo: [BACKING_ID] });
-		expect(solo.marbles).toEqual([]);
+	it('should take Backing and the tied hits out with a muted song and leave the marble its own hits', () => {
+		const tied = project([MIDI], [tie(note('a', 0.5)), note('own', 0.8)], [note('b', 1)], [note('c', 1.5)]);
+
+		const muted = audibleProject(tied, { muted: ['midi'], solo: [] });
+
+		expect(hitsOf(muted, 'melody')).toEqual(['own']);
+		expect(hitsOf(muted, 'bass')).toEqual(['b']);
+		expect(backingOf(muted)).toEqual([]);
+	});
+
+	it('should hear only what a soloed song plays', () => {
+		const tied = project([MIDI], [tie(note('a', 0.5)), note('own', 0.8)], [], [note('c', 1.5)]);
+
+		const solo = audibleProject(tied, { muted: [], solo: ['midi'] });
+
+		expect(hitsOf(solo, 'melody')).toEqual(['a']);
 		expect(backingOf(solo)).toHaveLength(1);
 	});
 
-	it('should ignore a solo of a Part that has no notes left, so the Song stays audible', () => {
+	it('should let a soloed marble play a hit tied to a muted song', () => {
+		expect(isHitAudible({ muted: ['midi'], solo: ['melody'] }, 'melody', 'midi')).toBe(true);
+		expect(isHitAudible({ muted: ['midi'], solo: [] }, 'melody', 'midi')).toBe(false);
+	});
+
+	it('should ignore a solo of a marble that has no notes left, so the rest stays audible', () => {
 		const mix = { muted: [], solo: ['gone'] };
 
 		expect(currentMix(song, mix).solo).toEqual([]);
@@ -106,10 +96,10 @@ describe('audibleProject function', () => {
 
 	it('should silence a muted recording and leave a soloed one as it is', () => {
 		const recording = project([AUDIO], [tapped('a', 1)], []);
-		const muted = audibleProject(recording, { muted: [SONG_MIX_ID], solo: [] });
+		const muted = audibleProject(recording, { muted: ['audio'], solo: [] });
 
 		expect(hasSong(muted)).toBe(false);
-		expect(audibleProject(recording, { muted: [], solo: [SONG_MIX_ID] })).toBe(recording);
+		expect(audibleProject(recording, { muted: [], solo: ['audio'] }).songs).toEqual(recording.songs);
 		expect(createAudioSignature(muted, resolve)).not.toBe(createAudioSignature(recording, resolve));
 	});
 
@@ -123,8 +113,9 @@ describe('audibleProject function', () => {
 describe('soundtrackProject function', () => {
 	const song = project([MIDI], [note('a', 0.5)], [note('b', 1)]);
 
-	it('should keep muted Parts out and ignore solo', () => {
-		expect(soundtrackProject(song, { muted: ['melody'], solo: [] }).marbles.map((marble) => marble.id)).toEqual(['bass']);
+	it('should keep what is muted out and ignore solo', () => {
+		expect(hitsOf(soundtrackProject(song, { muted: ['melody'], solo: [] }), 'melody')).toEqual([]);
+		expect(hitsOf(soundtrackProject(song, { muted: ['melody'], solo: [] }), 'bass')).toEqual(['b']);
 		expect(soundtrackProject(song, { muted: [], solo: ['melody'] })).toBe(song);
 	});
 
@@ -133,13 +124,7 @@ describe('soundtrackProject function', () => {
 		expect(mutedSoundtrackNote(song, { muted: [], solo: ['melody'] })).toBeNull();
 		expect(mutedSoundtrackNote(song, { muted: ['melody'], solo: [] })).toBe("Melody is muted and left out of the film's sound.");
 		expect(mutedSoundtrackNote(song, { muted: ['melody', 'bass'], solo: [] })).toBe("Melody and Bass are muted and left out of the film's sound.");
-		expect(mutedSoundtrackNote(project([AUDIO], [], []), { muted: [SONG_MIX_ID], solo: [] })).toBe('The Song is muted, so the film has no sound.');
-	});
-
-	it('should say what the mix does on the Song row', () => {
-		expect(mixLabel(song, EMPTY_MIX)).toBeNull();
-		expect(mixLabel(song, { muted: ['bass'], solo: [] })).toBe('Bass muted');
-		expect(mixLabel(song, { muted: [], solo: ['bass'] })).toBe('Solo Bass');
+		expect(mutedSoundtrackNote(project([AUDIO], [], []), { muted: ['audio'], solo: [] })).toBe("Song.wav is muted and left out of the film's sound.");
 	});
 });
 
@@ -155,7 +140,7 @@ describe('renderProjectAudio function', () => {
 
 	const render = (song: TProject): ReturnType<typeof renderProjectAudio> => renderProjectAudio(song, () => null, { sampleRate: SAMPLE_RATE });
 
-	it('should leave a muted Part out of the soundtrack and keep the others', async () => {
+	it('should leave a muted marble out of the soundtrack and keep the others', async () => {
 		const song = project([MIDI], [note('a', 0.2)], [note('b', 1.2)]);
 
 		const full = await render(song);
@@ -167,7 +152,7 @@ describe('renderProjectAudio function', () => {
 		expect(peak(film.left, 1.2, 1.4)).toBeLessThan(peak(full.left, 1.2, 1.4));
 	});
 
-	it('should hear only the soloed slice', async () => {
+	it('should hear only the soloed marble', async () => {
 		const song = project([MIDI], [note('a', 0.2)], [note('b', 1.5)]);
 
 		const solo = await render(audibleProject(song, { muted: [], solo: ['bass'] }));

@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { host } from '@/environment';
 import { blender, renderFilm, type TRenderFilmResult } from '@/modules/blender';
 import type { TFilmEngine, TRenderPreset } from '@/modules/scene';
-import { soundtrackProject, type TResolveSourceUrl, type TSongMix } from '@/modules/music';
+import { soundtrackProject, type TResolveSourceUrl, type TMix } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { FilmCx } from './FilmCx';
 import { filmFileName, type TMeasuredRender } from '@/modules/scene';
@@ -144,7 +144,7 @@ export class FilmExportCx {
 
 export interface TFilmExportSource {
 	getProject: () => TProject | null;
-	getMix: () => TSongMix;
+	getMix: () => TMix;
 	getPackagePath: () => string | null;
 	resolveSourceUrl: TResolveSourceUrl;
 	film: FilmCx;

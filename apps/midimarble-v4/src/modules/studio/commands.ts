@@ -654,7 +654,7 @@ export const commands: readonly TCommand[] = [
 		id: 'layer.song',
 		title: 'Song',
 		section: 'Marble',
-		keywords: 'solo mute listen hear isolate parts sound instrument tempo backing',
+		keywords: 'solo mute listen hear isolate sound instrument tempo backing',
 		isEnabled: hasSong,
 		run: (cx) => cx.$selection.set([SONG_KEY])
 	},

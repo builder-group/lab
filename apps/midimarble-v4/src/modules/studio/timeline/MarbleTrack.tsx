@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
-import { findMarbleConflicts, MIN_HIT_GAP } from '@/modules/music';
+import { findMarbleConflicts, isHitAudible, MIN_HIT_GAP, type TMix } from '@/modules/music';
 import type { THit, TMarble } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName, toHitKey } from '@/modules/project';
@@ -42,7 +42,7 @@ const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TMarble; top: number }> 
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so color is never the only signal.
  */
 export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
-	const { cx, marble, zoom, width, selection, drag, statuses, isAudible, onAdd, onDragStart, timeAt } = props;
+	const { cx, marble, zoom, width, selection, drag, statuses, mix, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findMarbleConflicts(marble), [marble]);
 	const workspace = useFeatureState(cx.$workspace);
 	const isTrack = workspace === 'track';
@@ -80,7 +80,7 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 						selection={selection}
 						status={statuses?.get(hit.id)}
 						isConflict={conflicts.has(hit.id)}
-						style={{ left: Math.max(0, hit.time + offset) * zoom, top: hitsTop + (ROW_HEIGHT - hitsTop) / 2, opacity: isAudible ? 1 : 0.4 }}
+						style={{ left: Math.max(0, hit.time + offset) * zoom, top: hitsTop + (ROW_HEIGHT - hitsTop) / 2, opacity: hit.pitch == null || isHitAudible(mix, marble.id, hit.songId) ? 1 : 0.4 }}
 						onDragStart={(event) => onDragStart(key, event, false)}
 					>
 						<span />
@@ -100,8 +100,8 @@ interface TMarbleTrackProps {
 	selection: string[];
 	drag: TDrag | null;
 	statuses: Map<string, THitResult> | undefined;
-	// Dims the hits of a Part that is muted or left out by a solo
-	isAudible: boolean;
+	// Dims the notes that are muted or left out by a solo
+	mix: TMix;
 	onAdd: (time: number, event: React.MouseEvent) => void;
 	onDragStart: TDragStart;
 	timeAt: (clientX: number) => number;

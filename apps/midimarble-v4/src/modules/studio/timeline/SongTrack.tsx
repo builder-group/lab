@@ -1,15 +1,14 @@
-import { useFeatureState } from 'feature-react/state';
 import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { mixLabel, SONG_MIX_ID, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type TProject, type TSong, SONG_KEY, toHitKey, formatTime, tempoOf, backingOf } from '@/modules/project';
+import { BACKING_COLOR } from '@/modules/music';
+import { BACKING_ID, type TProject, type TSong, SONG_KEY, toHitKey, formatTime, tempoOf, backingOf, backingSong } from '@/modules/project';
 import { songMenu } from '../menus';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
 import { auditionNote } from '@/modules/track';
 import { openingRollOffset, rowCount, type TPitchRange } from './piano-roll';
-import { PartToggles } from './PartToggles';
+import { MixToggles } from './MixToggles';
 import { Keyboard, SongRoll } from './SongRoll';
 import type { TDrag, TDragStart } from './MarbleTrack';
 import { TimeGutter } from './Ruler';
@@ -19,16 +18,15 @@ import { toggleSongExpanded } from './timeline-state';
 /**
  * The Song layer's row at the top of the timeline, like the audio clip under a Final Cut storyline: the file
  * name in the header, the waveform of a recording or a small overview of every note for MIDI. A song with notes
- * expands into a piano roll of every note, where notes change pitch and are handed to marbles or to Backing, with its
- * Parts below (`PartRows`). A recording stays a flat waveform row with one Mute and Solo, the hits drawn on it as ticks
- * in their marbles' colors so they can be judged against the waveform. The row exists only while the project has a song file or Backing notes;
- * without a file it reads Song and shows the Backing notes.
+ * expands into a piano roll of every note, where notes change pitch and are handed to marbles or to Backing. A recording
+ * stays a flat waveform row, the hits drawn on it as ticks in their marbles' colors so they can be judged against the
+ * waveform. Mute and Solo in the header take out what the song plays. The row exists only while the project has a song
+ * file or Backing notes; without a file it reads Song and shows the Backing notes.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const { cx, project, song, name, analysis, zoom, width, range, isExpanded, height, selection, drag, onDragStart } = props;
 	const isAudio = song?.kind === 'audio';
-	const mix = useFeatureState(cx.$mix);
-	const mixState = mixLabel(project, mix);
+	const mixId = (song ?? backingSong(project))?.id;
 	const tempo = tempoOf(project);
 	const backingCount = backingOf(project).length;
 	const details =
@@ -95,7 +93,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 							className="mm-disclosure"
 							data-open={isExpanded}
 							onClick={toggleSongExpanded}
-							title={isExpanded ? 'Collapse Song' : 'Show Every Note and Part'}
+							title={isExpanded ? 'Collapse Song' : 'Show Every Note'}
 							aria-label={isExpanded ? 'Collapse Song' : 'Expand Song'}
 							aria-expanded={isExpanded}
 							type="button"
@@ -109,9 +107,9 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					<span className="mm-song-icon">{isAudio ? <AudioLines size={12} strokeWidth={1.75} /> : <Music size={12} strokeWidth={1.75} />}</span>
 					<span className="flex min-w-0 flex-1 flex-col leading-tight">
 						<span className="truncate font-medium">{name}</span>
-						<span className="truncate text-[11px] text-[var(--text-secondary)]">{(mixState != null ? [mixState] : details.filter(Boolean)).join(' · ')}</span>
+						<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
 					</span>
-					{isAudio ? <PartToggles cx={cx} id={SONG_MIX_ID} name="Song" /> : null}
+					{mixId != null ? <MixToggles cx={cx} id={mixId} name="Song" /> : null}
 				</div>
 				{isExpanded && range != null ? (
 					<div className="flex self-stretch" onClick={(event) => event.stopPropagation()}>
@@ -179,10 +177,10 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 	);
 };
 
-/** Every note in one strip, higher notes higher, in the marble colors and Backing in gray; `only` limits it to one Part */
-export const NoteOverview: React.FC<{ project: TProject; only?: string; zoom: number; width: number; height: number }> = (props) => {
-	const { project, only, zoom, width, height } = props;
-	const marbles = [...project.marbles, { id: BACKING_ID, labelColor: BACKING_COLOR, hits: backingOf(project) }].filter((marble) => only == null || marble.id === only);
+/** Every note in one strip, higher notes higher, in the marble colors and Backing in gray */
+const NoteOverview: React.FC<{ project: TProject; zoom: number; width: number; height: number }> = (props) => {
+	const { project, zoom, width, height } = props;
+	const marbles = [...project.marbles, { id: BACKING_ID, labelColor: BACKING_COLOR, hits: backingOf(project) }];
 	const pitches = marbles.flatMap((marble) => marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch])));
 	const low = pitches.length ? Math.min(...pitches) : 60;
 	const high = pitches.length ? Math.max(...pitches) : 72;

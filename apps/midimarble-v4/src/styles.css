@@ -489,24 +489,6 @@ textarea {
 }
 
 /* GarageBand-style track toggles: a speaker for Mute that turns gray and crossed out, headphones for Solo that light up in the accent */
-/* A Part's Sound in its timeline row: plain text with a chevron until hovered, so a tall Song stays quiet */
-.mm-part-sound {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	max-width: 76px;
-	height: 20px;
-	padding: 0 4px;
-	border-radius: 5px;
-	font-size: 11px;
-	color: var(--text-secondary);
-}
-
-.mm-part-sound:hover {
-	background: var(--hover);
-	color: var(--text);
-}
-
 .mm-track-toggle {
 	display: inline-flex;
 	align-items: center;

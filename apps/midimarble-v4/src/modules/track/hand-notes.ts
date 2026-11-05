@@ -120,7 +120,7 @@ export function isNoteSelection(keys: string[]): boolean {
 	return keys.length > 0 && keys.every((key) => parseHitKey(key) != null);
 }
 
-/** Plays a note as feedback, with its Part's Sound; a hit without a pitch plays nothing */
+/** Plays a note as feedback, with its marble's Sound; a hit without a pitch plays nothing */
 export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): void {
 	const project = cx.project;
 	if (project == null) return;
