@@ -17,7 +17,7 @@ const ROLL_FOLLOW = 0.5;
 const ROLL_LIMIT = radians(40);
 const ROLL_DRIFT = radians(16);
 const ROLL_PERIOD = 14.0;
-const SIDE_ANGLE = radians(150);
+const SIDE_ANGLE = radians(120);
 const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
 const LEAD_LIMIT = 0.0235;
@@ -36,23 +36,16 @@ const FRAME_KEEP = 0.55;
 const ASPECT_GUESS = 0.56;
 const SHOT_EASE = 0.8;
 const LENS = 85;
-const MIN_PIECE_FRACTION = 0.06;
-const ZOOM_LIMIT = 3.0;
 const GROUP_KEEP_X = 0.85;
 const GROUP_KEEP_Y = 0.85;
-/**
- * A marble spans at least this fraction of the frame width at the readable maximum, a share of the frame that follows
- * the lens: 5 % keeps both marbles of Jingle Bells in frame on 96 % of the frames with a marble at 5.4 % at the 10th percentile
- */
-const MIN_MARBLE_FRACTION = 0.05;
-/** Margin on the distance a framed group needs: a long lens leaves less of the perspective that gave 1.1 room at 50 mm */
+/** Margin on the distance a framed group needs */
 const GROUP_MARGIN = 1.2;
 /** Seconds over which the camera settles once it holds on the last hit, and the stretch of run before that hit */
 const HOLD_EASE = 1.0;
 const HOLD_SPAN = 1.0;
 /** With Bowls, the held follow point sits this share of the way from the last hit to the Bowls' mouths */
 const BOWL_FRAME = 0.5;
-/** Time constant in seconds of the group distance, so the zoom changes slowly (at most about 0.1 m within a second at 85 mm) */
+/** Time constant in seconds of the group distance, so the zoom changes slowly */
 const DISTANCE_TAU = 1.8;
 /** Seconds ahead over which a marble's upcoming hits count toward leading the frame */
 const LEAD_AHEAD = 2.0;
@@ -74,27 +67,8 @@ const OPENING_EASE = 1.5;
 const OPENING_ZOOM_EASE = 6.0;
 /** Steps that centre the opening box in the image */
 const OPENING_STEPS = 3;
-/**
- * The opening box fits within this share of the readable maximum, as its marbles fall while it holds: Two Marbles'
- * box needs 0.96 of it and lost both marbles at the top of its first frame
- */
-const OPENING_ROOM = 0.97;
-/**
- * A marble the camera does not lead stays inside EDGE_IN of the half frame (10 % of the frame from its edge) or
- * beyond EDGE_OUT (fully out); in between it would sit cut at the edge, so the frame shifts it in or out
- */
-const EDGE_IN = 0.8;
-const EDGE_OUT = 1.15;
-/** A marble that cannot be kept in is pushed out only once it comes this close to the edge (6 % of the frame) */
-const EDGE_NEAR = 0.88;
-/** The leading marble stays within this fraction of the half frame when the frame shifts for another */
-const LEADER_KEEP = 0.8;
-/** Below this share of the leading marble the frame is panning between marbles, which sets the pace alone */
-const LEAD_SETTLED = 0.75;
-/** Seconds over which the frame shifts a marble in or out at the edge */
-const EDGE_EASE = 0.45;
-/** Seconds around each frame over which the largest shift a marble needs at the edge holds */
-const EDGE_HOLD = 0.5;
+/** The opening stands at most this many times the rig distance away; a box that needs more isn't framed */
+const OPENING_ZOOM = 1.5;
 export const CAMERA_SENSOR = 36.0;
 const GROUP_EASE = 1.2;
 const GROUP_SPIKE = 0.3;
@@ -110,7 +84,7 @@ export const CAMERA_CLIP_END = 100.0;
 export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null {
 	if (input.camera == null || input.camera.mode === 'manual') return null;
 	const fps = input.fps;
-	const settings = settingsFrom(input.camera, input.pieceLength, input.opening ?? null);
+	const settings = settingsFrom(input.camera, input.opening ?? null);
 	const marbles = input.marbles;
 	const frameEnd = Math.max(1, Math.ceil(input.duration * fps - 1e-6));
 	const count = frameEnd + 1;
@@ -124,13 +98,12 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 		times,
 		settings,
 		fps,
-		aspect,
 		new Float64Array(count),
 		null
 	);
 	if (straight == null) return null;
 	const firstPass = followTarget(straight, settings, fps, times);
-	const framing = groupFraming(marbles, times, settings, fps, aspect, firstPass.heading, [
+	const framing = groupFraming(marbles, times, settings, fps, firstPass.heading, [
 		firstPass.targetX,
 		firstPass.targetY
 	]);
@@ -141,24 +114,6 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	// The camera stands below and to the side of the target, looking up along the run; the side follows the run
 	// direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
 	const { side, roll } = viewTurn(times, smoothHeading, settings.hold, settings.sway);
-	// Seen through this view, the marble the camera leads stays in and another goes fully in or fully out, never cut at the edge
-	if (framing.shares != null) {
-		const axes = Array.from(times, (_, index) =>
-			viewAxes(side[index] ?? 0, roll[index] ?? 0, settings.pitch)
-		);
-		keepClearOfEdges(
-			marbles,
-			times,
-			framing.sample,
-			[targetX, targetY],
-			distance,
-			axes,
-			framing.shares,
-			settings.lens,
-			aspect,
-			fps
-		);
-	}
 
 	const pitch = settings.pitch;
 	const position = new Float64Array(count * 3);
@@ -261,7 +216,6 @@ export function followCameraInput(
 		duration: description.duration,
 		frame: description.frame,
 		camera: description.camera ?? null,
-		pieceLength: typicalPieceLength(description.pieces),
 		opening: openingPieces(description.pieces),
 		marbles: description.marbles.map((marble) => ({
 			id: marble.id,
@@ -280,8 +234,6 @@ export interface TFollowCameraInput {
 	duration: number;
 	frame: { width: number; height: number };
 	camera: TSceneCamera | null;
-	/** Median bar or blade length, `typical_piece_length` in `scene.py` */
-	pieceLength: number | null;
 	/** First struck pieces, `openingPieces`; the opening frames them with the release points */
 	opening?: TOpeningPiece[] | null;
 	marbles: TFollowMarble[];
@@ -361,7 +313,6 @@ interface TSettings {
 	/** Mean mouth of the Bowls the held ending frames, or null */
 	bowl: [number, number] | null;
 	descent: { time: Float64Array; y: Float64Array } | null;
-	pieceLength: number | null;
 	opening: TOpeningPiece[] | null;
 }
 
@@ -370,17 +321,12 @@ interface TFraming {
 	ahead: [Float64Array, Float64Array];
 	depth: number;
 	distance: Float64Array;
-	/** Times the marbles are read at, the film time up to the hold */
-	sample: Float64Array;
-	/** Per marble with motion, its share of the follow point where the group does not fit; null for one marble */
-	shares: Float64Array[] | null;
 	/** How much of the fall lead applies per frame: none while a group is framed */
 	fallScale: Float64Array;
 }
 
 function settingsFrom(
 	camera: TSceneCamera,
-	pieceLength: number | null,
 	opening: TOpeningPiece[] | null
 ): TSettings {
 	const number = (value: unknown, fallback: number, low: number, high: number): number =>
@@ -422,7 +368,6 @@ function settingsFrom(
 						y: Float64Array.from(descent, (point) => point[1])
 					}
 				: null,
-		pieceLength,
 		opening: opening != null && opening.length > 0 ? opening : null
 	};
 }
@@ -443,46 +388,11 @@ export function openingPieces(pieces: TSceneDescription['pieces']): TOpeningPiec
 	return struck.filter((piece) => piece.time <= first + LEAD_AHEAD + 1e-9).slice(0, OPENING_PIECES);
 }
 
-/** `typical_piece_length` in `scene.py`: median length of the bars and blades on the wall */
-export function typicalPieceLength(pieces: TSceneDescription['pieces']): number | null {
-	const lengths: number[] = [];
-	for (const piece of pieces) {
-		const { params } = piece;
-		const blade = params['bladeLength'];
-		const length = params['length'];
-		if (blade != null) lengths.push(2 * blade + 2 * (params['hubRadius'] ?? 0.0));
-		else if (piece.type === 'platform' && length != null) lengths.push(length);
-	}
-	if (!lengths.length) return null;
-	lengths.sort((a, b) => a - b);
-	const middle = Math.floor(lengths.length / 2);
-	return lengths.length % 2
-		? (lengths[middle] ?? 0)
-		: ((lengths[middle - 1] ?? 0) + (lengths[middle] ?? 0)) / 2;
-}
-
 /** Frame width over height of the render resolution `studio.set_resolution` sets */
 function renderAspect(frame: { width: number; height: number }): number {
 	const aspect = frame.width / frame.height;
 	if (aspect < 1) return 1080 / Math.max(1, pyRound(1080 / aspect));
 	return pyRound(1080 * aspect) / 1080;
-}
-
-function widthPerMetre(lens: number, aspect: number): number {
-	return (CAMERA_SENSOR * Math.min(aspect, 1.0)) / lens;
-}
-
-/**
- * `readable_distance`: a typical piece spans MIN_PIECE_FRACTION of the frame width, a marble of `radius`
- * MIN_MARBLE_FRACTION, and the camera stands at most ZOOM_LIMIT times its set distance away
- */
-function readableDistance(settings: TSettings, aspect: number, radius: number | null): number {
-	let limit = settings.distance * ZOOM_LIMIT;
-	const width = widthPerMetre(settings.lens, aspect);
-	const piece = settings.pieceLength;
-	if (piece) limit = Math.min(limit, piece / (MIN_PIECE_FRACTION * width));
-	if (radius) limit = Math.min(limit, (2 * radius) / (MIN_MARBLE_FRACTION * width));
-	return Math.max(limit, settings.distance);
 }
 
 function hasMotion(marble: TFollowMarble): boolean {
@@ -540,7 +450,7 @@ function focusMarble(marbles: TFollowMarble[], focus: string | null): TFollowMar
 }
 
 /**
- * `lead_shares`: per marble with motion, its share of the point the camera follows where the group does not fit. The
+ * `lead_shares`: per marble with motion, its share of the point the camera follows in a close shot. The
  * marble in flight with the most notes within LEAD_AHEAD seconds leads (the focus marble wins a tie, and a marble
  * without notes counts only while in flight), a lead lasts at least LEAD_HOLD seconds, and the frame eases from one
  * leading marble to the next over LEAD_EASE seconds.
@@ -731,20 +641,6 @@ function pacedHeight(
 	return result;
 }
 
-function withoutShortRuns(flags: boolean[], shortest: number): boolean[] {
-	const result = flags.slice();
-	let start: number | null = null;
-	for (let index = 0; index <= flags.length; index++) {
-		const flag = index < flags.length ? (flags[index] ?? 0) : false;
-		if (flag && start == null) start = index;
-		else if (!flag && start != null) {
-			if (index - start < shortest) result.fill(false, start, index);
-			start = null;
-		}
-	}
-	return result;
-}
-
 function held(
 	values: Float64Array,
 	fps: number,
@@ -777,7 +673,6 @@ function groupFraming(
 	times: Float64Array,
 	settings: TSettings,
 	fps: number,
-	aspect: number,
 	heading: Float64Array,
 	aim: [Float64Array, Float64Array] | null
 ): TFraming | null {
@@ -800,17 +695,14 @@ function groupFraming(
 	const shotDistance = shotValues(times, settings.distance, settings.shots);
 	const scale = shotDistance.map((value) => value / settings.distance);
 	const base = settings.distance;
-	const radii = marbles.filter(hasMotion).map((marble) => marble.radius);
-	const limit = readableDistance(settings, aspect, radii.length ? Math.min(...radii) : null);
-	const upper = Math.max(base, limit);
 	const turn = viewTurn(times, heading, hold, settings.sway);
 	// Sized around the smoothed target when the first pass gave one, else around the group's centre
 	const axes = Array.from(times, (_, index) =>
 		viewAxes(turn.side[index] ?? 0, turn.roll[index] ?? 0, settings.pitch)
 	);
 	const raw = spreadNeed(marbles, sample, aim ?? centre, settings.lens, turn, settings.pitch);
-	// The opening frame widens the zoom to its pieces; whether the group fits still counts the marbles alone
-	const opening = openingFrame(marbles, times, sample, settings, fps, axes, limit);
+	// The opening frame widens the zoom to its pieces
+	const opening = openingFrame(marbles, times, sample, settings, fps, axes);
 	const zoomNeed = raw.slice();
 	if (opening != null) {
 		for (let index = 0; index < count; index++) {
@@ -819,37 +711,12 @@ function groupFraming(
 		}
 	}
 	const need = held(held(zoomNeed, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
-	// A Wide shot widens the readable maximum by its scale, so the group it frames fits for longer; within it the
-	// group is also sized around its own centre, as the first pass's target may still be on the leading marble
-	const wide = scale.map((value) => Math.max(value, 1.0));
-	const isWide = wide.some((value) => value > 1.0);
-	const around =
-		isWide && aim != null ? spreadNeed(marbles, sample, centre, settings.lens, turn, settings.pitch) : raw;
-	const over = withoutShortRuns(
-		Array.from(raw, (value, index) => {
-			const fit = (wide[index] ?? 1) > 1.0 ? Math.min(value, around[index] ?? value) : value;
-			return fit > limit * (wide[index] ?? 1);
-		}),
-		pyRound(GROUP_SPIKE * fps)
-	);
-	const heldOver = held(
-		Float64Array.from(over, (flag) => (flag ? 1 : 0)),
-		fps,
-		1.0,
-		'max'
-	);
-	const fits = heldOver.map((value) => 1.0 - value);
-	const weight = criticallyDamped(fits, fps, GROUP_EASE / 3).map((value) => clamp(value, 0.0, 1.0));
-	// A framed group has no room to lead one marble's fall; a close shot frames the leading marble alone
+	// A close shot frames the leading marble alone, and only then leads one marble's fall
 	const isGroup = marbles.filter(hasMotion).length > 1;
-	const fallScale = new Float64Array(count);
-	for (let index = 0; index < count; index++) {
-		const push = clamp((1 - (scale[index] ?? 1)) / (1 - PUSH_FOCUS), 0.0, 1.0);
-		fallScale[index] = isGroup ? 1.0 - (weight[index] ?? 0) * (1 - push) : 1.0;
-	}
-	// The zoom follows what the group needs up to the readable maximum and stays there where the group no longer
-	// fits, slowly, so the frame neither pulls back to a survey nor jumps back in when it switches to one marble
-	const groupDistance = need.map((value, index) => clamp(value, base, upper * (wide[index] ?? 1)));
+	const push = scale.map((value) => clamp((1 - value) / (1 - PUSH_FOCUS), 0.0, 1.0));
+	const fallScale = push.map((value) => (isGroup ? value : 1.0));
+	// The zoom follows what the group needs, slowly
+	const groupDistance = need.map((value) => Math.max(value, base));
 	const distance = criticallyDamped(groupDistance, fps, DISTANCE_TAU);
 	// The slow zoom would flatten a need that lasts only for the opening, so the opening stands where it needs most
 	if (opening != null) {
@@ -860,12 +727,10 @@ function groupFraming(
 			distance[index] = (distance[index] ?? 0) + share * Math.max(furthest - (distance[index] ?? 0), 0.0);
 		}
 	}
-	// A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away and
-	// as far as the group needs within its wider maximum
+	// A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away
 	for (let index = 0; index < count; index++) {
 		const shot = scale[index] ?? 1;
-		const framed = clamp(distance[index] ?? 0, base, upper * (wide[index] ?? 1));
-		distance[index] = Math.max(framed * Math.min(shot, 1.0), base * shot);
+		distance[index] = Math.max(Math.max(distance[index] ?? 0, base) * Math.min(shot, 1.0), base * shot);
 	}
 	if (marbles.length > 1) {
 		const shares = leadShares(marbles, sample, settings.focus, fps);
@@ -873,9 +738,7 @@ function groupFraming(
 		const leadAhead = mixPoints(marbles, leadTimes, shares);
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
-				// A close shot frames the leading marble alone
-				const push = clamp((1 - (scale[index] ?? 1)) / (1 - PUSH_FOCUS), 0.0, 1.0);
-				const w = (weight[index] ?? 0) * (1 - push);
+				const w = 1 - (push[index] ?? 0);
 				centre[axis][index] = w * (centre[axis][index] ?? 0) + (1 - w) * (lead[axis][index] ?? 0);
 				ahead[axis][index] =
 					w * (ahead[axis][index] ?? 0) + (1 - w) * (leadAhead[axis][index] ?? 0);
@@ -895,19 +758,18 @@ function groupFraming(
 			}
 		}
 	}
-	const shares = marbles.some(hasMotion) ? leadShares(marbles, sample, settings.focus, fps) : null;
 	if (hold != null) {
 		settle(centre, times, hold, settings.bowl);
 		settle(ahead, times, hold, settings.bowl);
 	}
-	return { current: centre, ahead, depth, distance, sample, shares, fallScale };
+	return { current: centre, ahead, depth, distance, fallScale };
 }
 
 /**
  * `opening_frame`: until the first hit the camera frames the box around the marbles in flight and the first struck
  * pieces, so the film opens on the track rather than on marbles over an empty wall, and eases into the follow over
  * OPENING_EASE seconds after it. Returns the box centre, the distance the box needs and the weight of the opening per
- * frame; the weight eases to 0 where the box needs more than the readable maximum.
+ * frame; the weight eases to 0 where the box needs more than OPENING_ZOOM.
  */
 function openingFrame(
 	marbles: TFollowMarble[],
@@ -915,13 +777,13 @@ function openingFrame(
 	sample: Float64Array,
 	settings: TSettings,
 	fps: number,
-	axes: TAxes[],
-	limit: number
+	axes: TAxes[]
 ): { first: number; point: [Float64Array, Float64Array]; need: Float64Array; weight: Float64Array; fit: Float64Array } | null {
 	const pieces = settings.opening;
 	if (pieces == null || !pieces.length) return null;
 	const first = Math.min(...pieces.map((piece) => piece.time));
 	const count = times.length;
+	const limit = settings.distance * OPENING_ZOOM;
 	const reach = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_Y;
 	const reachX = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_X * ASPECT_GUESS;
 	const moving = marbles.filter(hasMotion);
@@ -989,188 +851,13 @@ function openingFrame(
 		pointY[index] = y;
 		const widest = widestAround();
 		need[index] = widest;
-		fits[index] = widest <= limit * OPENING_ROOM ? 1.0 : 0.0;
+		fits[index] = widest <= limit ? 1.0 : 0.0;
 	}
 	const eased = criticallyDamped(fits, fps, GROUP_EASE / 3);
 	const fit = eased.map((value) => clamp(value, 0.0, 1.0));
 	const weight = new Float64Array(count);
 	for (let index = 0; index < count; index++) weight[index] = (fit[index] ?? 0) * (ramp[index] ?? 0);
 	return { first, point: [pointX, pointY], need, weight, fit };
-}
-
-/**
- * `keep_clear_of_edges`: a marble in flight or waiting at its release point stays inside EDGE_IN of the half frame or beyond EDGE_OUT, never cut at
- * the edge. The leading marble is kept in. Another marble keeps the side it came from while it swings through the
- * band between, a side lasts at least twice EDGE_HOLD, and it goes out wherever keeping it in would take the leading
- * marble past LEADER_KEEP; kept out, it is pushed only once within EDGE_NEAR of the edge. While the frame pans
- * between marbles (the leader arriving from beyond EDGE_OUT, or its share below LEAD_SETTLED while a marble arrives
- * from there) the pan sets
- * the pace alone, and from the hold on nothing shifts. Offsets are seen through the baked view from the look target.
- * The shift each marble needs is held at its largest over EDGE_HOLD seconds around each frame, so the frame stays put
- * while a marble swings near the edge, and eased over EDGE_EASE seconds. Adds the shift to the target in place.
- */
-function keepClearOfEdges(
-	marbles: TFollowMarble[],
-	times: Float64Array,
-	sample: Float64Array,
-	target: [Float64Array, Float64Array],
-	distance: Float64Array,
-	axes: TAxes[],
-	shares: Float64Array[],
-	lens: number,
-	aspect: number,
-	fps: number
-): void {
-	const moving = marbles.filter(hasMotion);
-	const count = sample.length;
-	const points = moving.map((marble) => marblePoint(marble, sample));
-	const halfLong = CAMERA_SENSOR / 2 / lens;
-	const halfWidth = aspect < 1 ? halfLong * aspect : halfLong;
-	const halfHeight = aspect < 1 ? halfLong : halfLong / aspect;
-	/** Where an offset from the look target sits in the frame, in half frames (1 at the edge) */
-	const place = (index: number, dx: number, dy: number): number => {
-		const { right, up, toward } = axes[index] as TAxes;
-		const spread = Math.max(
-			Math.abs(dx * right[0] + dy * right[2]) / halfWidth,
-			Math.abs(dx * up[0] + dy * up[2]) / halfHeight
-		);
-		const depth = (distance[index] ?? 0) - (dx * toward[0] + dy * toward[2]);
-		return depth > 1e-6 ? spread / depth : Number.POSITIVE_INFINITY;
-	};
-	const leaders = new Int32Array(count);
-	for (let index = 0; index < count; index++) {
-		let leader = 0;
-		shares.forEach((share, which) => {
-			if ((share[index] ?? 0) > (shares[leader]?.[index] ?? 0)) leader = which;
-		});
-		leaders[index] = leader;
-	}
-	const offset = (which: number, index: number): [number, number] => [
-		(points[which]?.[0][index] ?? 0) - (target[0][index] ?? 0),
-		(points[which]?.[1][index] ?? 0) - (target[1][index] ?? 0)
-	];
-	const shortest = pyRound(2 * EDGE_HOLD * fps);
-	const shiftX = new Float64Array(count);
-	const shiftY = new Float64Array(count);
-	// Where each marble sits in the frame, and whether it is arriving: it was beyond EDGE_OUT and has not yet come
-	// inside EDGE_IN, as while the frame pans to it from afar
-	// A marble waiting at its release point is in the film too
-	const isFollowing = (marble: TFollowMarble, index: number): boolean =>
-		inside(marble, Math.max(sample[index] ?? 0, marble.motion.time[0] ?? 0)) &&
-		(times[index] ?? 0) <= (sample[index] ?? 0) + 1e-9;
-	const placesOf = moving.map(() => new Float64Array(count));
-	const arrivingOf = moving.map(() => new Uint8Array(count));
-	moving.forEach((marble, which) => {
-		let isArriving = false;
-		for (let index = 0; index < count; index++) {
-			if (!isFollowing(marble, index)) continue;
-			const now = place(index, ...offset(which, index));
-			(placesOf[which] as Float64Array)[index] = now;
-			if (now > EDGE_OUT && moving.length > 1) isArriving = true;
-			else if (now <= EDGE_IN) isArriving = false;
-			(arrivingOf[which] as Uint8Array)[index] = isArriving ? 1 : 0;
-		}
-	});
-	moving.forEach((marble, which) => {
-		// Per frame +1 kept in, -1 kept out, 0 free, and how far in half frames it moves to get there
-		const side = new Int8Array(count);
-		const amount = new Float64Array(count);
-		const places = placesOf[which] as Float64Array;
-		let isInside = true;
-		for (let index = 0; index < count; index++) {
-			if (!isFollowing(marble, index)) continue;
-			const now = places[index] ?? 0;
-			// While the frame pans between marbles every marble moves at the pan's pace
-			const leader = leaders[index] ?? 0;
-			const isFar = arrivingOf.some((arriving) => arriving[index] === 1);
-			if (
-				arrivingOf[leader]?.[index] === 1 ||
-				(isFar && (shares[leader]?.[index] ?? 0) < LEAD_SETTLED)
-			) {
-				isInside = now <= EDGE_IN || (isInside && now < EDGE_OUT);
-				continue;
-			}
-			if (which === leader || now <= EDGE_IN) isInside = true;
-			else if (now >= EDGE_OUT) isInside = false;
-			side[index] = isInside ? 1 : -1;
-		}
-		const isLed = (index: number): boolean => leaders[index] === which;
-		// A side held for less than twice EDGE_HOLD keeps the side before it
-		let start = 0;
-		for (let index = 1; index <= count; index++) {
-			if (index < count && side[index] === side[start]) continue;
-			const before = start > 0 ? (side[start - 1] ?? 0) : 0;
-			if (before !== 0 && side[start] !== 0 && index - start < shortest) {
-				for (let frame = start; frame < index; frame++) if (!isLed(frame)) side[frame] = before;
-			}
-			start = index;
-		}
-		const measure = (): void => {
-			for (let index = 0; index < count; index++) {
-				const now = Number.isFinite(places[index] ?? 0) ? (places[index] ?? 0) : 0.0;
-				// A marble kept out is pushed only where it comes within EDGE_NEAR of the edge; further inside, as when the
-				// frame meets it head on or it has room short of the safe area, it is left free
-				amount[index] =
-					side[index] === 1
-						? Math.max(now - EDGE_IN, 0.0)
-						: side[index] === -1 && now >= EDGE_NEAR
-							? Math.max(EDGE_OUT - now, 0.0)
-							: 0.0;
-			}
-		};
-		measure();
-		// Kept in only while the leading marble stays within LEADER_KEEP with the shift held as it will be; around a
-		// frame where it would not, the marble goes out
-		const heldIn = held(
-			amount.map((value, index) => (side[index] === 1 ? value : 0.0)),
-			fps,
-			EDGE_HOLD,
-			'max'
-		);
-		const isTooFar = new Float64Array(count);
-		for (let index = 0; index < count; index++) {
-			const leader = leaders[index] ?? 0;
-			const now = places[index] ?? 0;
-			if (side[index] !== 1 || isLed(index) || now <= 1e-9 || !Number.isFinite(now)) continue;
-			if (!isFollowing(moving[leader] as TFollowMarble, index)) continue;
-			const [dx, dy] = offset(which, index);
-			const shift = (heldIn[index] ?? 0) / now;
-			const [leaderX, leaderY] = offset(leader, index);
-			if (place(index, leaderX - shift * dx, leaderY - shift * dy) > LEADER_KEEP)
-				isTooFar[index] = 1.0;
-		}
-		const isOut = held(isTooFar, fps, EDGE_HOLD, 'max');
-		for (let index = 0; index < count; index++)
-			if ((isOut[index] ?? 0) > 0 && side[index] === 1 && !isLed(index)) side[index] = -1;
-		measure();
-		const keepIn = held(
-			amount.map((value, index) => (side[index] === 1 ? value : 0.0)),
-			fps,
-			EDGE_HOLD,
-			'max'
-		);
-		const keepOut = held(
-			amount.map((value, index) => (side[index] === -1 ? value : 0.0)),
-			fps,
-			EDGE_HOLD,
-			'max'
-		);
-		for (let index = 0; index < count; index++) {
-			const now = places[index] ?? 0;
-			if (side[index] === 0 || now <= 1e-9 || !Number.isFinite(now)) continue;
-			const [dx, dy] = offset(which, index);
-			// Moving the target by `shift` of the offset moves the marble that many of its half frames
-			const shift = side[index] === 1 ? (keepIn[index] ?? 0) / now : -(keepOut[index] ?? 0) / now;
-			shiftX[index] = (shiftX[index] ?? 0) + shift * dx;
-			shiftY[index] = (shiftY[index] ?? 0) + shift * dy;
-		}
-	});
-	const smoothX = criticallyDamped(shiftX, fps, EDGE_EASE / 3);
-	const smoothY = criticallyDamped(shiftY, fps, EDGE_EASE / 3);
-	for (let index = 0; index < count; index++) {
-		target[0][index] = (target[0][index] ?? 0) + (smoothX[index] ?? 0);
-		target[1][index] = (target[1][index] ?? 0) + (smoothY[index] ?? 0);
-	}
 }
 
 /** `bowl_point`: the mean wall point of the Bowls the held ending frames, or null */

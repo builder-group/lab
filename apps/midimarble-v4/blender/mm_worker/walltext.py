@@ -43,8 +43,7 @@ TIMING_PATHS = ('["%s"]' % VISIBLE_PROPERTY, 'hide_render')
 INTERPOLATION_CONSTANT = 0
 SCREEN_STYLES = ('caption', 'songName', 'endCard')
 SCREEN_PROPERTY = 'mm_screen'
-# Screen titles sit this far along the way from the camera to the closer of its focus and the wall, just in front of
-# the pieces and close enough to the focus that depth of field keeps them sharp (0.85 blurred small captions)
+# Screen titles sit this far along the way to the nearest wall in the frame's upper part, so they're as close to the focus as the steep wall allows
 SCREEN_DEPTH = 0.96
 # Glow of a screen title: the themes darken the film (Brass exposure -1.25), so plain strength 1 reads grey
 SCREEN_GLOW = 3.0
@@ -141,7 +140,7 @@ def write_text(project_dir, obj, entry):
 def attach_screen_texts(managed, camera, scene):
     """
     Parents caption, song name and end card titles to the film camera. Drivers place them at `SCREEN_DEPTH` of the way to the
-    closer of the focus distance and the wall, and scale them by the frame height there, so a caption stays at the
+    wall's nearest point, and scale them by the frame height there, so a caption stays at the
     top of the frame at its size whatever the camera does. Returns how many were attached.
     """
     if camera is None or camera.type != 'CAMERA' or managed is None:
@@ -161,7 +160,9 @@ def attach_screen_texts(managed, camera, scene):
         obj.matrix_basis = Matrix.Identity(4)
         obj.visible_shadow = False
         size = float(obj.get('mm_screen_size', 0.06))
-        distance = '%g*abs(wall)' % SCREEN_DEPTH if ortho else '%g*min(focus, abs(wall))' % SCREEN_DEPTH
+        # The wall is nearest at the frame's edge toward the camera: at the slant `focus / abs(wall)` it comes closer by this share of the focus
+        nearest = 'focus/(1+%g/lens*sqrt(max(focus*focus-wall*wall,0))/abs(wall))' % (camera.data.sensor_width / 2 * 0.85)
+        distance = '%g*abs(wall)' % SCREEN_DEPTH if ortho else '%g*%s' % (SCREEN_DEPTH, nearest)
         frame_half = 'ortho*%g' % (fit / 2) if ortho else '(%s)*%g/lens' % (distance, camera.data.sensor_width / 2 * fit)
         expressions = {
             ('location', 1): '%s*%g' % (frame_half, SCREEN_HEIGHTS.get(style, 0.0)),

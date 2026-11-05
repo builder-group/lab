@@ -21,7 +21,7 @@ THEMES = {
         'look': 'AgX - Base Contrast',
         'exposure': 0.0,
         'flat': {'exposure': 0.05, 'sheen': 0.025},
-        'fstop': 8.0,
+        'fstop': 32.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
     },
     'brass': {
@@ -32,7 +32,7 @@ THEMES = {
         'look': 'AgX - Medium High Contrast',
         'exposure': -1.25,
         'flat': {'exposure': 1.05, 'sheen': 0.025},
-        'fstop': 8.0,
+        'fstop': 32.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
     },
     'neon': {
@@ -47,7 +47,7 @@ THEMES = {
         'look': 'AgX - Punchy',
         'exposure': 0.0,
         'flat': {'exposure': 0.4, 'sheen': 0.012},
-        'fstop': 8.0,
+        'fstop': 32.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 9.0},
     },
 }
@@ -405,6 +405,18 @@ def chrome_material():
         _set(principled, 'Metallic', 1.0)
         _set(principled, 'Roughness', 0.09)
     return _shared('MM · chrome', build)
+
+
+def wire_material():
+    """Chrome for a Rail's thin wires and posts: darker than a plate's, as a pale mirror of a pale wall vanishes against it"""
+    def build(material):
+        principled = _principled(material)
+        base = (0.62, 0.63, 0.66, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Metallic', 1.0)
+        _set(principled, 'Roughness', 0.05)
+    return _shared('MM · wire', build)
 
 
 def clear_material():

@@ -3,7 +3,7 @@ import type { THitResult, TMarbleTrack, TSimulationResult } from '@/modules/simu
 import { bakeFollowCamera, type TCameraTrack } from './follow-camera';
 import { framingStretches } from './framing';
 
-// Two marbles falling side by side 1.5 m apart, too far for one readable frame, so the camera follows one at a time
+// Two marbles falling side by side 1.5 m apart; a close shot follows one at a time
 const SPREAD = 0.75;
 
 function samples(x: number): TMarbleTrack['samples'] {
@@ -15,7 +15,7 @@ function samples(x: number): TMarbleTrack['samples'] {
 	}));
 }
 
-function scene(melody: number[], bass: number[]): { result: TSimulationResult; track: TCameraTrack } {
+function scene(melody: number[], bass: number[], isClose = true): { result: TSimulationResult; track: TCameraTrack } {
 	const marbles: TMarbleTrack[] = [
 		{ entityId: 'marble-a', laneId: 'melody', radius: 0.012, samples: samples(-SPREAD) },
 		{ entityId: 'marble-b', laneId: 'bass', radius: 0.012, samples: samples(SPREAD) }
@@ -44,8 +44,7 @@ function scene(melody: number[], bass: number[]): { result: TSimulationResult; t
 		fps: 30,
 		duration: 10,
 		frame: { width: 1080, height: 1920 },
-		camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] },
-		pieceLength: 0.09,
+		camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: isClose ? [{ time: -2, kind: 'pushIn', distance: 0.3 }] : [] },
 		marbles: marbles.map((marble, index) => ({
 			id: marble.entityId,
 			radius: marble.radius,

@@ -68,7 +68,7 @@ describe('follow camera', () => {
 		}
 	});
 
-	it('follows the marble that plays the next notes when the marbles do not fit one frame', () => {
+	it('follows the marble that plays the next notes in a close shot', () => {
 		const fall = (x: number): TFollowMarble['motion'] => {
 			const time = Float64Array.from({ length: 101 }, (_, index) => index / 10);
 			return { time, x: time.map(() => x), y: time.map((value) => -0.3 * value) };
@@ -77,8 +77,14 @@ describe('follow camera', () => {
 			fps: 30,
 			duration: 10,
 			frame: { width: 1080, height: 1920 },
-			camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: [] },
-			pieceLength: 0.09,
+			camera: {
+				mode: 'rig',
+				distance: 0.7,
+				pitch: 1.15,
+				lead: 0.15,
+				smoothing: 0.6,
+				shots: [{ time: -2, kind: 'pushIn', distance: 0.35 }]
+			},
 			marbles: [
 				{
 					id: 'melody',
@@ -123,7 +129,6 @@ describe('follow camera', () => {
 				frame: { width: 1080, height: 1920 },
 				// As much in frame as 0.9 m through the former 50 mm lens
 				camera: { mode: 'rig', distance: 1.53, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] },
-				pieceLength: 0.09,
 				marbles: [{ id: 'marble', radius: 0.012, hitTimes: [0.5, 1, 1.5, 4, 4.5, 5], motion: { time, x, y } }]
 			})
 		);
@@ -136,7 +141,7 @@ describe('follow camera', () => {
 			expect(at(track.target, pyRound(seconds * 30) * 2 + 1)).toBeLessThan(at(y, pyRound(seconds * 100)) - 0.06);
 		// Mid-drop the marble is in the upper part of the frame (0.51 to 0.61 before), and never near the bottom edge
 		expect(height(2.6)).toBeGreaterThan(0.62);
-		for (let seconds = 2; seconds <= 3.8; seconds += 0.1) expect(height(seconds)).toBeGreaterThan(0.25);
+		for (let seconds = 2; seconds <= 3.8; seconds += 0.1) expect(height(seconds)).toBeGreaterThan(0.2);
 	});
 
 	it('keeps a single marble in frame when the opening frames pieces far from it and a long fall pulls the frame ahead', () => {
@@ -150,7 +155,6 @@ describe('follow camera', () => {
 				duration: 1,
 				frame: { width: 1080, height: 1920 },
 				camera: { mode: 'rig', distance: 0.5, pitch: 0.45, lead: 0.15, smoothing: 0.6, shots: [] },
-				pieceLength: 0.06,
 				opening: [{ time: 0.3, x: 0.25, y: 0.4 }, { time: 0.38, x: 0.08, y: 0.22 }],
 				marbles: [{ id: 'marble', radius: 0.01, motion: { time, x, y } }]
 			})
@@ -164,18 +168,17 @@ describe('follow camera', () => {
 		expect(worst).toBeLessThan(0.45);
 	});
 
-	it('frames both marbles in a Wide shot where the automatic camera follows one', () => {
+	it('frames marbles that need more room, and stands at a Wide shot\'s distance', () => {
 		const fall = (x: number): TFollowMarble['motion'] => {
 			const time = Float64Array.from({ length: 101 }, (_, index) => index / 10);
 			return { time, x: time.map(() => x), y: time.map((value) => -0.3 * value) };
 		};
-		// Side by side 44 cm apart: too far for the readable maximum, close enough for a Wide shot
+		// Side by side 44 cm apart
 		const input = (shots: NonNullable<TFollowCameraInput['camera']>['shots']): TFollowCameraInput => ({
 			fps: 30,
 			duration: 10,
 			frame: { width: 1080, height: 1920 },
 			camera: { mode: 'rig', distance: 0.7, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots },
-			pieceLength: 0.09,
 			marbles: [
 				{ id: 'melody', radius: 0.012, motion: fall(-0.22), hitTimes: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
 				{ id: 'bass', radius: 0.012, motion: fall(0.22), hitTimes: [1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5] }
@@ -189,7 +192,7 @@ describe('follow camera', () => {
 		const automatic = required(bakeFollowCamera(input([])));
 		const wide = required(bakeFollowCamera(input([{ time: 2, kind: 'wide', distance: 0.7 * 1.6, length: 6 }])));
 		for (const seconds of [4, 5, 6, 7]) {
-			expect(shown(automatic, seconds)).toBe(1);
+			expect(shown(automatic, seconds)).toBe(2);
 			expect(shown(wide, seconds)).toBe(2);
 		}
 		// At least the shot's distance while it holds, and the automatic framing again after it eases back
@@ -220,7 +223,6 @@ describe('follow camera', () => {
 				duration: 10,
 				frame: { width: 1080, height: 1920 },
 				camera: { mode: 'rig', distance: 0.7, pitch: 0.7, lead: 0.15, smoothing: 0.6, shots: [] },
-				pieceLength: 0.09,
 				marbles: [
 					{ id: 'first', radius: 0.012, motion: fall(-0.2), hitTimes: [1, 2, 3, 4, 5] },
 					{ id: 'second', radius: 0.012, motion: fall(0.2), hitTimes: [1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8] }

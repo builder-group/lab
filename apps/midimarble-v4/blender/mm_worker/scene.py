@@ -125,7 +125,6 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     if description.get('camera') is not None:
         camera_settings = camera.settings_from(description['camera'], themes.theme_settings(theme))
     if camera_settings is not None:
-        camera_settings['pieceLength'] = typical_piece_length(pieces)
         camera_settings['opening'] = camera.opening_pieces(pieces)
     report['camera'] = studio.update_camera(
         scene, bounds, camera_settings, marbles, marble_motion, fps, regenerate=bool(args.get('regenerateCamera')))
@@ -452,18 +451,6 @@ def set_frame_rate(scene, fps, duration):
     scene.render.fps_base = whole / fps
     scene.frame_start = 0
     scene.frame_end = max(1, math.ceil(duration * fps - 1e-6))
-
-
-def typical_piece_length(pieces):
-    """Median length of the bars and blades on the wall, which sets how far the camera may pull back"""
-    lengths = []
-    for piece in pieces:
-        params = piece.get('params') or {}
-        if 'bladeLength' in params:
-            lengths.append(2 * float(params['bladeLength']) + 2 * float(params.get('hubRadius', 0.0)))
-        elif piece.get('type', 'platform') == 'platform' and 'length' in params:
-            lengths.append(float(params['length']))
-    return float(np.median(lengths)) if lengths else None
 
 
 def scene_bounds(marbles, marble_motion, pieces):

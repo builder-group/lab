@@ -702,7 +702,7 @@ def rail_spec(frame, piece):
     # As thick as a Rail's generated wires, and posts every `post_indices` spacing along a long straight run
     radius = min(physics_radius, 0.0022 * frame.marble_radius / 0.008) if frame.style == 'chrome' else physics_radius * 0.8
     if frame.style == 'chrome':
-        wire_material, post_material = frame.metal(themes.chrome_material()), themes.chrome_material()
+        wire_material, post_material = frame.metal(themes.wire_material()), themes.wire_material()
     elif frame.style == 'candy':
         wire_material = skin_materials.candy_material(CANDY_COLOR if frame.colour == 'skin' else frame.color)
         post_material = themes.chrome_material()
