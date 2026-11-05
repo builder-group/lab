@@ -91,6 +91,8 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 		case 'updateSong':
 			if (command.patch.tempo !== undefined) return 'Change Tempo';
 			return command.patch.backingSound !== undefined ? 'Change Backing' : null;
+		case 'moveSong':
+			return 'Move Song';
 		case 'addSong':
 			return 'Import Song';
 		case 'removeSong':

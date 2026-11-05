@@ -2,8 +2,8 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TMix } from '@/modules/music';
-import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
+import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, type TAudioEngine, type TMix } from '@/modules/music';
+import { amendHistory, applyProjectCommands, songPlayingAt, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
@@ -253,13 +253,12 @@ export class StudioCx {
 	};
 
 	/**
-	 * Plays a note of the Song as feedback when it is placed or selected. The Song is the only sound, so a tapped hit
-	 * has nothing to play, and neither has a project without a Song or with a recording, which has no notes to pick.
+	 * Plays a note as feedback when it is placed or selected, with its marble's Sound. A tapped hit has nothing to play.
 	 */
 	audition(marbleId: string, pitch?: number): void {
 		const project = this.project;
 		const marble = project?.marbles.find((item) => item.id === marbleId);
-		if (project == null || marble == null || pitch == null || !soundsNotes(project)) return;
+		if (project == null || marble == null || pitch == null) return;
 		void this.audio.audition(marble, pitch);
 	}
 
@@ -919,7 +918,9 @@ export class StudioCx {
 		this.tapSession ??= { isAutoEnd: isAutoEnd(project), hasTapped: false };
 		const time = tapTime(marble.hits, this.audio.getTime());
 		if (time == null) return;
-		const hit = { id: createId('hit'), time };
+		// Tapped along with a song, so it stays in sync with it
+		const song = songPlayingAt(project, time);
+		const hit = { id: createId('hit'), time, ...(song != null ? { songId: song.id } : {}) };
 		if (this.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) this.tapSession.hasTapped = true;
 	}
 

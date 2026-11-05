@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { createFreePiece, flattenCommands, patternLockWords, patternOfPiece } from '@/modules/building';
+import { createFreePiece, flattenCommands, moveSongCommands, patternLockWords, patternOfPiece } from '@/modules/building';
 import { pieceForHit } from '@/modules/track';
 import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, projectThemes, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinCommands } from '@/modules/film';
@@ -231,6 +231,7 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		case 'flattenPattern':
 			return project.track.groups.some((group) => group.id === command.groupId) === true ? null : `There is no Group ${command.groupId}. get_state lists them.`;
 		case 'updateSong':
+		case 'moveSong':
 		case 'removeSong':
 			return project.songs.some((song) => song.id === command.songId) ? null : `There is no song ${command.songId}. get_state.song.songs lists them.`;
 		case 'removeMarble':
@@ -318,6 +319,8 @@ function changesRadius(project: TProject, command: TAgentCommand): boolean {
 
 function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; piece?: TPiece }, Error> {
 	switch (command.type) {
+		case 'moveSong':
+			return Ok({ commands: moveSongCommands(project, result, command.songId, command.start) });
 		case 'flattenPattern': {
 			const group = project.track.groups.find((item) => item.id === command.groupId);
 			return group != null ? Ok({ commands: flattenCommands(group) }) : Err(new Error(`There is no Group ${command.groupId}. get_state lists them.`));

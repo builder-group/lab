@@ -1,6 +1,6 @@
 import type { TMenuEntry } from '@/components';
 import { canMakeBacking, assignNotesCommands, newMarbleCommands } from '@/modules/building';
-import { BACKING_COLOR, DEFAULT_BACKING_INSTRUMENT, soundsNotes } from '@/modules/music';
+import { BACKING_COLOR, DEFAULT_BACKING_INSTRUMENT } from '@/modules/music';
 import { BACKING_ID, createMarble, type THit, type TProject, type TProjectCommand, parseHitKey, toHitKey, tieOf, backingOf, backingSong } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
@@ -128,7 +128,7 @@ export function auditionNote(cx: StudioCx, ownerId: string, pitch?: number): voi
 		cx.audition(ownerId, pitch);
 		return;
 	}
-	if (pitch == null || !soundsNotes(project)) return;
+	if (pitch == null) return;
 	const instrument = backingSong(project)?.backingSound ?? DEFAULT_BACKING_INSTRUMENT;
 	void cx.audio.audition({ ...createMarble(0, { x: 0, y: 0 }, BACKING_ID), name: 'Backing', labelColor: BACKING_COLOR, sound: instrument }, pitch);
 }

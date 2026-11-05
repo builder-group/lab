@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildSceneDescription } from '../src/modules/scene/scene-builder';
 import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
-import { backingVoice } from '../src/modules/music/synthesize';
+import { backingVoices } from '../src/modules/music/synthesize';
 import { parseProject } from '../src/modules/project/project-file';
 import { tempoOf } from '../src/modules/project/commands';
 import { type THit, type TProject } from '../src/modules/project/schema';
@@ -37,7 +37,7 @@ function marblesOf(project: TProject) {
 
 /** Everything that changes what's heard, by marble and not by lane, since lanes go in @6 */
 function audioInputs(project: TProject) {
-	const backing = backingVoice(project);
+	const backing = backingVoices(project)[0];
 	return {
 		marbles: marblesOf(project).map(({ id, sound, hits }) => ({ id, sound, hits: sortedHits(hits) })),
 		backing: backing == null ? null : { sound: backing.instrument, hits: sortedHits(backing.hits.map(plainHit)) },

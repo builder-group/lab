@@ -39,6 +39,12 @@ describe('marbleSounds function', () => {
 
 		expect(song.marbles.map((marble) => marbleSounds(song, marble))).toEqual([false, true]);
 	});
+
+	it('should say a marble whose notes are all in a recording does not, since Mute and Sound would do nothing', () => {
+		const song = project([AUDIO], [{ ...note('a', 1), songId: 'audio' }], [note('b', 1)]);
+
+		expect(song.marbles.map((marble) => marbleSounds(song, marble))).toEqual([false, true]);
+	});
 });
 
 describe('audibleProject function', () => {
@@ -168,11 +174,26 @@ describe('renderProjectAudio function', () => {
 		expect(peak(audio.left, 1.5, 1.7)).toBeGreaterThan(0.005);
 	});
 
-	it('should play nothing at all without a Song, even for notes that keep a pitch', async () => {
-		const audio = await render(project([], [note('a', 0.2)], [tapped('b', 0.5)]));
+	it("should play a marble's own notes with its Sound without a Song, and nothing for tapped hits", async () => {
+		const audio = await render(project([], [note('a', 0.2)], [tapped('b', 1.5)]));
 
 		expect(audio.left).toHaveLength(2 * SAMPLE_RATE);
+		expect(peak(audio.left, 0.2, 0.4)).toBeGreaterThan(0.005);
+		expect(peak(audio.left, 1.5, 1.7)).toBeLessThan(0.005);
+	});
+
+	it('should be silent without notes or files, and need no instruments for that', async () => {
+		const audio = await render(project([], [tapped('a', 0.2)], []));
+
 		expect(peak(audio.left, 0, 2)).toBe(0);
 		expect(fetch).not.toHaveBeenCalled();
+	});
+
+	it("should add nothing for a hit tied to a recording, and play a marble's own note beside it", async () => {
+		const tied = await render(project([AUDIO], [{ ...note('a', 0.2), songId: 'audio' }], []));
+		expect(peak(tied.left, 0, 2)).toBe(0);
+
+		const own = await render(project([AUDIO], [note('a', 0.2)], []));
+		expect(peak(own.left, 0.2, 0.4)).toBeGreaterThan(0.005);
 	});
 });

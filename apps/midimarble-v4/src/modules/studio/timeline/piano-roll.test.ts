@@ -6,18 +6,24 @@ function project(marbles: (number | undefined)[][], backing: (number | undefined
 	const hits = (id: string, pitches: (number | undefined)[]): THit[] => pitches.map((pitch, index) => ({ id: `${id}-${index}`, time: index, pitch }));
 	return {
 		songs: [{ id: 'song', name: '', kind: 'midi', start: 0, backing: hits('backing', backing) }],
-		marbles: marbles.map((pitches, index) => ({ id: `marble-${index}`, name: 'Melody', labelColor: '#f00', sound: 9, hits: hits(`hit-${index}`, pitches) }))
+		marbles: marbles.map((pitches, index) => ({ id: `marble-${index}`, name: 'Melody', labelColor: '#f00', sound: 9, hits: hits(`hit-${index}`, pitches).map((hit) => ({ ...hit, songId: 'song' })) }))
 	} as unknown as TProject;
 }
 
-const midi = { kind: 'midi' } as TSong;
-const audio = { kind: 'audio' } as TSong;
+/** The same notes as hits of the marbles' own */
+function untied(marbles: (number | undefined)[][], backing: (number | undefined)[] = []): TProject {
+	const tied = project(marbles, backing);
+	return { ...tied, marbles: tied.marbles.map((marble) => ({ ...marble, hits: marble.hits.map(({ songId: _songId, ...hit }) => hit) })) };
+}
+
+const midi = { id: 'song', kind: 'midi' } as TSong;
+const audio = { id: 'song', kind: 'audio' } as TSong;
 
 describe('piano roll', () => {
 	describe('adding a note', () => {
 		it('should be one edit that gives the marble a pitched hit with its length, so the run gets a dot for it', () => {
 			const song = project([[64, 60]]);
-			const { hit, commands } = addNoteCommands('marble-0', { time: 0.5, pitch: 67, duration: 0.25 });
+			const { hit, commands } = addNoteCommands('marble-0', 'midi', { time: 0.5, pitch: 67, duration: 0.25 });
 
 			expect(commands).toEqual([{ type: 'upsertHits', marbleId: 'marble-0', hits: [hit] }]);
 			expect(hit).toMatchObject({ time: 0.5, pitch: 67, duration: 0.25 });
@@ -42,7 +48,14 @@ describe('piano roll', () => {
 	describe('songRollRange function', () => {
 		it('should span every note of the marbles and Backing plus two semitones on each side', () => {
 			expect(songRollRange(project([[64, 60]], [67]), midi)).toEqual({ low: 58, high: 69 });
-			expect(songRollRange(project([], [64]), undefined)).toEqual({ low: 62, high: 66 });
+			expect(songRollRange(project([], [64]), midi)).toEqual({ low: 62, high: 66 });
+		});
+
+		it('should leave out the hits of a marble that are not tied to the song', () => {
+			const song = project([[64]]);
+			const own = { ...song, marbles: song.marbles.map((marble) => ({ ...marble, hits: [...marble.hits, { id: 'own', time: 3, pitch: 90 }] })) };
+
+			expect(songRollRange(own, midi)).toEqual({ low: 62, high: 66 });
 		});
 
 		it('should give a recording no roll, so its layer stays a flat waveform', () => {
@@ -63,7 +76,7 @@ describe('piano roll', () => {
 		const range = { low: 58, high: 69 };
 
 		it('should move a marble\'s note and a Backing note in time and pitch, one edit per owner', () => {
-			const commands = noteDragCommands(project([[60, 62]], [64]), { keys: ['hit:marble-0:hit-0-1', `hit:${BACKING_ID}:backing-0`], delta: 0.5, pitchDelta: 2 }, range);
+			const commands = noteDragCommands(untied([[60, 62]], [64]), { keys: ['hit:marble-0:hit-0-1', `hit:${BACKING_ID}:backing-0`], delta: 0.5, pitchDelta: 2 }, range);
 
 			expect(commands).toEqual([
 				{ type: 'upsertHits', marbleId: 'marble-0', hits: [{ id: 'hit-0-1', time: 1.5, pitch: 64 }] },
@@ -72,13 +85,13 @@ describe('piano roll', () => {
 		});
 
 		it('should keep pitches inside the roll and times from going negative', () => {
-			const commands = noteDragCommands(project([[68]]), { keys: ['hit:marble-0:hit-0-0'], delta: -3, pitchDelta: 5 }, range);
+			const commands = noteDragCommands(untied([[68]]), { keys: ['hit:marble-0:hit-0-0'], delta: -3, pitchDelta: 5 }, range);
 
 			expect(commands).toEqual([{ type: 'upsertHits', marbleId: 'marble-0', hits: [{ id: 'hit-0-0', time: 0, pitch: 69 }] }]);
 		});
 
 		it('should leave pitches alone when a diamond moves in a flat row', () => {
-			const commands = noteDragCommands(project([[60, undefined]]), { keys: ['hit:marble-0:hit-0-0', 'hit:marble-0:hit-0-1'], delta: 1, pitchDelta: 0 }, null);
+			const commands = noteDragCommands(untied([[60, undefined]]), { keys: ['hit:marble-0:hit-0-0', 'hit:marble-0:hit-0-1'], delta: 1, pitchDelta: 0 }, null);
 
 			expect(commands).toEqual([
 				{
@@ -93,7 +106,7 @@ describe('piano roll', () => {
 		});
 
 		it('should make no edit for keys it does not hold', () => {
-			expect(noteDragCommands(project([[60]]), { keys: ['platform-1'], delta: 1, pitchDelta: 0 }, null)).toEqual([]);
+			expect(noteDragCommands(untied([[60]]), { keys: ['platform-1'], delta: 1, pitchDelta: 0 }, null)).toEqual([]);
 		});
 	});
 

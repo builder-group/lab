@@ -3,7 +3,7 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
 import { findMarbleConflicts, isHitAudible, MIN_HIT_GAP, type TMix } from '@/modules/music';
-import type { THit, TMarble } from '@/modules/project';
+import { SONG_KEY, type THit, type TMarble } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName, toHitKey } from '@/modules/project';
 import { hitMenu, marbleMenu } from '../menus';
@@ -11,7 +11,8 @@ import type { StudioCx } from '../StudioCx';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from '../suggested-hits';
 import { offsetLabel } from '@/modules/canvas';
 import { PatternStrip } from './PatternStrip';
-import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT } from './timeline-layout';
+import type { TSongMove } from './SongTrack';
+import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT, tieSpans } from './timeline-layout';
 
 /**
  * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
@@ -42,12 +43,14 @@ const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TMarble; top: number }> 
  * Late, red Missed, Blocked or Stopped, hollow Open, hollow amber dashed Too Soon or Out of Reach. Shapes differ too, so color is never the only signal.
  */
 export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
-	const { cx, marble, zoom, width, selection, drag, statuses, mix, onAdd, onDragStart, timeAt } = props;
+	const { cx, marble, zoom, width, selection, drag, statuses, mix, move, songTints, onAdd, onDragStart, timeAt } = props;
 	const conflicts = React.useMemo(() => findMarbleConflicts(marble), [marble]);
 	const workspace = useFeatureState(cx.$workspace);
 	const isTrack = workspace === 'track';
 	const hitsTop = isTrack ? PATTERN_STRIP_HEIGHT : 0;
 	const marquee = useMarquee(cx, marble, zoom, selection, timeAt, hitsTop);
+	const ties = React.useMemo(() => tieSpans(marble.hits), [marble.hits]);
+	const isSongSelected = selection.includes(SONG_KEY);
 
 	return (
 		<div
@@ -67,9 +70,13 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 			{!marble.hits.length ? (
 				<EmptyMarbleHint cx={cx} marble={marble} top={hitsTop + (ROW_HEIGHT - hitsTop) / 2} />
 			) : null}
+			{ties.map((tie) => {
+				const shift = move?.songId === tie.songId ? move.delta : 0;
+				return <span key={`${tie.songId}:${tie.from}`} className="mm-tie-line" data-selected={isSongSelected} style={{ left: (tie.from + shift) * zoom - 3, width: (tie.to - tie.from) * zoom + 6, background: songTints.get(tie.songId) }} aria-hidden />;
+			})}
 			{marble.hits.map((hit, index) => {
 				const key = toHitKey(marble.id, hit.id);
-				const offset = drag?.keys.includes(key) === true ? drag.delta : 0;
+				const offset = (drag?.keys.includes(key) === true ? drag.delta : 0) + (move != null && hit.songId === move.songId ? move.delta : 0);
 				return (
 					<HitButton
 						key={hit.id}
@@ -102,6 +109,9 @@ interface TMarbleTrackProps {
 	statuses: Map<string, THitResult> | undefined;
 	// Dims the notes that are muted or left out by a solo
 	mix: TMix;
+	move: TSongMove | null;
+	// Each song's tint, for the line under the hits tied to it
+	songTints: ReadonlyMap<string, string>;
 	onAdd: (time: number, event: React.MouseEvent) => void;
 	onDragStart: TDragStart;
 	timeAt: (clientX: number) => number;
@@ -144,7 +154,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 			data-conflict={isConflict}
 			data-linked={isLinked}
 			style={{ ...style, ['--row-color' as string]: marble.labelColor }}
-			title={hitTitle(index, hit, timing, isConflict, status?.error ?? null)}
+			title={hitTitle(index, hit, timing, isConflict, status?.error ?? null, cx.project?.songs.find((song) => song.id === hit.songId)?.name)}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
 				event.stopPropagation();
@@ -231,10 +241,11 @@ interface TMarquee {
 	isMarbleSelected: boolean;
 }
 
-function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean, error: number | null): string {
+function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean, error: number | null, songName: string | undefined): string {
 	const note = hit.pitch == null ? '' : ` · ${noteName(hit.pitch)}`;
 	const warning = isConflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to the next hit` : '';
 	// A landed hit names its offset from the note; "12 ms Late" already does
 	const offset = error != null && timing.state === 'onTime' ? ` (${offsetLabel(error)})` : '';
-	return `Hit ${index + 1}${note} · ${formatTime(hit.time)} · ${timing.label}${offset}: ${timing.tooltip}${warning}`;
+	const tied = songName == null || songName === '' ? '' : ` · moves with ${songName}`;
+	return `Hit ${index + 1}${note} · ${formatTime(hit.time)}${tied} · ${timing.label}${offset}: ${timing.tooltip}${warning}`;
 }

@@ -1,7 +1,8 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
+import { moveSongCommands } from '@/modules/building';
 import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
-import { createId, type TProject, type TSong, SONG_KEY } from '@/modules/project';
+import { createId, earliestSongStart, type TProject, type TSong, SONG_KEY } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
@@ -158,6 +159,15 @@ export class SourcesCx {
 		this.studio.$selection.set(this.studio.$selection.get().filter((key) => key !== SONG_KEY));
 		this.studio.notifyEdit(message);
 		return true;
+	}
+
+	/** Moves a song and everything tied to it as one undo step, no earlier than it can go */
+	moveSong(songId: string, start: number): boolean {
+		const project = this.studio.project;
+		const song = project?.songs.find((item) => item.id === songId);
+		if (project == null || song == null) return false;
+		const to = Math.round(Math.max(earliestSongStart(project, songId), start) * 10000) / 10000;
+		return to !== song.start && this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to));
 	}
 
 	/** Loads waveform and onsets for audio sources of a reopened project */

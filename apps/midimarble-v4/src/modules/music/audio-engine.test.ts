@@ -53,8 +53,8 @@ describe('createAudioSignature function', () => {
 		expect(createAudioSignature({ ...project, length: project.length + 1 }, resolve)).not.toBe(base);
 	});
 
-	it('should ignore marbles when an audio source exists', () => {
-		const project = withMarble(createProject());
+	it('should ignore hits tied to a recording, which already holds them', () => {
+		const project = mapMarbles(withMarble(createProject()), (marble) => ({ ...marble, hits: marble.hits.map((hit) => ({ ...hit, songId: 'song' })) }));
 		const withAudio: TProject = {
 			...project,
 			songs: [{ id: 'song', kind: 'audio', path: 'audio/song.wav', name: 'Song', start: 0, backing: [] }]

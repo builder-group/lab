@@ -1,4 +1,5 @@
-import type { TMarble, TProject, TSong } from '@/modules/project';
+import { shownSongs, type TMarble, type TProject, type TSong } from '@/modules/project';
+import { soundingMarbles } from './synthesize';
 
 /** Backing notes are gray: heard, but no marble plays them */
 export const BACKING_COLOR = '#8e8e93';
@@ -19,18 +20,9 @@ export function hasSong(project: TProject): boolean {
 	return project.songs.some((song) => song.path != null || song.backing.length > 0);
 }
 
-export function isAudioSong(project: TProject): boolean {
-	return project.songs.some((song) => song.kind === 'audio' && song.path != null);
-}
-
-/** Whether notes are synthesized: a Song without a recording, since a recording already contains the music */
-export function soundsNotes(project: TProject): boolean {
-	return hasSong(project) && !isAudioSong(project);
-}
-
-/** Whether a marble has anything to mute or give a Sound: a note that plays, which a tapped hit isn't */
+/** Whether a marble has anything to mute or give a Sound: a note that plays, which a tapped hit or one in a recording isn't */
 export function marbleSounds(project: TProject, marble: TMarble): boolean {
-	return soundsNotes(project) && marble.hits.some((hit) => hit.pitch != null);
+	return soundingMarbles({ songs: project.songs, marbles: [marble] }).some((item) => item.hits.length > 0);
 }
 
 /** Whether a marble or song sounds: soloed ones win over everything, otherwise every one that is not muted */
@@ -50,7 +42,7 @@ export function isHitAudible(mix: TMix, marbleId: string, songId: string | undef
  */
 export function currentMix(project: TProject, mix: TMix): TMix {
 	if (!mix.muted.length && !mix.solo.length) return mix;
-	const ids = new Set([...project.marbles.filter((marble) => marbleSounds(project, marble)).map((marble) => marble.id), ...project.songs.filter(isSongShown).map((song) => song.id)]);
+	const ids = new Set([...project.marbles.filter((marble) => marbleSounds(project, marble)).map((marble) => marble.id), ...shownSongs(project).map((song) => song.id)]);
 	return { muted: mix.muted.filter((id) => ids.has(id)), solo: mix.solo.filter((id) => ids.has(id)) };
 }
 
@@ -86,11 +78,6 @@ export function mutedSoundtrackNote(project: TProject, mix: TMix): string | null
 	if (!muted.length) return null;
 	const names = [...project.songs.filter((song) => muted.includes(song.id)).map(songLabel), ...project.marbles.filter((marble) => muted.includes(marble.id)).map((marble) => marble.name)];
 	return `${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} muted and left out of the film's sound.`;
-}
-
-/** Whether a song has a row: a song file or Backing notes */
-function isSongShown(song: TSong): boolean {
-	return song.path != null || song.backing.length > 0;
 }
 
 function songLabel(song: TSong): string {

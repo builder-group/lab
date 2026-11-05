@@ -195,9 +195,9 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 	]);
 }
 
-export function addHit(cx: StudioCx, marble: TMarble, time: number): void {
-	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone
-	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000 };
+export function addHit(cx: StudioCx, marble: TMarble, time: number, songId?: string): void {
+	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone. Added in a song, it is tied to it.
+	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000, ...(songId != null ? { songId } : {}) };
 	if (cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) cx.$selection.set([toHitKey(marble.id, hit.id)]);
 }
 

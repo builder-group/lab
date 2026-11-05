@@ -2,17 +2,17 @@ import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type TProject, type TSong, SONG_KEY, toHitKey, formatTime, tempoOf, backingOf, backingSong } from '@/modules/project';
+import { BACKING_ID, earliestSongStart, hitsOfSong, type TProject, type TSong, SONG_KEY, toHitKey, formatTime } from '@/modules/project';
 import { songMenu } from '../menus';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
 import { auditionNote } from '@/modules/track';
-import { openingRollOffset, rowCount, type TPitchRange } from './piano-roll';
+import { openingRollOffset, rowCount, songSpan, type TPitchRange } from './piano-roll';
 import { MixToggles } from './MixToggles';
 import { Keyboard, SongRoll } from './SongRoll';
 import type { TDrag, TDragStart } from './MarbleTrack';
 import { TimeGutter } from './Ruler';
-import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
+import { HEADER_WIDTH, NOTE_ROW_HEIGHT, SONG_MOVE_STEP, SONG_ROW_HEIGHT, TIME_DEAD_ZONE } from './timeline-layout';
 import { toggleSongExpanded } from './timeline-state';
 
 /**
@@ -20,21 +20,49 @@ import { toggleSongExpanded } from './timeline-state';
  * name in the header, the waveform of a recording or a small overview of every note for MIDI. A song with notes
  * expands into a piano roll of every note, where notes change pitch and are handed to marbles or to Backing. A recording
  * stays a flat waveform row, the hits drawn on it as ticks in their marbles' colors so they can be judged against the
- * waveform. Mute and Solo in the header take out what the song plays. The row exists only while the project has a song
- * file or Backing notes; without a file it reads Song and shows the Backing notes.
+ * waveform. Mute and Solo in the header take out what the song plays. Its notes or waveform sit on a clip, which drags to
+ * move the song with everything tied to it, and a double-click on a recording adds a hit tied to it. The row exists only
+ * while the project has a song file or Backing notes; without a file it reads Song and shows the Backing notes.
  */
 export const SongTrack: React.FC<TSongTrackProps> = (props) => {
-	const { cx, project, song, name, analysis, zoom, width, range, isExpanded, height, selection, drag, onDragStart } = props;
-	const isAudio = song?.kind === 'audio';
-	const mixId = (song ?? backingSong(project))?.id;
-	const tempo = tempoOf(project);
-	const backingCount = backingOf(project).length;
+	const { cx, project, song, tint, name, analysis, zoom, width, range, isExpanded, height, selection, drag, onDragStart, move, onMove, onAddHit, timeAt } = props;
+	const isAudio = song.kind === 'audio';
+	const backingCount = song.backing.length;
 	const details =
-		song == null
+		song.path == null
 			? ['Backing', backingCount === 1 ? '1 note' : `${backingCount} notes`]
 			: isAudio
 				? [song.name, analysis == null ? null : formatTime(analysis.duration)]
-				: [song.name, tempo == null ? null : `${Math.round(tempo.bpm)} BPM`];
+				: [song.name, song.tempo == null ? null : `${Math.round(song.tempo.bpm)} BPM`];
+	const span = songSpan(project, song, analysis?.duration);
+	const moved = move?.songId === song.id ? move.delta : 0;
+	const isSelected = selection.includes(SONG_KEY);
+	const moveStartRef = React.useRef<number | null>(null);
+
+	const clipHandlers = {
+		onPointerDown: (event: React.PointerEvent<HTMLElement>) => {
+			if (event.button !== 0) return;
+			event.stopPropagation();
+			event.currentTarget.setPointerCapture(event.pointerId);
+			moveStartRef.current = event.clientX;
+			cx.$selection.set([SONG_KEY]);
+		},
+		onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
+			if (moveStartRef.current == null) return;
+			const deltaX = event.clientX - moveStartRef.current;
+			onMove({ songId: song.id, delta: Math.abs(deltaX) < TIME_DEAD_ZONE ? 0 : Math.max(earliestSongStart(project, song.id) - song.start, Math.round(deltaX / zoom / SONG_MOVE_STEP) * SONG_MOVE_STEP) });
+		},
+		onPointerUp: () => {
+			moveStartRef.current = null;
+			if (moved !== 0) cx.sources.moveSong(song.id, song.start + moved);
+			onMove(null);
+		},
+		onPointerCancel: () => {
+			moveStartRef.current = null;
+			onMove(null);
+		},
+		onClick: (event: React.MouseEvent) => event.stopPropagation()
+	};
 
 	function openMenu(event: React.MouseEvent): void {
 		openContextMenu(event, songMenu(cx));
@@ -48,8 +76,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const [offset, setOffset] = React.useState<number | null>(null);
 	// Opens on the song's first notes, their top row just below the ruler
 	const opening = React.useMemo(
-		() => (range == null || !isExpanded ? 0 : openingRollOffset([...project.marbles.flatMap((marble) => marble.hits), ...backingOf(project)], range, NOTE_ROW_HEIGHT, height)),
-		[project.marbles, project.songs, range, isExpanded, height]
+		() => (range == null || !isExpanded ? 0 : openingRollOffset(hitsOfSong(project, song.id), range, NOTE_ROW_HEIGHT, height)),
+		[project, song.id, range, isExpanded, height]
 	);
 	const shown = Math.min(maxOffset, Math.max(0, offset ?? opening));
 	// Opening again starts on the first notes, like a freshly opened editor
@@ -81,7 +109,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				data-track={SONG_KEY}
 				data-quick-help="song"
 				data-hint-anchor="song"
-				data-selected={selection.includes(SONG_KEY)}
+				data-selected={isSelected}
 				data-expanded={isExpanded}
 				onClick={() => cx.$selection.set([SONG_KEY])}
 				onContextMenu={openMenu}
@@ -109,11 +137,11 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 						<span className="truncate font-medium">{name}</span>
 						<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
 					</span>
-					{mixId != null ? <MixToggles cx={cx} id={mixId} name="Song" /> : null}
+					<MixToggles cx={cx} id={song.id} name="Song" />
 				</div>
 				{isExpanded && range != null ? (
 					<div className="flex self-stretch" onClick={(event) => event.stopPropagation()}>
-						<Keyboard cx={cx} project={project} name="Song" range={range} offset={shown} onPlay={(pitch) => auditionNote(cx, BACKING_ID, pitch)} />
+						<Keyboard cx={cx} project={project} song={song} name="Song" range={range} offset={shown} onPlay={(pitch) => auditionNote(cx, BACKING_ID, pitch)} />
 					</div>
 				) : null}
 			</div>
@@ -121,21 +149,44 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 			{isExpanded && range != null ? (
 				<div className="relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }}>
 					<div style={{ transform: shown === 0 ? undefined : `translateY(${-shown}px)` }}>
-						<SongRoll cx={cx} project={project} range={range} zoom={zoom} width={width} selection={selection} drag={drag} onDragStart={onDragStart} />
+						<SongRoll cx={cx} project={project} song={song} range={range} zoom={zoom} width={width} selection={selection} drag={drag} onDragStart={onDragStart} />
 					</div>
 				</div>
 			) : (
-			<div className="mm-song-row relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onClick={(event) => { if (!event.shiftKey) cx.$selection.set([]); }} onContextMenu={openMenu} aria-label={`Song ${name}`}>
-				{song != null && isAudio && analysis != null ? (
-					<>
-						<Waveform analysis={analysis} offset={song.start} zoom={zoom} height={SONG_ROW_HEIGHT - 1} />
-						{analysis.onsets.map((onset) => (
-							<span key={onset} className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-[var(--text-tertiary)]" style={{ left: (onset + song.start) * zoom }} />
-						))}
-					</>
-				) : null}
-				{isAudio ? <HitTicks project={project} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} drag={drag} /> : null}
-				{isAudio ? null : <NoteOverview project={project} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} />}
+			<div
+				className="mm-song-row relative flex-1 overflow-hidden border-b border-[var(--separator)]"
+				style={{ minWidth: width }}
+				onClick={(event) => {
+					if (!event.shiftKey) cx.$selection.set([]);
+				}}
+				onDoubleClick={(event) => {
+					if (isAudio) onAddHit(song, timeAt(event.clientX), event);
+				}}
+				onContextMenu={openMenu}
+				aria-label={`Song ${name}`}
+			>
+				<div className="pointer-events-none absolute inset-0" style={{ transform: moved === 0 ? undefined : `translateX(${moved * zoom}px)` }}>
+					{span != null ? (
+						<div
+							className="mm-song-clip pointer-events-auto absolute"
+							data-selected={isSelected}
+							data-moving={moved !== 0}
+							style={{ left: span.from * zoom, width: Math.max(8, (span.to - span.from) * zoom), ['--song-tint' as string]: tint }}
+							title={`Drag to move ${song.name === '' ? 'the song' : song.name} and the hits tied to it`}
+							{...clipHandlers}
+						/>
+					) : null}
+					{isAudio && analysis != null ? (
+						<>
+							<Waveform analysis={analysis} offset={song.start} zoom={zoom} height={SONG_ROW_HEIGHT - 1} />
+							{analysis.onsets.map((onset) => (
+								<span key={onset} className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-[var(--text-tertiary)]" style={{ left: (onset + song.start) * zoom }} />
+							))}
+						</>
+					) : null}
+					{isAudio ? null : <NoteOverview project={project} song={song} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} />}
+				</div>
+				{isAudio ? <HitTicks project={project} zoom={zoom} width={width} height={SONG_ROW_HEIGHT - 1} drag={drag} move={move} /> : null}
 			</div>
 			)}
 		</div>
@@ -145,8 +196,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 interface TSongTrackProps {
 	cx: StudioCx;
 	project: TProject;
-	/** Undefined while the Song layer holds only Backing notes */
-	song: TSong | undefined;
+	song: TSong;
+	tint: string;
 	name: string;
 	analysis: TSourceAnalysis | undefined;
 	zoom: number;
@@ -158,17 +209,27 @@ interface TSongTrackProps {
 	selection: string[];
 	drag: TDrag | null;
 	onDragStart: TDragStart;
+	move: TSongMove | null;
+	onMove: (move: TSongMove | null) => void;
+	onAddHit: (song: TSong, time: number, event: React.MouseEvent) => void;
+	timeAt: (clientX: number) => number;
 }
 
-/** Every marble's hits as ticks over the waveform, in its color; dragged hits move with the drag */
-const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; height: number; drag: TDrag | null }> = (props) => {
-	const { project, zoom, width, height, drag } = props;
+/** A song being dragged along the timeline, with what is tied to it following it until it lands */
+export interface TSongMove {
+	songId: string;
+	delta: number;
+}
+
+/** Every marble's hits as ticks over the waveform, in its color; dragged hits move with the drag, tied hits with their song */
+const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; height: number; drag: TDrag | null; move: TSongMove | null }> = (props) => {
+	const { project, zoom, width, height, drag, move } = props;
 	return (
 		<svg className="pointer-events-none absolute top-0 left-0" width={width} height={height} aria-hidden>
 			{project.marbles.map((marble) => (
 				<g key={marble.id} fill={marble.labelColor}>
 					{marble.hits.map((hit) => {
-						const delta = drag?.keys.includes(toHitKey(marble.id, hit.id)) === true ? drag.delta : 0;
+						const delta = (drag?.keys.includes(toHitKey(marble.id, hit.id)) === true ? drag.delta : 0) + (move != null && hit.songId === move.songId ? move.delta : 0);
 						return <rect key={hit.id} x={Math.max(0, hit.time + delta) * zoom - 0.75} y={4} width={1.5} height={height - 8} rx={0.75} />;
 					})}
 				</g>
@@ -177,10 +238,10 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 	);
 };
 
-/** Every note in one strip, higher notes higher, in the marble colors and Backing in gray */
-const NoteOverview: React.FC<{ project: TProject; zoom: number; width: number; height: number }> = (props) => {
-	const { project, zoom, width, height } = props;
-	const marbles = [...project.marbles, { id: BACKING_ID, labelColor: BACKING_COLOR, hits: backingOf(project) }];
+/** Every note of a song in one strip, higher notes higher, in the marble colors and Backing in gray */
+const NoteOverview: React.FC<{ project: TProject; song: TSong; zoom: number; width: number; height: number }> = (props) => {
+	const { project, song, zoom, width, height } = props;
+	const marbles = [...project.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => hit.songId === song.id) })), { id: BACKING_ID, labelColor: BACKING_COLOR, hits: song.backing }];
 	const pitches = marbles.flatMap((marble) => marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch])));
 	const low = pitches.length ? Math.min(...pitches) : 60;
 	const high = pitches.length ? Math.max(...pitches) : 72;

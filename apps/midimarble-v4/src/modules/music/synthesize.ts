@@ -4,7 +4,7 @@ import {
 	SpessaSynthProcessor,
 	type BasicSoundBank
 } from 'spessasynth_core';
-import { backingSong, type THit, type TMarble, type TProject } from '@/modules/project';
+import type { THit, TMarble, TProject } from '@/modules/project';
 
 export const DEFAULT_HIT_VELOCITY = 0.8;
 export const MAX_NOTE_LENGTH = 0.6;
@@ -13,17 +13,14 @@ export const MAX_BACKING_NOTE_LENGTH = 4;
 /** General MIDI program of Backing when the project names none: Acoustic Grand Piano */
 export const DEFAULT_BACKING_INSTRUMENT = 0;
 
-/**
- * Renders marble marbles as short strikes, one channel each, and Backing on its own channel with the notes' own
- * lengths
- */
+/** Renders marbles as short strikes, one channel each, and each song's Backing on its own channel with the notes' own lengths */
 export function renderMarbles(marbles: TMarble[], options: TRenderMarblesOptions): TStereoAudio {
-	const { sampleRate, duration, bank, backing } = options;
+	const { sampleRate, duration, bank, backing = [] } = options;
 	const length = Math.max(1, Math.ceil(duration * sampleRate));
 	const left = new Float32Array(length);
 	const right = new Float32Array(length);
-	const backingChannel = marbleChannel(marbles.length);
-	const events = [...createMarbleEvents(marbles, sampleRate), ...(backing == null ? [] : createBackingEvents(backing.hits, backingChannel, sampleRate))].sort(compareEvents);
+	const voices = backing.map((voice, index) => ({ ...voice, channel: marbleChannel(marbles.length + index) }));
+	const events = [...createMarbleEvents(marbles, sampleRate), ...voices.flatMap((voice) => createBackingEvents(voice.hits, voice.channel, sampleRate))].sort(compareEvents);
 	if (!events.length) return { sampleRate, left, right };
 
 	SpessaLog.setLogLevel(false, false, false);
@@ -38,10 +35,10 @@ export function renderMarbles(marbles: TMarble[], options: TRenderMarblesOptions
 		synth.midiChannels[channel]?.setDrums(false);
 		synth.programChange(channel, marble.sound);
 	}
-	if (backing != null && backing.hits.length > 0) {
-		while (synth.midiChannels.length <= backingChannel) synth.createMIDIChannel();
-		synth.midiChannels[backingChannel]?.setDrums(false);
-		synth.programChange(backingChannel, backing.instrument);
+	for (const voice of voices) {
+		while (synth.midiChannels.length <= voice.channel) synth.createMIDIChannel();
+		synth.midiChannels[voice.channel]?.setDrums(false);
+		synth.programChange(voice.channel, voice.instrument);
 	}
 
 	let cursor = 0;
@@ -68,7 +65,7 @@ export interface TRenderMarblesOptions {
 	sampleRate: number;
 	duration: number;
 	bank: BasicSoundBank;
-	backing?: TBackingVoice;
+	backing?: TBackingVoice[];
 }
 
 /** The notes no marble plays and the program they play with */
@@ -77,11 +74,21 @@ export interface TBackingVoice {
 	hits: THit[];
 }
 
-/** Backing of a project for rendering, or undefined when it has no notes */
-export function backingVoice(project: TProject): TBackingVoice | undefined {
-	const song = backingSong(project);
-	if (song == null || !song.backing.length) return undefined;
-	return { instrument: song.backingSound ?? DEFAULT_BACKING_INSTRUMENT, hits: song.backing };
+/** Each song's Backing for rendering, for the songs that have notes */
+export function backingVoices(project: Pick<TProject, 'songs'>): TBackingVoice[] {
+	return project.songs.flatMap((song) => (song.backing.length > 0 ? [{ instrument: song.backingSound ?? DEFAULT_BACKING_INSTRUMENT, hits: song.backing }] : []));
+}
+
+/**
+ * What the marbles play: a hit with a pitch plays with its marble's Sound, except one tied to a recording, which already
+ * holds it. A hit without a pitch plays nothing.
+ */
+export function soundingMarbles(project: Pick<TProject, 'songs' | 'marbles'>): TMarble[] {
+	const recordings = new Set(project.songs.filter((song) => song.kind === 'audio' && song.path != null).map((song) => song.id));
+	return project.marbles.map((marble) => {
+		const hits = marble.hits.filter((hit) => hit.pitch != null && (hit.songId == null || !recordings.has(hit.songId)));
+		return hits.length === marble.hits.length ? marble : { ...marble, hits };
+	});
 }
 
 export interface TStereoAudio {

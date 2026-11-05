@@ -8,7 +8,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP, addedLights } from '@/modules/scene';
 import { DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, instruments, marbleSounds, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, tieOf, tempoOf } from '@/modules/project';
+import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { SONG_LAYER_LABEL } from './song-layer';
@@ -171,6 +171,40 @@ function firstPitch(hits: readonly THit[]): number | undefined {
 
 // MARK: - Hits
 
+/** Which song the selected hits move with: None for the marble's own, like Blender's parent field */
+const HitSongField: React.FC<{ cx: StudioCx; project: TProject; hits: { marble: THitOwner; hit: THit }[] }> = (props) => {
+	const { cx, project, hits } = props;
+	const songs = shownSongs(project);
+	if (!songs.length || hits.some((item) => item.marble.id === BACKING_ID)) return null;
+	const tied = new Set(hits.map((item) => item.hit.songId ?? NO_SONG));
+	return (
+		<SelectField
+			id="hit-song"
+			label="Song"
+			value={tied.size === 1 ? ([...tied][0] ?? '') : ''}
+			options={[...(tied.size === 1 ? [] : [{ value: '', label: 'Several' }]), { value: NO_SONG, label: 'None' }, ...songs.map((song) => ({ value: song.id, label: song.name === '' ? 'Backing' : song.name }))]}
+			onChange={(value) => {
+				if (value === '') return;
+				const marbleIds = [...new Set(hits.map((item) => item.marble.id))];
+				cx.execute(
+					marbleIds.map((marbleId) => ({
+						type: 'upsertHits' as const,
+						marbleId,
+						hits: hits
+							.filter((item) => item.marble.id === marbleId)
+							.map(({ hit }) => {
+								const { songId: _songId, ...own } = hit;
+								return value === NO_SONG ? own : { ...own, songId: value };
+							})
+					}))
+				);
+			}}
+		/>
+	);
+};
+
+const NO_SONG = 'none';
+
 type THitOwner = Pick<TMarble, 'id' | 'name' | 'labelColor' | 'sound' | 'hits'>;
 
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
@@ -218,6 +252,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				/>
 				<Panel id="hit.playedBy" title="Played By">
 					{playedBy}
+					<HitSongField cx={cx} project={project} hits={hits} />
 				</Panel>
 				{!ownerIds.has(BACKING_ID) ? <PatternTiles cx={cx} project={project} /> : null}
 			</>
@@ -303,6 +338,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			</Panel>
 			<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Backing is heard in the film, no platform needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
+				<HitSongField cx={cx} project={project} hits={hits} />
 				{isBacking ? null : piece != null ? (
 					<LinkRow icon={<PieceIcon type={piece.type} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
 						{pieceLabel}
@@ -369,18 +405,17 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
  */
 const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const song = songSource(project);
-	const tempo = tempoOf(project);
-	const holder = backingSong(project);
-	const backing = backingOf(project);
-	const kind = song == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
+	const song = songSource(project) ?? backingSong(project);
+	const tempo = song?.tempo;
+	const backing = song?.backing ?? [];
+	const kind = song?.path == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
 
 	return (
 		<>
 			<InspectorHeader
-				icon={song?.kind === 'audio' ? <AudioLines size={16} strokeWidth={1.7} /> : <FileMusic size={16} strokeWidth={1.7} />}
+				icon={song?.path != null && song.kind === 'audio' ? <AudioLines size={16} strokeWidth={1.7} /> : <FileMusic size={16} strokeWidth={1.7} />}
 				title={SONG_LAYER_LABEL}
-				subtitle={song != null ? `${song.name} · ${kind}` : kind}
+				subtitle={song?.path != null ? `${song.name} · ${kind}` : kind}
 			/>
 			<Panel id="song.file" title="Song">
 				{project.songs.filter((item) => item.path != null).map((source) => (
@@ -391,6 +426,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 						</span>
 					</ReadoutField>
 				))}
+				{song != null ? <ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="s" step={0.01} precision={2} onCommit={(value) => cx.sources.moveSong(song.id, value)} /> : null}
 				{tempo != null ? (
 					<>
 						<ReadoutField label="Tempo" name="Tempo">
@@ -401,20 +437,20 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 						</ReadoutField>
 					</>
 				) : null}
-				<button className="mm-button" data-span="2" onClick={() => void (song == null ? cx.importSong() : cx.sources.replaceSong())} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
-					{song == null ? 'Import Song…' : 'Replace Song…'}
+				<button className="mm-button" data-span="2" onClick={() => void (song?.path == null ? cx.importSong() : cx.sources.replaceSong())} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
+					{song?.path == null ? 'Import Song…' : 'Replace Song…'}
 				</button>
 			</Panel>
-			{holder != null && backing.length > 0 ? (
+			{song != null && backing.length > 0 ? (
 				<Panel id="song.backing" title="Backing" accessory={<HelpTip text="The notes no marble plays, heard in the film with no platform needed." />}>
 					<ReadoutField label="Notes" name="Backing notes">
 						{backing.length}
 					</ReadoutField>
 					<SoundField
 						id="backing-sound"
-						value={holder.backingSound ?? DEFAULT_BACKING_INSTRUMENT}
+						value={song.backingSound ?? DEFAULT_BACKING_INSTRUMENT}
 						onChange={(backingSound) => {
-							if (cx.execute([{ type: 'updateSong', songId: holder.id, patch: { backingSound } }])) auditionNote(cx, BACKING_ID, firstPitch(backing));
+							if (cx.execute([{ type: 'updateSong', songId: song.id, patch: { backingSound } }])) auditionNote(cx, BACKING_ID, firstPitch(backing));
 						}}
 					/>
 				</Panel>

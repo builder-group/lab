@@ -6,7 +6,7 @@ import { currentMix } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
-import { CAMERA_KEY, parseHitKey, parseShotKey, toHitKey } from '@/modules/project';
+import { backingSong, CAMERA_KEY, parseHitKey, parseShotKey, type TSong, toHitKey } from '@/modules/project';
 import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
 import { songSource } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
@@ -16,8 +16,8 @@ import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } 
 import { MarbleTrack, type TDrag, type TDragStart } from './MarbleTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
-import { SongTrack } from './SongTrack';
-import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
+import { SongTrack, type TSongMove } from './SongTrack';
+import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_DEAD_ZONE, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT, songTint } from './timeline-layout';
 import { $songExpanded } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
@@ -43,9 +43,10 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = React.useState(80);
 	const [drag, setDrag] = React.useState<TDrag | null>(null);
+	const [move, setMove] = React.useState<TSongMove | null>(null);
 	const project = history?.present;
 
-	const song = project == null ? undefined : songSource(project);
+	const song = project == null ? undefined : (songSource(project) ?? backingSong(project));
 	const hasSong = project != null && hasSongLayer(project);
 	const audio = project?.songs.find((item) => item.kind === 'audio' && item.path != null);
 	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
@@ -64,6 +65,20 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
 	const songRows = React.useMemo(() => (project == null || !hasSong ? null : songRollRange(project, song)), [project, hasSong, song]);
+
+	const songTints = React.useMemo(() => new Map(project?.songs.map((item, index) => [item.id, songTint(index)]) ?? []), [project?.songs]);
+
+	// The marble a hit added on a recording goes to: the one selected last, which selecting the song itself doesn't change
+	const focusRef = React.useRef<string | null>(null);
+	const focused = selection.map((key) => parseHitKey(key)?.marbleId ?? key).find((id) => project?.marbles.some((marble) => marble.id === id) === true);
+	React.useEffect(() => {
+		if (focused != null) focusRef.current = focused;
+	}, [focused]);
+
+	function addSongHit(onSong: TSong, time: number, event: React.MouseEvent): void {
+		const marble = project?.marbles.find((item) => item.id === focusRef.current) ?? project?.marbles[0];
+		if (marble != null) addHit(cx, marble, snap(time, event.altKey), onSong.id);
+	}
 
 	// The hit a marble just landed flashes in its status color. Set on the element, so no row re-renders while playing.
 	React.useEffect(
@@ -244,13 +259,14 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<TimeGutter isRuler />
 						<Ruler cx={cx} end={project.length} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
-					{hasSong ? (
+					{hasSong && song != null ? (
 						<SongTrack
 							cx={cx}
 							project={project}
 							song={song}
+							tint={songTints.get(song.id) ?? songTint(0)}
 							name={SONG_LAYER_LABEL}
-							analysis={song == null ? undefined : analysis[song.id]}
+							analysis={analysis[song.id]}
 							zoom={zoom}
 							width={trackWidth}
 							range={songRows}
@@ -259,6 +275,10 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							selection={selection}
 							drag={drag}
 							onDragStart={startDrag}
+							move={move}
+							onMove={setMove}
+							onAddHit={addSongHit}
+							timeAt={timeAt}
 						/>
 					) : null}
 					{/* The same layers as Layers, in the same order: Song, the Camera, marbles, then in Film Titles */}
@@ -276,6 +296,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 								drag={drag}
 								statuses={hitStatus.get(marble.id)}
 								mix={audible}
+									move={move}
+									songTints={songTints}
 								onDragStart={startDrag}
 								timeAt={timeAt}
 								onAdd={(time, event) => addHit(cx, marble, snap(time, event.altKey))}
@@ -368,8 +390,6 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 
 // The horizontal scrollbar along the timeline's bottom edge, which a row scrolled into view stays clear of
 const SCROLLBAR_ROOM = 14;
-// Pixels a hit or a note must move sideways before its time changes, like the drag threshold of Logic's regions
-const TIME_DEAD_ZONE = 5;
 
 /**
  * Captures pointer movement for a hit drag across the whole window. Song roll drags also move in pitch. The time holds
