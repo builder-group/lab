@@ -116,7 +116,7 @@ function convertPiece(entity: TAny, marbleId: (laneId: string) => string, notes:
 		...(entity.labelColor != null ? { labelColor: entity.labelColor } : {}),
 		type: parts.piece.type,
 		...(parts.piece.layout != null ? { layout: parts.piece.layout } : {}),
-		params: parts.piece.params
+		params: Object.fromEntries(Object.entries(parts.piece.params ?? {}).map(([key, value]) => [key === 'laneOffset' ? 'landingOffset' : key, value]))
 	};
 	const rest = {
 		...(parts.path != null ? { path: parts.path } : {}),
