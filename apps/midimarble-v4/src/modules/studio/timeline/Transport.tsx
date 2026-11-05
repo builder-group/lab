@@ -1,8 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/building';
-import { useRunPreflight } from '@/modules/canvas';
+import { problemSummary } from '@/modules/building';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
@@ -22,7 +21,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 
 	return (
 		<div className="mm-transport" role="toolbar" aria-label="Transport">
-			<div className="flex min-w-0 flex-1 items-center">{project != null ? <HitSummary cx={cx} project={project} /> : null}</div>
+			<div className="flex min-w-0 flex-1 items-center">{project != null ? <HitSummary cx={cx} /> : null}</div>
 			<div className="flex items-center gap-2">
 				<div className="flex items-center gap-px" role="group" aria-label="Playback" data-quick-help="transport">
 					<TransportButton cx={cx} command="play.start" icon={<SkipBack size={16} strokeWidth={1.75} />} />
@@ -61,14 +60,14 @@ interface TTransportProps {
  * with problems a click goes to the first in time order, and the export sheet lists them all. Until the run for the
  * current edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
  */
-const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
-	const { cx, project } = props;
+const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
+	const { cx } = props;
 	const fixing = useFeatureState(cx.assist.$fixing);
 	const building = useFeatureState(cx.assist.$building);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
-	const preflight = useRunPreflight(cx, project);
-	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null, NO_BLENDER_OBJECTS), workspace), [preflight, project, workspace]);
+	const problems = useFeatureState(cx.simulation.$problems);
+	const summary = React.useMemo(() => problemSummary(problems, workspace), [problems, workspace]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
 	if (fixing != null || building != null || summary.state === 'pending') {

@@ -70,7 +70,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
 	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
-	const preflight = useRunPreflight(cx, project);
+	const preflight = useRunPreflight(cx);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);

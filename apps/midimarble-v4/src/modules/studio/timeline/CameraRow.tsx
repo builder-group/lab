@@ -56,7 +56,7 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 			>
 				<CameraShotSpans project={project} zoom={zoom} selection={selection} dragged={drag?.moved ? drag : null} />
 				{/* Framing problems are Film's */}
-				{cx.$workspace.get() === 'film' ? <CameraIssues cx={cx} project={project} zoom={zoom} /> : null}
+				{cx.$workspace.get() === 'film' ? <CameraIssues cx={cx} zoom={zoom} /> : null}
 				{shots.map((shot) => {
 					const key = toShotKey(shot.id);
 					const isSelected = selection.includes(key);

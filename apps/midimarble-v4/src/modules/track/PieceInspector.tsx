@@ -22,7 +22,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
-	const preflight = useRunPreflight(cx, project);
+	const preflight = useRunPreflight(cx);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const pieces = project.track.pieces.filter((piece) => ids.includes(piece.id));

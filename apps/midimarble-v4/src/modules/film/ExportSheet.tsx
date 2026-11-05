@@ -8,7 +8,7 @@ import type { TRenderPreset } from '@/modules/scene';
 import { mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
 import { estimateExport, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate } from '@/modules/scene';
-import { ExportPreflight, useExportPreflight } from './ExportPreflight';
+import { ExportPreflight } from './ExportPreflight';
 import type { TExportJob } from './FilmExportCx';
 
 /** Export Film sheet, like a macOS export sheet: settings and an estimate, then progress, then the film */
@@ -68,10 +68,10 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	const preview = useFeatureState(cx.film.$preview);
 	const result = useFeatureState(cx.simulation.$result);
 	const project = useFeatureState(cx.$history)?.present;
-	const preflight = useExportPreflight(cx);
+	const preflight = useFeatureState(cx.simulation.$problems);
 	const mix = useFeatureState(cx.$mix);
 	const isAvailable = cx.filmExport.isAvailable;
-	if (project == null || preflight == null) return null;
+	if (project == null) return null;
 	const mutedNote = mutedSoundtrackNote(project, mix);
 	// Issues never block an export; the default button only says that it goes ahead despite them
 	const exportLabel = preflight.warnings > 0 ? 'Export Anyway' : 'Export';

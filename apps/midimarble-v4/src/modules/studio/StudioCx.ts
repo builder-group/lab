@@ -18,7 +18,7 @@ import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { TrackCx } from '@/modules/track';
 import { AssistCx, PatternsCx, withWholePatterns } from '@/modules/track';
-import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummary, type TPreflightTarget } from '@/modules/building';
+import { earliestHitTime, releaseFollowsFirstHit, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
 import { commandItem, commands, commandWorkspace, deleteTheme, isCommandEnabled, type TCommand, type TCommandId } from './commands';
@@ -360,7 +360,7 @@ export class StudioCx {
 	showFirstProblem(): void {
 		const project = this.project;
 		if (project == null) return;
-		const summary = problemSummary(preflightExport(project, this.simulation.$result.get(), this.film.$blenderObjects.get()));
+		const summary = problemSummary(this.simulation.$problems.get());
 		if (summary.state === 'pending') {
 			this.notify('Checking the track…');
 			return;

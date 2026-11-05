@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2, tieOf, tempoOf } from '@/modules/project';
-import { NO_BLENDER_OBJECTS, preflightExport } from '@/modules/building';
+import { NO_BLENDER_OBJECTS, checkRun } from '@/modules/building';
 import { findLongGaps } from './assists';
 import { bowlCatch, bowlOfMarble } from './bowl';
 import { paceAt } from './pace';
@@ -60,7 +60,7 @@ describe('fixtures', () => {
 			const project = loadFixture(name);
 			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', start: 0, backing: [] };
 			const withSong = { ...project, songs: project.songs.length > 0 ? project.songs : [song] };
-			expect(preflightExport(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
+			expect(checkRun(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
 		}
 	}, 20_000);
 
@@ -279,7 +279,7 @@ describe('fixtures', () => {
 				expect(bowl, `${name} ${marble.name}`).toBeDefined();
 				expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 			}
-			expect(preflightExport(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
+			expect(checkRun(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
 		}
 	}, 20_000);
 

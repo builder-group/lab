@@ -819,7 +819,7 @@ function keepsPace(project: TProject, result: TSimulationResult): boolean {
  * camera looks ahead, so a run is only final some way before its marbles' next open hits
  */
 function framingTrouble(project: TProject, result: TSimulationResult, until = Infinity): { marbleId: string; from: number } | null {
-	const stretches = checkFraming(project, { ...result, revision: project.revision })?.stretches ?? [];
+	const stretches = checkFraming(project, result)?.stretches ?? [];
 	return stretches.find((stretch) => stretch.to < until) ?? null;
 }
 

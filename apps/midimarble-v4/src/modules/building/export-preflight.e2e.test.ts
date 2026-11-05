@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { backingOf, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { NO_BLENDER_OBJECTS, framingProblemAt, preflightExport } from './export-preflight';
+import { NO_BLENDER_OBJECTS, framingProblemAt, checkRun } from './export-preflight';
 
 function withSongFixture(name: string): TProject {
 	const project = loadFixture(name);
@@ -10,7 +10,7 @@ function withSongFixture(name: string): TProject {
 	return { ...project, songs: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', start: 0, backing: backingOf(project) }] };
 }
 
-describe('preflightExport function on whole songs', () => {
+describe('checkRun function on whole songs', () => {
 	let simulator: TSimulator;
 
 	beforeAll(async () => {
@@ -19,14 +19,14 @@ describe('preflightExport function on whole songs', () => {
 
 	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera loses once the bass moves far sideways', () => {
 		const project = withSongFixture('jingle-bells');
-		expect(preflightExport(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues).toEqual([]);
+		expect(checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues).toEqual([]);
 
 		// The bass pieces follow their marble, so moving its release moves its whole run away from the melody. The 120° camera widens for any run in reach, so it takes 8 m to lose a marble
 		const bass = project.marbles.find((marble) => marble.name === 'Bass');
 		if (bass == null) throw new Error('No bass release');
 		bass.start.position.x += 8;
 		const result = simulator.simulate(project);
-		const preflight = preflightExport(project, result, NO_BLENDER_OBJECTS);
+		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
 		const first = framing.find((issue) => issue.marbleId === 'marble-2');
 

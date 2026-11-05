@@ -69,8 +69,7 @@ function problemsLabel(workspace: TWorkspace, count: number): string {
 const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const workspace = useFeatureState(cx.$workspace);
-	const project = useFeatureState(cx.$history)?.present;
-	const preflight = useRunPreflight(cx, project);
+	const preflight = useRunPreflight(cx);
 	const problems = React.useMemo(() => (preflight != null ? workspaceProblems(preflight) : null), [preflight]);
 	return (
 		<div className="mm-segmented mm-titlebar-workspace" role="tablist" aria-label="Workspace" data-quick-help="workspace">

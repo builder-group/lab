@@ -4,7 +4,7 @@ import { applyProjectCommands, BACKING_ID, createProject, type TProject, tieOf }
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from './export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
 import { hitSummary } from './hit-status';
 import { newlyBroken } from './bowl-assist';
 import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fixWorseWords, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixCount, type TFixDeps } from './fix-it';
@@ -135,7 +135,7 @@ describe('fixTrack function', () => {
 
 	/** The result notice as Track shows it, with how the run stands from the problem model */
 	function resultMessage(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof fixTrack>>): string {
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		const added = addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS);
 		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
 	}
@@ -184,7 +184,7 @@ describe('fixTrack function', () => {
 		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted} hits? · .*moved the release · ${summary.label}`));
 	}, 60_000);
 
@@ -199,7 +199,7 @@ describe('fixTrack function', () => {
 		// Assert: the release stays, since the marble's first notes still play
 		expect(outcome.releases).toEqual([]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed .* · placed \\d+ platforms? again.* · ${summary.label}`));
 	}, 60_000);
 });

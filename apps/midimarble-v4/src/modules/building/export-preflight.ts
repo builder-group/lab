@@ -10,27 +10,29 @@ import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } fro
 /** For a run with no Blender to ask: a worker, a script or a test */
 export const NO_BLENDER_OBJECTS: readonly TBlenderObject[] = [];
 
-/**
- * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
- * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
- * pieces that touch, the loop and a stale result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
- * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
- */
-export function preflightExport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[]): TExportPreflight {
-	if (result == null || result.revision !== project.revision) {
-		return {
-			state: 'pending',
-			issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the track…', detail: 'The run is still updating after the latest edit.', target: null }],
-			summary: 'Checking the track…',
-			warnings: 0,
-			notes: 1,
-			hitCount: countHits(project),
-			onTimeCount: 0
-		};
-	}
+/** What the problem model says until the run has caught up with the project */
+export function pendingPreflight(project: TProject | null): TExportPreflight {
+	return {
+		state: 'pending',
+		issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the track…', detail: 'The run is still updating after the latest edit.', target: null }],
+		summary: 'Checking the track…',
+		warnings: 0,
+		notes: 1,
+		hitCount: project != null ? countHits(project) : 0,
+		onTimeCount: 0
+	};
+}
 
-	const memo = preflightMemo.get(result.hits);
-	if (memo?.project === project && memo.blenderObjects === blenderObjects && isSameRun(memo.result, result)) return memo.preflight;
+/**
+ * The problems of `project` given its run, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
+ * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
+ * pieces that touch and the loop. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
+ * `SimulationCx.$problems` asks for the open project's, which everything on screen reads. Build Track, Fix and Patterns ask
+ * about their trials, whose run is theirs by construction, so nothing here reads its revision.
+ */
+export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[]): TExportPreflight {
+	const memo = preflightMemo.get(result);
+	if (memo?.project === project && memo.blenderObjects === blenderObjects) return memo.preflight;
 
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
@@ -59,19 +61,12 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
 	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
-	preflightMemo.set(result.hits, { project, result, blenderObjects, preflight });
+	preflightMemo.set(result, { project, blenderObjects, preflight });
 	return preflight;
 }
 
-// Layers, the title bar, the hit summary, the inspector and the Camera track all ask about the same run. Fix and the
-// assists ask about a copy stamped with the project's revision, so the run is known by its hits, not by its object.
-const preflightMemo = new WeakMap<THitResult[], { project: TProject; result: TSimulationResult; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
-
-/** The same run under another revision stamp: nothing else differs, field by field */
-function isSameRun(a: TSimulationResult, b: TSimulationResult): boolean {
-	const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof TSimulationResult>;
-	return [...keys].every((key) => key === 'revision' || a[key] === b[key]);
-}
+// Fix judges a trial before and after, and a trial's run is checked again by whoever lands it
+const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
 
 export const ADD_SONG_LABEL = 'Add a Song';
 

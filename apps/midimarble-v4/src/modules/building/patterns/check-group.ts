@@ -1,4 +1,4 @@
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary, type TProblemSummary } from '../export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun, problemSummary, type TProblemSummary } from '../export-preflight';
 import type { TProject, TProjectCommand } from '@/modules/project';
 import { parseHitKey, tieOf } from '@/modules/project';
 import { answerSettle, changedPieces } from '@/modules/simulation';
@@ -26,7 +26,7 @@ export interface TGroupCheck {
 }
 
 function standing(project: TProject, result: TSimulationResult): TProblemSummary {
-	return problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track');
+	return problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS), 'track');
 }
 
 function hitWords(project: TProject, hitId: string): { marbleId: string; hitId: string; number: number; name: string } | null {

@@ -12,7 +12,7 @@ import { DECOR_ITEMS, isFrameEffect } from './decor-catalog';
 import { effectDefaults, flakeAt, snowFlakes } from './decor-effects';
 import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
 import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements } from '@/modules/film';
-import { NO_BLENDER_OBJECTS, decorTips, preflightExport } from '@/modules/building';
+import { NO_BLENDER_OBJECTS, decorTips, checkRun } from '@/modules/building';
 import { pieceOutline } from './track-geometry';
 import { apply, loadFixture } from '@/modules/project/test-helpers';
 
@@ -163,12 +163,12 @@ describe('Decor', () => {
 			const { commands, decorId } = addDecorCommands(project, builtInSource('decor:star'), onTheRun());
 			const over = apply(project, commands);
 			const run = { ...result, revision: over.revision };
-			const preflight = preflightExport(over, run, NO_BLENDER_OBJECTS);
+			const preflight = checkRun(over, run, NO_BLENDER_OBJECTS);
 			const tip = decorTips(preflight).get(toDecorKey(decorId));
 			expect(tip?.severity).toBe('info');
 			expect(tip?.label).toMatch(/^Overlaps .+'s path/);
 			expect(tip?.target?.workspace).toBe('film');
-			const warnings = preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS).warnings;
+			const warnings = checkRun(project, result, NO_BLENDER_OBJECTS).warnings;
 			expect(preflight.warnings).toBe(warnings);
 		});
 
@@ -187,7 +187,7 @@ describe('Decor', () => {
 			const object = { name: 'Tree', bounds: { minX: x - 0.02, minY: y - 0.02, maxX: x + 0.02, maxY: y + 0.02 } };
 			expect(decorOverlaps(project, result, [object])[0]?.key).toBe(toMadeInBlenderKey('Tree'));
 			expect(decorOverlaps(apply(project, madeInBlenderCommands(project, 'Tree', { hidden: true })), result, [object])).toEqual([]);
-			expect(decorTips(preflightExport(project, { ...result, revision: project.revision }, [object])).has(toMadeInBlenderKey('Tree'))).toBe(true);
+			expect(decorTips(checkRun(project, result, [object])).has(toMadeInBlenderKey('Tree'))).toBe(true);
 		});
 
 		it('should word several marbles', () => {
@@ -306,7 +306,7 @@ describe('Decor', () => {
 			const { project, result } = withEffects();
 			// At the very start of the run, right over the marble's path, they still overlap nothing
 			expect(decorOverlaps(project, result, [])).toEqual([]);
-			expect(decorTips(preflightExport(project, result, [])).size).toBe(0);
+			expect(decorTips(checkRun(project, result, [])).size).toBe(0);
 			const [isOk, err, loaded] = parseProject(serializeProject(project));
 			if (!isOk) throw err;
 			expect(loaded.film.decor.map((item) => item.snowfall)).toEqual([{ density: 0.5, size: 1, speed: 1, color: '#fff1d6' }]);

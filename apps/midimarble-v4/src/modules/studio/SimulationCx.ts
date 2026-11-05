@@ -1,4 +1,5 @@
-import { createState } from 'feature-state';
+import { createComputed, createState } from 'feature-state';
+import { checkRun, pendingPreflight, type TExportPreflight } from '@/modules/building';
 import { type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
 import { createSimulationClient, isSameRunInput, isSuperseded, marbleEdits, type TRunInput, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
@@ -20,6 +21,31 @@ export class SimulationCx {
 	readonly $computing = createState(false);
 	/** True from `startPreview` to `endPreview` */
 	readonly $previewing = createState(false);
+	/** What a drag keeps showing, so no pointer move checks the whole run on the main thread */
+	private heldProblems: TExportPreflight | null = null;
+	private problems: ReturnType<SimulationCx['createProblems']> | null = null;
+
+	/**
+	 * The open project's problems, the one source for the hit summary, its menu, Layers, the inspectors, the export
+	 * sheet, the Camera track and an agent's replies. Pending until the run has caught up with the project and while
+	 * Build Track works, so no step checks the whole run. Made on first read, as the states it reads are made after this Cx.
+	 */
+	get $problems(): ReturnType<SimulationCx['createProblems']> {
+		this.problems ??= this.createProblems();
+		return this.problems;
+	}
+
+	private createProblems() {
+		const { $history, film, assist } = this.studio;
+		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building] as const, ([history, result, isPreviewing, blenderObjects, building]) => {
+			const project = history?.present ?? null;
+			if (project == null || building != null) return pendingPreflight(project);
+			if (isPreviewing && this.heldProblems != null) return this.heldProblems;
+			this.heldProblems = result != null && result.revision === project.revision ? checkRun(project, result, blenderObjects) : null;
+			return this.heldProblems ?? pendingPreflight(project);
+		});
+	}
+
 	/** Why the platform being dragged can't play its note where the pointer is, for its chip */
 	readonly $moveLimit = createState<TMoveLimit | null>(null);
 	/** Wall time from the newest request to its result, in milliseconds */

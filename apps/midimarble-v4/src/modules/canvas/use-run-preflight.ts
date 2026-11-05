@@ -1,32 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import React from 'react';
-import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { preflightExport, type TExportPreflight } from '@/modules/building';
+import type { TExportPreflight } from '@/modules/building';
 
-/**
- * The checked preflight for what stays on screen around the wall, or null until the run has caught up with the
- * project. A drag keeps showing the last value, so no pointer move checks the whole run on the main thread, and while
- * Build Track works there is none, so no step does.
- */
-export function useRunPreflight(cx: StudioCx, project: TProject | undefined): TExportPreflight | null {
-	const result = useFeatureState(cx.simulation.$result);
-	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
-	const isPreviewing = useFeatureState(cx.simulation.$previewing);
-	const isBuilding = useFeatureState(cx.assist.$building) != null;
-	return React.useMemo(() => {
-		if (project == null || isBuilding) return null;
-		const held = isPreviewing ? lastPreflight.get(cx) : undefined;
-		if (held != null) return held;
-		const preflight = preflightExport(project, result, blenderObjects);
-		if (preflight.state !== 'checked') {
-			lastPreflight.delete(cx);
-			return null;
-		}
-		lastPreflight.set(cx, preflight);
-		return preflight;
-	}, [cx, isBuilding, isPreviewing, project, result, blenderObjects]);
+/** The project's problems for what stays on screen around the wall, or null until the run has caught up with the project */
+export function useRunPreflight(cx: StudioCx): TExportPreflight | null {
+	const problems = useFeatureState(cx.simulation.$problems);
+	return problems.state === 'checked' ? problems : null;
 }
-
-// What a drag keeps showing, shared so a panel that opens during the drag shows it too
-const lastPreflight = new WeakMap<StudioCx, TExportPreflight>();

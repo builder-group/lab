@@ -2,7 +2,7 @@ import { patched, type TFollows, type TMarble, type TPiece, type TPlays, type TP
 import { BOWL_TYPE, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
 import { bowlFix, hitKeyOf, isBroken, newlyBroken } from './bowl-assist';
 import type { TBlenderObject } from '@/modules/scene';
-import { NO_BLENDER_OBJECTS, preflightExport, type TPreflightIssue, type TProblemSummary } from './export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun, type TPreflightIssue, type TProblemSummary } from './export-preflight';
 
 // The one Fix, after an edit that broke the run or for a piece with a problem. The edit's notice, the hit summary's
 // menu, a piece's status pill and A all offer it. Undo goes back; Rebuild From Here deletes and builds again.
@@ -290,12 +290,12 @@ export async function fixPiece(
 	return { commands: null, message: `${refused || `No new tilt of ${marbleName(project, hitter.marbleId)}'s platforms before it keeps ${marbleName(project, hitter.marbleId)} clear of ${name}`}. Drag it by hand, or move ${marbleName(project, hitter.marbleId)}'s platforms.` };
 }
 
-/** The run of `commands`, stamped as this project's, with what it means for the piece: clear of every marble, hits broken, problems added */
+/** The run of `commands`, with what it means for the piece: clear of every marble, hits broken, problems added */
 async function tryOnRun(project: TProject, result: TSimulationResult, entityId: string, commands: TProjectCommand[], deps: Pick<TFixDeps, 'simulate'> & Partial<Pick<TFixDeps, 'blenderObjects'>>): Promise<TFixTrial> {
 	const next = withCommands(project, commands);
 	const run = await deps.simulate(next);
 	const isClear = run.pieces.find((piece) => piece.entityId === entityId)?.status !== 'blocked' && !strayHitters(next, run, entityId).length;
-	return { run: { ...run, revision: project.revision }, broken: newlyBroken(result.hits, run.hits).length, added: addedProblems(project, result, next, run, deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS), isClear };
+	return { run, broken: newlyBroken(result.hits, run.hits).length, added: addedProblems(project, result, next, run, deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS), isClear };
 }
 
 interface TFixTrial {
@@ -666,7 +666,7 @@ async function commitFix(fixing: TFixing, commands: TProjectCommand[], isPiece =
 		if (type != null && isMusicalPiece(type)) fixing.changed.add(id);
 		else if (type != null) fixing.moved.add(id);
 	}
-	fixing.latest = run != null ? { ...run, revision: fixing.current.revision } : await fixing.deps.simulate(fixing.current);
+	fixing.latest = run ?? (await fixing.deps.simulate(fixing.current));
 	return true;
 }
 
@@ -1033,7 +1033,7 @@ function commandEntityId(command: TProjectCommand): string {
 }
 
 /**
- * Problems of the one problem model (`preflightExport`) that `after` has and `before` did not, which a fix must
+ * Problems of the one problem model (`checkRun`) that `after` has and `before` did not, which a fix must
  * not add: another marble's hits, framing or pace, Blocked scenery, and contacts such as "Bass hits Switchback 6
  * of Melody". With `working`, that marble's problems from `from` on (its hits, framing, Blocked scenery and its
  * pieces another marble hits) are left out, since Fix works through them next, and so are pieces touching from `from`
@@ -1049,7 +1049,7 @@ export function addedProblems(
 ): TPreflightIssue[] {
 	const warnings = (project: TProject, result: TSimulationResult): TPreflightIssue[] =>
 		// A fix that plays the hits again may cost a second bounce or a roll, which keep their own problem and their own Fix
-		preflightExport(project, { ...result, revision: project.revision }, blenderObjects).issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'strike' && issue.kind !== 'roll');
+		checkRun(project, result, blenderObjects).issues.filter((issue) => issue.severity === 'warning' && issue.kind !== 'strike' && issue.kind !== 'roll');
 	const had = new Set(warnings(beforeProject, before).map((issue) => issue.id));
 	return warnings(afterProject, after).filter((issue) => {
 		if (had.has(issue.id)) return false;

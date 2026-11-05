@@ -1,3 +1,4 @@
+import { createState } from 'feature-state';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Ok } from 'tuple-result';
 import { host } from '@/environment';
@@ -177,7 +178,7 @@ describe('MCP tools', () => {
 		let bowlBuild: () => void = () => undefined;
 		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (bowlBuild = () => resolve(null))));
 		const key = `hit:${marbleId}:${hitId}`;
-		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { marbleId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
+		const assist = { $building: createState(null), get rebuildTarget() { return cx.$selection.get().includes(key) ? { marbleId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
 		Object.assign(cx, { assist });
 		cx.$trackCx.set({} as never);
 		cx.$workspace.set('track');
@@ -202,7 +203,7 @@ describe('MCP tools', () => {
 	it('should show the running build and its result in get_state', async () => {
 		const { cx } = studio();
 		const lastBuild = { message: 'Built' };
-		Object.assign(cx, { assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } });
+		Object.assign(cx, { assist: { $building: createState({ done: 2, total: 5 }), $lastBuild: { get: () => lastBuild } } });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.building).toEqual({ done: 2, total: 5 });
 		expect(state.lastBuild).toEqual(lastBuild);
