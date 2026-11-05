@@ -253,9 +253,13 @@ describe('fixtures', () => {
 		const project = loadFixture('jingle-bells');
 		const base = simulator.simulate(project);
 		const [melody, bass] = base.marbles;
-		// Just below the bass's path at 20 s, on its own side of the lanes
-		const at = bass?.samples.find((sample) => sample.time >= 20)?.position;
-		if (melody == null || bass == null || at == null) throw new Error('Missing bass sample');
+		if (melody == null || bass == null) throw new Error('Missing marbles');
+		// Just below the bass's path where the melody is furthest from it, so the melody's world never takes the windmill in
+		const farthest = (sample: TMarbleSample): number => {
+			const other = melody.samples.find((item) => item.time >= sample.time)?.position;
+			return other != null ? Math.hypot(other.x - sample.position.x, other.y - sample.position.y) : 0;
+		};
+		const at = bass.samples.filter((sample) => sample.time >= 10 && sample.time <= 25 && Math.round(sample.time * 240) % 24 === 0).reduce((best, sample) => (farthest(sample) > farthest(best) ? sample : best)).position;
 		const result = simulator.simulate(withFreeWindmill(project, { x: at.x + 0.02, y: at.y - 0.12 }, 0));
 		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-far');
 		expect(strike?.marbleEntityId).toBe(bass.entityId);

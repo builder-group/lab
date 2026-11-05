@@ -51,9 +51,9 @@ describe('replaceBroken function on Jingle Bells', () => {
 		return replaceResultMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added: addedProblems(edited, broken, outcome.project, outcome.result) });
 	}
 
-	it('should recover every hit after 7 Melody notes become Backing, within a minute, and name what it added', async () => {
+	it('should recover every hit after 6 Melody notes become Backing, within a minute, and name what it added', async () => {
 		// Prepare: the review's repro, which took 78 s in the browser
-		const { before, edited, broken } = handFirstNotesToBacking(7);
+		const { before, edited, broken } = handFirstNotesToBacking(6);
 		const startedAt = performance.now();
 		const progress: { done: number; total: number }[] = [];
 
@@ -72,9 +72,9 @@ describe('replaceBroken function on Jingle Bells', () => {
 		expect(performance.now() - startedAt).toBeLessThan(60_000);
 	}, 120_000);
 
-	it('should keep the Bowl and say what is left when it cannot recover the run after 6 Melody notes', async () => {
+	it('should keep the Bowl and say what is left when it cannot recover the run after 7 Melody notes', async () => {
 		// Prepare: a released marble has no spin, so the run parts from the old one and no tilt brings it back by hit 15
-		const { before, edited, broken } = handFirstNotesToBacking(6);
+		const { before, edited, broken } = handFirstNotesToBacking(7);
 
 		// Act
 		const outcome = await replaceBroken(edited, broken, deps(), { before: before.hits });

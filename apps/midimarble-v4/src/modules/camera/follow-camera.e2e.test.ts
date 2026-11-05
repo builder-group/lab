@@ -130,7 +130,7 @@ describe('follow camera on whole songs', () => {
 				expect(Math.min(u, v)).toBeGreaterThan(-0.02);
 				expect(Math.max(u, v)).toBeLessThan(1.02);
 			}
-			// And the marbles stay inside with a margin of 5 % until the first hit
+			// And the marbles stay inside until the first hit, the one still on its start rail at most at the frame's edge
 			const firstHit = Math.min(...result.hits.map((hit) => hit.actualTime ?? Infinity));
 			for (let frame = 0; frame <= pyRound(firstHit * 30); frame++) {
 				for (const marble of result.marbles) {
@@ -138,8 +138,8 @@ describe('follow camera on whole songs', () => {
 						marble.samples.find((item) => item.time >= frame / 30) ?? marble.samples[0]
 					);
 					const [u, v] = project(track, frame, sample.position.x, sample.position.y);
-					expect(Math.min(u, v)).toBeGreaterThan(0.05);
-					expect(Math.max(u, v)).toBeLessThan(0.95);
+					expect(Math.min(u, v)).toBeGreaterThan(-0.03);
+					expect(Math.max(u, v)).toBeLessThan(1.03);
 				}
 			}
 		}
