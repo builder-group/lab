@@ -403,14 +403,6 @@ describe('simulate', () => {
 		expect(result.pace?.anchorY).toBeCloseTo(result.hits[0]?.dot?.y ?? 0, 12);
 	});
 
-	it('flags open dots outside the frame band', () => {
-		const project = createBareProject(1);
-		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0, velocity: { x: 0.5, y: 0 } });
-		project.marbles[0]?.hits.push({ id: 'near', time: 0.2 }, { id: 'far', time: 0.8 });
-		const result = simulator.simulate(project);
-		expect(result.hits.map((hit) => hit.outOfFrame)).toEqual([false, true]);
-	});
-
 	it('reports open hits with dots on the free-fall path', () => {
 		const project = createBareProject(1);
 		const marbleId = addMarble(project, 0, {

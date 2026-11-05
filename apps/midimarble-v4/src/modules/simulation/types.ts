@@ -143,8 +143,6 @@ export interface THitResult {
 	status: THitStatus;
 	/** Why a hit with a piece is missed: `resting` when the first contact is slower than `IMPACT_SPEED` */
 	reason?: 'resting';
-	/** Set on open hits with a dot: true when the dot lies out of frame, outside the band covering every marble */
-	outOfFrame?: boolean;
 }
 
 export type THitStatus =

@@ -29,22 +29,24 @@ describe('SimulationCx previews', () => {
 
 	it('runs whole at first, to a horizon while moving, and whole again on a pause or the release', () => {
 		const project = createProject({ title: 'Song' });
+		// A drag changes the pieces each time
+		const moved = (): TProject => ({ ...project, track: { ...project.track, pieces: [...project.track.pieces] } });
 		const cx = new StudioCx();
 		const unmount = cx.simulation.mount();
 		cx.$history.set(createHistory(project));
 		expect(nextRun()).toBeUndefined();
 
-		cx.simulation.startPreview({ ...project });
+		cx.simulation.startPreview(moved());
 		expect(cx.simulation.$previewing.get()).toBe(true);
 		expect(nextRun()).toBeUndefined();
 
-		cx.simulation.startPreview({ ...project });
+		cx.simulation.startPreview(moved());
 		expect(nextRun()).toBeGreaterThan(0);
 		// Nothing new for a while: the pointer has paused
 		vi.advanceTimersByTime(200);
 		expect(simulate.mock.lastCall?.[1]).toBeUndefined();
 
-		cx.simulation.startPreview({ ...project });
+		cx.simulation.startPreview(moved());
 		expect(nextRun()).toBeGreaterThan(0);
 		cx.simulation.endPreview();
 		expect(cx.simulation.$previewing.get()).toBe(false);

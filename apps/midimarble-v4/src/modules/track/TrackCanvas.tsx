@@ -412,7 +412,7 @@ const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; 
 				}
 				const marble = project.marbles.find((item) => item.id === hit.marbleId);
 				const isNext = nextDots.get(hit.marbleId) === hit;
-				const isOutside = hit.outOfFrame ?? Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
+				const isOutside = Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
 				const color = isOutside ? 'var(--bad)' : (marble?.labelColor ?? 'var(--text)');
 				return (
 					<HitDot
@@ -808,7 +808,7 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	const pitch = marble?.hits[index]?.pitch;
 	const band = frameBand(project);
 	const overshoot = Math.abs(hit.dot.x - band.centerX) - band.halfWidth;
-	const isOutside = hit.outOfFrame ?? overshoot > 0;
+	const isOutside = overshoot > 0;
 	return (
 		<CanvasTooltip position={position}>
 			<span className="font-medium">Hit {index + 1}</span>
