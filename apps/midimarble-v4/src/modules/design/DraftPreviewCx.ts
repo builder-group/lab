@@ -14,7 +14,7 @@ import { appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook,
 import { wallKindOverride } from './scene-layers';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
+import { CLAY_PIECE, CLAY_WALL, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
 import { selectionHull } from './draft-outline';
 import { filmCamera, filmCameraAt, imageToWall, type TFilmCamera } from './film-camera';
 import { hitboxOutlines } from './hitbox-outline';
@@ -22,7 +22,8 @@ import { hitboxOutlines } from './hitbox-outline';
 /**
  * Film Draft Preview: the run through the film's follow camera at the playhead, drawn in the app with the theme's
  * look approximated, for whenever Blender's preview is not there (browser, not installed, starting, failed).
- * Reuses the Compose renderer's Camera view; the canvas is exactly the film frame.
+ * Reuses the Compose renderer's Camera view; the canvas is exactly the film frame. The `clay` look is Track's Camera
+ * view, like Blender's Solid mode: the same frame with plain shapes, without skins, Decor or titles.
  */
 export class DraftPreviewCx {
 	/** Bumps after every draw, so the overlay of rails, titles and selection reprojects */
@@ -39,12 +40,16 @@ export class DraftPreviewCx {
 	private wallTheme: string | null = null;
 	private readonly scratchPose = createCameraPose();
 
-	constructor(readonly studio: StudioCx) {}
+	constructor(
+		readonly studio: StudioCx,
+		readonly look: TDraftLook = 'film'
+	) {}
 
 	mount(container: HTMLElement, canvas: HTMLCanvasElement): () => void {
 		const renderer = new ComposeRenderer(canvas);
 		this.renderer = renderer;
 		this.wallTheme = null;
+		if (this.look === 'clay') renderer.setClayLight();
 		renderer.setCamera({ mode: 'camera', view: { center: { x: 0, y: 0 }, scale: 1000 } });
 		const observer = new ResizeObserver(() => {
 			const rect = container.getBoundingClientRect();
@@ -101,6 +106,7 @@ export class DraftPreviewCx {
 
 	/** Theme colors of a piece in the draft */
 	colorsOf(piece: TResolvedPiece): TDraftColors {
+		if (this.look === 'clay') return CLAY_PIECE;
 		const project = this.studio.project;
 		const scene = this.scenePiece(piece.entityId);
 		const theme = project != null ? resolveTheme(project.design) : null;
@@ -119,7 +125,7 @@ export class DraftPreviewCx {
 	 */
 	skinMarks(piece: TResolvedPiece): { id: string; points: TVec2[]; color: string }[] {
 		const project = this.studio.project;
-		if (piece.type !== 'platform' || project == null) return [];
+		if (this.look === 'clay' || piece.type !== 'platform' || project == null) return [];
 		const theme = resolveTheme(project.design);
 		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
 		if (!marks.length) return [];
@@ -141,7 +147,7 @@ export class DraftPreviewCx {
 	/** Titles with their frame position, on-screen size and angle and their opacity at the playhead */
 	titles(): TDraftTitle[] {
 		const project = this.studio.project;
-		if (project == null || this.pose == null) return [];
+		if (this.look === 'clay' || project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
 		return project.entities.flatMap((entity) => {
 			const text = entity.components.wallText;
@@ -179,7 +185,7 @@ export class DraftPreviewCx {
 	 */
 	decor(): TDraftDecor[] {
 		const project = this.studio.project;
-		if (project == null || this.pose == null) return [];
+		if (this.look === 'clay' || project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
 		return decorList(project.design).flatMap((decor) => {
 			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
@@ -195,7 +201,7 @@ export class DraftPreviewCx {
 	/** Particles at the playhead: what `DraftEffects` draws over the frame */
 	frameEffects(): TDraftEffect[] {
 		const project = this.studio.project;
-		if (project == null || this.pose == null) return [];
+		if (this.look === 'clay' || project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
 		return decorList(project.design).flatMap((decor): TDraftEffect[] => {
 			const effect = decorItem(decor.source)?.effect;
@@ -223,7 +229,7 @@ export class DraftPreviewCx {
 	/** Made in Blender objects as faint outlines at the playhead: their look shows only in the Blender preview */
 	blenderOutlines(): { key: string; points: TVec2[]; opacity: number }[] {
 		const project = this.studio.project;
-		if (project == null || this.pose == null) return [];
+		if (this.look === 'clay' || project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
 		return $blenderObjects.get().flatMap((object) => {
 			const layer = madeInBlenderLayer(project.design, object.name);
@@ -251,7 +257,7 @@ export class DraftPreviewCx {
 
 	private decorBoxes(): { key: string; box: TWallBox }[] {
 		const project = this.studio.project;
-		if (project == null) return [];
+		if (this.look === 'clay' || project == null) return [];
 		const time = this.studio.$playhead.get();
 		const shown = decorList(project.design).filter((decor) => decor.hidden !== true && titleOpacity(time, decor) > 0 && !isFrameEffect(decor));
 		return [
@@ -292,17 +298,22 @@ export class DraftPreviewCx {
 	}
 
 	/** Marbles at the playhead in the theme's look: their wall position, radius, body and rim colors, apart from the wall */
-	marbles(): (TDraftMarble & { entityId: string; radius: number; position: TVec2 })[] {
+	marbles(): TPlacedMarble[] {
 		const project = this.studio.project;
 		if (project == null) return [];
 		const theme = resolveTheme(project.design);
 		const result = this.studio.simulation.$result.get();
 		const hidden = this.studio.$hidden.get();
 		const playhead = this.studio.$playhead.get();
-		return project.entities.flatMap((entity) => {
+		return project.entities.flatMap((entity): TPlacedMarble[] => {
 			const { marble, release } = entity.components;
 			if (marble == null || release == null || hidden.includes(entity.id)) return [];
 			const motion = result?.marbles.find((item) => item.entityId === entity.id);
+			const position = marblePositionAt(motion, playhead, release.position);
+			if (this.look === 'clay') {
+				const label = project.music.lanes.find((lane) => lane.id === marble.laneId)?.color ?? '#3478f6';
+				return [{ entityId: entity.id, radius: marble.radius, position, body: label, rim: null, tone: 'deep' }];
+			}
 			const look = resolveElementLook(project.design, 'marble', entity.components.skin);
 			const draft = draftMarble(theme.base, marbleFilmColor(project, marble.laneId), appliedOverrides(project.design), look);
 			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Compose
@@ -311,7 +322,7 @@ export class DraftPreviewCx {
 				{
 					entityId: entity.id,
 					radius: marble.radius,
-					position: marblePositionAt(motion, playhead, release.position),
+					position,
 					...draft,
 					...(label != null ? { body: label, rim: null } : {})
 				}
@@ -322,7 +333,7 @@ export class DraftPreviewCx {
 	/** Whether the theme's pieces glow, for the overlay's soft halo */
 	glows(): boolean {
 		const project = this.studio.project;
-		if (project == null) return false;
+		if (this.look === 'clay' || project == null) return false;
 		const theme = resolveTheme(project.design);
 		return draftGlows(theme.parts.platform.skin === 'platform:neon' ? 'neon' : theme.base);
 	}
@@ -410,9 +421,9 @@ export class DraftPreviewCx {
 		const theme = resolveTheme(project.design);
 		const overrides = appliedOverrides(project.design);
 		const wallKind = wallKindOverride(project.design);
-		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
+		const wallKey = this.look === 'clay' ? 'clay' : `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
 		if (this.wallTheme !== wallKey) {
-			renderer.setWallLook(draftWall(theme.base, overrides, wallKind));
+			renderer.setWallLook(this.look === 'clay' ? CLAY_WALL : draftWall(theme.base, overrides, wallKind));
 			this.wallTheme = wallKey;
 		}
 		const playhead = this.studio.$playhead.get();
@@ -429,6 +440,10 @@ export class DraftPreviewCx {
 		this.$frame.set((value) => value + 1);
 	}
 }
+
+export type TDraftLook = 'film' | 'clay';
+
+type TPlacedMarble = TDraftMarble & { entityId: string; radius: number; position: TVec2 };
 
 export type TDraftEffect = { kind: 'snowfall'; key: string; opacity: number; flakes: readonly TFlake[]; color: string; size: number; speed: number };
 

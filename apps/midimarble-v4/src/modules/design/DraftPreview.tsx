@@ -11,7 +11,7 @@ import { DraftDecorShape } from './DraftDecorShape';
 import { DraftEffects } from './DraftEffects';
 import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
 import { SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
-import { DraftPreviewCx, type TDraftTitle } from './DraftPreviewCx';
+import { DraftPreviewCx, type TDraftLook, type TDraftTitle } from './DraftPreviewCx';
 import { appliedOverrides } from './project-themes';
 import { HitboxOverlay } from './HitboxOverlay';
 
@@ -20,8 +20,8 @@ import { HitboxOverlay } from './HitboxOverlay';
  * there. Clicks pick pieces and titles or place a title, library drops skin the piece under the pointer.
  */
 export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
-	const { studio, frame, isPlacing, cover, onPick, onPlace, onDropAsset } = props;
-	const [draft] = React.useState(() => new DraftPreviewCx(studio));
+	const { studio, frame, look = 'film', isPlacing, cover, onPick, onPlace, onDropAsset } = props;
+	const [draft] = React.useState(() => new DraftPreviewCx(studio, look));
 	const containerRef = React.useRef<HTMLDivElement>(null);
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
 	const [dropTarget, setDropTarget] = React.useState(false);
@@ -29,7 +29,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 	const hasResult = useFeatureState(studio.simulation.$result) != null;
 	const design = useFeatureState(studio.$history)?.present.design;
 	// A Background color the theme or the Wall layer set shows around the frame, where the film has no wall
-	const background = design != null ? appliedOverrides(design).backgroundColor : undefined;
+	const background = design != null && look === 'film' ? appliedOverrides(design).backgroundColor : undefined;
 
 	React.useEffect(() => {
 		const container = containerRef.current;
@@ -96,7 +96,7 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 				<div
 					ref={containerRef}
 					role="img"
-					aria-label="Draft Preview at the playhead"
+					aria-label={look === 'film' ? 'Draft Preview at the playhead' : 'Camera view at the playhead'}
 					data-placing={isPlacing}
 					data-drop-target={dropTarget}
 					className="mm-preview absolute inset-0 overflow-hidden rounded-[6px]"
@@ -138,6 +138,8 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 interface TDraftPreviewProps {
 	studio: StudioCx;
 	frame: { width: number; height: number };
+	/** `clay` is Track's Camera view: plain shapes and label colors. Film's Draft Preview when absent */
+	look?: TDraftLook;
 	isPlacing: boolean;
 	/** Drawn over the frame, such as Blender's background preview frame; clicks still pick through the draft */
 	cover?: React.ReactNode;

@@ -82,6 +82,8 @@ export class ComposeRenderer {
 	private readonly nubGeometry = new THREE.CylinderGeometry(1, 1, 1, 20).rotateX(Math.PI / 2);
 	private readonly sphereGeometry = new THREE.SphereGeometry(1, 32, 20);
 	private readonly materials = new Map<string, THREE.Material>();
+	private readonly ambient = new THREE.AmbientLight(0xffffff, 0.72 * Math.PI);
+	private readonly key = new THREE.DirectionalLight(0xffffff, 0.36 * Math.PI);
 	private viewport: TViewport = { width: 1, height: 1 };
 	private pixelRatio = 1;
 	private camera: TComposeCamera = { mode: '2d', view: { center: { x: 0, y: 0 }, scale: 500 } };
@@ -95,10 +97,9 @@ export class ComposeRenderer {
 		this.renderer.setClearColor(0x000000, 0);
 
 		// Lambert divides by π, so these intensities keep a face toward the camera at its flat color
-		this.scene.add(new THREE.AmbientLight(0xffffff, 0.72 * Math.PI));
-		const light = new THREE.DirectionalLight(0xffffff, 0.36 * Math.PI);
-		light.position.set(0.3, 1, 2);
-		this.scene.add(light);
+		this.scene.add(this.ambient);
+		this.key.position.set(0.3, 1, 2);
+		this.scene.add(this.key);
 
 		this.orthographic.position.set(0, 0, 10);
 		this.orthographic.lookAt(0, 0, 0);
@@ -166,6 +167,14 @@ export class ComposeRenderer {
 			previous.dispose();
 		}
 		material.needsUpdate = true;
+		this.invalidate();
+	}
+
+	/** Track's Camera view, like Blender's Solid mode: a stronger light from above, so a bar's top, front and sides read apart */
+	setClayLight(): void {
+		this.ambient.intensity = 0.45 * Math.PI;
+		this.key.intensity = 0.75 * Math.PI;
+		this.key.position.set(0.4, 1.2, 1);
 		this.invalidate();
 	}
 

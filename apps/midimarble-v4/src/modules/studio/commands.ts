@@ -328,11 +328,11 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'view.showHitboxes',
-		workspace: 'design',
 		title: 'Show Hitboxes',
 		section: 'View',
-		keywords: 'collider gizmo outline physics shape what the marble touches',
-		isEnabled: inDesign,
+		keywords: 'collider gizmo outline physics what the marble touches',
+		// The Wall draws pieces as their hitboxes already
+		isEnabled: (cx) => inDesign(cx) || (inTrack(cx) && cx.$trackView.get() === 'camera'),
 		isChecked: (cx) => cx.$showHitboxes.get(),
 		run: (cx) => cx.$showHitboxes.set(!cx.$showHitboxes.get())
 	},

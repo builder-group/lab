@@ -83,7 +83,6 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<GhostHint compose={compose} />
 			<PlayNoteHint compose={compose} />
 			<AssistBar compose={compose} />
-			<CornerControls compose={compose} />
 			<EmptyWall cx={cx} />
 			<SimulatingIndicator cx={cx} />
 		</div>
@@ -994,12 +993,13 @@ const AssistButton: React.FC<{ label: string; detail: string; shortcut: string; 
 
 // MARK: - Canvas chrome
 
-const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
+/** Snap and Follow: they apply to the flat Wall, so Track's view controls show them only there */
+export const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	const { compose } = props;
 	const follow = useFeatureState(compose.$follow);
 	const snapping = useFeatureState(compose.studio.$snapping);
 	return (
-		<div className="mm-floating mm-tooltip-below absolute top-3 right-3 z-20 flex items-center gap-0.5 p-[3px]">
+		<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
 			<button
 				className="mm-tool-button !h-7 !w-7"
 				data-active={snapping}
