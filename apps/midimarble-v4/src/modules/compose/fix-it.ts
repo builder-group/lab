@@ -246,19 +246,8 @@ export async function fixPiece(
 	const type = entity?.components.piece?.type;
 	const name = pieceName(project, entityId);
 	if (entity == null || link == null || type == null) return { commands: null, message: `${name} has nothing to fix` };
-	const laneName = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
 	const hitters = strayHitters(project, result, entityId);
-	const check = async (commands: TProjectCommand[]): Promise<{ run: TSimulationResult; broken: number; added: TPreflightIssue[]; isClear: boolean }> => {
-		const next = withCommands(project, commands);
-		const run = await deps.simulate(next);
-		const added = addedProblems(project, result, next, run);
-		const isClear = run.pieces.find((piece) => piece.entityId === entityId)?.status !== 'blocked' && !strayHitters(next, run, entityId).length;
-		return { run: { ...run, revision: project.revision }, broken: newlyBroken(result.hits, run.hits).length, added, isClear };
-	};
-	const refusal = (what: string, broken: number, added: TPreflightIssue[]): string =>
-		broken > 0
-			? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}, so nothing moved`
-			: `${what} would add a problem (${added[0]?.title ?? 'another marble'}), so nothing moved`;
+	const check = (commands: TProjectCommand[]): Promise<TFixTrial> => tryOnRun(project, result, entityId, commands, deps.simulate);
 
 	// A Bowl is placed again on its marble's fall, wherever it went wrong
 	if (type === BOWL_TYPE) return bowlFix(project, result, entityId, deps);
@@ -298,11 +287,35 @@ export async function fixPiece(
 		if (!commands.length) continue;
 		const what = await check(commands);
 		if (what.isClear && what.broken === 0 && what.added.length === 0) {
-			return { commands, run: what.run, message: `Placed ${pieceName(project, platform.id)} again: ${laneName(hitter.laneId)} now passes clear of ${name}` };
+			return { commands, run: what.run, message: `Placed ${pieceName(project, platform.id)} again: ${laneName(project, hitter.laneId)} now passes clear of ${name}` };
 		}
-		refused ||= what.isClear ? refusal(`Placing ${pieceName(project, platform.id)} again`, what.broken, what.added) : '';
+		refused ||= what.isClear ? `${costOf(`Placing ${pieceName(project, platform.id)} again`, what)}, so nothing moved` : '';
 	}
-	return { commands: null, message: `${refused || `No new tilt of ${laneName(hitter.laneId)}'s platforms before it keeps ${laneName(hitter.laneId)} clear of ${name}`}. Drag it by hand, or move ${laneName(hitter.laneId)}'s platforms.` };
+	return { commands: null, message: `${refused || `No new tilt of ${laneName(project, hitter.laneId)}'s platforms before it keeps ${laneName(project, hitter.laneId)} clear of ${name}`}. Drag it by hand, or move ${laneName(project, hitter.laneId)}'s platforms.` };
+}
+
+/** The run of `commands`, stamped as this project's, with what it means for the piece: clear of every marble, hits broken, problems added */
+async function tryOnRun(project: TProject, result: TSimulationResult, entityId: string, commands: TProjectCommand[], simulate: TFixDeps['simulate']): Promise<TFixTrial> {
+	const next = withCommands(project, commands);
+	const run = await simulate(next);
+	const isClear = run.pieces.find((piece) => piece.entityId === entityId)?.status !== 'blocked' && !strayHitters(next, run, entityId).length;
+	return { run: { ...run, revision: project.revision }, broken: newlyBroken(result.hits, run.hits).length, added: addedProblems(project, result, next, run), isClear };
+}
+
+interface TFixTrial {
+	run: TSimulationResult;
+	broken: number;
+	added: TPreflightIssue[];
+	isClear: boolean;
+}
+
+/** What a refused try would have cost */
+function costOf(what: string, { broken, added }: Pick<TFixTrial, 'broken' | 'added'>): string {
+	return broken > 0 ? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}` : `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
+}
+
+function laneName(project: TProject, laneId: string): string {
+	return project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
 }
 
 /** Pieces a marble strikes twice or rolls on, and the later piece of each pair that touches, in time order */
@@ -322,7 +335,7 @@ async function fixProblemPiece(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	check: (commands: TProjectCommand[]) => Promise<{ run: TSimulationResult; broken: number; added: TPreflightIssue[] }>,
+	check: (commands: TProjectCommand[]) => Promise<TFixTrial>,
 	deps: Pick<TFixDeps, 'autoPlace'> & Partial<Pick<TFixDeps, 'settle'>>
 ): Promise<TPieceFix> {
 	const name = pieceName(project, entityId);
@@ -360,15 +373,22 @@ async function fixProblemPiece(
 			if (fixed != null) return fixed;
 		}
 	}
-	for (const platform of platforms) {
-		const platformLink = platform.components.hitLink;
-		if (platformLink == null) continue;
-		for (const degrees of SMALL_TURNS) {
-			const value = { ...platformLink, angle: round4(platformLink.angle + degrees * DEGREE) };
-			const fixed = await tryCommands([{ type: 'setComponent', entityId: platform.id, component: { name: 'hitLink', value } }], `Turned ${pieceName(project, platform.id)} by ${degrees}°`);
-			if (fixed != null) return fixed;
+	/** The small turns of each platform, with what `takeUp` adds to each */
+	const tryTurns = async (takeUp?: (turn: TProjectCommand) => Promise<TProjectCommand[]>): Promise<TPieceFix | null> => {
+		for (const platform of platforms) {
+			const platformLink = platform.components.hitLink;
+			if (platformLink == null) continue;
+			for (const degrees of SMALL_TURNS) {
+				const value = { ...platformLink, angle: round4(platformLink.angle + degrees * DEGREE) };
+				const turn: TProjectCommand = { type: 'setComponent', entityId: platform.id, component: { name: 'hitLink', value } };
+				const fixed = await tryCommands([turn, ...((await takeUp?.(turn)) ?? [])], `Turned ${pieceName(project, platform.id)} by ${degrees}°`);
+				if (fixed != null) return fixed;
+			}
 		}
-	}
+		return null;
+	};
+	const turned = await tryTurns();
+	if (turned != null) return turned;
 	for (const platform of platforms) {
 		const target = result.hits.find((hit) => hit.pieceEntityId === platform.id);
 		if (target == null) continue;
@@ -383,17 +403,8 @@ async function fixProblemPiece(
 	}
 	const { settle } = deps;
 	if (settle != null) {
-		for (const platform of platforms) {
-			const platformLink = platform.components.hitLink;
-			if (platformLink == null) continue;
-			for (const degrees of SMALL_TURNS) {
-				const value = { ...platformLink, angle: round4(platformLink.angle + degrees * DEGREE) };
-				const turn: TProjectCommand = { type: 'setComponent', entityId: platform.id, component: { name: 'hitLink', value } };
-				const taken = await settle(project, withCommands(project, [turn]));
-				const fixed = await tryCommands([turn, ...taken.map((taker): TProjectCommand => ({ type: 'upsertEntity', entity: taker }))], `Turned ${pieceName(project, platform.id)} by ${degrees}°`);
-				if (fixed != null) return fixed;
-			}
-		}
+		const settled = await tryTurns(async (turn) => (await settle(project, withCommands(project, [turn]))).map((taker): TProjectCommand => ({ type: 'upsertEntity', entity: taker })));
+		if (settled != null) return settled;
 	}
 	// Every marble's later hits follow each tilt, so what is left is to build them again from the hit before this one
 	const hits = project.music.lanes.find((lane) => lane.id === link?.laneId)?.hits ?? [];
@@ -438,25 +449,15 @@ export async function sceneryFix(
 	const link = entity?.components.hitLink;
 	const name = pieceName(project, entityId);
 	if (entity == null || link == null) return { commands: null, message: `${name} follows no marble` };
-	const laneName = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
 	const hitters = strayHitters(project, result, entityId);
 	const isBlocked = result.pieces.find((piece) => piece.entityId === entityId)?.status === 'blocked';
 	if (!isBlocked && !hitters.length) return { commands: null, message: `${name} is clear of every run` };
-	const runs = joinWords([...new Set([link.laneId, ...hitters.map((hitter) => hitter.laneId)])].map(laneName));
+	const runs = joinWords([...new Set([link.laneId, ...hitters.map((hitter) => hitter.laneId)])].map((laneId) => laneName(project, laneId)));
 	let refusal = '';
 	const check = async (commands: TProjectCommand[], what: string): Promise<TSimulationResult | null> => {
-		const next = withCommands(project, commands);
-		const run = await deps.simulate(next);
-		const piece = run.pieces.find((item) => item.entityId === entityId);
-		const isClear = piece?.status !== 'blocked' && !strayHitters(next, run, entityId).length;
-		const broken = newlyBroken(result.hits, run.hits).length;
-		const added = addedProblems(project, result, next, run);
-		if (isClear && broken === 0 && added.length === 0) return { ...run, revision: project.revision };
-		refusal ||= !isClear
-			? `${what} leaves it in the way`
-			: broken > 0
-				? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}`
-				: `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
+		const trial = await tryOnRun(project, result, entityId, commands, deps.simulate);
+		if (trial.isClear && trial.broken === 0 && trial.added.length === 0) return trial.run;
+		refusal ||= !trial.isClear ? `${what} leaves it in the way` : costOf(what, trial);
 		return null;
 	};
 
