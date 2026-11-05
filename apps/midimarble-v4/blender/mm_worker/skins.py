@@ -554,24 +554,24 @@ def add_feet(builder, length, back, front, underside, k, material=0):
 # different angles catch them differently and a press sweeps a highlight across the top.
 # Each light: direction, dot range from its edge to its middle, strength.
 STUDIO_LIGHTS = (
-    ((-0.12, 0.72, 0.68), 0.93, 0.975, 5.0),
-    ((0.46, 0.80, 0.38), 0.985, 0.994, 7.0),
-    ((-0.55, -0.45, 0.70), 0.90, 0.97, 4.0),
-    ((0.85, -0.50, -0.15), 0.92, 0.975, 2.4),
+    ((-0.12, 0.72, 0.68), 0.9985, 0.9995, 6.0),
+    ((0.46, 0.80, 0.38), 0.9985, 0.9995, 7.0),
+    ((-0.55, -0.45, 0.70), 0.998, 0.9992, 5.0),
+    ((0.85, -0.50, -0.15), 0.998, 0.9992, 3.0),
 )
 # The room around them by the mirrored direction's height: dark floor, wall color, pale ceiling
-STUDIO_ROOM = ((0.0, 0.03), (0.42, 0.07), (0.50, 0.30), (0.70, 0.14), (0.80, 0.22), (0.85, 2.6), (0.90, 0.5), (1.0, 0.25))
+STUDIO_ROOM = ((0.0, 0.03), (0.42, 0.05), (0.50, 0.14), (0.70, 0.07), (0.835, 0.10), (0.85, 1.6), (0.865, 0.14), (1.0, 0.16))
 # How far a face's mirror direction swings per meter along it, so flat faces show gradients like a slightly crowned plate
 STUDIO_CROWN = (6.0, 7.0, 6.0)
 POLISHED_METALS = {
-    'gold': ((1.0, 0.50, 0.06), 0.12),
+    'gold': ((0.90, 0.54, 0.15), 0.12),
     'copper': ((0.86, 0.30, 0.13), 0.14),
     'chrome': ((0.82, 0.84, 0.88), 0.07),
     'steel': ((0.20, 0.21, 0.23), 0.22),
 }
 POLISHED_PAINTS = {
     'housing': ((0.045, 0.055, 0.08), 0.2),
-    'key': ((0.80, 0.82, 0.84), 0.16),
+    'key': ((0.60, 0.62, 0.64), 0.16),
     'hazard': ((0.95, 0.60, 0.02), 0.2),
     'black': ((0.012, 0.012, 0.014), 0.2),
     'wood': ((0.40, 0.125, 0.035), 0.2),
@@ -725,7 +725,7 @@ def plate_spec(frame, length, thickness, finish):
     trim = 0.0005 * k
     plate.box((length + 2 * trim, block, thickness), (0.0, front + block / 2, top - thickness / 2), bevel=edge, material=1, segments=4)
     own = polished_material(finish)
-    trim_material = polished_material('chrome' if finish == 'gold' else 'gold' if finish == 'wood' else finish)
+    trim_material = polished_material('gold' if finish in ('gold', 'wood') else finish)
     return {
         'root': chassis.to_mesh('MM chassis', [polished_material('black'), polished_material('steel')]),
         'parts': [{'role': 'bar', 'mesh': plate.to_mesh('MM plate', [frame.metal(own) if finish != 'wood' else frame.toy_wood(own), trim_material]), 'reactive': True}],
@@ -768,11 +768,15 @@ def chrome_device_spec(frame, length, thickness):
     body.cylinder(0.005 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, axis_z - radius * 0.45), axis='Y', material=3, bevel=0.0006 * k)
     pad = MeshBuilder()
     pad.box((length, back - pad_front, thickness * 0.8), (0.0, (back + pad_front) / 2, top - thickness * 0.4), bevel=edge, segments=4)
+    # Thin gold strips along the pad's long sides, flush with its top, so it reads as a dark plate with bright edges
+    strip = length * 0.09
+    for side in (-1, 1):
+        pad.box((strip, back - pad_front, thickness * 0.82), (side * (length - strip) / 2, (back + pad_front) / 2, top - thickness * 0.41), bevel=strip * 0.25, material=1, segments=2)
     gold = polished_material('gold')
     materials = [polished_material('chrome'), gold, polished_material('hazard'), polished_material('steel'), polished_material('black')]
     return {
         'root': body.to_mesh('MM chrome device', materials),
-        'parts': [{'role': 'bar', 'mesh': pad.to_mesh('MM pad', [frame.metal(gold)]), 'reactive': True}],
+        'parts': [{'role': 'bar', 'mesh': pad.to_mesh('MM pad', [frame.metal(polished_material('steel')), gold]), 'reactive': True}],
     }
 
 
@@ -838,7 +842,7 @@ def platform_spec(frame, piece):
         bar_z = thickness / 2 - bar_thickness / 2
         bar = MeshBuilder()
         bar.box((length, bar_depth, bar_thickness), (0.0, bar_y, bar_z), bevel=bar_thickness * 0.22, segments=3)
-        cap = 0.0045 * k
+        cap = 0.003 * k
         cap_size = (cap, bar_depth, bar_thickness * 1.15) if length >= bar_depth else (length, cap, bar_thickness * 1.15)
         for side in (-1, 1):
             # End caps on the plate's short ends, flush with the contact surface and reaching a little further down
