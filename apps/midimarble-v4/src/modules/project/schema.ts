@@ -387,7 +387,7 @@ export const SFilm = z.strictObject({
 export const BACKING_ID = 'backing';
 
 /**
- * What a Pattern made (prototype): an ordinary list of ordinary pieces, one Undo step, named after the Pattern. `hitIds` are
+ * What a Pattern made: an ordinary list of ordinary pieces, one Undo step, named after the Pattern. `hitIds` are
  * the hits it plays, in time order; a Long Rail's are the notes around its silence, or the one note it opens the track for.
  * Its settings let it run again; hand edits to its pieces stay until it does.
  */

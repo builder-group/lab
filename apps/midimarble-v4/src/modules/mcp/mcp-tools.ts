@@ -406,10 +406,10 @@ const SApplyPattern = z.strictObject({
 	dryRun: z.boolean().optional()
 });
 
-/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same (prototype) */
+/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same */
 async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {
 	const parsed = SApplyPattern.safeParse(command);
-	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
+	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', dryRun: true }`);
 	const { marbleId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
@@ -426,7 +426,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const report = (answer: Awaited<ReturnType<typeof cx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
-			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
+			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, fits: answer.refusal == null, verdicts: answer.verdicts, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), ...(answer.ending != null ? { ending: answer.ending } : {}), ...(answer.offers.length > 0 ? { offers: answer.offers } : {}), ...(answer.movedAfter > 0 ? { movedAfter: answer.movedAfter } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
 		let answer: Awaited<ReturnType<typeof cx.patterns.dryRun>> = null;

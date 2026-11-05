@@ -212,7 +212,8 @@ describe('checkPattern function', () => {
 		if (check.refusal != null) return;
 		const after = apply(built, check.commands);
 		const moved = Math.hypot((dotOf(after, 'h8')?.x ?? 0) - (dotOf(built, 'h8')?.x ?? 0), (dotOf(after, 'h8')?.y ?? 0) - (dotOf(built, 'h8')?.y ?? 0));
-		expect(check.movedAfter > 0).toBe(moved > 0.005);
+		if (moved > 0.02) expect(check.movedAfter).toBeGreaterThan(0);
+		if (moved < 0.005) expect(check.movedAfter).toBe(0);
 	});
 
 	it('should keep a rail that already holds a silence, changing nothing else', () => {

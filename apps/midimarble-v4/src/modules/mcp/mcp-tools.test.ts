@@ -1,10 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Ok } from 'tuple-result';
 import { host } from '@/environment';
 import { addedPacks, library } from '@/modules/library';
 import { type TLibraryItem, type TPack } from '@/modules/scene';
 import { createHistory, createMarble, createProject, type TMarble, type TPiece, type TProject } from '@/modules/project';
-import type { TSimulationResult } from '@/modules/simulation';
+import { checkPattern, type TPatternAsk } from '@/modules/building';
+import { createSimulator, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { readMenuItem } from '@/modules/studio/menu-bar';
 import { StudioCx } from '@/modules/studio';
 import { expandCommands } from './project-commands';
@@ -511,6 +512,69 @@ describe('MCP tools', () => {
 		cx.$playhead.set(2.1);
 		expect(cx.$playing.get()).toBe(false);
 	});
+});
+
+describe('applyPattern', () => {
+	let sim: TSimulator;
+
+	beforeAll(async () => {
+		sim = await createSimulator();
+	});
+	afterAll(() => sim.dispose());
+
+	/** A studio on a real project, with its Patterns asked in this thread instead of a worker */
+	function patternStudio(times: number[]): { cx: StudioCx; project: TProject; marbleId: string } {
+		const created = createProject({ id: 'pattern', title: 'Pattern' });
+		const marble = { ...createMarble(0, { x: 0, y: 0.6 }), start: { position: { x: 0, y: 0.6 }, time: (times[0] ?? 0) - 0.35 }, hits: times.map((time, index) => ({ id: `h${index + 1}`, time })) };
+		const project: TProject = { ...created, marbles: [marble], length: (times.at(-1) ?? 0) + 0.6 };
+		const cx = new StudioCx();
+		cx.$history.set(createHistory(project));
+		cx.$path.set('/tmp/Pattern.marble');
+		cx.simulation.$result.set({ ...sim.simulate(project), revision: project.revision });
+		const client = {
+			run: (asked: TProject, change: TPatternAsk, _progress: unknown, isChecked = true) => {
+				const { project: _after, ...answer } = checkPattern(asked, change, { sim, isChecked });
+				return Promise.resolve({ ...answer, pieces: [] });
+			},
+			cancel: () => undefined,
+			dispose: () => undefined
+		};
+		(cx.patterns as unknown as { client: unknown }).client = client;
+		return { cx, project, marbleId: marble.id };
+	}
+
+	it('should refuse over MCP the way a person is refused, with the hit, the reason and nothing changed', async () => {
+		const { cx, project, marbleId } = patternStudio([1, 1.14, 1.28, 1.42, 1.56]);
+		const ask = { marbleId, from: 1, to: 1.56, kind: 'zigzag', width: 0.3 };
+		const person = checkPattern(project, ask, { sim });
+
+		const dry = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'applyPattern', ...ask, dryRun: true }] } }))) as Record<string, unknown>;
+		const real = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'applyPattern', ...ask }] } }))) as Record<string, unknown>;
+
+		expect(person.refusal?.words).toMatch(/^Zigzag doesn't fit at Hit \d of .*Nothing changed\.$/);
+		expect(dry).toMatchObject({ changed: false, dryRun: true, fits: false, group: null, refusal: person.refusal, verdicts: person.verdicts });
+		expect(real).toMatchObject({ changed: false, fits: false, group: null, refusal: person.refusal, verdicts: person.verdicts });
+		expect(cx.project).toBe(project);
+		expect(cx.$history.get()?.past).toHaveLength(0);
+	}, 60_000);
+
+	it('should list the Patterns in get_state and answer a dry run that fits, applying the same pieces', async () => {
+		const { cx, marbleId } = patternStudio([1, 1.4, 1.8, 2.2]);
+		const ask = { type: 'applyPattern', marbleId, from: 1, to: 1.8, kind: 'zigzag' };
+
+		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { patterns: { kind: string }[] };
+		const dry = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ ...ask, dryRun: true }] } }))) as { fits: boolean; verdicts: unknown[] };
+		const before = cx.$history.get()?.past.length;
+		const real = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [ask] } }))) as { fits: boolean; group: { name: string } };
+
+		expect(state.patterns.map((item) => item.kind)).toEqual(['zigzag', 'staircase', 'longRail']);
+		expect(dry.fits).toBe(true);
+		expect(dry.verdicts).toHaveLength(3);
+		expect(real.fits).toBe(true);
+		expect(real.group.name).toBe('Zigzag');
+		expect(cx.$history.get()?.past.length).toBe((before ?? 0) + 1);
+		expect(cx.project?.track.groups[0]?.pattern?.kind).toBe('zigzag');
+	}, 60_000);
 });
 
 describe('expandCommands function', () => {

@@ -1,5 +1,5 @@
 import type { TBlenderObject } from '@/modules/scene';
-import { preflightExport, problemSummary } from '@/modules/building';
+import { PATTERN_KINDS, PATTERNS, preflightExport, problemSummary } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TPiece, TProject } from '@/modules/project';
 import { DEFAULT_GRAVITY, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
@@ -55,6 +55,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 	};
 	const hits = result?.hits ?? [];
 	return {
+		patterns: PATTERN_KINDS.map((kind) => ({ kind, name: PATTERNS[kind].label, takes: PATTERNS[kind].takes, does: PATTERNS[kind].title })),
 		project: { title: project.title, path: view.path, revision: project.revision, length: round(project.length), format: project.format },
 		// Gravity: a share of Earth's gravity for every marble
 		gravity: { value: project.gravity, default: DEFAULT_GRAVITY, range: [0.05, 2] },

@@ -4,7 +4,7 @@ import { parseHitKey, tieOf } from '@/modules/project';
 import { answerSettle, changedPieces, frameBand, soundsHit } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
 import type { THitVerdict, TPatternCourse, TPatternLeaving } from './contract';
-import { BAR_LENGTH, sampleAt } from './fit-bars';
+import { BAR_LENGTH, COLUMN_PROBLEM, sampleAt } from './fit-bars';
 import { patternOfKind } from './registry';
 import { hitsInRange, runGroupChange, type TGroupChange, type TGroupRunOptions, type TGroupRunOutcome } from './run-group';
 
@@ -331,6 +331,6 @@ function changedPlaces(before: TProject, after: TProject, sim: TSimulator, resul
 	const made = new Set(changedPieces(before, after).map((piece) => piece.id));
 	return result.pieces.filter((piece) => {
 		const position = was.get(piece.entityId);
-		return !made.has(piece.entityId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > 0.005;
+		return !made.has(piece.entityId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > COLUMN_PROBLEM;
 	}).length;
 }

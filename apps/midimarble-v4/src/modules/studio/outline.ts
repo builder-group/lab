@@ -162,7 +162,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'song'; source: TSong | undefined; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; marble: TMarble; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TPiece; marbleId: string | null })
-	// What a Pattern made (prototype) or a plain Group: selects as itself, with its pieces under it
+	// What a Pattern made or a plain Group: selects as itself, with its pieces under it
 	| (TOutlineRowBase & { kind: 'patternGroup'; group: TGroup; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'wall'; labelColor: string | undefined })

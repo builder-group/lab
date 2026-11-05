@@ -87,6 +87,19 @@ Physics stays out of it:
 
 **Marbles side by side.** `MARBLE_SPACING` stays 0.26 m. Rebuilds at 0.16 to 0.22 m gave no clean build that frames closer, as built marbles stay 0.26 to 0.29 m apart at every spacing. Closer two-marble films need bands that interleave by design.
 
+**How often Patterns fit,** from `scripts/pattern-measure.ts`: each Pattern on 638 real ranges of the eight fixtures, of 2 to 16 hits at a song's start, middle and end, and its longest silences, with no Width asked. A fit counts only if the app applies it and the result is measured too: its hits on time, no hit that was on time off time, no new Problems. None of the 638 left a track worse.
+
+| | All fixtures | Jingle Bells |
+| --- | --- | --- |
+| Zigzag, no pieces | 140/144 | 39/42 |
+| Staircase, no pieces | 118/144 | 23/42 |
+| Long Rail, no pieces | 28/31 | 14/14 |
+| Zigzag, after Build Track | 132/144 | 30/42 |
+| Staircase, after Build Track | 106/144 | 11/42 |
+| Long Rail, after Build Track | 15/31 | 9/14 |
+
+A Staircase on Jingle Bells is the weak one: going one way across a band 26 cm wide runs into the other marble's pieces, or its bars, which is what most of its refusals say. A Long Rail after Build Track fails mostly at a note it changes the arrival of: it replaces a bounce, so what follows is struck differently. A rail already there stays and counts as a fit. A check on built Jingle Bells takes a few seconds, about 10 s to say no, on a busy machine.
+
 **Patterns and tilt,** on the reference's hit times:
 
 | Gravity, Width, Bounce | On time | Median tilt | Gap falls |
