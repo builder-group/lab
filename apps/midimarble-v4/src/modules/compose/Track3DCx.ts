@@ -54,6 +54,8 @@ export class Track3DCx {
 	mount(container: HTMLElement, canvas: HTMLCanvasElement): () => void {
 		const renderer = new ComposeRenderer(canvas);
 		this.renderer = renderer;
+		// A new renderer holds no pieces, whatever the last one was given
+		this.synced = null;
 		renderer.setSolidLight();
 		this.container = container;
 		this.paintWall(renderer);
