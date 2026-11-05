@@ -83,6 +83,15 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
+	// Nothing placed yet: what the summary would count is what Build Track does
+	if (!summary.problems.length && summary.onTime === 0 && workspace === 'compose') {
+		const build = getCommand('build.track');
+		return (
+			<button className="mm-hit-summary" data-tone="action" data-quick-help="hitSummary" onClick={() => build.run(cx)} title={`Build every open hit, in time order (${build.shortcut ?? ''})`} type="button">
+				{build.title}
+			</button>
+		);
+	}
 	if (!summary.problems.length) {
 		return (
 			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
