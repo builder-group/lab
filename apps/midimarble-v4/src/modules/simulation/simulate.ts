@@ -115,6 +115,7 @@ function runSimulation(
 		worlds = resumed.worlds.map((bytes) => {
 			const world = RAPIER.World.restoreSnapshot(bytes);
 			world.timestep = DT;
+			world.profilerEnabled = false;
 			return world;
 		});
 		state = restoreState(resumed);
@@ -129,6 +130,7 @@ function runSimulation(
 		worlds = plan.marbles.map(() => {
 			const world = new RAPIER.World({ x: 0, y: plan.gravity, z: 0 });
 			world.timestep = DT;
+			world.profilerEnabled = false;
 			return world;
 		});
 		state = createInitialState(plan);
@@ -509,7 +511,7 @@ function advance(
 		if (worlds.length > 1) updateProxies(worlds, plan, state);
 		followCopies(worlds, state);
 
-		for (let k = 0; k < worlds.length; k++) worlds[k]?.step(queues[k]);
+		for (let k = 0; k < worlds.length; k++) stepWorld(worlds[k], queues[k]);
 		state.step++;
 		steps++;
 		followRides(worlds, plan, state);
@@ -524,6 +526,11 @@ function advance(
 	}
 	for (const queue of queues) queue.free();
 	return steps;
+}
+
+/** `World.step` without its walk over every body and collider after the step, which only finds what soft-body tears split off */
+function stepWorld(world: RAPIER.World | undefined, queue: RAPIER.EventQueue | undefined): void {
+	world?.physicsPipeline.step(world.gravity, world.integrationParameters, world.islands, world.broadPhase, world.narrowPhase, world.bodies, world.colliders, world.softBodies, world.impulseJoints, world.multibodyJoints, world.ccdSolver, queue);
 }
 
 /** Releases marbles due at the current step and returns whether any entered */
