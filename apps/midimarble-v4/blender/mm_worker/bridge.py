@@ -18,6 +18,9 @@ from .ops import Worker, open_scene
 from .util import WorkerError, write_json_atomic
 
 POLL_SECONDS = 0.02
+IDLE_POLL_SECONDS = 0.2
+# A burst of requests, such as a camera drag, keeps the fast poll this long after its last request
+ACTIVE_SECONDS = 2.0
 STATUS_SECONDS = 0.5
 HOST_CHECK_SECONDS = 1.0
 MAX_REQUEST_BYTES = 8 * 1024 * 1024
@@ -44,6 +47,7 @@ class Bridge:
         self.last_status = 0.0
         self.last_host_check = time.monotonic()
         self.last_progress = 0.0
+        self.last_request = time.monotonic()
 
     @property
     def stop(self):
@@ -77,6 +81,7 @@ class Bridge:
     def tick(self):
         for path in sorted(self.host_inbox.glob('*.json')):
             self.handle_file(path)
+            self.last_request = time.monotonic()
             if self.stop:
                 break
         now = time.monotonic()
@@ -87,6 +92,9 @@ class Bridge:
                 self.on_host_gone()
         if now - self.last_status > STATUS_SECONDS or self.stop:
             self.write_status()
+
+    def poll_seconds(self):
+        return POLL_SECONDS if time.monotonic() - self.last_request < ACTIVE_SECONDS else IDLE_POLL_SECONDS
 
     def handle_file(self, path):
         identity = path.stem
@@ -157,7 +165,7 @@ def run(project_dir, host_pid=None):
         try:
             while not bridge.stop:
                 bridge.tick()
-                time.sleep(POLL_SECONDS)
+                time.sleep(bridge.poll_seconds())
         finally:
             bridge.ready = False
             bridge.write_status()
@@ -176,6 +184,6 @@ def run(project_dir, host_pid=None):
             if bridge.host_pid is not None:
                 bpy.ops.wm.quit_blender()
             return None
-        return POLL_SECONDS
+        return bridge.poll_seconds()
 
     bpy.app.timers.register(poll, first_interval=POLL_SECONDS, persistent=True)

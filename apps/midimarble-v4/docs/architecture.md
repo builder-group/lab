@@ -133,6 +133,7 @@ The Rust host starts one Blender process per open project with the bundled worke
 - The host writes `{id, op, args}` to `.bridge/host-inbox/`
 - The worker writes `{id, ok, result | error}` and progress files to `.bridge/outbox/`
 - Agent tools write to a separate `.bridge/inbox/` that accepts only inspection and candidate previews
+- The worker checks its inbox every 20 ms and for 2 s after a request, then every 200 ms, so an idle Blender stays quiet and a burst such as a camera drag stays quick
 
 Operations:
 
@@ -296,7 +297,7 @@ apps/midimarble-v4/
 │       ├── blender/        # bridge client, scene description, motion files, film render
 │       ├── library/        # library items
 │       ├── mcp/            # tools, project commands, presence
-│       ├── start/          # start window, examples
+│       ├── start/          # start window, examples; the only module the start bundle holds, `StartCx` imports the studio
 │       └── studio/         # window: Layers, inspector, timeline, commands, menus, notices
 ├── src-tauri/src/
 │   ├── app/
