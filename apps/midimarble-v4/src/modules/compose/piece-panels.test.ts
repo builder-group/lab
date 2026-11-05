@@ -10,14 +10,14 @@ describe('pieceParamPanels function', () => {
 	it('should put a windmill\'s Brake and Spin in Physics and its shape in Hitbox', () => {
 		const panels = pieceParamPanels('windmill');
 
-		expect(panels.hitbox).toEqual(['depth', 'bladeCount', 'bladeLength', 'bladeThickness', 'hubRadius']);
+		expect(panels.hitbox).toEqual(['bladeCount', 'bladeLength', 'bladeThickness', 'hubRadius']);
 		expect(panels.physics).toEqual(['bounce', 'damping', 'motorSpeed']);
 	});
 
 	it('should keep a platform\'s Length in Position and the bounce in Physics', () => {
 		const panels = pieceParamPanels('platform');
 
-		expect(panels.hitbox).toEqual(['thickness', 'depth']);
+		expect(panels.hitbox).toEqual(['thickness']);
 		expect(panels.physics).toEqual(['bounce']);
 	});
 

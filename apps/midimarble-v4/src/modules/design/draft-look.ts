@@ -204,24 +204,10 @@ export function draftMarble(theme: string, color: string, overrides: Pick<TTheme
 }
 
 /**
- * The lower of a marble's contrasts against its wall and its own pieces, for the theme colour wells' warning
- * below `MARBLE_CONTRAST`
+ * The lower of a marble's contrasts against its wall and its own pieces, which the theme's choice of marble keeps at `MARBLE_CONTRAST`
  */
 export function marbleContrast(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, skin?: TSkinLook): number {
 	return marbleLook(theme, color, overrides, skin).contrast;
-}
-
-/**
- * The Wall well's warning when its colour leaves marbles below `MARBLE_CONTRAST` against the wall or their own
- * pieces: "Melody's marble is hard to see on this wall". Null when every marble reads.
- */
-export function marbleContrastWarning(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'>, marbles: readonly { name: string; color: string; skin?: TSkinLook }[]): string | null {
-	const faint = marbles.filter((marble) => marbleContrast(theme, marble.color, overrides, marble.skin) < MARBLE_CONTRAST);
-	const [first, second] = faint;
-	if (first == null) return null;
-	if (second == null) return `${first.name}'s marble is hard to see on this wall`;
-	if (faint.length === 2) return `${first.name}'s and ${second.name}'s marbles are hard to see on this wall`;
-	return `${faint.length} marbles are hard to see on this wall`;
 }
 
 function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'>, skin?: TSkinLook): { marble: TDraftMarble; contrast: number } {

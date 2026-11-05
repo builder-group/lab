@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSkinLook, type TSkinLook } from './skin-catalog';
+import { resolveSkinLook } from './skin-catalog';
 import { verticalFov } from '@/modules/camera';
 import {
 	contrastRatio,
@@ -10,7 +10,6 @@ import {
 	draftWall,
 	MARBLE_CONTRAST,
 	marbleContrast,
-	marbleContrastWarning,
 	noteColor,
 	previewScreenTitleLayout,
 	screenTitleLayout,
@@ -39,7 +38,7 @@ describe('draft look', () => {
 		expect(draftWall('pegboard', {}, 'plain').holes).toBeNull();
 	});
 
-	it('should approximate marble skins and keep the contrast warning working', () => {
+	it('should approximate marble skins', () => {
 		const look = (assetId: string, fields = {}) => resolveSkinLook('pegboard', null, 'marble', { assetId, ...fields });
 		expect(draftMarble('pegboard', '#3478f6', {}, look('marble:glass')).finish?.kind).toBe('glass');
 		expect(draftMarble('pegboard', '#3478f6', {}, look('marble:metal')).finish?.kind).toBe('metal');
@@ -49,9 +48,6 @@ describe('draft look', () => {
 		expect(draftMarble('pegboard', '#3478f6', {}, look('marble:pearl')).tone).toBe('pearl');
 		// The theme's default still chooses by contrast
 		expect(draftMarble('pegboard', '#3478f6', {}, resolveSkinLook('pegboard', null, 'marble')).tone).toBe(draftMarble('pegboard', '#3478f6').tone);
-		// A dark Deep marble on a dark wall is hard to see, and says so; on a light wall it reads
-		expect(marbleContrastWarning('neon', {}, [{ name: 'Melody', color: '#3478f6', skin: resolveSkinLook('neon', null, 'marble', { assetId: 'marble:deep' }) }])).toBe("Melody's marble is hard to see on this wall");
-		expect(marbleContrastWarning('pegboard', {}, [{ name: 'Melody', color: '#3478f6', skin: look('marble:deep') }])).toBeNull();
 	});
 
 	it('should dress a piece by its skin and Colour, whatever the theme', () => {
@@ -126,15 +122,9 @@ describe('draft look', () => {
 		expect(draftMarble('brass', '#3478f6').rim).toBeNull();
 	});
 
-	it("should turn a marble pearl on a dark project wall and warn when a Wall colour hides it", () => {
+	it("should turn a marble pearl on a dark project wall", () => {
 		// The review's copy of Pegboard with a blue wall: the blue marble went pearl-or-deep, whichever reads more
 		expect(draftMarble('pegboard', '#3478f6', { wallColor: '#1a1a1a' }).tone).toBe('pearl');
-		expect(marbleContrastWarning('pegboard', {}, [{ name: 'Melody', color: '#3478f6' }])).toBeNull();
-		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, [{ name: 'Melody', color: '#3478f6' }])).toBe("Melody's marble is hard to see on this wall");
-		const two = [{ name: 'Melody', color: '#3478f6' }, { name: 'Bass', color: '#ff9f0a' }];
-		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, two)).toBe("Melody's and Bass's marbles are hard to see on this wall");
-		expect(marbleContrastWarning('pegboard', { wallColor: '#3a6e8f' }, [...two, { name: 'Lead', color: '#30d158' }])).toBe('3 marbles are hard to see on this wall');
-		expect(marbleContrastWarning('pegboard', { wallColor: '#f0f0f0' }, two)).toBeNull();
 	});
 
 	it('should draw each Brass skin with its own shape cue in the Draft Preview', () => {
@@ -279,15 +269,3 @@ function saturation(color: string): number {
 	const max = Math.max(...channels);
 	return max === 0 ? 0 : (max - Math.min(...channels)) / max;
 }
-
-describe('marbleContrastWarning with a glass skin', () => {
-	const glass = { skin: 'marble:glass-green', isThemeSkin: true, colour: 'marble', onHit: null, glowColor: null, variant: 'swirl', properties: {} } as unknown as TSkinLook;
-
-	it('should not warn for a swirl far in colour from the wall, however close in lightness', () => {
-		expect(marbleContrastWarning('brass', { wallColor: '#fcf3df' }, [{ name: 'Bass', color: '#0c8a3a', skin: glass }])).toBeNull();
-	});
-
-	it('should warn for a swirl close to the wall in colour', () => {
-		expect(marbleContrastWarning('brass', { wallColor: '#16ff6b' }, [{ name: 'Bass', color: '#0c8a3a', skin: glass }])).toBe("Bass's marble is hard to see on this wall");
-	});
-});

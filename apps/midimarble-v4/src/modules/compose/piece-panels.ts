@@ -11,17 +11,17 @@ const PHYSICS_PARAMS = ['bounce', 'damping', 'motorSpeed'];
 export function pieceParamPanels(type: string, railLayout?: TRailLayout): { hitbox: string[]; physics: string[] } {
 	if (type === 'rail') return { hitbox: railLayoutInfo[railLayout ?? 'path'].params, physics: [] };
 	const layout = layoutOf(type);
-	const names = Object.keys(getPieceDefinition(type)?.params ?? {}).filter((name) => name !== 'entryDelay' && !(layout === 'box' && name === 'length') && !(layout === 'catcher' && name === 'mirror'));
+	// Depth is only how far it stands out of the wall, so it's the Skin's, in Film
+	const names = Object.keys(getPieceDefinition(type)?.params ?? {}).filter((name) => name !== 'entryDelay' && name !== 'depth' && !(layout === 'box' && name === 'length') && !(layout === 'catcher' && name === 'mirror'));
 	return {
 		hitbox: names.filter((name) => !PHYSICS_PARAMS.includes(name)).sort((a, b) => hitboxRank(a) - hitboxRank(b)),
 		physics: PHYSICS_PARAMS.filter((name) => names.includes(name))
 	};
 }
 
-// Thickness and depth lead; the rest keep the definition's order
+// Thickness leads; the rest keep the definition's order
 function hitboxRank(name: string): number {
-	const index = ['thickness', 'depth'].indexOf(name);
-	return index < 0 ? 2 : index;
+	return name === 'thickness' ? 0 : 1;
 }
 
 /**

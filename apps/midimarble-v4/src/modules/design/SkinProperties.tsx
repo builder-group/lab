@@ -1,12 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
-import { RotateCcw, TriangleAlert } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { resetToThemeCommands, skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
-import { marbleContrastWarning } from './draft-look';
 import { appliedOverrides, resolveElementLook, resolveTheme } from './project-themes';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
@@ -195,21 +194,12 @@ export const ResetToTheme: React.FC<{ cx: StudioCx; project: TProject; entities:
 /** A marble's Skin section in Film: its skin and properties. Its physics never change with its skin. */
 export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TEntity }> = (props) => {
 	const { cx, project, marble } = props;
-	const look = resolveElementLook(project.design, 'marble', marble.components.skin);
-	const theme = resolveTheme(project.design);
-	const warning = marbleContrastWarning(theme.base, appliedOverrides(project.design), [{ name: marble.name ?? 'This', color: marble.components.marble?.color ?? '#d0d4dc', skin: look }]);
 
 	return (
 		<Panel id="marble.skin" title="Skin" accessory={<HelpTip text={`${SKIN_HELP} A click applies to this marble, ⌥-click to all marbles. A skin never changes how it falls or bounces.`} />}>
 			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" entities={[marble]} />
 			<SkinPropertyRows cx={cx} project={project} entities={[marble]} />
 			<ResetToTheme cx={cx} project={project} entities={[marble]} />
-			{warning != null ? (
-				<span className="flex items-start gap-1 text-[11px] text-[var(--text-secondary)]" data-span="2" role="status">
-					<TriangleAlert size={12} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--warn)]" aria-hidden />
-					{warning}
-				</span>
-			) : null}
 		</Panel>
 	);
 };

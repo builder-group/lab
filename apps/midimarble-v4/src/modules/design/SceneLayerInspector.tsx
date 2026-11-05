@@ -1,11 +1,10 @@
-import { BrickWall, Lightbulb, RotateCcw, Sun, TriangleAlert } from 'lucide-react';
+import { BrickWall, Lightbulb, RotateCcw, Sun } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, Panel, SliderField } from '@/components';
 import type { TLight, TProject, TProjectCommand } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { parseHexColor } from '@/modules/studio/format';
 import { SKIN_HELP } from './concept-words';
-import { marbleContrastWarning } from './draft-look';
 import { WallPicker } from './SkinPickers';
 import { appliedOverrides, baseThemeOf, resolveTheme } from './project-themes';
 import {
@@ -32,8 +31,6 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 	const origin = themeOriginLabel(design);
 	const themeName = resolveTheme(design).name;
 	const isOwn = Object.keys(wall.own).length > 0;
-	const marbles = project.entities.flatMap((entity) => (entity.components.marble != null ? [{ name: entity.name ?? 'Marble', color: entity.components.marble.color }] : []));
-	const warning = marbleContrastWarning(baseThemeOf(design), appliedOverrides(design), marbles);
 
 	return (
 		<>
@@ -51,12 +48,6 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 					resetTitle={`Use ${themeName}'s wall colour again`}
 					commandsFor={(color) => wallCommands(requireProject(cx), { color })}
 				/>
-				{warning != null ? (
-					<span className="flex items-start gap-1 text-[11px] text-[var(--text-secondary)]" data-span="2" role="status">
-						<TriangleAlert size={12} strokeWidth={1.8} className="mt-px shrink-0 text-[var(--warn)]" aria-hidden />
-						{warning}
-					</span>
-				) : null}
 				<ColorWell
 					cx={cx}
 					id="wall-background"
