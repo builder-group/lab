@@ -577,6 +577,8 @@ POLISHED_PAINTS = {
     'wood': ((0.40, 0.125, 0.035), 0.2),
 }
 WOOD_DARK = (0.17, 0.045, 0.014, 1.0)
+# How deep a skin's body gets, per kit size: a deeper piece stands out on a long post instead
+POST_BODY_DEPTH = 0.06
 PAINT_SHEEN = 0.34
 
 
@@ -685,10 +687,24 @@ def add_wood_grain(tree, principled, base):
     tree.links.new(ramp.outputs['Color'], principled.inputs['Base Color'])
 
 
+def post_standoff(frame, k, base):
+    """How far a skin's body stands off the wall: `base`, or what a depth past POST_BODY_DEPTH adds as a long post, so a
+    deep bar keeps its size and stands out on the post. The body still reaches past the marble's lane."""
+    longest = frame.wall_y - frame.marble_y - frame.marble_radius * 1.3
+    return max(base, min(frame.depth - POST_BODY_DEPTH * k, longest))
+
+
+def add_post(builder, frame, back, z, k, material):
+    """The post from the wall to a body that stands off it, when the depth asks for a long one"""
+    length = frame.wall_y - back
+    if length > 0.01 * k:
+        builder.cylinder(0.0024 * k, length, (0.0, frame.wall_y - length / 2, z), axis='Y', material=material, segments=16)
+
+
 def polished_frame(frame, thickness):
     """Dimensions every polished skin shares: back at the wall stub, front toward the camera, the contact's top face"""
     k = frame.marble_radius / 0.008
-    standoff = 0.002 * k
+    standoff = post_standoff(frame, k, 0.002 * k)
     back = frame.wall_y - standoff
     front = back - max(frame.depth - standoff, 0.001)
     return k, back, front, thickness / 2
@@ -718,6 +734,7 @@ def plate_spec(frame, length, thickness, finish):
                 bevel=edge * 0.5, segments=2)
     add_wheels(chassis, length, back, front, underside - chassis_height * 0.45, k)
     chassis.cylinder(0.005 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, underside - chassis_height / 2), axis='Y', material=1, bevel=0.0006 * k)
+    add_post(chassis, frame, back, underside - chassis_height / 2, k, 1)
     plate = MeshBuilder()
     block = min(0.0065 * k, depth * 0.16)
     plate.box((length, depth - block + edge, thickness * 0.85), (0.0, (front + block - edge + back) / 2, top - thickness * 0.425), bevel=edge, segments=4)
@@ -766,6 +783,7 @@ def chrome_device_spec(frame, length, thickness):
     body.box((length, block, thickness * 1.1), (0.0, front + block / 2, top - thickness * 0.55), bevel=edge, material=1, segments=4)
     add_wheels(body, length, back, front, axis_z - radius * 0.55, k, tire=4, hub=0)
     body.cylinder(0.005 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, axis_z - radius * 0.45), axis='Y', material=3, bevel=0.0006 * k)
+    add_post(body, frame, back, axis_z - radius * 0.45, k, 3)
     pad = MeshBuilder()
     pad.box((length, back - pad_front, thickness * 0.8), (0.0, (back + pad_front) / 2, top - thickness * 0.4), bevel=edge, segments=4)
     # Thin gold strips along the pad's long sides, flush with its top, so it reads as a dark plate with bright edges
@@ -797,6 +815,7 @@ def dark_housing_spec(frame, length, thickness):
     body.cylinder(ring, 0.0012 * k, (0.0, ring_y, housing_top), axis='Z', material=1, segments=32, bevel=0.0004 * k)
     body.cylinder(ring * 0.68, 0.0015 * k, (0.0, ring_y, housing_top + 0.0001 * k), axis='Z', material=2, segments=24)
     body.cylinder(0.0035 * k, 0.003 * k, (0.0, frame.wall_y - 0.0015 * k, housing_top - height / 2), axis='Y', material=1, bevel=0.0005 * k)
+    add_post(body, frame, back, housing_top - height / 2, k, 1)
     key = MeshBuilder()
     key_height = 0.0022 * k
     key.box((key_width, back - key_front - 0.001 * k, key_height), (0.0, (back - 0.001 * k + key_front) / 2, top - key_height / 2), bevel=min(0.0008 * k, key_height * 0.4), segments=3)
@@ -833,7 +852,7 @@ def platform_spec(frame, piece):
         metal = frame.metal(themes.bar_material(frame.style))
         # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
         k = frame.marble_radius / 0.008
-        standoff = 0.0025 * k
+        standoff = post_standoff(frame, k, 0.0025 * k)
         bar_depth = max(frame.depth - standoff, 0.001)
         bar_y = frame.wall_y - standoff - bar_depth / 2
         # The top face is the collider's contact surface; the bar reaches a little below the collider so it reads
@@ -851,7 +870,9 @@ def platform_spec(frame, piece):
         bracket = MeshBuilder()
         underside = bar_z - bar_thickness / 2
         # A small block on the wall under the plate's far end, and four feet near its corners
-        bracket.box((min(length * 0.5, 0.012 * k), standoff + 0.002 * k, 0.003 * k), (0.0, frame.wall_y - (standoff + 0.002 * k) / 2, underside - 0.0015 * k), bevel=0.0004 * k)
+        block = min(standoff, 0.0025 * k) + 0.002 * k
+        bracket.box((min(length * 0.5, 0.012 * k), block, 0.003 * k), (0.0, frame.wall_y - block / 2, underside - 0.0015 * k), bevel=0.0004 * k)
+        add_post(bracket, frame, frame.wall_y - standoff, underside - 0.0015 * k, k, 0)
         add_feet(bracket, length, bar_y + bar_depth / 2, bar_y - bar_depth / 2, underside, k)
         return {
             'root': bracket.to_mesh('MM bracket', [chrome]),
@@ -911,7 +932,7 @@ def device_spec(frame, length, thickness):
     below the collider like a solid block. Seen from the follow camera the top and the face away from the wall show,
     so the detail sits there."""
     k = frame.marble_radius / 0.008
-    standoff = 0.002 * k
+    standoff = post_standoff(frame, k, 0.002 * k)
     depth = max(frame.depth - standoff, 0.001)
     back = frame.wall_y - standoff
     front = back - depth

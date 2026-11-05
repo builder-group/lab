@@ -54,8 +54,9 @@ export const platformDefinition: TPieceDefinition = {
 		// A thin plate seen end on, 3 cm along the wall: the collider's length too
 		length: { default: kit(0.02), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
-		// How far the plate stands out of the wall, 9 cm by default: visual only, as the marble moves in the wall plane
-		depth: { default: kit(0.06), min: 0.02, max: 0.12, label: 'Depth', unit: 'm' },
+		// How far the plate stands out of the wall, 9 cm by default: visual only, as the marble moves in the wall plane. Past
+		// 9 cm skins keep the bar's size and stand it out on a long post (`post_standoff` in skins.py)
+		depth: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
