@@ -77,7 +77,8 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 	const spaceHeld = useFeatureState(compose.$spaceHeld);
 	const tool = useFeatureState(compose.$tool);
 	const [hover, setHover] = React.useState<string | null>(null);
-	const [drag, setDrag] = React.useState<{ kind: 'turn' | 'pan'; last: TVec2; moved: number } | null>(null);
+	const dragRef = React.useRef<{ kind: 'turn' | 'pan'; last: TVec2; moved: number } | null>(null);
+	const [isDragging, setIsDragging] = React.useState(false);
 	const isPanTool = spaceHeld || tool === 'hand';
 
 	React.useEffect(() => {
@@ -112,32 +113,39 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 			ref={containerRef}
 			className="absolute inset-0 z-[25] touch-none bg-[var(--canvas)]"
 			// The flat canvas and this one match at the ends of the ease, so a short fade hides the change of look
-			style={{ opacity: Math.min(1, amount * 8), pointerEvents: view === '3d' ? undefined : 'none', cursor: drag != null ? 'grabbing' : isPanTool ? 'grab' : hover != null ? 'pointer' : 'default' }}
+			style={{ opacity: Math.min(1, amount * 8), pointerEvents: view === '3d' ? undefined : 'none', cursor: isDragging ? 'grabbing' : isPanTool ? 'grab' : hover != null ? 'pointer' : 'default' }}
 			role="img"
 			aria-label="Track in 3D"
 			onPointerDown={(event) => {
 				if (event.button !== 0 && event.button !== 1) return;
 				event.currentTarget.setPointerCapture(event.pointerId);
-				setDrag({ kind: isPanTool || event.button === 1 ? 'pan' : 'turn', last: pointOf(event), moved: 0 });
+				dragRef.current = { kind: isPanTool || event.button === 1 ? 'pan' : 'turn', last: pointOf(event), moved: 0 };
 			}}
 			onPointerMove={(event) => {
 				const point = pointOf(event);
+				const drag = dragRef.current;
 				if (drag == null) {
 					setHover(isPanTool ? null : track.pick(point));
 					return;
 				}
 				const [dx, dy] = [point.x - drag.last.x, point.y - drag.last.y];
 				const moved = drag.moved + Math.hypot(dx, dy);
-				setDrag({ ...drag, last: point, moved });
+				dragRef.current = { ...drag, last: point, moved };
 				if (moved < CLICK_SLOP) return;
+				setIsDragging(true);
 				if (drag.kind === 'turn') track.turn(dx, dy);
 				else track.pan(dx, dy);
 			}}
 			onPointerUp={(event) => {
+				const drag = dragRef.current;
 				if (drag != null && drag.moved < CLICK_SLOP && drag.kind === 'turn') select(track.pick(pointOf(event)), event.shiftKey);
-				setDrag(null);
+				dragRef.current = null;
+				setIsDragging(false);
 			}}
-			onPointerCancel={() => setDrag(null)}
+			onPointerCancel={() => {
+				dragRef.current = null;
+				setIsDragging(false);
+			}}
 			onPointerLeave={() => setHover(null)}
 			onContextMenu={(event) => {
 				const id = track.pick(pointOf(event));

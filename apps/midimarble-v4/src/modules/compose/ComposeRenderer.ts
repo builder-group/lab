@@ -195,7 +195,7 @@ export class ComposeRenderer {
 
 	/** Track's 3D view, like Blender's Solid mode: a stronger light from above, so a bar's top, front and sides read apart */
 	setSolidLight(): void {
-		this.ambient.intensity = 0.45 * Math.PI;
+		this.ambient.intensity = 0.55 * Math.PI;
 		this.key.intensity = 0.75 * Math.PI;
 		this.key.position.set(0.4, 1.2, 1);
 		this.invalidate();

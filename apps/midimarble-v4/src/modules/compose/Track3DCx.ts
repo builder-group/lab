@@ -15,7 +15,7 @@ const ORBIT_FOV = 30;
 const FLAT_FOV = 1.5;
 const EASE_SECONDS = 0.38;
 /** How far the view turns; past this the wall would hide everything */
-export const MAX_ORBIT = (85 / 180) * Math.PI;
+export const MAX_ORBIT = (75 / 180) * Math.PI;
 
 /**
  * Track's free 3D view, like orbiting Blender's viewport: its own canvas over the flat one, on the same center and scale
@@ -152,7 +152,7 @@ export class Track3DCx {
 	}
 }
 
-const TURN_PER_PIXEL = 0.006;
+const TURN_PER_PIXEL = 0.005;
 
 function clamp(value: number, limit: number): number {
 	return Math.max(-limit, Math.min(limit, value));
