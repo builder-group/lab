@@ -876,7 +876,11 @@ export class AssistCx {
 					},
 					isCanceled
 				});
-				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) judge(outcome.project, outcome.result);
+				if (!outcome.isStopped) {
+					if (!brokenHits(outcome.result.hits).length) judge(outcome.project, outcome.result);
+					// Hits still broken are no fix, whatever else got better: the notice gives the counts
+					else verdict.worse = fixWorseWords(before, problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision })));
+				}
 			}
 		} catch (error) {
 			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
