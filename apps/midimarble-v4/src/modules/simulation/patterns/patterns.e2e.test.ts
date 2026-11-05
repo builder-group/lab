@@ -73,7 +73,7 @@ function gapFalls(result: TSimulationResult): number[] {
 }
 
 describe('Patterns chained on the reference hits', () => {
-	it('should play all 58 on time with rails in the gaps, and say what Width can't do, also when an earlier Width changes', { timeout: 5 * MINUTES }, () => {
+	it('should play all 58 on time with rails in the gaps, and say what a Width cannot do, also when an earlier Width changes', { timeout: 5 * MINUTES }, () => {
 		const startedAt = performance.now();
 		const chain = buildChain(referenceProject());
 		const chainMs = performance.now() - startedAt;
