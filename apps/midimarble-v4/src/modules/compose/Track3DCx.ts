@@ -62,7 +62,15 @@ export class Track3DCx {
 		});
 		observer.observe(container);
 		const studio = this.compose.studio;
+		// The wall's tokens change with the appearance, as in the flat view
+		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+		const repaint = (): void => {
+			this.paintWall(renderer);
+			this.draw();
+		};
+		scheme.addEventListener('change', repaint);
 		const cleanups = [
+			() => scheme.removeEventListener('change', repaint),
 			studio.$history.listen(() => this.draw()),
 			studio.simulation.$result.listen(() => this.draw()),
 			studio.$playhead.listen(() => this.draw()),
