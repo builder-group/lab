@@ -335,7 +335,7 @@ def main():
     hidden.rename(asset_file)
 
     # Wall text: created, updated, left alone after a user edit, removed
-    title = {'id': 'text-1', 'text': 'MIDI', 'font': 'Bfont Regular', 'size': 0.04, 'color': '#2a2522',
+    title = {'id': 'text-1', 'text': 'MIDI', 'font': 'Bfont Regular', 'size': 0.04, 'color': '#ffffff',
              'position': {'x': 0.0, 'y': 0.23}, 'angle': 0.1}
     second = dict(title, id='text-2', text='Second', position={'x': 0.05, 'y': 0.05}, angle=0.0)
     write_package(root, records, hit, asset=True, texts=[title, second])
@@ -595,7 +595,7 @@ def main():
     # A short film still renders from the saved scene copy with appended assets and text
     write_package(root, records, hit, asset=True, texts=[title_text], duration=0.2)
     apply(worker)
-    started = worker.handle('render_film', {'preset': 'fast', 'outputPath': 'renders/design.mp4', 'jobId': 'job-design'})
+    started = worker.handle('render_film', {'preset': 'final', 'outputPath': 'renders/design.mp4', 'jobId': 'job-design'})
     envelope = render.wait_for_job(root, 'job-design', timeout=600)
     check(envelope['ok'] and Path(envelope['result']['path']).is_file(), 'render_film writes the film (%d frames)' % started['frames'])
 

@@ -328,11 +328,11 @@ const WallTitle: React.FC<{ title: TDraftTitle }> = (props) => {
 			fill={title.color}
 			opacity={title.opacity}
 			fontSize={title.fontSize}
-			fontWeight={600}
+			fontWeight={700}
 			textAnchor="middle"
 			dominantBaseline="central"
 			transform={`rotate(${title.angle} ${title.center.x} ${title.center.y})`}
-			style={{ fontFamily: '-apple-system, "Helvetica Neue", sans-serif', textShadow: '0 1px 1.5px rgb(0 0 0 / 0.25)' }}
+			style={{ fontFamily: '-apple-system, "Helvetica Neue", sans-serif', textShadow: '0 1px 3px rgb(0 0 0 / 0.4)' }}
 		>
 			{title.text}
 		</text>

@@ -86,7 +86,7 @@ describe('title colour', () => {
 	});
 
 	it("should keep the built-in themes' title colours", () => {
-		expect(themeTitleColor('pegboard')).toBe(DARK);
+		expect(themeTitleColor('pegboard')).toBe(WHITE);
 		expect(themeTitleColor('brass')).toBe(WHITE);
 		expect(themeTitleColor('neon')).toBe(WHITE);
 	});
@@ -106,7 +106,7 @@ describe('title colour', () => {
 		const entity = { id: 'text-1', name: 'Fin', components: { wallText: unset, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
 		project.entities.push(entity);
 		const build = buildSceneDescription(project, { revision: project.revision, duration: 1, marbles: [], pieces: [], hits: [] } as never, { fps: 30 });
-		expect(build.description.wallTexts?.[0]?.color).toBe(DARK);
+		expect(build.description.wallTexts?.[0]?.color).toBe(WHITE);
 		expect(themeCommands(project, 'neon')).toHaveLength(1);
 	});
 });

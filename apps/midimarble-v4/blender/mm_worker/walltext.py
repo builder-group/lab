@@ -31,10 +31,16 @@ from .util import OWNER, WorkerError, finite, link_only_to, parse_color, resolve
 
 TEXT_ROLE = 'text'
 BUILTIN_FONT = 'Bfont Regular'
+# The built-in font is thin and reads faint on the wall, so a title without its own font draws in the encoder's bold one
+# (`render.SCREEN_TITLE_FONTS`); with none of them on the machine the built-in letters are thickened by `BOLD_OFFSET` of their size
+BOLD_FONTS = ('/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf', '/System/Library/Fonts/Supplemental/Arial Bold.ttf')
+BOLD_OFFSET = 0.03
 # Gap between the back of the letters and the wall plane so they never z-fight with it
 WALL_GAP = 0.0002
-# How far a wall title stands out of the wall, in metres; a bevel on it catches the light
-TITLE_RELIEF = 0.002
+# How far a wall title stands out of the wall, in metres; a bevel on it catches the light and the relief casts its soft shadow
+TITLE_RELIEF = 0.004
+# Glow of a wall title on top of the light it takes: the themes darken the film, and a white title would read grey
+WALL_GLOW = 1.2
 # Seconds a timed title takes to fade in after its `in` time and out before its `out` time
 FADE = 0.25
 VISIBLE_PROPERTY = 'mm_visible'
@@ -117,6 +123,7 @@ def write_text(project_dir, obj, entry):
     font = resolve_font(project_dir, entry.get('font'))
     if font is not None:
         data.font = font
+    data.offset = BOLD_OFFSET * data.size if font is not None and font.name == BUILTIN_FONT else 0.0
     material = title_material(entry.get('color') or '#1d1d1f', screen is not None)
     if len(data.materials):
         data.materials[0] = material
@@ -225,6 +232,9 @@ def title_material(color, emissive=False):
         principled = themes._principled(material)
         themes._set(principled, 'Base Color', linear)
         themes._set(principled, 'Roughness', 0.38)
+        if not emissive:
+            themes._set(principled, 'Emission Color', linear)
+            themes._set(principled, 'Emission Strength', WALL_GLOW)
         output = next(node for node in tree.nodes if node.type == 'OUTPUT_MATERIAL')
         if emissive:
             emission = tree.nodes.new('ShaderNodeEmission')
@@ -291,8 +301,8 @@ def write_timing(obj, entry, fps, duration):
 
 
 def resolve_font(project_dir, name):
-    if not isinstance(name, str) or not name:
-        name = BUILTIN_FONT
+    if not isinstance(name, str) or not name or name == BUILTIN_FONT:
+        name = next((path for path in BOLD_FONTS if Path(path).is_file()), BUILTIN_FONT)
     font = bpy.data.fonts.get(name)
     if font is not None:
         return font
@@ -320,7 +330,7 @@ def signature(obj):
                  else [round(value, 6) for value in (*obj.location, *obj.rotation_euler, *obj.scale)])
     values = [
         placement,
-        data.body, round(data.size, 6), round(data.extrude, 6), round(data.bevel_depth, 6),
+        data.body, round(data.size, 6), round(data.extrude, 6), round(data.bevel_depth, 6), round(data.offset, 6),
         data.font.name if data.font else None,
         [material.name if material else None for material in data.materials],
         data.align_x, data.align_y,

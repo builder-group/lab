@@ -107,17 +107,16 @@ describe('project theme commands', () => {
 		expect(apply(other, deleteThemeCommands(other, themeId)).design.theme).toBe('brass');
 	});
 
-	it("should recolour titles by the base theme's title colour", () => {
+	it("should recolour titles still in the old wall's title colour", () => {
+		const light = { id: 'theme-light', name: 'Light', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
 		const project = withTheme('pegboard');
-		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#1f3a5f' } } };
-		const withTitle = { ...project, entities: [...project.entities, title] };
-		const neonCopy = apply({ ...withTitle, design: { ...withTitle.design, theme: 'neon' } }, duplicateThemeCommands({ ...withTitle, design: { ...withTitle.design, theme: 'neon' } }, 'neon').commands);
-		const back = apply(neonCopy, themeCommands(neonCopy, 'pegboard'));
-		expect(back.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#1f3a5f');
-		const themed = apply(back, themeCommands(back, neonCopy.design.theme));
-		expect(themed.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#ffffff');
+		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#ffffff' } } };
+		const withTitle = { ...project, design: { ...project.design, themes: [light] }, entities: [...project.entities, title] };
+		const onLight = apply(withTitle, themeCommands(withTitle, 'theme-light'));
+		expect(onLight.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#1f3a5f');
+		const back = apply(onLight, themeCommands(onLight, 'pegboard'));
+		expect(back.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#ffffff');
 	});
-
 });
 
 describe('project themes in Blender and the Draft Preview', () => {

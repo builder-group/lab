@@ -144,9 +144,9 @@ function linearToHex(linear: readonly number[]): string {
 // MARK: - Commands
 
 /** The relative luminance above which a wall takes dark titles: Pegboard's birch does, Brass's lavender plaster doesn't */
-const LIGHT_WALL_LUMINANCE = 0.4;
+const LIGHT_WALL_LUMINANCE = 0.7;
 
-/** The title colour that reads on a wall: navy on a light wall, white on a dark one */
+/** The title colour that reads on a wall: white with its soft shadow, navy only on a wall too light for white */
 export function titleColorOnWall(wall: string): string {
 	const channel = (start: number): number => {
 		const value = Number.parseInt(wall.slice(start, start + 2), 16) / 255;
