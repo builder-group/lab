@@ -4,9 +4,10 @@ import { STARTER_PACK, withStarterPack, type TLibraryItem, type TPack } from './
 import { decorItem } from './decor-catalog';
 import { WALL_KINDS } from './scene-layers';
 import { catalogSkins, SKIN_ELEMENTS } from './skin-catalog';
-import { createProject, type TPackTheme } from '@/modules/project';
+import { createProject, type TPackTheme, type TProject } from '@/modules/project';
 import { apply } from '@/modules/project/test-helpers';
-import { packThemeCommands } from './project-themes';
+import { createHistory, pushHistory, undoHistory } from '@/modules/project/history';
+import { packThemeCommands, themeCommands } from './project-themes';
 import { libraryEntries, libraryItemOrigin, packContents } from '@/modules/film';
 import { packExport, themeAssetIds, withThemeAssets } from './packs';
 import { packOrigin } from './project-themes';
@@ -108,5 +109,47 @@ describe('Packs', () => {
 		expect(packContents(STARTER_PACK)).toBe(`3 themes, ${skins.length} skins, 4 decor items`);
 		expect(withStarterPack([{ ...pack([]), id: 'starter' }, pack([])]).map((item) => item.id)).toEqual(['starter', pack([]).id]);
 		expect(isPackAdded('starter')).toBe(true);
+	});
+
+	describe('changing theme with changes on the look', () => {
+		const origin = { packId: 'christmas', packName: 'Christmas', version: '1.0' };
+		const lights = { key: { strength: 3 }, added: [{ id: 'fill', name: 'Fill', color: '#ffffff', strength: 1, side: 0.2, height: 0.3 }] };
+		const wall = { color: '#112233', labelColor: '#445566' };
+
+		function edited(worn: 'pack' | 'builtIn'): TProject {
+			const start = worn === 'pack' ? apply(createProject(), packThemeCommands(createProject(), theme, origin)) : createProject();
+			return apply(start, [{ type: 'updateFilm', film: { wall, lights } }]);
+		}
+
+		it.each([
+			['a Pack theme for a built-in one', 'pack', (project: TProject) => themeCommands(project, 'neon')],
+			['a Pack theme for another', 'pack', (project: TProject) => packThemeCommands(project, { ...theme, id: 'other', name: 'Other' }, origin)],
+			['a built-in theme for a Pack one', 'builtIn', (project: TProject) => packThemeCommands(project, theme, origin)]
+		] as const)('should replace Wall and Lights leaving %s, and one Undo should give them back', (_name, worn, commands) => {
+			// Prepare
+			const before = edited(worn);
+
+			// Act
+			const after = pushHistory(createHistory(before), apply(before, commands(before)));
+			const undone = undoHistory(after);
+
+			// Assert
+			expect(after.present.film.lights).toEqual({ added: [] });
+			expect(after.present.film.wall).toEqual({ labelColor: '#445566' });
+			expect(undone.past).toHaveLength(0);
+			expect(undone.present.film).toEqual(before.film);
+		});
+
+		it('should keep Wall and Lights between built-in themes', () => {
+			// Prepare
+			const before = edited('builtIn');
+
+			// Act
+			const after = apply(before, themeCommands(before, 'neon'));
+
+			// Assert
+			expect(after.film.wall).toEqual(wall);
+			expect(after.film.lights).toEqual(lights);
+		});
 	});
 });

@@ -46,7 +46,8 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 			...themeTile(cx, resolved, colors),
 			key: `${pack.id}:${item.id}`,
 			isCurrent: isWorn(pack.id, item.id),
-			onApply: () => void cx.library.applyPackTheme(pack, item),
+			// Picking the theme the film already wears changes nothing, as with a built-in one: wearing it again would clear the Wall and Lights changes made on it
+			onApply: () => (isWorn(pack.id, item.id) ? undefined : void cx.library.applyPackTheme(pack, item)),
 			onMenu: (): TMenuEntry[] => [{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
 		}))
 	];

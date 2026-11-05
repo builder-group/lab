@@ -226,7 +226,7 @@ A piece is named for what the marble does on it.
 
 ## Film workspace
 
-- Pickers follow Figma's Assets panel and Final Cut's browser: tiles of square rendered previews with a name and a quiet origin line; the current one has the accent ring; In Use is a small dark badge; the Keep in Library star sits in the top-right corner, shown on hover and always when kept.
+- Pickers follow Figma's Assets panel and Final Cut's browser: tiles of square rendered previews with a name and a quiet origin line; the current one has the accent ring; In Use is a small dark badge.
 - Blender's state is on the title bar's Blender button; an agent at work shows on the Agent button and in the notice; an export shows as a ring in Export Film… while the sheet is closed. Open in Blender is in the Blender menu and ⌘K
 - The Film inspector uses the same grid and has no prose. A piece shows its Skin section and Blender's link as one row with a dot (Detached with a reset, when it is)
 - **Draft Preview.** Wherever Blender's frames aren't there, the app draws the run through the same follow camera, like Final Cut's proxy playback, with the theme in flat colors. View › Draft Preview keeps it on. Picking, title placing, drops, scrubbing and playback work the same on both
