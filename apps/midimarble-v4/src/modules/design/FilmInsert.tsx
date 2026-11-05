@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Lightbulb, Music, PackagePlus, Star, Type, Wand2 } from 'lucide-react';
+import { Box, Lightbulb, Music, PackagePlus, Star, Type, Video, Wand2 } from 'lucide-react';
 import React from 'react';
 import { addedPacks } from '@/modules/library';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
@@ -46,12 +46,12 @@ export function dropTitle(event: React.DragEvent, cx: StudioCx): boolean {
 
 /**
  * Film's Insert popover, the one place to add something, the same as Compose's with its tiles: titles, Decor with its
- * origin line and the Keep in Library star on what an agent made or you imported, a light, then the song
+ * origin line and the Keep in Library star on what an agent made or you imported, a light and a shot, then the song
  * while there is none and a marble. A click adds the item, a drag onto the viewer places it. How the selection looks, its
  * skins and the theme, is in the inspector.
  */
 export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
-	const { cx, anchor, hasSong, onAddSong, onAddMarble, onAddTitle, onAddLight } = props;
+	const { cx, anchor, hasSong, onAddSong, onAddMarble, onAddTitle, onAddLight, onAddShot } = props;
 	const status = useFeatureState(cx.library.$status);
 	const error = useFeatureState(cx.library.$error);
 	const projectItems = useFeatureState(cx.library.$projectItems);
@@ -124,8 +124,9 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 				<PackagePlus size={12} strokeWidth={1.8} />
 				Add Pack…
 			</button>
-			<InsertSection title="Light">
+			<InsertSection title="Light and Camera">
 				<InsertTile label="Light" title="Add a light to the scene" preview={<Lightbulb size={22} strokeWidth={1.4} />} onAdd={() => add(onAddLight)} />
+				<InsertTile label="Shot" title="Add a shot at the playhead" preview={<Video size={22} strokeWidth={1.4} />} onAdd={() => add(onAddShot)} />
 			</InsertSection>
 			<InsertSection title={hasSong ? 'Marble' : 'Song and Marble'}>
 				{hasSong ? null : <InsertTile label="Song…" title="Add a MIDI file or a recording: the only sound of the film" preview={<Music size={22} strokeWidth={1.4} />} onAdd={() => add(onAddSong)} />}
@@ -149,6 +150,7 @@ interface TFilmInsertProps {
 	onAddMarble: () => void;
 	onAddTitle: () => void;
 	onAddLight: () => void;
+	onAddShot: () => void;
 }
 
 const TITLE_TILES: readonly { style: TTitleStyle; label: string; description: string }[] = [

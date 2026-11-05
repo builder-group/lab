@@ -36,7 +36,7 @@ import { songDisplayName, titleSpan, withTitleTime } from './titles';
 // Camera. The studio's Inspector picks one for the selection.
 
 /**
- * The Camera layer's inspector, in Track: the frame of the film, then Automatic or Manual with the
+ * The Camera layer's inspector, in Compose and in Film: the frame of the film, then Automatic or Manual with the
  * rig's distance, turn, tilt and sway, the framing problem at the playhead and the shots
  */
 export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -55,7 +55,7 @@ export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (p
 	);
 };
 
-/** The shape of the film, in Track's Scene */
+/** The shape of the film, in Film's Scene */
 export const FormatField: React.FC<{ cx: StudioCx; project: TProject }> = ({ cx, project }) => {
 	const aspect = frameAspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
 	return (
@@ -105,7 +105,7 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 		<Panel
 			id="design.camera"
 			title="Camera"
-			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots; drag in the Camera view to orbit it. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
+			accessory={<HelpTip text="Automatic: the camera follows the marbles, shaped by the shots; drag in Film's preview to orbit it. Manual: you move and animate the camera in Blender and the app leaves it alone." />}
 		>
 			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Camera mode">
 				{(['rig', 'manual'] as const).map((mode) => (
@@ -118,8 +118,8 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				<>
 					<FramingProblem cx={cx} project={project} />
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
-					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the Camera view to orbit" value={radiansToDegrees(angles.side)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ side: degreesToRadians(value) })} />
-					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the Camera view to orbit" value={radiansToDegrees(angles.pitch)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ pitch: degreesToRadians(value) })} />
+					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.side)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ side: degreesToRadians(value) })} />
+					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.pitch)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ pitch: degreesToRadians(value) })} />
 					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 holds the Turn and keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
 					{cameraState === 'takenOver' ? (
 						<>

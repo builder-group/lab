@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TEntity, TProject } from '@/modules/project';
 import { startRailId } from '@/modules/simulation';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, WALL_KEY } from './selection';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from './selection';
 
 function piece(id: string, hitLink?: { laneId: string; hitId: string }): TEntity {
 	return { id, components: { piece: { type: 'platform' }, ...(hitLink != null ? { hitLink } : {}) } } as unknown as TEntity;
@@ -29,11 +29,11 @@ describe('buildOutline function', () => {
 		const rows = buildOutline(project({ entities: [piece('p-a', { laneId: 'lane-1', hitId: 'a' }), piece('free-1'), piece(startRailId('lane-1'))] }), { workspace: 'compose' });
 		const rail = rows.find((row) => row.id === startRailId('lane-1'));
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, 'marble-1', startRailId('lane-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1', CAMERA_KEY]);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, 'marble-1', startRailId('lane-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
 		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', laneId: 'lane-1', depth: 1 });
 	});
 
-	it('should order Song, marbles with their pieces in hit order, Pieces, Wall, Lights and Titles, with the Camera only in Track', () => {
+	it('should order Song, marbles with their pieces in hit order, Pieces, Wall, Lights, Camera with shots and Titles', () => {
 		const title = { id: 'title-1', components: { wallText: { text: 'Jingle Bells' } } } as unknown as TEntity;
 		const rows = buildOutline(
 			project({
@@ -58,6 +58,9 @@ describe('buildOutline function', () => {
 			WALL_KEY,
 			LIGHTS_KEY,
 			KEY_LIGHT_KEY,
+			CAMERA_KEY,
+			toShotKey('early'),
+			toShotKey('late'),
 			TITLES_KEY,
 			'title-1',
 			DECOR_KEY
@@ -89,9 +92,9 @@ describe('buildOutline function', () => {
 	it('should leave out the Song without one and an empty Pieces group, and keep Titles and Decor in Film when empty', () => {
 		const rows = buildOutline(project({ hasSong: false }));
 
-		expect(rows.map((row) => row.kind)).toEqual(['scene', 'marble', 'marble', 'wall', 'group', 'light', 'group', 'group']);
+		expect(rows.map((row) => row.kind)).toEqual(['scene', 'marble', 'marble', 'wall', 'group', 'light', 'camera', 'group', 'group']);
 		expect(rows.filter((row) => row.id === TITLES_KEY || row.id === DECOR_KEY)).toMatchObject([{ isEmpty: true, childIds: [] }, { isEmpty: true, childIds: [] }]);
-		expect(buildOutline(project({ hasSong: false }), { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'marble', 'marble', 'camera']);
+		expect(buildOutline(project({ hasSong: false }), { workspace: 'compose' }).map((row) => row.kind)).toEqual(['scene', 'marble', 'marble']);
 	});
 
 	it('should start Layers with the Scene in both workspaces, with no timeline row', () => {
@@ -107,14 +110,14 @@ describe('buildOutline function', () => {
 			collapsed: ['lane-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, TITLES_KEY, DECOR_KEY]);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, TITLES_KEY, DECOR_KEY]);
 		expect(rows.find((row) => row.id === 'marble-1')).toMatchObject({ hasChildren: true, isOpen: false });
 	});
 
-	it('should mark the Wall, Lights and titles as Film rows', () => {
+	it('should mark the Wall, Lights, camera, shots and titles as Film rows', () => {
 		const title = { id: 'title-1', components: { wallText: { text: 'End' } } } as unknown as TEntity;
 		const rows = buildOutline(project({ entities: [title], shots: [{ id: 'shot', time: 1 }] }));
 
-		expect(rows.filter(isFilmRow).map((row) => row.id)).toEqual([WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, TITLES_KEY, 'title-1', DECOR_KEY]);
+		expect(rows.filter(isFilmRow).map((row) => row.id)).toEqual([WALL_KEY, LIGHTS_KEY, KEY_LIGHT_KEY, CAMERA_KEY, toShotKey('shot'), TITLES_KEY, 'title-1', DECOR_KEY]);
 	});
 });

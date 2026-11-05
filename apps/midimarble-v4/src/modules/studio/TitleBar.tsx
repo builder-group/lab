@@ -57,11 +57,12 @@ interface TTitleBarProps {
 }
 
 const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: string }[] = [
-	{ id: 'compose', label: 'Track', purpose: 'Track: shapes, timing and camera', shortcut: '⌘1' },
-	{ id: 'design', label: 'Film', purpose: 'Film: skins, lights and titles', shortcut: '⌘2' }
+	{ id: 'compose', label: 'Track', purpose: 'Track: shapes and timing, in 2D or 3D', shortcut: '⌘1' },
+	{ id: 'design', label: 'Film', purpose: 'Film: skins, camera and titles', shortcut: '⌘2' }
 ];
 
 function problemsLabel(workspace: TWorkspace, count: number): string {
+	if (workspace === 'compose') return count === 1 ? '1 hit needs attention' : `${count} hits need attention`;
 	return count === 1 ? '1 problem needs attention' : `${count} problems need attention`;
 }
 

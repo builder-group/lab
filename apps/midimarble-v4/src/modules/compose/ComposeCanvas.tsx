@@ -85,6 +85,9 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<AssistBar compose={compose} />
 			<EmptyWall cx={cx} />
 			<SimulatingIndicator cx={cx} />
+			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+				<CornerControls compose={compose} />
+			</div>
 		</div>
 	);
 };
@@ -993,8 +996,8 @@ const AssistButton: React.FC<{ label: string; detail: string; shortcut: string; 
 
 // MARK: - Canvas chrome
 
-/** Snap and Follow: they apply to the flat Wall, so Track's view controls show them only there */
-export const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
+/** Snap and Follow */
+const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	const { compose } = props;
 	const follow = useFeatureState(compose.$follow);
 	const snapping = useFeatureState(compose.studio.$snapping);
@@ -1041,7 +1044,7 @@ const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
 	if (!computing && fixing == null) return null;
 	return (
-		<div className="mm-floating mm-delayed-fade absolute top-12 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
+		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
 			{fixing == null ? 'Checking…' : 'Fixing…'}
 		</div>
 	);

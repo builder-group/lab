@@ -2,7 +2,6 @@ export * from './design-commands';
 export * from './DesignCx';
 export * from './DesignInspector';
 export * from './FilmInsert';
-export * from './TrackCameraView';
 export * from './DesignLibraryCx';
 export * from './DesignView';
 export * from './export-estimate';

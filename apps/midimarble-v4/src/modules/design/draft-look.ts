@@ -51,11 +51,6 @@ export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallC
 	return hasHoles ? { color, holes: 'rgba(72, 56, 40, 0.75)', holeRadius: 0.1 } : { color, holes: null };
 }
 
-/** Track's Camera view, like Blender's Solid mode: a neutral wall with a dot grid for depth and scale */
-export const CLAY_WALL: TWallLook = { color: '#d6d5d1', holes: 'rgba(0, 0, 0, 0.3)', holeRadius: 0.05, pitch: 0.05 };
-/** Track's Camera view: every piece the same neutral, so only its shape and the marbles' label colors read */
-export const CLAY_PIECE: TDraftColors = { bar: '#8e8d89', nub: '#6f6e6a' };
-
 /** Wood of pegs, hubs and rail posts in Pegboard */
 const WOOD = '#b98a5a';
 /** Chrome brackets, rails and hubs in Brass */

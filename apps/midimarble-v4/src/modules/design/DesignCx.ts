@@ -297,7 +297,7 @@ export class DesignCx {
 		if (this.orbitEndedAt != null && generation > this.orbitEndedAt) this.clearOrbit();
 	}
 
-	clearOrbit(): void {
+	private clearOrbit(): void {
 		this.orbitEndedAt = null;
 		this.$orbit.set(null);
 	}

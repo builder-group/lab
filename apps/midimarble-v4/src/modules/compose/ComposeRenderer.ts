@@ -36,10 +36,8 @@ export interface TRenderPiece {
 export interface TWallLook {
 	color: string;
 	holes: string | null;
-	/** Hole radius as a fraction of the pitch; 0.09 when absent */
+	/** Hole radius as a fraction of the 2.5 cm peg pitch; 0.09 when absent */
 	holeRadius?: number;
-	/** Meters between holes; 2.5 cm when absent */
-	pitch?: number;
 }
 
 export interface TRenderMarble {
@@ -68,8 +66,6 @@ export interface TComposeTheme {
 export const MARBLE_Z = 0.01;
 /** Marbles never shrink below this radius on screen, so a zoomed-out run still shows where they are */
 export const MIN_MARBLE_PX = 3.5;
-/** Meters between a pegboard's holes */
-const PEG_PITCH = 0.025;
 
 export class ComposeRenderer {
 	private readonly renderer: THREE.WebGLRenderer;
@@ -95,7 +91,6 @@ export class ComposeRenderer {
 	private playhead = 0;
 	private frame: number | null = null;
 	private isDisposed = false;
-	private wallPitch = PEG_PITCH;
 
 	constructor(canvas: HTMLCanvasElement) {
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, premultipliedAlpha: true });
@@ -165,7 +160,6 @@ export class ComposeRenderer {
 	setWallLook(look: TWallLook | null): void {
 		const material = this.wall.material;
 		const previous = material.map;
-		this.wallPitch = look?.pitch ?? PEG_PITCH;
 		material.map = createPegTexture(look ?? undefined);
 		if (previous != null) {
 			material.map.repeat.copy(previous.repeat);
@@ -387,14 +381,14 @@ export class ComposeRenderer {
 		this.placeWall(center, Math.max(1, this.film.position.z * 40));
 	}
 
-	/** A wall patch around `center`, with the peg texture repeating at the wall's pitch */
+	/** A wall patch around `center`, with the peg texture repeating every 2.5 cm */
 	private placeWall(center: TVec2, size: number): void {
 		this.wall.scale.set(size, size, 1);
 		this.wall.position.set(center.x, center.y, 0);
 		const texture = this.wall.material.map;
 		if (texture != null) {
-			texture.repeat.set(size / this.wallPitch, size / this.wallPitch);
-			texture.offset.set(((center.x - size / 2) / this.wallPitch) % 1, ((center.y - size / 2) / this.wallPitch) % 1);
+			texture.repeat.set(size / 0.025, size / 0.025);
+			texture.offset.set(((center.x - size / 2) / 0.025) % 1, ((center.y - size / 2) / 0.025) % 1);
 		}
 	}
 

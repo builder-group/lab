@@ -75,9 +75,9 @@ function songIssues(project: TProject): TPreflightIssue[] {
 
 export type TProblemWorkspace = 'compose' | 'film';
 
-/** Where a problem gets fixed: titles and Decor in Film, the camera's framing and everything about the run in Track */
+/** Where a problem gets fixed: camera framing, titles and Decor in Film, everything about the run in Compose */
 export function problemWorkspace(issue: TPreflightIssue): TProblemWorkspace {
-	return issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'compose';
+	return issue.kind === 'framing' || issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'compose';
 }
 
 /** Each workspace's open problems, for the dot on the other workspace's switch */
@@ -92,7 +92,7 @@ export function workspaceProblems(preflight: TExportPreflight): Record<TProblemW
  * Layers or the Camera track: "107 of 109 hits on time · 4 other problems", "2 hits need attention", or
  * "Checking…" until the run for the current edit arrives. Problems are the warnings in time order, so the
  * summary's click and Show First Problem go to the earliest. With a workspace it counts only that workspace's
- * problems, so Track never speaks of titles; the export sheet passes none and lists them all.
+ * problems, so Compose never speaks of the camera; the export sheet passes none and lists them all.
  */
 export function problemSummary(preflight: TExportPreflight, workspace?: TProblemWorkspace): TProblemSummary {
 	const { hitCount: total, onTimeCount: onTime } = preflight;
@@ -242,7 +242,7 @@ export interface TPreflightTarget {
 	point?: TVec2;
 	/** Playhead time to show */
 	time?: number;
-	/** The workspace that shows the issue; framing issues open Track's Camera view with the Camera selected */
+	/** The workspace that shows the issue; framing issues open Film with the Camera selected */
 	workspace?: 'compose' | 'design';
 }
 
@@ -716,9 +716,9 @@ function createNames(project: TProject): TNames {
 	return { lane: (id) => lanes.get(id) ?? 'Marble', entity: (id) => entities.get(id) ?? id };
 }
 
-/** Framing issues open Track's Camera view at their time with the Camera selected */
+/** Framing issues open Film at their time with the Camera selected */
 function cameraTarget(time: number): TPreflightTarget {
-	return { ids: [CAMERA_KEY], time, workspace: 'compose' };
+	return { ids: [CAMERA_KEY], time, workspace: 'design' };
 }
 
 function countHits(project: TProject): number {

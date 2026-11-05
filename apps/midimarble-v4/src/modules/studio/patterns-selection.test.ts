@@ -43,7 +43,7 @@ describe('Pattern selection', () => {
 describe('buildOutline with Groups', () => {
 	it('should gather a Group\'s pieces under a collapsible row beneath the marble', () => {
 		const open = buildOutline(project(), { workspace: 'compose', collapsed: [] }).map((row) => `${row.depth}:${row.kind}:${row.id}`);
-		expect(open.slice(-5, -1)).toEqual([`1:patternGroup:${toGroupKey('g1')}`, '2:piece:p1', '2:piece:p2', '1:piece:p3']);
+		expect(open.slice(-4)).toEqual([`1:patternGroup:${toGroupKey('g1')}`, '2:piece:p1', '2:piece:p2', '1:piece:p3']);
 	});
 
 	it('should start a Group closed', () => {

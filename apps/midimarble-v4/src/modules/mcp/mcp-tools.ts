@@ -290,7 +290,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		const project = cx.project;
 		if (project == null) return;
 		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
-		cx.$workspace.set('compose');
+		cx.$workspace.set('design');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
 	'file.new': async (cx, args) => {

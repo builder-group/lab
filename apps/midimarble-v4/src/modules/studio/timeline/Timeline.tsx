@@ -233,10 +233,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
 	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
 	const showsParts = isSongExpanded && songRows != null;
-	const showsCamera = workspace === 'compose';
-	const showsTitles = workspace === 'design';
+	const showsCamera = workspace === 'design';
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0) + (showsTitles && project.entities.some((entity) => entity.components.wallText != null) ? CAMERA_ROW_HEIGHT : 0);
+	const rowsHeight = project.music.lanes.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + (showsCamera ? CAMERA_ROW_HEIGHT : 0);
 
 	// MARK: - UI
 
@@ -307,7 +306,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					) : null}
 					{/* The same layers as Layers, in the same order: Song, marbles, then in Film Camera and Titles */}
 					{showsCamera ? <CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
-					{showsTitles ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
+					{showsCamera ? <TitlesRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} /> : null}
 					{/* The header column continues below the last lane, like Logic's track list */}
 					<div
 						className="flex flex-1"

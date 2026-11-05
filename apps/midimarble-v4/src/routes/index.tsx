@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { ComposeCanvas } from '@/modules/compose';
-import { DesignView, TrackCameraView } from '@/modules/design';
+import { DesignView } from '@/modules/design';
 import { StartScreen } from '@/modules/start';
 import { mountNativeMenu, Studio, StudioCx } from '@/modules/studio';
 
@@ -23,10 +23,7 @@ function RouteComponent() {
 			cx={cx}
 			canvas={
 				workspace === 'compose' ? (
-					<>
-						<ComposeCanvas cx={cx} />
-						<TrackCameraView cx={cx} frame={history.present.frame} />
-					</>
+					<ComposeCanvas cx={cx} />
 				) : (
 					<DesignView
 						cx={cx.design}
