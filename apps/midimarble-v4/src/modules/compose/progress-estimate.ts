@@ -11,7 +11,8 @@
  *   seconds
  * - When the raw figure runs far past the shown one, as at a stuck hit, the figure goes away until the rate is steady
  */
-export function createEstimate(): TEstimate {
+export function createEstimate(options: { minElapsedMs?: number } = {}): TEstimate {
+	const { minElapsedMs = 0 } = options;
 	let lastRaw: number | null = null;
 	let shown: { seconds: number; at: number } | null = null;
 	let lastStep = { done: 0, at: 0 };
@@ -24,7 +25,7 @@ export function createEstimate(): TEstimate {
 				lastRaw = null;
 				return '';
 			}
-			const raw = estimateLeft(elapsedMs, fraction, done, total);
+			const raw = elapsedMs >= minElapsedMs ? estimateLeft(elapsedMs, fraction, done, total) : null;
 			if (raw == null) return '';
 			if (shown == null) {
 				const previous = lastRaw;

@@ -289,8 +289,9 @@ export class SimulationCx {
 				// Requests replaced while waiting resolve with the same newer result, oldest first
 				if (id < this.accepted || this.studio.project?.id !== project.id) return;
 				this.accepted = id;
-				if (result !== this.$result.get()) this.$result.set(result);
+				// Before the result goes out, so what it broke offers its Fix on this notice
 				if (this.preview == null) this.sayPendingBreak(result);
+				if (result !== this.$result.get()) this.$result.set(result);
 				if (id === this.sent) this.$computing.set(false);
 			},
 			(error: unknown) => {

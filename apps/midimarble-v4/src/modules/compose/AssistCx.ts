@@ -556,7 +556,8 @@ export class AssistCx {
 		this.dispatch({ type: 'dismiss' });
 		this.studio.$selection.set([]);
 		const startedAt = performance.now();
-		const estimate = createEstimate();
+		// A build's first hits come fast and say little about the stuck ones to come
+		const estimate = createEstimate({ minElapsedMs: 10000 });
 		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCancelled = true) };
 		// A back-up undoes steps; what the bar and the count show never goes back with it
 		let furthest = { done: 0, fraction: 0 };

@@ -800,7 +800,10 @@ export class StudioCx {
 			if (project == null || client == null || !endsOnBowl(project) || !isAutoEnd(project)) return;
 			void fittedSongEnd(project, (trial) => client.simulateAssist(trial)).then((end) => {
 				if (end == null || this.project !== project || Math.abs(end - project.end) < 0.005) return;
+				// The length following the song is no new edit, so the notice of the edit stays
+				this.isRefittingEnd = true;
 				this.execute([{ type: 'setEnd', end }], { amend: true });
+				this.isRefittingEnd = false;
 			});
 		}, TAIL_MEASURE_DELAY);
 	}
@@ -1056,10 +1059,16 @@ export class StudioCx {
 	 * A notice that carries a fix (an action besides Undo, such as Fix 45 Hits) stays until it is acted
 	 * on or another edit is made, like Mail's undo-send; this retires it on that edit
 	 */
+	private isRefittingEnd = false;
+
 	private retireFixNotice(): void {
 		const notice = this.$notice.get();
 		const revision = this.project?.revision ?? null;
 		if (notice == null || notice.progress != null || !hasFix(notice)) return;
+		if (this.isRefittingEnd) {
+			this.noticeShownAt = revision;
+			return;
+		}
 		if (revision === this.noticeShownAt || revision === notice.revision) return;
 		this.dismissNotice(notice.id);
 	}
