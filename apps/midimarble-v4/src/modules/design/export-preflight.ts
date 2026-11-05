@@ -2,7 +2,7 @@ import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
 import { hasSong } from '@/modules/music';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { extraStrikes, BOWL_TYPE, bowlCatch, getPieceDefinition, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
@@ -40,8 +40,10 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 		...strikeIssues(project, result, names),
 		...rollIssues(project, result, names),
 		...touchingIssues(project, result, names),
+		...passIssues(project, result, names),
 		...fallIssues(project, result, names),
 		...framingIssues(project, result, names),
+		...titleIssues(project),
 		...decorIssues(project, result, names, blenderObjects),
 		...songIssues(project)
 	]);
@@ -73,9 +75,9 @@ function songIssues(project: TProject): TPreflightIssue[] {
 
 export type TProblemWorkspace = 'compose' | 'film';
 
-/** Where a problem gets fixed: camera framing and Decor in Film, everything about the run in Compose */
+/** Where a problem gets fixed: camera framing, titles and Decor in Film, everything about the run in Compose */
 export function problemWorkspace(issue: TPreflightIssue): TProblemWorkspace {
-	return issue.kind === 'framing' || issue.kind === 'decor' ? 'film' : 'compose';
+	return issue.kind === 'framing' || issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'compose';
 }
 
 /** Each workspace's open problems, for the dot on the other workspace's switch */
@@ -136,13 +138,13 @@ export function framingProblemAt(preflight: TExportPreflight, time: number): TPr
 }
 
 /**
- * Platforms a marble strikes twice or rolls on and pieces that touch, by entity ID, with those problems: Layers badges them and the
+ * Platforms a marble strikes twice, rolls on or passes through and pieces that touch, by entity ID, with those problems: Layers badges them and the
  * inspector shows a pill and Place Again, from the same list as the summary.
  */
-export function lookProblems(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
+export function pieceProblems(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
 	const problems = new Map<string, TPreflightIssue[]>();
 	for (const issue of preflight.issues) {
-		if (issue.kind !== 'strike' && issue.kind !== 'roll' && issue.kind !== 'touching') continue;
+		if (issue.kind !== 'strike' && issue.kind !== 'roll' && issue.kind !== 'touching' && issue.kind !== 'passes') continue;
 		for (const id of issue.target?.ids ?? []) problems.set(id, [...(problems.get(id) ?? []), issue]);
 	}
 	return problems;
@@ -254,7 +256,7 @@ export interface TPreflightTarget {
 	workspace?: 'compose' | 'design';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'fall' | 'framing' | 'decor' | 'simulation' | 'song';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'passes' | 'fall' | 'framing' | 'title' | 'decor' | 'simulation' | 'song';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -485,7 +487,7 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 	});
 }
 
-// MARK: - How the track looks
+// MARK: - What's physically wrong with the run
 
 /**
  * A marble striking its own platform outside the note: "Melody hits Platform 12 twice". It sounds like nothing in the
@@ -527,12 +529,12 @@ function rollIssues(project: TProject, result: TSimulationResult, names: TNames)
 	}));
 }
 
-/** Two pieces closer than the least gap in the wall plane, where skins hang below their hitboxes: a tip, since every hit still plays */
+/** Two pieces closer than the least gap in the wall plane, where skins hang below their hitboxes */
 function touchingIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return touchingPairs(project, result).map((pair) => ({
 		id: `touching:${pair.a}:${pair.b}`,
 		kind: 'touching' as const,
-		severity: 'info' as const,
+		severity: 'warning' as const,
 		title: `${names.entity(pair.a)} touches ${names.entity(pair.b)}`,
 		label: 'Touching',
 		detail: pair.gap <= 0 ? 'They overlap on the wall.' : `${(pair.gap * 100).toFixed(1)} cm apart on the wall, where skins reach below the hitbox.`,
@@ -541,8 +543,20 @@ function touchingIssues(project: TProject, result: TSimulationResult, names: TNa
 	}));
 }
 
-/** A marble falling this far between two notes leaves the frame on the way: about a film frame's height on the wall */
-const LONG_FALL = 1;
+/** A marble's path through the body of a piece's skin, which has no hitbox there */
+function passIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+	return passThroughs(project, result).map((pass) => ({
+		id: `passes:${pass.laneId}:${pass.entityId}`,
+		kind: 'passes' as const,
+		severity: 'warning' as const,
+		laneId: pass.laneId,
+		title: `${names.lane(pass.laneId)} passes through ${names.entity(pass.entityId)}`,
+		label: 'Passes Through',
+		detail: `At ${formatTime(pass.time)} the marble goes through the piece’s skin, below the top the marble bounces on.`,
+		time: pass.time,
+		target: { ids: [pass.entityId], point: pass.position, time: pass.time }
+	}));
+}
 
 /** A long free fall between two notes: a tip, since every hit still plays and the film just goes empty for a moment */
 function fallIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
@@ -579,6 +593,9 @@ function wholeSeconds(time: number): string {
 
 // MARK: - Framing
 
+/** A marble out of frame this many seconds while it plays is a mistake in the film; a shorter miss only a tip */
+const LONG_OUT = 1.5;
+
 /**
  * Marbles the automatic camera leaves out of frame while they play, from the same camera track the Draft Preview
  * draws and the film bakes: "Bass leaves the frame at 0:12.00 (6 hits)". Each stretch offers Add Wide Shot Here once a
@@ -600,7 +617,8 @@ function framingIssues(project: TProject, result: TSimulationResult, names: TNam
 		return {
 			id: `frame:${stretch.laneId}:${number}`,
 			kind: 'framing' as const,
-			severity: 'warning' as const,
+			// A short miss is a tip: the film still reads
+			severity: stretch.to - stretch.from >= LONG_OUT ? ('warning' as const) : ('info' as const),
 			laneId: stretch.laneId,
 			title: `${lane} leaves the frame at ${formatTime(stretch.from)} (${hits})`,
 			detail: `Out of frame for ${seconds} s while it plays, until ${formatTime(stretch.to)}.${others}`,
@@ -701,6 +719,33 @@ function findWideShot(project: TProject, result: TSimulationResult, framing: TFr
 		if (isKept && after.length < framing.stretches.length) return { time, length, commands: wide.commands, shotId: wide.shotId };
 	}
 	return null;
+}
+
+// MARK: - Titles
+
+/** A letter's width over its height in the film's built-in font, about; a title wider than the frame by this is cut off whatever the font */
+const LETTER_WIDTH = 0.55;
+
+/** A screen title wider than the frame on any of its lines. A wall title is cut off only by where the camera looks, which a person sees */
+function titleIssues(project: TProject): TPreflightIssue[] {
+	const aspect = project.frame.width / project.frame.height;
+	return project.entities.flatMap((entity) => {
+		const title = entity.components.wallText;
+		if (title == null || title.style == null || title.style === 'wall') return [];
+		const longest = Math.max(...title.text.split('\n').map((line) => line.length));
+		if (longest * LETTER_WIDTH * title.size <= aspect) return [];
+		return [
+			{
+				id: `title:${entity.id}`,
+				kind: 'title' as const,
+				severity: 'warning' as const,
+				title: `“${title.text.split('\n')[0]}” is cut off`,
+				detail: 'The title is wider than the frame. A shorter line or a smaller Size fits it.',
+				time: title.in ?? 0,
+				target: { ids: [entity.id], time: title.in ?? 0, workspace: 'design' as const }
+			}
+		];
+	});
 }
 
 // MARK: - Decor

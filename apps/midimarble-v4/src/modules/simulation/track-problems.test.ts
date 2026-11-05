@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
 import { pathDepth } from './pieces';
-import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-look';
+import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
 function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0, depth = 0.03): TResolvedPiece {

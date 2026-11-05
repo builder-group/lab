@@ -23,7 +23,8 @@ import { getPieceDefinition, KIT_SCALE, railLayoutInfo, resolvePieceParams, type
 import { createLinkedPiece, frameBand } from './placement';
 import { projectOnPath, shapesBounds } from './shapes';
 import { trajectoryAt } from './simulate';
-import { columnOffset, extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-look';
+import { columnOffset } from './build-track-defaults';
+import { extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-problems';
 import { HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
 import type { TGapPieceType } from './worker-protocol';
 

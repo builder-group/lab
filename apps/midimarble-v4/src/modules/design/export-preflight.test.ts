@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { type TEntity, type TProject } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
-import { lookProblems, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
+import { pieceProblems, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
 import { loadFixture } from '@/modules/project/test-helpers';
 
 function withSongFixture(name: string): TProject {
@@ -251,7 +251,7 @@ describe('preflightExport function', () => {
 		expect(preflight.issues[2]?.target?.ids).toEqual(['marble-a', 'marble-b']);
 	});
 
-	it('should count a platform its own marble strikes twice as a problem, with a tip for pieces that touch', () => {
+	it('should count a platform its own marble strikes twice as a problem, and pieces that touch', () => {
 		const project = createTwoLaneProject();
 		const at = (entityId: string, y: number): TResolvedPiece => ({ ...piece(entityId), position: { x: 0, y }, params: { length: 0.09, thickness: 0.012 } });
 		const strike = (time: number) => ({ time, marbleEntityId: 'marble-a', otherEntityId: 'pa1', kind: 'piece' as const, position: { x: 0, y: 0.03 }, speed: 1.5 });
@@ -264,8 +264,8 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.find((issue) => issue.kind === 'strike')).toMatchObject({ title: 'Melody hits pa1 twice', severity: 'warning', label: 'Hit Twice', detail: 'Hits it 2 times from 0:01.20, with one note.' });
-		expect(preflight.issues.find((issue) => issue.kind === 'touching')).toMatchObject({ title: 'pa1 touches pa2', severity: 'info', label: 'Touching' });
-		expect(lookProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['strike', 'touching']);
+		expect(preflight.issues.find((issue) => issue.kind === 'touching')).toMatchObject({ title: 'pa1 touches pa2', severity: 'warning', label: 'Touching' });
+		expect(pieceProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['touching', 'strike']);
 	});
 
 	it('should count a platform its marble rolls on as a problem, in plain words', () => {
@@ -281,7 +281,7 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, result);
 
 		expect(preflight.issues.find((issue) => issue.kind === 'roll')).toMatchObject({ title: 'Melody rolls on pa1', severity: 'warning', label: 'Rolls', target: { ids: ['pa1'], time: 1 } });
-		expect(lookProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['roll']);
+		expect(pieceProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['roll']);
 	});
 });
 

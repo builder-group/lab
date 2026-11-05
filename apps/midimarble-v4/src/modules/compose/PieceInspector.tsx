@@ -7,7 +7,7 @@ import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/m
 import { bowlCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
-import { lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
+import { pieceProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
@@ -29,7 +29,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
 	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
-	const looks = React.useMemo(() => (preflight != null ? lookProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const entities = project.entities.filter((entity) => ids.includes(entity.id) && entity.components.piece != null);
 	const first = entities[0];
 	if (first == null) return null;

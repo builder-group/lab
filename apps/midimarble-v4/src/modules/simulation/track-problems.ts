@@ -5,8 +5,8 @@ import { soundsHit } from './pieces';
 import { shapeDistance, type TPieceShape } from './shapes';
 import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
 
-// How a track looks, beyond whether it plays on time: how close its pieces come on the wall, how often a
-// marble strikes a platform and whether it bounces off it. Build Track, Next, Fix Hits and the problem list all read these.
+// What's physically wrong with a run beyond its timing: pieces touching in the wall plane, a platform struck outside its
+// note, a marble rolling on a platform. They're Problems, with no taste in them: every number here says what breaks.
 
 /**
  * Least air between two pieces in the wall plane, in metres: a default marble's radius. A skin's body counts: every
@@ -46,16 +46,6 @@ export function visualShapes(piece: TResolvedPiece, marbleRadius: number): TPiec
 			}
 		}
 	];
-}
-
-/**
- * How far either side of a lane's centre the marble strikes, in piece lengths. The reference short hops 0.65 bars (see
- * references.md, What good tracks do); at half gravity and half-second notes a hop under a bar clears nothing, so 1.44.
- */
-const STRIKE_COLUMN = 0.72;
-/** Where on a lane's sides the marble strikes, either side of its centre */
-export function columnOffset(pieceLength: number): number {
-	return STRIKE_COLUMN * pieceLength;
 }
 
 /** Pieces of a run that stand anywhere on the wall: what a Blocked piece leaves out is not in the film */
@@ -119,6 +109,9 @@ export function nearestPieceGap(project: TProject, result: TSimulationResult, en
 	return nearest;
 }
 
+/** A marble falling this far between two notes leaves the frame on the way: about a film frame's height on the wall */
+export const LONG_FALL = 1;
+
 /** A platform its own marble strikes more than the once its note asks for */
 export interface TExtraStrike {
 	entityId: string;
@@ -163,12 +156,50 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 	return strikes.sort((a, b) => a.time - b.time);
 }
 
+/** How far into a skin's body a marble's centre must come to count as passing through it: a graze of the edge isn't one */
+const PASS_DEPTH_RADII = 0.25;
+
+/** A piece whose skin a marble goes through, where it has no hitbox */
+export interface TPassThrough {
+	entityId: string;
+	laneId: string;
+	time: number;
+	position: TVec2;
+}
+
 /**
- * How high a marble must rise off a platform, in marble radii, and how soon, in seconds, for its hit to count as a bounce.
- * On Jingle Bells a bounce reaches this height in about 0.02 s, at 0.04 s at the slowest, and a roll takes 0.2 s and more.
+ * Standing platforms whose body a marble's path runs through: the hitbox is only the top face, so nothing stops the
+ * marble below it and the film shows it inside the piece. A marble can't enter a hitbox, so only what hangs below can
+ * count, and a rail or tunnel never does (`visualShapes`).
+ */
+export function passThroughs(project: TProject, result: TSimulationResult): TPassThrough[] {
+	const boxes = standingPieces(result).filter((piece) => layoutOf(piece.type) === 'box');
+	const passes: TPassThrough[] = [];
+	for (const marble of result.marbles) {
+		const limit = marble.radius * (1 - PASS_DEPTH_RADII);
+		const shaped = boxes.map((piece) => ({ piece, shapes: visualShapes(piece, marble.radius), reach: (piece.params['length'] ?? 0) / 2 + 3 * marble.radius }));
+		for (const { piece, shapes, reach } of shaped) {
+			const { x, y } = piece.position;
+			const sample = marble.samples.find(({ time, position }) => time <= result.duration && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit));
+			if (sample != null) passes.push({ entityId: piece.entityId, laneId: marble.laneId, time: sample.time, position: sample.position });
+		}
+	}
+	return passes.sort((a, b) => a.time - b.time);
+}
+
+/**
+ * How high a marble aims to rise off a platform, in marble radii, and how soon, in seconds. Next and Build Track ask this
+ * takeoff of a bounce; Jingle Bells' bounces reach it in about 0.02 s, at 0.04 s at the slowest.
  */
 const BOUNCE_RISE_RADII = 1;
 const BOUNCE_RISE_WITHIN = 0.1;
+/**
+ * Less than this rise off the surface in that time is a roll, not a bounce, measured along the surface's normal: on a
+ * 3 cm bar a marble with no bounce at all skids off the end and gets a radius away from the bar in 0.06 s, so distance
+ * from the bar can't tell. Measured on Zigzags of 3 cm bars at Gravity 0.5 and 1: a dead bar (Bounce 0 to 0.1) reaches
+ * 0.11 to 0.19 radii, real bounces 1.45 and up, and every 9 cm fixture's that isn't a roll 0.71 and up.
+ */
+const ROLL_RISE_RADII = 0.5;
 
 /** Least takeoff speed off a platform that reaches the height of a bounce in time, at this gravity */
 export function bounceTakeoff(marbleRadius: number, gravity: number): number {
@@ -188,15 +219,16 @@ export interface TRollingHit {
 
 /**
  * Whether a marble struck `piece` at `note` and failed to leave its surface: a platform is for bouncing. The marble must
- * rise `BOUNCE_RISE_RADII` within `BOUNCE_RISE_WITHIN`, or by its next note when that comes sooner. Null while the run
+ * rise `ROLL_RISE_RADII` within `BOUNCE_RISE_WITHIN`, or by its next note when that comes sooner. Null while the run
  * doesn't reach that far, since nothing is known yet.
  */
 export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: number, nextNote: number | null): { rise: number; isBounce: boolean } | null {
 	const { samples, radius } = marble;
 	const until = Math.min(note + BOUNCE_RISE_WITHIN, nextNote ?? Infinity);
 	if ((samples.at(-1)?.time ?? -Infinity) < until) return null;
-	const shapes = resolvedPieceShapes(piece);
-	const needed = BOUNCE_RISE_RADII * radius;
+	const normal = { x: -Math.sin(piece.angle), y: Math.cos(piece.angle) };
+	const surface = (piece.params['thickness'] ?? 0) / 2 + radius;
+	const needed = ROLL_RISE_RADII * radius;
 	let low = 0;
 	let high = samples.length;
 	while (low < high) {
@@ -208,7 +240,7 @@ export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: 
 	for (let index = low; index < samples.length; index++) {
 		const sample = samples[index];
 		if (sample == null || sample.time > until) break;
-		for (const shape of shapes) rise = Math.max(rise, shapeDistance(shape, sample.position.x, sample.position.y) - radius);
+		rise = Math.max(rise, Math.abs((sample.position.x - piece.position.x) * normal.x + (sample.position.y - piece.position.y) * normal.y) - surface);
 		if (rise >= needed) return { rise, isBounce: true };
 	}
 	return { rise, isBounce: false };

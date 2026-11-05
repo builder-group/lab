@@ -15,7 +15,8 @@ import { getPieceDefinition, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParam
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
 import { BOWL_TYPE } from './bowl';
-import { bounceTakeoff, columnOffset, extraStrikes, MIN_PIECE_GAP, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-look';
+import { columnOffset } from './build-track-defaults';
+import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import {
 	HIT_TOLERANCE,
 	IMPACT_SPEED,
