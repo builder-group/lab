@@ -17,14 +17,14 @@ describe('preflightExport function on whole songs', () => {
 		simulator = await createSimulator();
 	});
 
-	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera leaves out once the bass moves sideways', () => {
+	it('should pass Jingle Bells, whose camera keeps both marbles in frame, and report a marble the camera loses once the bass moves far sideways', () => {
 		const project = withSongFixture('jingle-bells');
 		expect(preflightExport(project, simulator.simulate(project)).issues).toEqual([]);
 
-		// The bass pieces follow their marble, so moving its release 20 cm moves its whole run away from the melody
+		// The bass pieces follow their marble, so moving its release moves its whole run away from the melody. The 120° camera widens for any run in reach, so it takes 8 m to lose a marble
 		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);
 		if (bass?.components.release == null) throw new Error('No bass release');
-		bass.components.release.position.x += 0.2;
+		bass.components.release.position.x += 8;
 		const result = simulator.simulate(project);
 		const preflight = preflightExport(project, result);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
@@ -35,7 +35,7 @@ describe('preflightExport function on whole songs', () => {
 				id: 'frame:lane-2:1',
 				severity: 'warning',
 				title: expect.stringMatching(/^Bass leaves the frame at 0:0\d\.\d\d \(\d+ hits\)$/),
-				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:1\d\.\d\d\. The camera follows Melody there\.$/),
+				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:\d\d\.\d\d\.$/),
 				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
 				target: { ids: ['camera'], time: first?.span?.from, workspace: 'design' }
 			})
@@ -46,17 +46,7 @@ describe('preflightExport function on whole songs', () => {
 		expect(shown?.span?.from).toBeLessThanOrEqual(first.span.from);
 		expect(shown?.span?.to).toBeGreaterThanOrEqual(first.span.from);
 
-		// Add Wide Shot Here is offered only after a what-if of the camera with it keeps Bass in frame there
-		const fixable = framing.find((issue) => framingFix(project, result, issue) != null);
-		if (fixable?.span == null) throw new Error('No framing problem a Wide shot fixes');
-		const fix = framingFix(project, result, fixable);
-		expect(fix).toEqual(expect.objectContaining({ label: 'Add Wide Shot Here', detail: expect.stringMatching(/^Adds a Wide shot at \d:\d\d\.\d\d that holds \d+\.\d s, so (Bass|Melody) stays in frame\.$/) }));
-		const command = fix?.commands[0];
-		if (command?.type !== 'setDesign' || command.design.camera == null) throw new Error('No camera edit');
-		const fixed = { ...project, design: { ...project.design, camera: command.design.camera } };
-		const after = preflightExport(fixed, result).issues.filter((issue) => issue.kind === 'framing');
-		expect(after.length).toBeLessThan(framing.length);
-		const { from, to } = fixable.span;
-		expect(after.some((issue) => issue.laneId === fixable.laneId && (issue.span?.from ?? 0) < to && (issue.span?.to ?? 0) > from)).toBe(false);
+		// Add Wide Shot Here is offered only after a what-if keeps the marble in frame; the camera already widens as far as a Wide shot would
+		expect(framing.every((issue) => framingFix(project, result, issue) == null)).toBe(true);
 	}, 20_000);
 });

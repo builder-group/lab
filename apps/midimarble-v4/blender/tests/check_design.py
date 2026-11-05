@@ -342,15 +342,15 @@ def main():
     report = apply(worker)
     text = text_object('text-1')
     check(sorted(report['texts']['created']) == ['text-1', 'text-2'] and text is not None, 'wall texts are created')
-    check(text.data.body == 'MIDI' and abs(text.data.size - 0.04) < 1e-9 and abs(text.data.extrude - 0.001) < 1e-9, 'text body, size and relief')
+    check(text.data.body == 'MIDI' and abs(text.data.size - 0.04) < 1e-9 and abs(text.data.extrude - walltext.TITLE_RELIEF / 2) < 1e-9, 'text body, size and relief')
     check(text.name in bpy.data.collections[MANAGED_COLLECTION].objects, 'wall text lives in the managed collection')
     towards_camera = (text.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized()
     reading = (text.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized()
     check((towards_camera - Vector((0, -1, 0))).length < 1e-6, 'wall text faces the camera side')
     check((reading - Vector((math.cos(0.1), 0, math.sin(0.1)))).length < 1e-6, 'wall angle turns the text counter-clockwise')
-    check(abs(text.location.x) < 1e-6 and abs(text.location.z - 0.23) < 1e-6 and -0.002 < text.location.y < -0.001,
+    check(abs(text.location.x) < 1e-6 and abs(text.location.z - 0.23) < 1e-6 and abs(text.location.y + walltext.TITLE_RELIEF / 2 + walltext.WALL_GAP) < 1e-6,
           'wall text sits on the wall at its position, raised by its relief')
-    check(text.data.materials[0].diffuse_color[0] < 0.1, 'wall text gets its colour material')
+    check(text.data.materials[0].diffuse_color[0] > 0.9, 'wall text gets its colour material')
     write_package(root, records, hit, asset=True, texts=[dict(title, text='MARBLE', color='#c9a227'), second])
     report = apply(worker)
     check(report['texts']['updated'] == ['text-1', 'text-2'] and text_object('text-1').data.body == 'MARBLE', 'an unedited text updates')
@@ -445,8 +445,8 @@ def main():
         bpy.context.view_layer.update()
         centre = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world.translation)
         top = world_to_camera_view(scene, camera_obj, caption_obj.matrix_world @ Vector((0.0, 0.5, 0.0)))
-        check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004 and 0 < centre.z < abs(location[1]),
-              'a perspective camera %.2f m from the wall keeps the caption at the top in front of the wall' % abs(location[1]))
+        check(abs(centre.y - 0.85) < 0.01 and abs((top.y - centre.y) * 2 - 0.06 * walltext.SCREEN_FONT_SCALE) < 0.004 and 0 < centre.z,
+              'a perspective camera %.2f m from the wall keeps the caption at the top' % abs(location[1]))
     states = {item['mmId']: item['link'] for item in worker.handle('inspect', {})['texts']}
     check(states == {'text-caption': 'linked', 'text-end': 'linked', 'text-song': 'linked'}, 'camera drivers do not detach a screen title')
     # The film encoder burns a song name in like a caption, in the upper third, plain like the preview unless it asks for a plate

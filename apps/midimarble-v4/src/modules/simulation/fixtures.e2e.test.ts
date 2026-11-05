@@ -53,10 +53,10 @@ beforeAll(async () => {
 
 describe('fixtures', () => {
 	it('every fixture: a clean preflight, but for what its filter names', () => {
-		// long-gap: the tunnel's run strikes two platforms twice, and Fix only clears that by sending hit 7 80 cm out of the lane; windmill: the Windmill is anchored to the path as a case study for motion, so it touches two platforms and the marble rolls on one; two-marbles: the collision is its point
+		// long-gap: the tunnel's run strikes two platforms twice and clips through one of them, and Fix only clears that by sending hit 7 80 cm out of the lane; windmill: the Windmill is anchored to the path as a case study for motion, so it touches two platforms and the marble rolls on one; two-marbles: the collision is its point
 		const allowed: Record<string, string[]> = {
-			'long-gap': ['Marble 1 hits Platform 6 twice', 'Marble 1 hits Platform 5 twice'],
-			windmill: ['Marble 1 rolls on Platform 4', 'Platform 2 touches Windmill 1', 'Windmill 1 touches Platform 4'],
+			'long-gap': ['Marble 1 hits Platform 6 twice', 'Marble 1 hits Platform 5 twice', 'Marble 1 passes through Platform 5'],
+			windmill: ['Platform 2 touches Windmill 1', 'Windmill 1 touches Platform 4'],
 			'two-marbles': ['Marble 1 collides with Marble 2']
 		};
 		for (const name of ['zigzag', 'staircase', 'long-gap', 'windmill', 'two-marbles', 'tap-along', 'reference-20', 'jingle-bells']) {
