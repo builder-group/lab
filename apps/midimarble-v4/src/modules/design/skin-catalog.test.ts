@@ -22,7 +22,7 @@ describe('skin catalog', () => {
 				expect(skin.id.startsWith(`${element}:`)).toBe(true);
 			}
 		}
-		expect(catalogSkins('platform').map((skin) => skin.label)).toEqual(['Gold', 'Copper', 'Silver', 'Pegboard', 'Neon']);
+		expect(catalogSkins('platform').map((skin) => skin.label)).toEqual(['Gold', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
 		expect(catalogSkins('marble').map((skin) => skin.label)).toEqual(['Glass', 'Metal', 'Magic']);
 		expect(themeDefaultSkin('brass', 'rail')).toBe('rail:chrome');
 		expect(skinElement('unknown')).toBe('platform');

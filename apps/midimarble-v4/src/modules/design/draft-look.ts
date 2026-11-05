@@ -105,8 +105,10 @@ export function draftPieceColors(
 			if (style === 'gift') return { bar: accent ?? GIFT_PAPER, nub: RIBBON };
 			// Devices draw their key, lens or grille as marks on top (`draftSkinMarks`); the bar is their housing
 			const [device] = style.split('-');
-			if (device === 'key' || device === 'knob') return { bar: HOUSING, nub: CHROME };
-			if (device === 'device') return { bar: FINISHES['silver'] ?? CHROME, nub: CHROME };
+			if (device === 'key' || device === 'knob' || style === 'dark-housing') return { bar: HOUSING, nub: CHROME };
+			if (device === 'device' || style === 'chrome-device') return { bar: FINISHES['silver'] ?? CHROME, nub: CHROME };
+			if (style === 'plate-wood') return { bar: accent ?? WOOD, nub: CHROME };
+			if (style === 'plate-copper') return { bar: accent ?? FINISHES['copper'] ?? CHROME, nub: CHROME };
 			return { bar: accent ?? FINISHES[style] ?? FINISHES['gold'] ?? CHROME, nub: CHROME };
 		}
 		case 'windmill':

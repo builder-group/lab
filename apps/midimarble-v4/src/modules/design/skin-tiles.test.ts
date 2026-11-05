@@ -59,7 +59,7 @@ describe('wallTiles function', () => {
 describe('hidden skins', () => {
 	it('should stay off the tiles until the project uses them, and show their origin then', () => {
 		const labels = (skins?: ReadonlySet<string>): string[] => skinTiles(brassProject().design, 'platform', [], skins).map((tile) => tile.label);
-		expect(labels()).toEqual(['Theme Default', 'Copper', 'Silver', 'Pegboard', 'Neon']);
+		expect(labels()).toEqual(['Theme Default', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
 		const used = usedSkinIds(brassProject([platform('a', 'platform:knob')]));
 		expect(labels(used)).toContain('Knob');
 		expect(skinTiles(brassProject().design, 'platform', [], used).find((tile) => tile.label === 'Knob')?.detail).toBe('Brass Sections');
