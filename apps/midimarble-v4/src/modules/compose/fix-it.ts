@@ -244,7 +244,7 @@ export async function fixPiece(
 	const link = entity?.components.hitLink;
 	const type = entity?.components.piece?.type;
 	const name = pieceName(project, entityId);
-	if (entity == null || link == null || type == null) return { commands: null, message: `${name} follows no marble` };
+	if (entity == null || link == null || type == null) return { commands: null, message: `${name} has nothing to fix` };
 	const laneName = (laneId: string): string => project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'the marble';
 	const hitters = strayHitters(project, result, entityId);
 	const check = async (commands: TProjectCommand[]): Promise<{ run: TSimulationResult; broken: number; added: TPreflightIssue[]; isClear: boolean }> => {

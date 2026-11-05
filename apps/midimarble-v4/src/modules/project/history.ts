@@ -1,4 +1,4 @@
-import type { TEntity, TProject } from './schema';
+import type { TProject } from './schema';
 
 /**
  * Undo history. Each state carries the id of the edit group that produced it, in `groups` parallel to

@@ -7,7 +7,7 @@ import { InsertPopover } from '@/modules/compose/InsertLibrary';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
 import { GroupInspector, PatternRangeInspector, PatternTiles } from '@/modules/compose/PatternInspector';
-import { FixButton, PieceInspector, PlatformFields } from '@/modules/compose/PieceInspector';
+import { FixButton, PieceInspector } from '@/modules/compose/PieceInspector';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
@@ -22,7 +22,7 @@ import { ColorWell, KeyLightInspector, LightInspector, WallInspector } from '@/m
 import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts } from '@/modules/music';
 import { BACKING_ID, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
-import { getPieceDefinition, layoutOf, patternLockWords, patternOfPiece, soundsHit } from '@/modules/simulation';
+import { getPieceDefinition, patternOfPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
@@ -350,7 +350,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
 	const fixes = unreachable != null && reach != null && hitResult != null ? unreachableActions(cx, hitResult, releaseFixFor(project, hitResult, reach)) : [];
-	const livePattern = piece != null ? patternOfPiece(project, piece.id) : null;
 	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.components.piece?.type ?? '')?.label ?? 'Piece');
 	const timing =
 		piece == null
@@ -419,11 +418,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					onCommit={(time) => setHit({ time })}
 				/>
 			</Panel>
-			{piece != null && !isBacking && soundsHit(piece.components.piece?.type ?? '', piece.components.hitLink) && layoutOf(piece.components.piece?.type ?? '') === 'box' ? (
-				<Panel id="hit.platform" title={pieceLabel}>
-					{livePattern != null ? <p className="mm-pattern-note">{patternLockWords(livePattern)}</p> : <PlatformFields cx={cx} project={project} entity={piece} />}
-				</Panel>
-			) : null}
 			<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Backing is heard in the film, no platform needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
 				{isBacking ? null : piece != null ? (

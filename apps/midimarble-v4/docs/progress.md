@@ -2,6 +2,14 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## Trim: one Fix
+
+**Repair paths.** Traced for a person: Fix Hits, Place Again and each piece's named Fix-it were one action in different words. Now Undo, one **Fix** (A, the notice, the hit summary's menu, ⌘K, the wand under a pill) and Rebuild From Here. Settling after an edit (`local-edit.ts`) stays as it was, and Fix uses `reconnect` first when pieces wait behind a break. Gone: Fix N Hits labels and `replacePlan`, what-ifs before the button shows (`$pieceFixes`), Show Last Fix, Details on Fix's notice, deleting a Blocked piece, `only` runs. A with nothing selected is now Fix, not Next.
+
+**Also.** Export: Draft and Final, no Lighting choice; Python's `fast` and `best` remain in `render.py`, which still needs its own trim, and `balanced` remains Final's id. Zoom to Film Frame and ⇧3 go. The hit inspector's Platform panel goes; its link row selects the platform. Scatter says when it reaches 160 items. Dead code from `knip`, including the launch-angle path.
+
+**Checks:** typecheck, lint, unit tests. Skipped: `test:e2e`, so Build Track and Fix on Jingle Bells are unit-tested on small projects only this round.
+
 ## Patterns round 2, and Problems
 
 **Patterns,** like a Blender modifier and Apply. A live Pattern's pieces don't edit one by one in Compose; clicking selects the Group, drag and tilt say "Part of Zigzag. Flatten to edit it.", and `project.execute` answers the same. **Flatten** removes the Pattern and its Group in one Undo step, leaving plain pieces. A re-run keeps skins, names and Depth. Width is what's asked, with the nearest that fits offered in words; Tilt limit is a parameter (40° by default, past it allowed with a note). A fall of 1 m or more inside a range is reported. A Long Rail before the first note is the marble's start rail, with the release at the range's start.

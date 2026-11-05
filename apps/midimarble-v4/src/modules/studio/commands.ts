@@ -296,7 +296,7 @@ export const commands: readonly TCommand[] = [
 		isEnabled: (cx) => compose(cx) != null,
 		run: (cx) => cx.$selection.set(cx.project?.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id) ?? [])
 	},
-	{ id: 'edit.deselect', title: 'Select Scene', section: 'Edit', keywords: 'deselect none project length speed theme', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
+	{ id: 'edit.deselect', title: 'Deselect', section: 'Edit', keywords: 'select scene none project length speed theme', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
 	{
 		id: 'edit.makeBacking',
 		title: 'Make Backing',
