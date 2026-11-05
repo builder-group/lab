@@ -62,6 +62,8 @@ export class SimulationCx {
 	private accepted = 0;
 	/** What the newest request runs, when it runs whole: a project with the same input needs no run of its own */
 	private wholeRun: TRunInput | null = null;
+	/** The latest whole runs, newest first, so Undo and Redo show theirs at once */
+	private recentRuns: { input: TRunInput; result: TSimulationResult }[] = [];
 
 	constructor(private readonly studio: StudioCx) {}
 
@@ -74,6 +76,7 @@ export class SimulationCx {
 				this.clearPreview();
 				this.$result.set(null);
 				this.wholeRun = null;
+				this.recentRuns = [];
 				this.settled = null;
 				return;
 			}
@@ -83,6 +86,7 @@ export class SimulationCx {
 				this.clearPreview();
 				this.$result.set(null);
 				this.wholeRun = null;
+				this.recentRuns = [];
 			}
 			this.settleLatestEdit(value);
 			this.schedule();
@@ -333,6 +337,10 @@ export class SimulationCx {
 		);
 	}
 
+	private remember(input: TRunInput, result: TSimulationResult): void {
+		this.recentRuns = [{ input, result }, ...this.recentRuns.filter((run) => !isSameRunInput(run.input, input))].slice(0, RECENT_RUNS);
+	}
+
 	private send(client: TSimulationClient, project: TProject): void {
 		if (this.wholeRun != null && isSameRunInput(this.wholeRun, project)) {
 			// A film edit leaves the run as it was. A request on its way stamps its own result when it lands.
@@ -343,7 +351,12 @@ export class SimulationCx {
 		const id = ++this.sent;
 		const horizon = this.isMoving ? PREVIEW_HORIZON : undefined;
 		this.wholeRun = horizon == null ? project : null;
-		this.$computing.set(true);
+		// The run is still asked for, as the worker's snapshots should follow the project, but what shows needn't wait for it
+		const known = horizon == null ? this.recentRuns.find((run) => isSameRunInput(run.input, project)) : undefined;
+		if (known != null) {
+			this.accepted = id;
+			this.$result.set(atRevision(known.result, project.revision));
+		} else this.$computing.set(true);
 		client.simulate(project, horizon).then(
 			(answer) => {
 				// Requests replaced while waiting resolve with the same newer result, oldest first
@@ -354,7 +367,8 @@ export class SimulationCx {
 				const result = id === this.sent && latest != null && isSameRunInput(project, latest) ? atRevision(answer, latest.revision) : answer;
 				// Before the result goes out, so what it broke offers its Fix on this notice
 				if (this.preview == null) this.sayPendingBreak(result);
-				if (result !== this.$result.get()) this.$result.set(result);
+				if (known == null && result !== this.$result.get()) this.$result.set(result);
+				if (horizon == null && id === this.sent && this.preview == null) this.remember(project, answer);
 				if (id === this.sent) this.$computing.set(false);
 			},
 			(error: unknown) => {
@@ -368,6 +382,8 @@ export class SimulationCx {
 		);
 	}
 }
+
+const RECENT_RUNS = 4;
 
 /** A run under the revision it also answers for, since the edits after it left its input alone */
 function atRevision(result: TSimulationResult, revision: number): TSimulationResult {
