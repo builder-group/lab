@@ -5,7 +5,7 @@ import { HelpTip, InspectorHeader, Panel, ScrubField, SelectField, StateRow, Tex
 import { shotLength } from '@/modules/camera/shots';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import type { TDesign, TEntity, TProject, TProjectCommand, TShot } from '@/modules/project';
-import { getPieceDefinition, resolvePieceParams } from '@/modules/simulation';
+import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/studio/format';
 import { parseTime } from '@/modules/studio/timeline/parse-time';
@@ -371,10 +371,6 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 	const unlinked = ids.filter((id) => links[id]?.link === 'unlinked');
 	const name = isSingle ? (first.name ?? typeLabel) : pieceCountLabel(pieces);
 
-	const depth = getPieceDefinition(type)?.params['depth'];
-	const depths = skinned.map((entity) => resolvePieceParams(type, entity.components.piece?.params ?? {})['depth'] ?? 0);
-	const sharedDepth = depths.every((value) => Math.abs(value - (depths[0] ?? 0)) < 1e-9) ? (depths[0] ?? null) : null;
-
 	function applyToAll(assetId: string): void {
 		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === assetId);
 		if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
@@ -400,21 +396,6 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 			>
 				<SkinPicker cx={cx} project={project} element={skinElement(type)} pieceType={type} entities={skinned} selected={pieces} />
 				<SkinPropertyRows cx={cx} project={project} entities={pieces} />
-				{depth != null ? (
-					<ScrubField
-						id="piece-depth"
-						label="Depth"
-						name={`Depth: how far it stands out of the wall, up to ${(depth.max * 100).toFixed(0)} cm`}
-						span={2}
-						value={sharedDepth == null ? null : Math.round(sharedDepth * 1000) / 10}
-						unit="cm"
-						step={0.1}
-						precision={1}
-						min={depth.min * 100}
-						max={depth.max * 100}
-						onCommit={(value) => cx.execute(skinned.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withDepth(entity, value / 100) })))}
-					/>
-				) : null}
 				{ownSkin != null ? (
 					<button className="mm-button" data-span="2" onClick={() => applyToAll(ownSkin)} type="button">
 						Apply to All {typeLabel}s
@@ -425,11 +406,6 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 		</>
 	);
 };
-
-function withDepth(entity: TEntity, depth: number): TEntity {
-	const piece = entity.components.piece;
-	return piece == null ? entity : { ...entity, components: { ...entity.components, piece: { ...piece, params: { ...piece.params, depth } } } };
-}
 
 /** A piece changed in Blender, as one row with a reset button; the normal state needs no row */
 const LinkState: React.FC<{ cx: StudioCx; link: TDesignLink | 'mixed' | null; unlinked: string[] }> = (props) => {

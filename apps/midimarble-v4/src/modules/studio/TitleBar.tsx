@@ -57,7 +57,7 @@ interface TTitleBarProps {
 }
 
 const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: string }[] = [
-	{ id: 'compose', label: 'Track', purpose: 'Track: hitboxes, timing and camera', shortcut: '⌘1' },
+	{ id: 'compose', label: 'Track', purpose: 'Track: shapes, timing and camera', shortcut: '⌘1' },
 	{ id: 'design', label: 'Film', purpose: 'Film: skins, lights and titles', shortcut: '⌘2' }
 ];
 

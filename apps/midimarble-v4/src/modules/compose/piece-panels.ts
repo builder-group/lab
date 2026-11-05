@@ -1,27 +1,28 @@
 import type { TEntity } from '@/modules/project';
 import { getPieceDefinition, layoutOf, railLayoutInfo, type TRailLayout } from '@/modules/simulation';
 
-/** The parameters the Physics panel holds: how a piece behaves. Everything else shapes its Hitbox. */
+/** The parameters the Physics panel holds: how a piece behaves. Everything else is its Shape. */
 const PHYSICS_PARAMS = ['bounce', 'damping', 'motorSpeed'];
 
 /**
- * A piece type's parameters by inspector panel: Hitbox for what a marble touches, Physics for how it behaves. A
- * box's Length sits in Position and the moment a piece follows in its link panel. A Rail shows what its layout uses.
+ * A piece type's parameters by inspector panel: Shape for its size, which skins follow, Physics for how it behaves. The
+ * moment a piece follows sits in its link panel. A Rail shows what its layout uses.
  */
-export function pieceParamPanels(type: string, railLayout?: TRailLayout): { hitbox: string[]; physics: string[] } {
-	if (type === 'rail') return { hitbox: railLayoutInfo[railLayout ?? 'path'].params, physics: [] };
+export function pieceParamPanels(type: string, railLayout?: TRailLayout): { shape: string[]; physics: string[] } {
+	if (type === 'rail') return { shape: railLayoutInfo[railLayout ?? 'path'].params, physics: [] };
 	const layout = layoutOf(type);
-	// Depth is only how far it stands out of the wall, so it's the Skin's, in Film
-	const names = Object.keys(getPieceDefinition(type)?.params ?? {}).filter((name) => name !== 'entryDelay' && name !== 'depth' && !(layout === 'box' && name === 'length') && !(layout === 'catcher' && name === 'mirror'));
+	const names = Object.keys(getPieceDefinition(type)?.params ?? {}).filter((name) => name !== 'entryDelay' && !(layout === 'catcher' && name === 'mirror'));
 	return {
-		hitbox: names.filter((name) => !PHYSICS_PARAMS.includes(name)).sort((a, b) => hitboxRank(a) - hitboxRank(b)),
+		shape: names.filter((name) => !PHYSICS_PARAMS.includes(name)).sort((a, b) => shapeRank(a) - shapeRank(b)),
 		physics: PHYSICS_PARAMS.filter((name) => names.includes(name))
 	};
 }
 
-// Thickness leads; the rest keep the definition's order
-function hitboxRank(name: string): number {
-	return name === 'thickness' ? 0 : 1;
+// Length and Thickness lead and Depth comes last; the rest keep the definition's order
+function shapeRank(name: string): number {
+	if (name === 'length') return 0;
+	if (name === 'thickness') return 1;
+	return name === 'depth' ? 3 : 2;
 }
 
 /**

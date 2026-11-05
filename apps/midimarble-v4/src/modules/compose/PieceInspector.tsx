@@ -20,7 +20,7 @@ import { timingStatus, type TTimingStatus } from './timing-status';
 
 /**
  * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, the
- * link panel of a linked piece (Plays or Follows) and the collapsed Hitbox and Physics panels
+ * link panel of a linked piece (Plays or Follows), then Shape and the collapsed Physics panel
  */
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
@@ -45,8 +45,6 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 
 	const angles = entities.map(pieceAngle).filter((angle) => angle != null);
 	const sharedAngle = angles.length > 0 && angles.every((angle) => Math.abs(angle - (angles[0] ?? 0)) < 1e-9) ? (angles[0] ?? null) : null;
-	const lengths = entities.map((entity) => resolvedParam(entity, 'length'));
-	const sharedLength = lengths.every((length) => length === lengths[0]) ? (lengths[0] ?? null) : null;
 	const link = isSingle ? first.components.hitLink : undefined;
 	const transform = isSingle ? first.components.transform : undefined;
 
@@ -61,7 +59,6 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const cancel = (): void => cx.simulation.endPreview();
 
 	const angleEdit = (degrees: number): TPieceEdit => ({ angle: toRadians(degrees) });
-	const lengthEdit = (centimeters: number): TPieceEdit => ({ params: { length: centimeters / 100 } });
 	const contactEdit = (percent: number): TPieceEdit => ({ hitLink: { contactAt: percent / 100 } });
 	const positionEdit = (axis: 'x' | 'y', centimeters: number): TPieceEdit => ({ position: { [axis]: centimeters / 100 } });
 
@@ -132,22 +129,6 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						max={kind === 'box' ? 90 : 360}
 						onPreview={(value) => preview(angleEdit(value))}
 						onCommit={(value) => commit(angleEdit(value))}
-						onCancel={cancel}
-					/>
-				) : null}
-				{kind === 'box' && isSameType ? (
-					<ScrubField
-						id="piece-length"
-						label="L"
-						name="Length"
-						value={sharedLength == null ? null : Math.round(sharedLength * 1000) / 10}
-						unit="cm"
-						step={0.1}
-						precision={1}
-						min={(definition?.params['length']?.min ?? 0.02) * 100}
-						max={(definition?.params['length']?.max ?? 0.3) * 100}
-						onPreview={(value) => preview(lengthEdit(value))}
-						onCommit={(value) => commit(lengthEdit(value))}
 						onCancel={cancel}
 					/>
 				) : null}
@@ -481,28 +462,28 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	);
 };
 
-// MARK: - Hitbox and Physics
+// MARK: - Shape and Physics
 
-/** The piece type's parameters in two collapsed panels: what a marble touches and how the piece behaves */
+/** The piece type's parameters in two panels: its size, open like Position, and how it behaves, collapsed */
 const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; railLayout: TRailLayout | undefined }> = (props) => {
 	const { type, railLayout } = props;
 	const panels = pieceParamPanels(type, railLayout);
 	return (
 		<>
-			{panels.hitbox.length > 0 ? <ParamsPanel {...props} id="piece.hitbox" title="Hitbox" help="What a marble touches. A skin in Film changes only how the piece looks." names={panels.hitbox} /> : null}
+			{panels.shape.length > 0 ? <ParamsPanel {...props} id="piece.shape" title="Shape" help="The piece's size, which skins in Film follow. Depth is how far it stands out of the wall; a marble never feels it. The rest is the hitbox, what a marble touches." names={panels.shape} isOpen /> : null}
 			{panels.physics.length > 0 ? <ParamsPanel {...props} id="piece.physics" title="Physics" names={panels.physics} /> : null}
 		</>
 	);
 };
 
-/** One collapsed panel of parameters, with units people read: cm, mm, ms, rpm */
-const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; id: string; title: string; help?: string; names: string[] }> = (props) => {
-	const { cx, project, entities, type, id, title, help, names } = props;
+/** One panel of parameters, collapsed unless `isOpen`, with units people read: cm, mm, ms, rpm */
+const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; id: string; title: string; help?: string; names: string[]; isOpen?: boolean }> = (props) => {
+	const { cx, project, entities, type, id, title, help, names, isOpen = false } = props;
 	const definition = getPieceDefinition(type);
 	if (definition == null) return null;
 
 	return (
-		<Panel id={id} title={title} accessory={help != null ? <HelpTip text={help} /> : undefined} defaultCollapsed isDense>
+		<Panel id={id} title={title} accessory={help != null ? <HelpTip text={help} /> : undefined} defaultCollapsed={!isOpen} isDense>
 			{names.map((name) => {
 				const spec = definition.params[name];
 				if (spec == null) return null;
@@ -517,7 +498,7 @@ const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity
 						id={`piece-param-${name}`}
 						label={label}
 						name={spec.label}
-						span={label.length > 7 ? 2 : undefined}
+						span={label.length > 9 ? 2 : undefined}
 						value={shared == null ? null : Math.round(shared * display.factor * 10 ** display.precision) / 10 ** display.precision}
 						unit={display.unit}
 						step={display.step}

@@ -7,7 +7,7 @@ import type { TWorkspace } from './StudioCx';
  * with their own tooltips; these lines only name the regions.
  */
 export const quickHelpRegions: TQuickHelpRegion[] = [
-	{ id: 'workspace', title: 'Track and Film', line: 'Track: the track, hitboxes, timing and camera. Film: skins, lights and titles', gutter: 'left' },
+	{ id: 'workspace', title: 'Track and Film', line: 'Track: the track, shapes, timing and camera. Film: skins, lights and titles', gutter: 'left' },
 	{ id: 'layers', title: 'Layers', line: 'The Scene and everything in it: the song, marbles and track pieces, the camera in Track, the wall, lights and titles in Film', gutter: 'left' },
 	{ id: 'tools', title: 'Tools', line: 'Move, Hand, then Insert for what you add: the track in Track, titles and Decor in Film', gutter: 'left' },
 	{ id: 'wall', title: 'Wall', line: 'Marbles fall here and play their notes on the track', gutter: 'center', workspace: 'compose' },

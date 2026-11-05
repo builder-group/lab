@@ -63,7 +63,7 @@ Every skin tile, Decor item and theme shows where it comes from as its quiet ori
 | A light added to the film | **Light** ("Light 1"), added with Insert's **Light** or **Add Light** in ⌘K: a layer with Color, Strength, Side and Height, deleted with ⌫ or its row's menu | lamp, sun, fill | "Sun" is Blender's word, in tooltips at most |
 | Where a light stands | **Side** (far left to far right of the wall) and **Height** (below to above), as % | azimuth, elevation, direction vector | two plain sliders |
 | Lights in the Draft Preview | The ? says "Shows in the Blender preview" | | The Draft Preview draws no light |
-| Track's two views, a switch in the canvas corner | **Wall**: flat and free, with all editing. **Camera**: the Draft Preview through the film camera; it selects but doesn't drag, and with the Camera layer selected a drag orbits | Wall View, Orbit, viewport | Figma's canvas and Blender's camera view |
+| Track's two views, a switch at the canvas's top right beside Snap and Follow, which show only on the Wall | **Wall**: flat and free, with all editing. **Camera**: plain shapes through the film camera, a neutral wall with a dot grid, pieces in one neutral and marbles in their Label Color, no skins, Decor or titles; it selects but doesn't drag, and with the Camera layer selected a drag orbits | Wall View, Orbit, viewport | Figma's canvas and Blender's camera view in Solid mode |
 | Framing the Wall view | **Zoom to Fit** (⇧1): the whole run, however small; **Zoom to 100%** (⌘0): physical size | Fit All, Home, Actual Size | Figma's zoom commands |
 | A range of the song played again and again while editing | **Repeat Range**: the Repeat toggle in the transport (C) and in Playback. The range appears on the ruler only while it is on. A preview only, never in the film or the project | Cycle, Loop Playback, region | plain word for the Loop button of video editors |
 | The Wall view keeping the marble at the playhead in sight | **Follow** (toggle in the canvas corner, F; in ⌘K **Follow Marble in View**), off by default | Catch Playhead, autoscroll, track, lock | Logic's Catch Playhead; the noun is a toggle like Snap, and the palette title says *in View* so it never reads as the piece tie **Follows** |
@@ -72,12 +72,13 @@ Every skin tile, Decor item and theme shows where it comes from as its quiet ori
 | A platform dragged near its note | Still **Plays** Hit 3 · C4, on time; the drag chip reads "Plays Hit 3 · C4", or "Detaches Hit 3 · C4" past 25 cm from its note | pinned, off-note, Moved | a drag never drops the tie silently; the notice says "Platform 3 no longer plays Note 3 · C4" · Undo when one does |
 | A piece tied to a moment of a marble's fall | **Follows** Marble 1 at 0:03.2 | anchored, parented | says what it does |
 | A piece tied to nothing | Link state **None**, shown only as its subtitle; it sits in the **Track Pieces** group, whose ? says "Parts of the track no marble plays or follows; marbles can still hit them". Its menus offer **Play a Note…** and **Follow a Marble…** | Free, Free Pieces, unlinked, static | A piece always collides; only its link is missing |
-| What a marble touches | **Hitbox**: drawn in Track, shaped in the inspector's Hitbox panel (Arms, Run Height, Thickness…), outlined in Film for a selected piece | collider, physics shape | Unity's collider and mesh; the Skin is the mesh |
-| How a piece behaves | **Physics**: the inspector's panel beside Hitbox (Bounce, Brake, Spin) | Advanced, material, restitution | Named by what it holds |
+| A piece's size | **Shape**: the inspector's panel in Track (Length, Thickness, Depth, Arms, Run Height…). Track sets a piece's shape, and skins follow it | Dimensions, Size, Geometry | Named by what it sets. Depth is part of it and not of the Hitbox |
+| What a marble touches | **Hitbox**: drawn in Track, sized by Shape without its Depth, outlined in Film for a selected piece | collider, physics shape | Unity's collider and mesh; the Skin is the mesh |
+| How a piece behaves | **Physics**: the inspector's panel beside Shape (Bounce, Brake, Spin) | Advanced, material, restitution | Named by what it holds |
 | Every piece's outline in Film | **Show Hitboxes** (View menu, ⌘K) | Show Colliders, Gizmos, Debug Physics | Unity's collider gizmos |
 | Undoing those ties | **Detach** | unlink, unanchor | one verb for both |
 | A copy of pieces | **Duplicate** (⌘D): copies tied to nothing, on the nearest spot clear of every marble's path and every piece. Without one nearby the notice ends ", beside the run: no free spot near it"; when every spot would break hits nothing is copied: "Every spot for a copy of Platform 1 would break 3 hits, so nothing changed" | clone, copy | Figma and Finder: a copy changes nothing else |
-| The two workspaces | **Track** ("Track: hitboxes, timing and camera") and **Film** ("Film: skins, lights and titles", and export) | Compose, Design, Build, Look | Track is what the marbles run on and how it's framed; Film dresses it |
+| The two workspaces | **Track** ("Track: shapes, timing and camera") and **Film** ("Film: skins, lights and titles", and export) | Compose, Design, Build, Look | Track is what the marbles run on, each piece's shape and how it's framed; Film only adds skins and decoration |
 | Inspector with nothing selected | **Scene**: in Film the Theme row; in Track **Gravity** under **Physics** and **Format** | World, Settings, Document, Project | an empty selection is the Scene: an empty click or Esc selects it |
 | How fast marbles fall | **Gravity**, in Track's Scene, with the tooltip "How fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time."; ⌘K still finds it by "marble speed" | Marble Speed, physics scale | what it is |
 | The shape of the film | **Format** in Track's Scene: 9:16 Portrait, 1:1 Square, 4:5 Portrait, 16:9 Landscape; ⌘K finds it by aspect, portrait, square | Frame, Aspect, Resolution | Blender's Output › Format |
@@ -178,7 +179,7 @@ A dropped platform that can't reach its spot says so in the chip, **Stays: the m
 
 ## Piece settings
 
-The Hitbox and Physics panels name what a piece looks like or does, not how it is built. A half-width field carries the short name; the tooltip says the rest.
+The Shape and Physics panels name what a piece looks like or does, not how it is built. A half-width field carries the short name; the tooltip says the rest.
 
 | Piece | Field | Means | Not |
 | --- | --- | --- | --- |

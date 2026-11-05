@@ -7,31 +7,31 @@ function piece(hitLink?: { laneId: string; hitId: string }): TEntity {
 }
 
 describe('pieceParamPanels function', () => {
-	it('should put a windmill\'s Brake and Spin in Physics and its shape in Hitbox', () => {
+	it('should put a windmill\'s Brake and Spin in Physics and its size in Shape', () => {
 		const panels = pieceParamPanels('windmill');
 
-		expect(panels.hitbox).toEqual(['bladeCount', 'bladeLength', 'bladeThickness', 'hubRadius']);
+		expect(panels.shape).toEqual(['bladeCount', 'bladeLength', 'bladeThickness', 'hubRadius', 'depth']);
 		expect(panels.physics).toEqual(['bounce', 'damping', 'motorSpeed']);
 	});
 
-	it('should keep a platform\'s Length in Position and the bounce in Physics', () => {
+	it('should put a platform\'s Length, Thickness and Depth in Shape and the bounce in Physics', () => {
 		const panels = pieceParamPanels('platform');
 
-		expect(panels.hitbox).toEqual(['thickness']);
+		expect(panels.shape).toEqual(['length', 'thickness', 'depth']);
 		expect(panels.physics).toEqual(['bounce']);
 	});
 
-	it('should show what a Rail\'s layout uses in Hitbox and no empty Physics', () => {
+	it('should show what a Rail\'s layout uses in Shape and no empty Physics', () => {
 		const panels = pieceParamPanels('rail', 'switchback');
 
-		expect(panels.hitbox).toEqual(['turns', 'width', 'drop', 'opening', 'lip', 'bend', 'radius', 'gap']);
+		expect(panels.shape).toEqual(['turns', 'width', 'drop', 'opening', 'lip', 'bend', 'radius', 'gap']);
 		expect(panels.physics).toEqual([]);
-		expect(pieceParamPanels('rail').hitbox).toEqual(['radius', 'gap']);
-		expect(pieceParamPanels('rail', 'chain').hitbox).toContain('sweep');
+		expect(pieceParamPanels('rail').shape).toEqual(['radius', 'gap']);
+		expect(pieceParamPanels('rail', 'chain').shape).toContain('sweep');
 	});
 
-	it('should show a Bowl\'s size in Hitbox, leaving Style and Mirror to its own panel', () => {
-		expect(pieceParamPanels('bowl').hitbox).toEqual(['size', 'radius']);
+	it('should show a Bowl\'s size in Shape, leaving Style and Mirror to its own panel', () => {
+		expect(pieceParamPanels('bowl').shape).toEqual(['size', 'radius']);
 	});
 });
 

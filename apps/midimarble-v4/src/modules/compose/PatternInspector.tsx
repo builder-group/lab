@@ -1,9 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import { Folder, Spline } from 'lucide-react';
 import React from 'react';
-import { InspectorHeader, Panel, SliderField } from '@/components';
-import { isPatternGroup, type TPatternGroup, type TProject } from '@/modules/project';
-import { hitsInRange, MAX_TILT, PATTERN_LABELS, type TPatternKind, type TPatternProblem } from '@/modules/simulation';
+import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
+import { isPatternGroup, type TEntity, type TPatternGroup, type TProject, type TProjectCommand } from '@/modules/project';
+import { hitsInRange, MAX_TILT, PATTERN_LABELS, platformDefinition, type TPatternKind, type TPatternProblem } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { toGroupKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -74,7 +74,43 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 					Flatten
 				</button>
 			</TilesPanel>
+			{!isRail ? <BarDepthPanel cx={cx} project={project} group={group} /> : null}
 		</>
+	);
+};
+
+/** The one part of a live Pattern's Shape that's free: Width and the fit own the rest, and fitting again keeps a Depth set here */
+const BarDepthPanel: React.FC<{ cx: StudioCx; project: TProject; group: TPatternGroup }> = (props) => {
+	const { cx, project, group } = props;
+	const spec = platformDefinition.params['depth'];
+	const bars = project.entities.flatMap((entity) => {
+		const piece = entity.components.piece;
+		return piece?.type === 'platform' && group.pieceIds.includes(entity.id) ? [{ entity, piece }] : [];
+	});
+	const [first] = bars;
+	if (first == null || spec == null) return null;
+	const depthOf = (bar: { piece: { type: string; params: Record<string, number> } }): number => bar.piece.params['depth'] ?? spec.default;
+	const isShared = bars.every((bar) => Math.abs(depthOf(bar) - depthOf(first)) < 1e-9);
+	const withDepth = (bar: { entity: TEntity; piece: NonNullable<TEntity['components']['piece']> }, depth: number): TProjectCommand => ({
+		type: 'setComponent',
+		entityId: bar.entity.id,
+		component: { name: 'piece', value: { ...bar.piece, params: { ...bar.piece.params, depth } } }
+	});
+	return (
+		<Panel id="pattern.shape" title="Shape" isDense>
+			<ScrubField
+				id="pattern-depth"
+				label="Depth"
+				name="Depth"
+				value={isShared ? Math.round(depthOf(first) * 1000) / 10 : null}
+				unit="cm"
+				step={0.1}
+				precision={1}
+				min={spec.min * 100}
+				max={spec.max * 100}
+				onCommit={(value) => cx.execute(bars.map((bar) => withDepth(bar, value / 100)))}
+			/>
+		</Panel>
 	);
 };
 
