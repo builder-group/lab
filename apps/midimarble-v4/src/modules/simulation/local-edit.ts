@@ -52,6 +52,8 @@ export interface TSettled {
 	heldFrom: THitResult[];
 	/** Runs it took */
 	runs: number;
+	/** How far from the asked-for spot a moved dot landed, in metres; null without a move */
+	moveMiss: number | null;
 }
 
 /**
@@ -382,8 +384,11 @@ const QUICK_LOOK = 2.5;
 /** A way this good ends the search: nothing broken or struck, later pieces under 2 mm from where they were */
 const GOOD_ENOUGH = 2;
 const GOOD_ENOUGH_SHIFT = 0.01;
+const MISS_WEIGHT = 10000;
+/** A moved dot nearer than this to where it was asked is where it was asked */
+const MISS_MARGIN = 0.001;
 
-type TJudged = Pick<TSettled, 'broken' | 'strays' | 'result'> & { shift: number };
+type TJudged = Pick<TSettled, 'broken' | 'strays' | 'result' | 'moveMiss'> & { shift: number };
 
 /** How far the hits after the platforms that took up the change stay from where they were */
 function laterShift(base: TSimulationResult, result: TSimulationResult, edits: TLaneEdit[], absorbedBy: string[]): number {
@@ -417,11 +422,19 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		runs++;
 	};
 	// A broken hit counts most, then a new strike, and how far the rest of the run stays moved: 10 cm weighs a broken hit
-	const score = (settled: Pick<TJudged, 'broken' | 'strays' | 'shift'>): number => settled.broken.length * 100 + settled.strays * 10 + settled.shift * 1000;
+	// A move asked for a spot: 1 cm short of it weighs a broken hit, so the drop lands first and a break can be fixed after
+	const score = (settled: Pick<TJudged, 'broken' | 'strays' | 'shift' | 'moveMiss'>): number => settled.broken.length * 100 + settled.strays * 10 + settled.shift * 1000 + (settled.moveMiss ?? 0) * MISS_WEIGHT;
+	const movedEdit = edits.find((edit) => edit.movedDot != null);
+	const missOf = (result: TSimulationResult): number | null => {
+		const moved = movedEdit?.movedDot;
+		if (moved == null) return null;
+		const dot = result.hits.find((hit) => hit.laneId === movedEdit?.laneId && hit.hitId === moved.hitId)?.dot;
+		return dot != null ? Math.hypot(dot.x - moved.dot.x, dot.y - moved.dot.y) : Number.POSITIVE_INFINITY;
+	};
 	const judge = (project: TProject, absorbedBy: string[]): TJudged => {
 		count();
 		const result = simulator.simulate(project);
-		return { result, broken: brokenSince(base, result), strays: strayContacts(base, result), shift: laterShift(base, result, edits, absorbedBy) };
+		return { result, broken: brokenSince(base, result), strays: strayContacts(base, result), shift: laterShift(base, result, edits, absorbedBy), moveMiss: missOf(result) };
 	};
 	if (options.isQuick === true) {
 		let project = after;
@@ -438,7 +451,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		const near = simulator.simulate({ ...project, end });
 		const broken = brokenSince(base, near).filter((hit) => hit.targetTime < end - 0.05);
 		const held = broken.length > 0 ? holdBreaks(project, after, base, near, broken) : null;
-		return { project: held?.project ?? project, absorbedBy, broken, strays: 0, result: base, runs, heldFrom: held?.from ?? [] };
+		return { project: held?.project ?? project, absorbedBy, broken, strays: 0, result: base, runs, heldFrom: held?.from ?? [], moveMiss: missOf(near) };
 	}
 	const unsettled = { project: after, absorbedBy: [] as string[], ...judge(after, []) };
 	let best: typeof unsettled | null = null;
@@ -456,9 +469,9 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		if (best == null || score(judged) < score(best)) best = { ...judged, project, absorbedBy };
 		if (score(best) < GOOD_ENOUGH || (index >= 2 && best.broken.length === 0 && best.strays === 0 && best.shift < GOOD_ENOUGH_SHIFT)) break;
 	}
-	// A drag asked for the move, so standing still is no better way of doing it, unless the move breaks hits
-	const isMove = edits.some((edit) => edit.movedDot != null);
-	const chosen = best != null && (isMove ? !best.broken.length : score(best) <= score(unsettled)) ? best : unsettled;
+	// A drag asked for the move, so standing still is no better way of doing it, whatever got nearer sticks
+	const isNearer = best != null && (best.moveMiss ?? 0) < (unsettled.moveMiss ?? 0) - MISS_MARGIN;
+	const chosen = best != null && (movedEdit != null ? isNearer : score(best) <= score(unsettled)) ? best : unsettled;
 	let settled: typeof chosen & { heldFrom: THitResult[] } = { ...chosen, heldFrom: [] };
 	// A marble freed of one lane may now strike the pieces that wait, so each lane that breaks waits in turn
 	for (let lanes = 0; lanes < after.music.lanes.length; lanes++) {
@@ -612,6 +625,17 @@ export interface TSettleAnswer {
 	broken: { laneId: string; hitId: string; time: number; status: string }[];
 	heldFrom: { laneId: string; hitId: string; time: number }[];
 	runs: number;
+	/** For a moved dot: how far it went and how far from the asked-for spot it landed, in metres, and what fixes its spot */
+	move: TMoveOutcome | null;
+}
+
+export interface TMoveOutcome {
+	moved: number;
+	missed: number;
+	/** What sends the marble to this spot: the piece before it, or null for a marble's first note */
+	fromId: string | null;
+	/** The piece before it is a ride or nothing, which can't aim the marble anywhere else */
+	isFixed: boolean;
 }
 
 /** What `settleEdit` needs from the run before an edit, kept while one project is edited: a drag asks at every move */
@@ -641,6 +665,7 @@ export function answerSettle(simulator: TSimulator, request: TSettleRequest, kno
 		edits.push(...others, { laneId: moved.laneId, afterIndex: index - 1, movedDot: { hitId: moved.hitId, dot: moved.dot } });
 	}
 	const settled = settleEdit(simulator, memo.base, after, edits, { isQuick: request.isQuick === true });
+	const movedAt = moved != null ? memo.base.hits.find((hit) => hit.laneId === moved.laneId && hit.hitId === moved.hitId)?.dot : null;
 	return {
 		memo,
 		answer: {
@@ -648,9 +673,20 @@ export function answerSettle(simulator: TSimulator, request: TSettleRequest, kno
 			absorbedBy: settled.absorbedBy,
 			broken: settled.broken.map((hit) => ({ laneId: hit.laneId, hitId: hit.hitId, time: hit.targetTime, status: hit.status })).sort((a, b) => a.time - b.time),
 			heldFrom: settled.heldFrom.map((hit) => ({ laneId: hit.laneId, hitId: hit.hitId, time: hit.targetTime })),
-			runs: settled.runs
+			runs: settled.runs,
+			move: moved != null && movedAt != null ? moveOutcome(after, moved, Math.hypot(moved.dot.x - movedAt.x, moved.dot.y - movedAt.y), settled.moveMiss ?? 0) : null
 		}
 	};
+}
+
+function moveOutcome(project: TProject, moved: { laneId: string; hitId: string }, asked: number, missed: number): TMoveOutcome {
+	const lane = project.music.lanes.find((item) => item.id === moved.laneId);
+	const previous = lane?.hits[(lane.hits.findIndex((hit) => hit.id === moved.hitId) ?? 0) - 1];
+	const before = previous != null ? project.entities.filter((entity) => entity.components.hitLink?.laneId === moved.laneId && entity.components.hitLink.hitId === previous.id) : [];
+	// A ride after the note decides where the marble comes off, so that piece is the one to name
+	const from = before.find((entity) => hasRide(entity.components.piece?.type ?? '')) ?? before[0];
+	const isFixed = previous == null || linkedPlatform(project, moved.laneId, previous.id) == null || launchesRide(project, moved.laneId, previous.id);
+	return { moved: Math.max(0, asked - missed), missed, fromId: from?.id ?? null, isFixed };
 }
 
 // MARK: - Back from a break

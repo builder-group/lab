@@ -201,7 +201,8 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const frame = single != null ? compose.railFrame(single.entityId) : null;
 	const isPathPiece = singleKind === 'path' || singleKind === 'tube' || singleKind === 'generated';
 	const isMoveDrag = drag?.kind === 'move' && drag.moved;
-	const grip = single != null && !isPathPiece && !isMoveDrag ? compose.screenGrip(single) : null;
+	// A Bowl always stands upright, so it has nothing to turn
+	const grip = single != null && !isPathPiece && singleKind !== 'catcher' && !isMoveDrag ? compose.screenGrip(single) : null;
 	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'generated' ? compose.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
 	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.entityId));
@@ -452,6 +453,7 @@ const PLAYS_CHIP_ROOM = 300;
  */
 const PlaysChip: React.FC<{ compose: ComposeCx; project: TProject; drag: Extract<TComposeDrag, { kind: 'move' }>; result: TSimulationResult }> = (props) => {
 	const { compose, project, drag, result } = props;
+	const limit = useFeatureState(compose.studio.simulation.$moveLimit);
 	const center = compose.toScreen(drag.current.position);
 	const plays = drag.plays;
 	if (plays == null) return null;
@@ -477,8 +479,8 @@ const PlaysChip: React.FC<{ compose: ComposeCx; project: TProject; drag: Extract
 			<span className="mm-chip-timing" data-tone={status.tone}>
 				{status.label}
 			</span>
-			<kbd className="opacity-60">⌥ None</kbd>
 			<WhatIfCount compose={compose} result={result} isInChip />
+			{limit != null ? <span className="mm-whatif-count" data-bad data-chip>{limit.chip}</span> : null}
 		</div>
 	);
 };
@@ -513,7 +515,6 @@ const SnapChip: React.FC<{ compose: ComposeCx; project: TProject; position: TVec
 	return (
 		<div className="mm-snap-chip" data-snapped={snap != null} style={{ left: center.x + 18, top: center.y + 14 }}>
 			{content}
-			{snap != null ? <kbd className="opacity-60">⌥ None</kbd> : null}
 			<WhatIfCount compose={compose} result={compose.result} isInChip />
 		</div>
 	);

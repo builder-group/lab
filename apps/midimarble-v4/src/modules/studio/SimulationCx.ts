@@ -20,12 +20,16 @@ export class SimulationCx {
 	readonly $computing = createState(false);
 	/** True from `startPreview` to `endPreview` */
 	readonly $previewing = createState(false);
+	/** Why the platform being dragged can't play its note where the pointer is, for its chip */
+	readonly $moveLimit = createState<TMoveLimit | null>(null);
 	/** Wall time from the newest request to its result, in milliseconds */
 
 	private client: TSimulationClient | null = null;
 	private preview: TProject | null = null;
 	private previewMove: { laneId: string; hitId: string; dot: TVec2 } | null = null;
 	private isMoving = false;
+	/** The pointer has paused, so the preview asks what the drop will do: every way, not the first */
+	private isPaused = false;
 	private pauseTimer: ReturnType<typeof setTimeout> | null = null;
 	private cancelFrame: (() => void) | null = null;
 	private sent = 0;
@@ -77,6 +81,7 @@ export class SimulationCx {
 		this.previewMove = move;
 		// The first preview runs whole, so a hover's what-if counts every hit it breaks; only the next ones are moving
 		this.isMoving = this.preview != null;
+		this.isPaused = false;
 		this.preview = project;
 		this.$previewing.set(true);
 		this.schedule();
@@ -86,6 +91,7 @@ export class SimulationCx {
 			: setTimeout(() => {
 					this.pauseTimer = null;
 					this.isMoving = false;
+					this.isPaused = true;
 					this.schedule();
 				}, PREVIEW_PAUSE_MS);
 	}
@@ -101,8 +107,10 @@ export class SimulationCx {
 		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
 		this.pauseTimer = null;
 		this.isMoving = false;
+		this.isPaused = false;
 		this.preview = null;
 		this.previewMove = null;
+		if (this.$moveLimit.get() != null) this.$moveLimit.set(null);
 		this.$previewing.set(false);
 	}
 
@@ -193,7 +201,8 @@ export class SimulationCx {
 
 	/**
 	 * A platform dragged off its dot: the platform before it sends the marble to the new spot and the next ones bring it
-	 * back on the old run, as one undo step. A platform right after a ride can't move this way and stays where it was.
+	 * back on the old run, as one undo step. A spot it can't send the marble to takes the platform as far as it can; one
+	 * that fixes the spot (a ride, or the first note) leaves it where it was. Either way a notice says why.
 	 */
 	async moveDot(move: { laneId: string; hitId: string; dot: TVec2 }): Promise<void> {
 		const project = this.studio.project;
@@ -203,7 +212,11 @@ export class SimulationCx {
 		try {
 			const answer = await this.client.settle({ before: project, after: project, movedDot: move });
 			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
-			this.landSettled(answer.entities, false);
+			const limit = moveLimit(project, move, answer);
+			// Nothing moved, so nothing lands: no undo step for a drop that didn't happen
+			this.landSettled(limit?.isStuck === true ? [] : answer.entities, false);
+			if (limit?.isStuck === true) this.studio.notify(limit.notice);
+			else if (limit != null) this.studio.notifyEdit(limit.notice);
 			this.sayBreak(answer, project);
 		} catch (error) {
 			if (run !== this.settleRun || isSuperseded(error)) return;
@@ -212,10 +225,23 @@ export class SimulationCx {
 		}
 	}
 
+	/** A break to name, once the run of the edit shows the hit really is broken, so the notice agrees with the summary */
+	private pendingBreak: { first: TSettleAnswer['heldFrom'][number]; project: TProject; revision: number } | null = null;
+
 	/** Names what happened only when it matters: a break the next platforms couldn't take up */
 	private sayBreak(answer: TSettleAnswer, project: TProject): void {
 		const [first] = answer.heldFrom;
 		if (first == null) return;
+		this.pendingBreak = { first, project, revision: this.studio.project?.revision ?? 0 };
+	}
+
+	private sayPendingBreak(result: TSimulationResult): void {
+		const pending = this.pendingBreak;
+		if (pending == null || result.revision < pending.revision) return;
+		this.pendingBreak = null;
+		const { first, project } = pending;
+		const status = result.hits.find((hit) => hit.laneId === first.laneId && hit.hitId === first.hitId)?.status;
+		if (result.revision !== pending.revision || status == null || status === 'onTime' || status === 'drifting' || status === 'waiting') return;
 		const lane = project.music.lanes.find((item) => item.id === first.laneId);
 		const number = (lane?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
 		const waiting = project.entities.filter((entity) => entity.components.hitLink?.laneId === first.laneId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
@@ -242,9 +268,11 @@ export class SimulationCx {
 			return;
 		}
 		const move = this.previewMove;
-		client.settle({ before: present, after: preview, isQuick: true, movedDot: move }).then(
+		client.settle({ before: present, after: preview, isQuick: !this.isPaused, movedDot: move }).then(
 			(answer) => {
 				if (this.preview !== preview) return;
+				const limit = move != null ? moveLimit(present, move, answer) : null;
+				if (limit?.chip !== this.$moveLimit.get()?.chip) this.$moveLimit.set(limit);
 				this.send(client, withEntities(preview, answer.entities));
 			},
 			(error: unknown) => {
@@ -262,6 +290,7 @@ export class SimulationCx {
 				if (id < this.accepted || this.studio.project?.id !== project.id) return;
 				this.accepted = id;
 				if (result !== this.$result.get()) this.$result.set(result);
+				if (this.preview == null) this.sayPendingBreak(result);
 				if (id === this.sent) this.$computing.set(false);
 			},
 			(error: unknown) => {
@@ -277,4 +306,33 @@ export class SimulationCx {
 function withEntities(project: TProject, entities: TEntity[]): TProject {
 	const changed = new Map(entities.map((entity) => [entity.id, entity]));
 	return { ...project, entities: project.entities.map((entity) => changed.get(entity.id) ?? entity) };
+}
+
+/** Why a dragged platform can't go all the way: `chip` beside the drag, `notice` after the drop */
+export interface TMoveLimit {
+	chip: string;
+	notice: string;
+	/** It stays where it was */
+	isStuck: boolean;
+}
+
+// How near a moved dot has to land to count as there, and how far to count as moved
+const MOVE_LANDED = 0.003;
+const MOVE_MOVED = 0.001;
+
+/** Null when the platform landed where it was dragged */
+export function moveLimit(project: TProject, move: { laneId: string; hitId: string }, answer: Pick<TSettleAnswer, 'move'>): TMoveLimit | null {
+	const outcome = answer.move;
+	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
+	const lane = project.music.lanes.find((item) => item.id === move.laneId);
+	const name = project.entities.find((entity) => entity.components.hitLink?.laneId === move.laneId && entity.components.hitLink.hitId === move.hitId)?.name ?? 'The platform';
+	const from = project.entities.find((entity) => entity.id === outcome.fromId)?.name;
+	if (outcome.isFixed) {
+		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${lane?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };
+		return { chip: `Stays: the marble leaves ${from} here`, notice: `${name} stays where it is: the marble leaves ${from} here. Move ${from} to change its spot.`, isStuck: true };
+	}
+	const source = from ?? 'the piece before it';
+	if (outcome.moved < MOVE_MOVED) return { chip: `Stays: out of reach from ${source}`, notice: `${name} stays where it is: ${source} can't send the marble there on time.`, isStuck: true };
+	const cm = (metres: number): string => `${(metres * 100).toFixed(1)} cm`;
+	return { chip: `Goes ${cm(outcome.moved)}: the marble reaches no further`, notice: `${name} moved ${cm(outcome.moved)} of ${cm(outcome.moved + outcome.missed)}: ${source} can't send the marble further on time.`, isStuck: false };
 }
