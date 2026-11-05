@@ -1,6 +1,6 @@
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { gravityOf, IMPACT_SPEED, startRailOf, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime } from '@/modules/project';
+import { formatTime, tieOf } from '@/modules/project';
 
 // Why an open hit has no place for a platform, read from the marble's release and its simulated run, so
 // the hit gets a status with a reason and a fix instead of a silent dead end.
@@ -33,6 +33,8 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 	if (marble == null || release == null) return { kind: 'noMarble' };
 	const radius = marble.radius ?? 0.012;
 	const earliest = release.time + strikeDelay(project, release, radius);
+	// A marble started further along, on a Pattern, plays from there: the notes before its release are only not built yet
+	if (hit.targetTime < release.time && (startRailOf(project, marble.id) != null || hasPiecesAfter(project, marble.id, hit.targetTime))) return { kind: 'reachable' };
 	if (hit.targetTime < earliest) return { kind: 'tooSoon', releaseTime: release.time, earliest };
 	// A run is only judged up to the first note still waiting for its platform: past it the marble falls
 	// freely, so later notes stay Open until that note is placed
@@ -45,6 +47,14 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 	if (before != null && before.time < hit.targetTime - REST_WINDOW / 2 && Math.hypot(hit.dot.x - before.position.x, hit.dot.y - before.position.y) < radius / 2)
 		return { kind: 'resting' };
 	return { kind: 'reachable' };
+}
+
+function hasPiecesAfter(project: TProject, marbleId: string, time: number): boolean {
+	const marble = project.marbles.find((item) => item.id === marbleId);
+	return project.track.pieces.some((piece) => {
+		const tie = tieOf(piece);
+		return tie?.marbleId === marbleId && (marble?.hits.find((hit) => hit.id === tie.hitId)?.time ?? -Infinity) > time;
+	});
 }
 
 /** Seconds from a release until the marble has fallen its diameter and reached the strike speed */

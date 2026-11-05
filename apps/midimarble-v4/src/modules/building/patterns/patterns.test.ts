@@ -109,9 +109,9 @@ describe('fitPattern function', () => {
 		expect(fit.problems.every((problem) => problem.hitId.length > 0 && /[a-z]/.test(problem.words) && !problem.words.includes('undefined'))).toBe(true);
 	});
 
-	it('should build the Width asked, tilt past the usual limit only when asked, and offer a Width that fits in words', () => {
+	it('should build the Width asked, and tilt past the usual limit only when asked', () => {
 		const project = smallProject([1, 1.14, 1.28, 1.42, 1.56]);
-		const usual = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, offersNearestWidth: true }, { sim });
+		const usual = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08 }, { sim });
 		const steep = fitPattern({ project, marbleId: MARBLE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTilt: 70 }, { sim });
 		const steepest = (fit: typeof usual): number => Math.max(...fit.pieces.map((piece) => Math.abs(piece.angle ?? 0) * (180 / Math.PI)));
 
@@ -192,11 +192,15 @@ describe('runGroupChange function', () => {
 		expect((marble?.start?.position.y ?? 0) - (result.hits[0]?.dot?.y ?? 0)).toBeLessThan(0.6);
 	});
 
-	it('should report a long fall inside a range', () => {
+	it('should hold the marble on a rail across a hop too long for a bounce', () => {
 		const project = { ...smallProject([1, 1.25, 1.5, 2.5, 2.74]), gravity: 1 };
 		const outcome = runGroupChange(project, { ...change, to: 2.74 }, { sim });
+		const result = sim.simulate(apply(project, outcome.commands));
 
-		expect(outcome.problems.some((problem) => /falls [\d.]+ m/.test(problem.words) && problem.words.includes('Long Rail'))).toBe(true);
+		expect(outcome.madePieces.filter((piece) => piece.type === 'rail')).toHaveLength(1);
+		expect(outcome.madePieces.filter((piece) => piece.type === 'platform')).toHaveLength(5);
+		expect(outcome.problems.some((problem) => /falls [\d.]+ m/.test(problem.words))).toBe(false);
+		expect(result.hits.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
 	});
 
 	it('should flatten to a plain Group that later Groups leave alone', () => {

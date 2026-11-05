@@ -1,7 +1,9 @@
-import { tieOf, type THit } from '@/modules/project';
-import { frameBand, extraStrikes, LONG_FALL, rollingHits, touchingPairs } from '@/modules/simulation';
+import { tieOf, type THit, type TPiece, type TProject } from '@/modules/project';
+import { frameBand, extraStrikes, hasRide, LONG_FALL, longGapThreshold, rollingHits, soundsHit, touchingPairs } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
-import type { THitVerdict, TPatternFit, TPatternInput, TPatternWorld } from './contract';
+import type { THitVerdict, TPatternFit, TPatternInput, TPatternMoment, TPatternWorld } from './contract';
+import { arrivalAt } from './arrival';
+import { fitLongRail } from './fit-rail';
 import { BAR_LENGTH, COLUMN_PROBLEM, fitBars, isOffColumn, MAX_TILT, type TBar, type TBarIssue, type TBarShape, type TBarsFit } from './fit-bars';
 import { exitAt, verdictsFor } from './verdicts';
 import { formatSeconds, wordsForHitTime } from './words';
@@ -11,8 +13,6 @@ import { formatSeconds, wordsForHitTime } from './words';
 
 /** Notes closer than this count as the next hop; a longer gap is left for a rail, where a marble must not free fall (`building-a-track`) */
 const LONG_GAP = 0.7;
-/** The Widths tried to offer one that fits, nearest first */
-const NEAREST_WIDTHS = [0.01, -0.01, 0.02, -0.02];
 
 interface TScoredFit extends TBarsFit {
 	width: number;
@@ -31,13 +31,14 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const last = hits.at(-1);
 	const first = hits[0];
-	const nothing = (words: string): TPatternFit => ({ pieces: [], exit: null, verdicts: verdictsFor(hits, [{ hitId: hitIds[0] ?? '', fits: false, words }]), ending: null, notes: [], project, width: settings.width, drop: world.drop ?? null, nearestWidth: null, sims: 0, tries: 0 });
+	const nothing = (words: string): TPatternFit => ({ pieces: [], exit: null, verdicts: verdictsFor(hits, [{ hitId: hitIds[0] ?? '', fits: false, words }]), ending: null, notes: [], project, width: settings.width, drop: world.drop ?? null, sims: 0, tries: 0 });
 	if (marble == null || last == null || first == null) return nothing('A Zigzag or Staircase needs notes to play, and this range has none.');
 	if (arrival == null) return nothing('The marble has not reached this range, so nothing can be fitted here yet.');
 	const next = marble.hits.find((hit) => hit.time > last.time);
 	const isNextClose = next != null && next.time - last.time < LONG_GAP;
 	const ids = isNextClose ? [...hitIds, next.id] : hitIds;
 	const asked = settings.width;
+
 	const askedDrop = world.fixedBounce != null ? null : (world.drop ?? (kind === 'zigzag' ? 0.08 : 0.12));
 
 	const shape: TBarShape = {
@@ -49,8 +50,8 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		...(world.barDepth != null ? { barDepth: world.barDepth } : {}),
 		bounce: world.fixedBounce ?? settings.bounce,
 		...(settings.maxTilt != null ? { maxTilt: settings.maxTilt } : {}),
-		...(isNextClose ? { stopBefore: true } : {}),
-		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: frameBand(project).centerX } : {})
+		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: frameBand(project).centerX } : {}),
+		...(world.isGhost !== true ? { stopsAtBadBar: true } : {})
 	};
 	if (kind === 'staircase') shape.dir = Math.sign(frameBand(project).centerX - arrival.position.x) || 1;
 
@@ -61,7 +62,7 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 	let sims = 0;
 	const attemptAt = (width: number, drop: number | null, share: number): TScoredFit => {
 		const attempt = tries++;
-		const fit = fitBars(sim, project, marbleId, ids, arrival, { ...shape, width, ...(drop != null ? { drop } : {}) }, (done, total) => world.onProgress?.(share * ((attempt + done / total) / maxTries)));
+		const fit = fitRuns(world, runsOf(project, hits), isNextClose ? next : null, arrival, { ...shape, width, ...(drop != null ? { drop } : {}) }, (drop ?? 1) / (askedDrop ?? 1), (done, total) => world.onProgress?.(share * ((attempt + done / total) / maxTries)));
 		sims += fit.sims;
 		return scoreFit(sim, fit, marbleId, ids, isNextClose, width, drop, last.time);
 	};
@@ -72,20 +73,8 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		if (scored.score === 0) break;
 	}
 	const chosen = best as TScoredFit;
-	// Width is what was asked: the nearest one that fits is only offered, and only a clean fit counts
-	let nearest: number | null = null;
-	if (chosen.score > 0 && world.offersNearestWidth === true) {
-		for (const offset of NEAREST_WIDTHS) {
-			const width = Math.round((asked + offset) * 1000) / 1000;
-			if (width <= 0) continue;
-			if (attemptAt(width, chosen.drop, 1).score === 0) {
-				nearest = width;
-				break;
-			}
-		}
-	}
 	const result = sim.simulate({ ...chosen.project, length: (next?.time ?? last.time + 0.3) + 0.01 });
-	const said = [...problemsOf(chosen, marble.hits), ...longFalls(result, ids, marble.hits), ...columnProblems(chosen, shape.maxTilt ?? MAX_TILT), ...(nearest != null ? [{ hitId: hitIds[0] ?? '', fits: false, words: `Width ${formatCm(nearest)} fits this range.` }] : [])];
+	const said = [...problemsOf(chosen, marble.hits), ...longFalls(result, ids, marble.hits), ...columnProblems(chosen, shape.maxTilt ?? MAX_TILT)];
 	return {
 		pieces: chosen.pieces,
 		exit: exitAt(result, marbleId, next?.time ?? last.time + 0.3),
@@ -95,10 +84,85 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		project: chosen.project,
 		width: chosen.width,
 		drop: chosen.drop,
-		nearestWidth: nearest,
 		sims,
 		tries
 	};
+}
+
+/** The hits split at hops too long for a bounce (`longGapThreshold`), where a rail holds the marble as Build Track's do */
+function runsOf(project: TProject, hits: readonly THit[]): THit[][] {
+	const threshold = longGapThreshold(project);
+	const runs: THit[][] = [];
+	hits.forEach((hit, index) => {
+		const before = hits[index - 1];
+		if (before == null || hit.time - before.time > threshold) runs.push([hit]);
+		else runs.at(-1)?.push(hit);
+	});
+	return runs;
+}
+
+/**
+ * Bars over each run, with a rail across each long hop between them. On a song already built each run follows the track:
+ * it lands where the track's note is, keeps its height, and leaves as the bar it replaces did, so a rail there stays and
+ * what follows meets the marble as before. A rail that can't be made leaves the fall to be judged.
+ */
+function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | null, arrival: TPatternMoment, shape: TBarShape, dropShare: number, onBar: (done: number, total: number) => void): TBarsFit {
+	const { sim, marbleId, along } = world;
+	const total = runs.reduce((sum, run) => sum + run.length, 0);
+	const made: TBarsFit = { project: world.project, pieces: [], bars: [], sims: 0, center: 0 };
+	let moment: TPatternMoment | null = arrival;
+	for (const [index, run] of runs.entries()) {
+		const following = runs[index + 1]?.[0];
+		const last = run.at(-1);
+		if (moment == null || last == null) break;
+		const start: TPatternMoment = moment;
+		const ender = following == null ? next : null;
+		const ids = [...run.map((hit) => hit.id), ...(ender != null ? [ender.id] : [])];
+		const end = along?.dots.get(ender?.id ?? last.id);
+		const hops = ids.length - 1;
+		const sideOf = (x: number): number => Math.sign(x - start.position.x) || 1;
+		const keptRail = along != null && following != null ? railOn(made.project, marbleId, last.id) : null;
+		const leave = ender == null ? along?.leaves.get(last.id) : undefined;
+		const done = made.bars.length;
+		const fit = fitBars(sim, made.project, marbleId, ids, start, {
+			...shape,
+			...(ender != null ? { stopBefore: true } : {}),
+			...(following != null && keptRail == null ? { exitToFrame: frameBand(world.project).centerX } : {}),
+			...(leave != null ? { leaveLike: leave } : {}),
+			...(end != null && hops > 0 ? {
+				endAt: end,
+				// The shape keeps the height the track has now, and a marble landing in the column nearer the end crosses toward it first
+				drop: Math.max(0.03, ((start.position.y - end.y) / hops) * dropShare),
+				dir: shape.kind === 'staircase' ? sideOf(end.x) : (along?.side ?? -sideOf(end.x))
+			} : {})
+		}, (bar) => onBar(done + bar, total));
+		made.project = fit.project;
+		made.pieces.push(...fit.pieces);
+		made.bars.push(...fit.bars);
+		made.sims += fit.sims;
+		made.center = fit.center;
+		if (fit.bars.at(-1)?.why.length !== 0 && shape.stopsAtBadBar === true) break;
+		if (following == null) break;
+		if (keptRail != null) made.pieces.push(keptRail);
+		else {
+			const rail = fitLongRail(sim, made.project, marbleId, { hitId: last.id, time: last.time }, following.id).fit;
+			if (rail != null) {
+				made.project = rail.project;
+				made.pieces.push(rail.piece);
+				made.sims += rail.sims;
+			}
+		}
+		moment = arrivalAt(sim, made.project, marbleId, following.id, following.time);
+	}
+	return made;
+}
+
+/** The rail or tunnel carrying the marble on from this hit */
+function railOn(project: TProject, marbleId: string, hitId: string): TPiece | null {
+	return project.track.pieces.find((piece) => {
+		const tie = tieOf(piece);
+		return tie?.marbleId === marbleId && tie.hitId === hitId && !soundsHit(piece.type, tie) && hasRide(piece.type);
+	}) ?? null;
 }
 
 function scoreFit(sim: TSimulator, fit: TBarsFit, marbleId: string, ids: string[], stopsBefore: boolean, width: number, drop: number | null, lastTime: number): TScoredFit {
@@ -117,20 +181,20 @@ function scoreFit(sim: TSimulator, fit: TBarsFit, marbleId: string, ids: string[
 }
 
 function problemsOf(fit: TScoredFit, hits: readonly THit[]): THitVerdict[] {
-	const when = (hitId: string): string => wordsForHitTime(hits.find((hit) => hit.id === hitId)?.time ?? 0);
 	const problems: THitVerdict[] = [];
 	const seen = new Set<string>();
 	const add = (hitId: string, words: string): void => {
-		if (seen.has(words)) return;
-		seen.add(words);
+		const key = `${hitId}/${words}`;
+		if (seen.has(key)) return;
+		seen.add(key);
 		problems.push({ hitId, fits: false, words });
 	};
 	if (!fit.bars.length) add(hits[0]?.id ?? '', 'The marble has not reached this range, so nothing can be fitted here yet.');
-	for (const hitId of fit.late) add(hitId, `The note at ${when(hitId)} can't be reached on time.`);
-	for (const bar of fit.bars) for (const issue of bar.why) add(bar.hitId, `${issueWords(issue, fit.width)} (${when(bar.hitId)})`);
-	for (const hitId of fit.strikes) add(hitId, `The marble strikes a bar twice at ${when(hitId)}.`);
-	for (const hitId of fit.rolls) add(hitId, `The marble rolls along a bar at ${when(hitId)} instead of bouncing. Try a higher Bounce.`);
-	for (const hitId of fit.touching) add(hitId, `Two pieces touch on the wall at ${when(hitId)}. Try another Width or Bounce.`);
+	for (const hitId of fit.late) add(hitId, "The marble can't reach this note on time.");
+	for (const bar of fit.bars) for (const issue of bar.why) add(bar.hitId, issueWords(issue, fit.width));
+	for (const hitId of fit.strikes) add(hitId, 'The marble strikes this bar twice.');
+	for (const hitId of fit.rolls) add(hitId, 'The marble rolls along this bar instead of bouncing. Try a higher Bounce.');
+	for (const hitId of fit.touching) add(hitId, 'Two pieces touch on the wall here. Try another Width or Bounce.');
 	return problems;
 }
 

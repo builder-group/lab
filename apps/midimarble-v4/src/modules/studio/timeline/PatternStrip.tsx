@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { groupProblems, isPatternKind, patternOfKind, patternSpan } from '@/modules/building';
+import { groupProblems, isPatternKind, patternOfKind, patternSpan, type THitVerdict } from '@/modules/building';
 import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
 import { isPatternGroup, type TPatternGroup, type TMarble, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
@@ -11,7 +11,7 @@ const BLOCK_PAD = 5;
 const MIN_DRAG_PX = 3;
 
 /**
- * The slim strip above a marble's hits (Patterns prototype): nearly invisible while empty, "Drag to choose a Pattern" on
+ * The slim strip above a marble's hits: nearly invisible while empty, "Drag to choose a Pattern" on
  * hover. Dragging out a range selects its notes, the same as dragging over them below, or the silence itself. A block is
  * a Group: a click selects it; a Pattern's edges resize it, which fits it again.
  */
@@ -23,6 +23,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const history = useFeatureState(cx.$history);
 	const selection = useFeatureState(cx.$selection);
 	const result = useFeatureState(cx.simulation.$result);
+	const verdict = useFeatureState(cx.patterns.$verdict);
 	const project = history?.present;
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
 	const [hoverX, setHoverX] = React.useState<number | null>(null);
@@ -94,6 +95,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 				</span>
 			) : null}
 			{shownRange != null ? <span className="mm-pattern-range" style={{ left: Math.min(shownRange.from, shownRange.to) * zoom, width: Math.max(1, Math.abs(shownRange.to - shownRange.from) * zoom) }} /> : null}
+			{verdict?.marbleId === marble.id ? <VerdictMarks marble={marble} verdicts={verdict.verdicts} zoom={zoom} /> : null}
 			{groups.map((group) => {
 				const span = isPatternGroup(group) ? patternSpan(marble, group) : plainGroupSpan(project, marble, group);
 				if (span == null) return null;
@@ -151,6 +153,16 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 			})}
 		</div>
 	);
+};
+
+/** A hit's verdict over its diamond while a Pattern is asked: a small dot where it fits, a bar and the reason where it doesn't */
+const VerdictMarks: React.FC<{ marble: TMarble; verdicts: readonly THitVerdict[]; zoom: number }> = (props) => {
+	const { marble, verdicts, zoom } = props;
+	return verdicts.flatMap((verdict) => {
+		const hit = marble.hits.find((item) => item.id === verdict.hitId);
+		if (hit == null) return [];
+		return [<span key={verdict.hitId} className="mm-pattern-verdict" data-fits={verdict.fits} style={{ left: hit.time * zoom }} {...(verdict.words != null ? { title: verdict.words } : {})} />];
+	});
 };
 
 interface TPatternStripProps {

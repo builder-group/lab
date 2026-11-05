@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '../src/modules/building/export-preflight';
 import { checkPattern } from '../src/modules/building/patterns/check-pattern';
-import { PATTERN_KINDS, PATTERNS, type TPatternKind } from '../src/modules/building/patterns/registry';
+import { PATTERN_KINDS } from '../src/modules/building/patterns/registry';
 import type { TGroupChange } from '../src/modules/building/patterns/run-group';
 import { applyProjectCommands } from '../src/modules/project/commands';
 import { parseProject, serializeProject } from '../src/modules/project/project-file';
@@ -104,9 +104,9 @@ function rangesOf(project: TProject, isQuick: boolean): Omit<TGroupChange, 'widt
 function reasonOf(words: string): string {
 	const rules: [RegExp, string][] = [
 		[/would break what follows/, `breaks later: ${words.match(/follows: (.*?)\. Nothing/)?.[1]?.replace(/[A-Z][a-z]+ \d+/g, '#').replace(/\d+:\d+/g, '#') ?? ''}`],
-		[/can't be reached on time|misses this note/, 'a note can’t be reached'],
+		[/can't be reached on time|can't reach this note|misses this note/, 'a note can’t be reached'],
 		[/settles on this bar/, 'marble settles on a bar'],
-		[/second time|strikes a bar twice/, 'strikes a bar twice'],
+		[/second time|strikes a bar twice|strikes this bar twice/, 'strikes a bar twice'],
 		[/another bar/, 'strikes another bar'],
 		[/rolls along/, 'rolls along a bar'],
 		[/touch/, 'pieces touch'],
@@ -131,8 +131,7 @@ function attempt(project: TProject, range: Omit<TGroupChange, 'width' | 'bounce'
 	const hitIds = (marble?.hits ?? []).filter((hit) => hit.time >= range.from - 1e-6 && hit.time <= range.to + 1e-6).map((hit) => hit.id);
 	const row = { fixture, state, marble: marble?.name ?? '', kind: range.kind, hits: hitIds.length, from: range.from, to: range.to };
 	const startedAt = performance.now();
-	const change: TGroupChange = { ...range, ...PATTERNS[range.kind as TPatternKind].defaults };
-	const check = checkPattern(project, change, { sim });
+	const check = checkPattern(project, range, { sim });
 	const ms = Math.round(performance.now() - startedAt);
 	const words = check.refusal?.words ?? (check.commands.length > 0 ? null : (check.problems[0]?.words ?? 'nothing made'));
 	if (words != null) return { ...row, outcome: 'refused', reason: reasonOf(words), words, ms };

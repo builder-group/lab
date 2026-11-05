@@ -3,6 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, isPatternGroup, type TMarble, type TPatternGroup, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { createSimulator, type TSimulator, extraStrikes, rollingHits, touchingPairs } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
+import { loadFixture } from '@/modules/project/test-helpers';
+import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '../export-preflight';
+import { checkPattern } from './check-pattern';
 import { measurePattern } from './measures';
 import { patternSpan, runGroupChange } from './run-group';
 
@@ -104,6 +107,33 @@ describe('Patterns chained on the reference hits', () => {
 		expect(changed.later).toHaveLength(7);
 		// Later Groups keep their Width too: what no longer fits is said, not hidden
 		if (again.onTime < 58) expect(changed.later.some((item) => item.problems.length > 0)).toBe(true);
+	});
+
+	it('should fit real ranges of a built song, and never leave it worse', { timeout: 20 * MINUTES }, () => {
+		const project = loadFixture('jingle-bells');
+		const ranges = project.marbles.flatMap((marble) => [10, 30].map((first) => ({ marble, first, last: first + 7 })));
+		const before = sim.simulate(project);
+		const onTime = (result: TSimulationResult): Set<string> => new Set(result.hits.filter((hit) => hit.status === 'onTime' || hit.status === 'drifting').map((hit) => hit.hitId));
+		const problems = (next: TProject, result: TSimulationResult): number => problemSummary(preflightExport(next, { ...result, revision: next.revision }, NO_BLENDER_OBJECTS), 'track').problems.length;
+		let fitted = 0;
+		for (const { marble, first, last } of ranges) {
+			for (const kind of ['zigzag', 'staircase'] as const) {
+				const check = checkPattern(project, { marbleId: marble.id, from: marble.hits[first]?.time ?? 0, to: marble.hits[last]?.time ?? 0, kind }, { sim });
+				if (check.refusal != null) {
+					expect(check.commands).toEqual([]);
+					expect(check.refusal.words).toMatch(/Nothing changed\.$/);
+					continue;
+				}
+				fitted++;
+				const after = apply(project, check.commands);
+				const result = sim.simulate(after);
+				const now = onTime(result);
+				expect([...onTime(before)].filter((hitId) => !now.has(hitId))).toEqual([]);
+				expect(problems(after, result)).toBeLessThanOrEqual(problems(project, before));
+			}
+		}
+		// Half of these at least: a Pattern that's always refused isn't useful
+		expect(fitted).toBeGreaterThanOrEqual(ranges.length);
 	});
 
 	it('should answer a hover preview on real rhythm quickly', { timeout: MINUTES }, () => {

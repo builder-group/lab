@@ -1,7 +1,22 @@
+import { type THit, type TPiece, type TProject, tieOf } from '@/modules/project';
+import { hasRide, soundsHit, startRailOf, type TSimulator } from '@/modules/simulation';
 import type { TPatternDefinition, TPatternFit, TPatternInput, TPatternWorld, THitVerdict } from './contract';
 import { fitLongRail } from './fit-rail';
 import { exitAt, verdictsFor } from './verdicts';
 import { formatSeconds, wordsForHitTime } from './words';
+
+/** The rail there now, when it already holds the marble through this silence and the note after it plays on time */
+export function railHolding(sim: TSimulator, project: TProject, marbleId: string, hits: readonly THit[]): TPiece | null {
+	const [previous, to] = hits.length === 1 ? [null, hits[0]] : hits;
+	if (to == null) return null;
+	const rail = previous == null ? startRailOf(project, marbleId) : project.track.pieces.find((piece) => {
+		const tie = tieOf(piece);
+		return tie != null && tie.marbleId === marbleId && tie.hitId === previous.id && !soundsHit(piece.type, tie) && hasRide(piece.type);
+	});
+	if (rail == null) return null;
+	const played = sim.simulate({ ...project, length: to.time + 0.02 }).hits.find((hit) => hit.marbleId === marbleId && hit.hitId === to.id);
+	return played?.status === 'onTime' ? rail : null;
+}
 
 /** Fills a silence with one rail whose shape is solved so the marble leaves it in time for the next note */
 function fitRailPattern(input: TPatternInput, world: TPatternWorld): TPatternFit {
@@ -10,8 +25,10 @@ function fitRailPattern(input: TPatternInput, world: TPatternWorld): TPatternFit
 	// One hit is the marble's first note: the rail opens the track, from the marble's release
 	const [previous, to] = input.hits.length === 1 ? [null, input.hits[0]] : input.hits;
 	const startTime = previous?.time ?? marble?.start.time;
-	const nothing = (said: THitVerdict): TPatternFit => ({ pieces: [], exit: null, verdicts: verdictsFor(input.hits, [said]), ending: null, notes: [], project, width: input.settings.width, drop: null, nearestWidth: null, sims: 0, tries: 0 });
+	const nothing = (said: THitVerdict): TPatternFit => ({ pieces: [], exit: null, verdicts: verdictsFor(input.hits, [said]), ending: null, notes: [], project, width: input.settings.width, drop: null, sims: 0, tries: 0 });
 	if (startTime == null || to == null) return nothing({ hitId: input.hits[0]?.id ?? '', fits: false, words: 'A Long Rail ends at a note, and starts at the note before it or at the marble’s release.' });
+	const held = railHolding(sim, project, marbleId, input.hits);
+	if (held != null) return { pieces: [held], exit: exitAt(sim.simulate({ ...project, length: to.time + 0.02 }), marbleId, to.time), verdicts: verdictsFor(input.hits, []), ending: null, notes: [], project, width: input.settings.width, drop: null, sims: 1, tries: 0 };
 	const hitId = previous?.id ?? to.id;
 	const gap = to.time - startTime;
 	let tries = 0;
@@ -32,7 +49,6 @@ function fitRailPattern(input: TPatternInput, world: TPatternWorld): TPatternFit
 		project: fit.project,
 		width: fit.width,
 		drop: null,
-		nearestWidth: null,
 		sims: fit.sims,
 		tries: 1
 	};

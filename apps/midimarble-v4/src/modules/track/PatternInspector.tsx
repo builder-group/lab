@@ -2,13 +2,13 @@ import { useFeatureState } from 'feature-react/state';
 import { Folder, Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
-import { isPatternGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf, toGroupKey, toRangeKey } from '@/modules/project';
+import { isPatternGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf } from '@/modules/project';
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, PATTERNS, patternKinds, patternOfKind, patternSpan, type TPatternGlyph, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import type { TrackCx } from './TrackCx';
 import { GhostPiece } from './GhostLayer';
-import { patternTargets, type TPatternTarget } from './PatternsCx';
+import { patternTargets, verdictKey, type TPatternTarget } from './PatternsCx';
 
 /** The Pattern tiles for selected hits: "9 Hits" in the header above them, one result however they were selected */
 export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -17,7 +17,7 @@ export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (prop
 	const workspace = useFeatureState(cx.$workspace);
 	const targets = patternTargets(project, selection);
 	if (workspace !== 'track' || !targets.length) return null;
-	return <TilesPanel cx={cx} targets={targets} kinds={patternKinds('notes')} failureKey={toRangeKey(targets[0]?.marbleId ?? '', targets[0]?.from ?? 0, targets[0]?.to ?? 0)} />;
+	return <TilesPanel cx={cx} targets={targets} kinds={patternKinds('notes')} verdictKey={verdictKey(targets[0] ?? { marbleId: '', from: 0, to: 0 })} />;
 };
 
 /** A silence dragged out in the strip */
@@ -27,7 +27,7 @@ export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; 
 	return (
 		<>
 			<InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={`${(target.to - target.from).toFixed(1)} s`} subtitle={`Silence on ${marble?.name ?? 'a marble'}`} />
-			<TilesPanel cx={cx} targets={[target]} kinds={patternKinds('silence')} failureKey={toRangeKey(target.marbleId, target.from, target.to)} />
+			<TilesPanel cx={cx} targets={[target]} kinds={patternKinds('silence')} verdictKey={verdictKey(target)} />
 		</>
 	);
 };
@@ -52,7 +52,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	return (
 		<>
 			<InspectorHeader icon={<Folder size={16} strokeWidth={1.7} />} title={group.name} subtitle={subtitle} />
-			<TilesPanel cx={cx} targets={[target]} kinds={patternKinds(isRail ? 'silence' : 'notes')} {...(isPatternKind(kind) ? { applied: kind } : {})} failureKey={toGroupKey(group.id)} problems={problems}>
+			<TilesPanel cx={cx} targets={[target]} kinds={patternKinds(isRail ? 'silence' : 'notes')} {...(isPatternKind(kind) ? { applied: kind } : {})} verdictKey={verdictKey(target)} problems={problems}>
 				{isPatternKind(kind) && widthRange != null ? (
 					<div className="mm-insp-grid mm-pattern-fields">
 						<SliderField
@@ -108,8 +108,8 @@ const BarDepthPanel: React.FC<{ cx: StudioCx; project: TProject; group: TPattern
 	);
 };
 
-const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPatternKind[]; applied?: TPatternKind; failureKey: string; problems?: TPatternProblem[]; children?: React.ReactNode }> = (props) => {
-	const { cx, targets, kinds, applied, failureKey, problems = [], children } = props;
+const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPatternKind[]; applied?: TPatternKind; verdictKey: string; problems?: TPatternProblem[]; children?: React.ReactNode }> = (props) => {
+	const { cx, targets, kinds, applied, verdictKey: key, problems = [], children } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
 	if (trackCx == null) return null;
 	return (
@@ -137,7 +137,7 @@ const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPa
 				))}
 			</div>
 			{children}
-			<PatternProblems trackCx={trackCx} failureKey={failureKey} problems={problems} />
+			<PatternVerdict trackCx={trackCx} verdictKey={key} problems={problems} />
 		</Panel>
 	);
 };
@@ -147,19 +147,35 @@ async function applyAll(trackCx: TrackCx, targets: TPatternTarget[], kind: TPatt
 	for (const target of targets) await trackCx.studio.patterns.apply(target, kind);
 }
 
-const PatternProblems: React.FC<{ trackCx: TrackCx; failureKey: string; problems: TPatternProblem[] }> = (props) => {
-	const { trackCx, failureKey, problems } = props;
-	const failure = useFeatureState(trackCx.studio.patterns.$failure);
-	const shown = failure != null && failure.key === failureKey ? failure.problems : problems;
-	const [first] = shown;
+/** The line under the tiles: what the Pattern the pointer rests on would do, why it doesn't fit, or what's off with the Group */
+const PatternVerdict: React.FC<{ trackCx: TrackCx; verdictKey: string; problems: TPatternProblem[] }> = (props) => {
+	const { trackCx, verdictKey: key, problems } = props;
+	const verdict = useFeatureState(trackCx.studio.patterns.$verdict);
+	const current = verdict?.key === key ? verdict : null;
+	if (current?.isChecking === true) return <p className="mm-pattern-note">Checking the whole song…</p>;
+	if (current?.refusal != null) {
+		const words = [current.refusal.words, ...current.offers.map((offer) => offer.words)].join(' ');
+		return (
+			<p className="mm-pattern-problems" title={words}>
+				{words}
+			</p>
+		);
+	}
+	if (current != null) return <p className="mm-pattern-note">{fitWords(current.verdicts.length, current.movedAfter)}</p>;
+	const [first] = problems;
 	if (first == null) return null;
-	const words = shown.map((problem) => problem.words).join(' ');
+	const words = problems.map((problem) => problem.words).join(' ');
 	return (
 		<p className="mm-pattern-problems" title={words}>
-			{shown.length === 1 ? first.words : `${shown.length} problems`}
+			{problems.length === 1 ? first.words : `${problems.length} problems`}
 		</p>
 	);
 };
+
+function fitWords(hits: number, movedAfter: number): string {
+	const fits = hits === 1 ? 'Fits this hit.' : hits === 2 ? 'Fits both hits.' : `Fits all ${hits} hits.`;
+	return movedAfter > 0 ? `${fits} ${movedAfter === 1 ? 'The piece' : `The ${movedAfter} pieces`} after it move with the marble.` : `${fits} The song stays as it is.`;
+}
 
 const TiltNote: React.FC<{ project: TProject; group: TPatternGroup }> = (props) => {
 	const { project, group } = props;
@@ -193,7 +209,7 @@ export const PatternGhost: React.FC<{ trackCx: TrackCx }> = (props) => {
 	return (
 		<g className="mm-ghost-in" data-pattern-ghost={preview.kind} data-preview-ms={Math.round(preview.ms)}>
 			{preview.pieces.map((piece) => (
-				<GhostPiece key={piece.entityId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk />
+				<GhostPiece key={piece.entityId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={preview.isOk} />
 			))}
 		</g>
 	);

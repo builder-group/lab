@@ -56,12 +56,28 @@ export interface TPatternOptions {
 	/** Bar size, the default plate's otherwise: Length changes the run, Depth is only how far it stands out */
 	barLength?: number;
 	barDepth?: number;
-	/** How many nearby shapes to try for a clean one; a preview takes the first */
+	/** How many nearby shapes to try for a clean one */
 	maxTries?: number;
+	/** A ghost: the whole shape however it goes, where otherwise the first bar that can't play ends the fit, as nothing can apply after it */
+	isGhost?: boolean;
 	/** The last bar keeps its own direction instead of turning the marble toward the frame's middle */
 	keepsDirection?: boolean;
-	/** When Width leaves problems, also look for the nearest Width that has none, to offer it */
-	offersNearestWidth?: boolean;
+	/** The way the track goes now, on a song already built: fit it so what follows can stay where it stands */
+	along?: TPatternCourse;
+}
+
+/** Where the marble is now at the hits a Pattern takes over and at the next note, and how it leaves them */
+export interface TPatternCourse {
+	dots: ReadonlyMap<string, TVec2>;
+	leaves: ReadonlyMap<string, TPatternLeaving>;
+	/** The first bar's side, instead of the one heading for the next note */
+	side?: number;
+}
+
+/** How a marble leaves a bar: where it is this long after, from the hit. Leaving the same way, it meets what follows the same way */
+export interface TPatternLeaving {
+	offset: TVec2;
+	after: number;
 }
 
 export interface TPatternFit {
@@ -79,8 +95,6 @@ export interface TPatternFit {
 	/** The width and drop it used: a neighboring drop when the asked one left problems */
 	width: number;
 	drop: number | null;
-	/** The nearest Width with no problems, when one was looked for and found */
-	nearestWidth: number | null;
 	/** Physics runs it took, and how many shapes it tried */
 	sims: number;
 	tries: number;

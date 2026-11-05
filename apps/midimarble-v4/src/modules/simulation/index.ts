@@ -8,6 +8,7 @@ export * from './gap-pieces';
 export * from './geometry';
 export * from './local-edit';
 export * from './pace';
+export { hasRide } from './ride';
 export * from './piece-layout';
 export * from './piece-names';
 export * from './pieces';
