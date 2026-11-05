@@ -786,14 +786,17 @@ The owner's model: a piece is named for what the marble does on it. Platform bou
 
 **Chain** is opt-in through `gapPiece: 'chain'`, the dot menu and the inspector, always simulated, falling back to Switchback. `gapSearch` refuses candidates that hold the marble at the next hit.
 
-| Chain as default, Jingle Bells, start rails | Result |
+| Chain tried first, Jingle Bells | Result |
 | --- | --- |
-| Lips 95 to 110° | 110/115 in 1036 s, 13 stray contacts, 8 chains |
-| Tangent entry, flared 2 cm | 102/115 in 826 s |
-| Tangent entry, lips 85 to 95° | 115/115 in 774 s, only 1 chain, leaves the frame twice |
-| Lips 80 to 88° | stopped at 9.5 s after 20 minutes |
+| Lips 95 to 110°, rails toward the middle | 110/115 in 1036 s, 13 stray contacts |
+| Tangent entry, flared 2 cm, same rails | 102/115 in 826 s |
+| Tangent entry, lips 85 to 95°, same rails | 115/115 in 774 s with 1 Chain, leaves the frame twice |
+| Lips 80 to 88°, same rails | stopped at 9.5 s after 20 minutes |
+| Lips 95 to 110°, final start rails, release -13 cm | 115/115 in 673 s, clean, 10 Chains |
+| The same, release -12 cm | 110/115 in 826 s |
+| The same, release 0 cm | not done after about 20 minutes |
 
-So Chain doesn't become the default: nothing tried keeps it on time and in frame, and Switchback does it in about a fifth of the time. It looks good in Blender, which is why it stays offered.
+So Chain doesn't become the default: it can come out clean, with 10 of 12 gaps in Chains, at about the cost of the Switchback layout, but 1 of 3 releases did. The Switchback layout was clean from 3 of 3. It stays opt-in, and it looks good in Blender.
 
 **Bowl replaces Finish** in code, schema, Insert, MCP, guides, skins and Fix-its: today's Cup, Chute gone, no style, one piece a marble, deleted like any piece. The film ends on the longest tail, since the marble stays. Its skin dropped the guide wires, which read as spikes, and is a wire cradle on posts.
 
@@ -816,6 +819,10 @@ Build Track now tries a release for at most 3 searches per hit and 9 in all, whe
 | Build Track, one thread, three other builds running | 123 s (none running) | 507 to 633 s, four attempts |
 
 115/115 and a clean preflight from each of three release positions, the import's among them. The cost is time: a build that goes well first time takes about 160 s, and from these releases the first three give out. No first-try release was found.
+
+Checks: `typecheck`, `lint` (7 warnings, none new), `test` 854, `test:e2e` 38 (run whole, then the 5 that failed against the old track adapted and rerun), `camera:check`, `blender:check` 139, `cargo test`. Adapted e2e tests, each tied to the old track: the opening's margins, since Melody brushes the top edge at about 0:00.6 while still on its rail; Fix Hits recovers after 6 notes on this track and not after 7, the other way round; the windmill test now sits where the melody is furthest; a stable edit may hold one break per marble, as `local-edit` does. `the_bundled_starter` in `cargo test` was already stale against the Starter Pack and is updated. Insert and a Rail's inspector looked at in the browser. A Draft film not rendered.
+
+Left: Build Track takes 8 to 10 minutes on Jingle Bells, three to five times what it did; Melody at the top edge at the start.
 
 Next: Keys, then the reference short.
 
