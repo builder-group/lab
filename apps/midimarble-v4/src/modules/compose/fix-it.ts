@@ -1055,7 +1055,8 @@ function commandEntityId(command: TProjectCommand): string {
  * Problems of the one problem model (`preflightExport`) that `after` has and `before` did not, which a fix must
  * not add: another marble's hits, framing or pace, Blocked scenery, and contacts such as "Bass hits Switchback 6
  * of Melody". With `working`, that marble's problems from `from` on (its hits, framing, Blocked scenery and its
- * pieces another marble hits) are left out, since Fix works through them next.
+ * pieces another marble hits) are left out, since Fix works through them next, and so are pieces touching from `from`
+ * on, any marble's: they still move while Fix places the rest, and what is left then gets its own Fix.
  */
 export function addedProblems(
 	beforeProject: TProject,
@@ -1070,6 +1071,7 @@ export function addedProblems(
 	const had = new Set(warnings(beforeProject, before).map((issue) => issue.id));
 	return warnings(afterProject, after).filter((issue) => {
 		if (had.has(issue.id)) return false;
+		if (working != null && issue.kind === 'touching' && (issue.time ?? Infinity) >= working.from - 1e-6) return false;
 		if (working == null || issue.laneId !== working.laneId) return true;
 		// The marble being fixed: its later hits, framing, Blocked scenery and pieces another marble hits are the
 		// work still ahead, since its later platforms move them again; what is left at the end counts
