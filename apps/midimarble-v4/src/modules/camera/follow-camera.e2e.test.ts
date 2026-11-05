@@ -118,11 +118,17 @@ describe('follow camera on whole songs', () => {
 				.sort((a, b) => (a.hitTime ?? 0) - (b.hitTime ?? 0))
 				.slice(0, 3);
 			const releases = result.marbles.map((marble) => required(marble.samples[0]).position);
-			// Every one inside the opening frame with a margin of 10 % of it
-			for (const { x, y } of [...firstPieces.map((piece) => piece.position), ...releases]) {
+			// Every release inside the opening frame with a margin of 10 % of it, and the first pieces at the frame's bottom
+			// edge at worst, since a marble's start rail takes up the room: they come in as it falls
+			for (const { x, y } of releases) {
 				const [u, v] = project(track, 0, x, y);
 				expect(Math.min(u, v)).toBeGreaterThan(0.1);
 				expect(Math.max(u, v)).toBeLessThan(0.9);
+			}
+			for (const { x, y } of firstPieces.map((piece) => piece.position)) {
+				const [u, v] = project(track, 0, x, y);
+				expect(Math.min(u, v)).toBeGreaterThan(-0.02);
+				expect(Math.max(u, v)).toBeLessThan(1.02);
 			}
 			// And the marbles stay inside with a margin of 5 % until the first hit
 			const firstHit = Math.min(...result.hits.map((hit) => hit.actualTime ?? Infinity));
@@ -201,7 +207,7 @@ describe('follow camera on whole songs', () => {
 			expect(Math.min(u, v)).toBeGreaterThan(0);
 			expect(Math.max(u, v)).toBeLessThan(1);
 		}
-		// The marble that struck last stays in the held frame as it falls away, for about a second
+		// The marble that struck last stays in the held frame as it falls into its Bowl
 		const lastLane = required(result.hits.find((hit) => hit.actualTime === last)).laneId;
 		const marble = required(result.marbles.find((item) => item.laneId === lastLane));
 		for (let frame = pyRound(last * 30); frame <= pyRound((last + 0.8) * 30); frame += 3) {
@@ -210,14 +216,15 @@ describe('follow camera on whole songs', () => {
 			expect(Math.min(u, v)).toBeGreaterThan(0);
 			expect(Math.max(u, v)).toBeLessThan(1);
 		}
-		// It leaves the held frame within about a second, so a longer song tail would end the film on an empty frame
-		const leaves = pyRound((last + 1.5) * 30);
-		const sample = required(marble.samples.find((item) => item.time >= leaves / 30));
-		const [u, v] = project(track, leaves, sample.position.x, sample.position.y);
-		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
+		// Its Bowl holds it there after that too, so the film ends on the marble and not on an empty frame
+		const held = pyRound((last + 1.5) * 30);
+		const sample = required(marble.samples.find((item) => item.time >= held / 30));
+		const [u, v] = project(track, held, sample.position.x, sample.position.y);
+		expect(Math.min(u, v)).toBeGreaterThan(0);
+		expect(Math.max(u, v)).toBeLessThan(1);
 	});
 
-	it('ends Jingle Bells just after its last marble leaves the frame, with both marbles landing in their Bowls in frame', () => {
+	it('ends Jingle Bells on the longest tail, with both marbles landing in their Bowls in frame', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const lastNote = Math.max(
@@ -225,10 +232,8 @@ describe('follow camera on whole songs', () => {
 		);
 		const longer = required(results.get('jingle-bells-longer'));
 		const exit = required(bowlExit(longer.project, longer.result));
+		expect(exit).toBe(Number.POSITIVE_INFINITY);
 		expect(jingle.end).toBe(songEnd(lastNote, bowlTail(exit)));
-		// Gone 0.1 s before the end, no empty frame after that
-		expect(lastNote + exit).toBeLessThan(jingle.end);
-		expect(jingle.end - lastNote - exit).toBeLessThan(0.15);
 		const end = track.frameCount - 1;
 		const bowls = jingle.entities.filter((entity) => entity.components.piece?.type === 'bowl');
 		expect(bowls).toHaveLength(2);
@@ -251,7 +256,7 @@ describe('follow camera on whole songs', () => {
 		}
 	});
 
-	it('ends Reference 20 no later than the longest tail, on the frame its last marble leaves through its Bowl', () => {
+	it('ends Reference 20 no later than the longest tail, with its last marble in its Bowl in frame', () => {
 		const { project: reference, result } = fixture('reference-20');
 		const lastNote = Math.max(...reference.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
 		expect(reference.end).toBeLessThanOrEqual(songEnd(lastNote, BOWL_TAIL_MAX));
@@ -260,7 +265,8 @@ describe('follow camera on whole songs', () => {
 		const marble = required(result.marbles[0]);
 		const sample = required([...marble.samples].reverse().find((item) => item.time <= end / 30 + 1e-6));
 		const [u, v] = project(track, end, sample.position.x, sample.position.y);
-		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
+		expect(Math.min(u, v)).toBeGreaterThan(0);
+		expect(Math.max(u, v)).toBeLessThan(1);
 	});
 
 	it('frames the last hit and the Bowl together in the held ending', () => {

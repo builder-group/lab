@@ -52,9 +52,11 @@ const RELEASE_SHIFTS = [0, 0.01, -0.01, 0.005, -0.005, 0.015, -0.015, 0.02, -0.0
  * Auto place and gap piece searches per hit of the song, over every attempt, before the build stops looking for a clean
  * run. A search is nearly all of a build's time, about half a second each: Jingle Bells takes 2.2 per hit.
  */
-const SEARCHES_PER_HIT = 6;
+const SEARCHES_PER_HIT = 9;
 /** What the attempt that goes on past a stuck hit may search on top, per hit; once spent, each hit gets one plain step */
 const FORCED_SEARCHES_PER_HIT = 2;
+/** What one attempt may search per hit, so a release that goes badly leaves room for the next: Jingle Bells takes about 2 when it goes well */
+const ATTEMPT_SEARCHES_PER_HIT = 3;
 const PREVIOUS_TURNS = [3, -3, 6, -6, 9, -9, 12, -12, 18, -18];
 const OTHER_TURNS = [3, -3, 6, -6, 9, -9];
 /** Turns tried on the last platform before a stretch the camera loses a marble in, one per try */
@@ -1092,6 +1094,8 @@ async function bestAttempt(build: TBuildRun): Promise<TBestAttempt | null> {
 	for (const shift of shifts) {
 		if (build.attempts > 0 && searches.used >= searches.limit) break;
 		build.attempts++;
+		const budget = searches.limit;
+		searches.limit = Math.min(budget, searches.used + ATTEMPT_SEARCHES_PER_HIT * build.total);
 		const start = withStartRails(withReleaseShift(project, shift, bareLanes), bareLanes);
 		const state = createState(deps, start, canTurnOwn, gapPiece, searches);
 		await tolerate(state, start);
@@ -1102,6 +1106,7 @@ async function bestAttempt(build: TBuildRun): Promise<TBestAttempt | null> {
 			break;
 		}
 		const attempted = await attemptBuild(build, state, start, false);
+		searches.limit = budget;
 		addCounts(build.counts, state.counts);
 		if (build.isStopped) {
 			best = { ...attempted, shift, state };

@@ -15,7 +15,7 @@ function expectAllOnTime(result: TSimulationResult, count: number): void {
 		expect(hit.status, hit.hitId).toBe('onTime');
 		expect(Math.abs(hit.error ?? Infinity)).toBeLessThanOrEqual(HIT_DRIFT);
 	}
-	expect(result.pieces.every((piece) => piece.status === 'placed')).toBe(true);
+	expect(result.pieces.every((piece) => piece.status === 'placed' || piece.status === 'free')).toBe(true);
 }
 
 function expectDotsInFrame(project: TProject, result: TSimulationResult): void {
@@ -202,7 +202,8 @@ describe('fixtures', () => {
 			const entity = project.entities.find((item) => item.id === id);
 			return entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
 		};
-		for (const contact of played.filter((item) => item.kind === 'piece'))
+		// Start rails are tied to nothing
+		for (const contact of played.filter((item) => item.kind === 'piece' && !item.otherEntityId.startsWith('start-rail')))
 			expect(laneOf(contact.otherEntityId), contact.otherEntityId).toBe(laneOf(contact.marbleEntityId));
 		// The dots keep to the shared descent pace, so one camera frames both marbles: at most two end beyond
 		// the limit, where the build had to rotate a piece by hand, and none by more than 0.15 m

@@ -35,7 +35,7 @@ describe('preflightExport function on whole songs', () => {
 				id: 'frame:lane-2:1',
 				severity: 'warning',
 				title: expect.stringMatching(/^Bass leaves the frame at 0:0\d\.\d\d \(\d+ hits\)$/),
-				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:1\d\.\d\d\. The camera follows Melody there\.$/),
+				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:1\d\.\d\d\.( The camera follows Melody there\.)?$/),
 				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
 				target: { ids: ['camera'], time: first?.span?.from, workspace: 'design' }
 			})

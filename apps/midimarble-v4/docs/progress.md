@@ -778,12 +778,52 @@ Build Track is about 2.3 times slower on one thread, measured against the commit
 
 **Checks.** typecheck and lint pass, with 4 warnings in `Sidebar.tsx`, not from this work. Tests without the song that doesn't end: 837 pass, 2 fail, the two in Not fixed. Determinism test passes. Fixture hit checks: every fixture on time. `besidesLook` is gone from the preflight test, as zigzag is clean. Follow camera dumps regenerated with Blender, within 0.001 mm. Stills not taken: nothing here renders a Draft cheaply. So whether the fold reads right in the film is still to be judged by eye.
 
+## Rail work: one Rail, Bowl, start on a Rail
+
+The owner's model: a piece is named for what the marble does on it. Platform bounces, Rail rolls, Bowl collects.
+
+**One Rail.** `piece.layout` is `path` (drawn), `curve`, `c`, `chain` or `switchback`; a Rail holds one path or several (`path.paths`, resolved `paths`), one row in Layers, one Skin. Layouts generate paths at layout time from Turns, Width, Drop and the rest, shown per layout in the inspector's Hitbox. Moving Switchback into a layout is bit for bit the same physics: the committed Jingle Bells simulated in the old and the new code gave identical hits and all 7969 samples per marble equal. `switchbackGeometry`, `switchbackHoldTime` and stored rides are untouched apart from the name of `legs`, now `turns`.
+
+**Chain** is opt-in through `gapPiece: 'chain'`, the dot menu and the inspector, always simulated, falling back to Switchback. `gapSearch` refuses candidates that hold the marble at the next hit.
+
+| Chain as default, Jingle Bells, start rails | Result |
+| --- | --- |
+| Lips 95 to 110° | 110/115 in 1036 s, 13 stray contacts, 8 chains |
+| Tangent entry, flared 2 cm | 102/115 in 826 s |
+| Tangent entry, lips 85 to 95° | 115/115 in 774 s, only 1 chain, leaves the frame twice |
+| Lips 80 to 88° | stopped at 9.5 s after 20 minutes |
+
+So Chain doesn't become the default: nothing tried keeps it on time and in frame, and Switchback does it in about a fifth of the time. It looks good in Blender, which is why it stays offered.
+
+**Bowl replaces Finish** in code, schema, Insert, MCP, guides, skins and Fix-its: today's Cup, Chute gone, no style, one piece a marble, deleted like any piece. The film ends on the longest tail, since the marble stays. Its skin dropped the guide wires, which read as spikes, and is a wire cradle on posts.
+
+**Start on a Rail.** `compose/start-rail.ts`: Build Track puts a free Rail, 6 cm at 10°, at each bare marble's release, with a short stop past its end, as a second path of the same Rail. Found by building Jingle Bells:
+
+- A short fall after the rail, 0.3 s, weakens the first strike and the track never settles: 114/115 in 566 s. A fall of 0.5 s as before works, so the release moves earlier, to about 0:00.06.
+- Rolling off the rail adds a sideways 0.27 m/s, and with no stop the marble lands up to 20 cm further on. Toward the middle the marbles start 77 cm apart, past what the opening frame can hold, and Bass started out of frame until 0:00.7; widening the opening camera didn't bring it in. All one way, 115/115 from one release and 105/115 from the import's. With the stop the marble drops almost straight, as without a rail, from every release tried.
+- `frameBand` reads lanes off the releases, so moved releases moved the lanes. The rail's `laneOffset` keeps where the marble lands, while the marble still waits on it.
+
+Build Track now tries a release for at most 3 searches per hit and 9 in all, where one bad release could spend all 6. Handing a first note away keeps the marble's lead when it has a start rail (`reachability.ts`).
+
+**Film.** Multi-path rails wear the rail skins: two wires, ties, and posts that now end in a ball at the wall on chrome and candy (`wall_ball`). Checked on Eevee stills in `.local/rail-work/` rather than a Draft film, which is flat Workbench and can't show wires.
+
+**Jingle Bells**
+
+| | Before | After |
+| --- | --- | --- |
+| On time, preflight | 115/115, clean | 115/115, clean |
+| Rolls, double hits, touching | 0, 0, 0 | 0, 0, 0 |
+| Build Track, one thread, three other builds running | 123 s (none running) | 507 to 633 s, four attempts |
+
+115/115 and a clean preflight from each of three release positions, the import's among them. The cost is time: a build that goes well first time takes about 160 s, and from these releases the first three give out. No first-try release was found.
+
+Next: Keys, then the reference short.
+
 ## Decided, not built
 
 The owner's decisions from the same session, in build order after Connect and no rolling on platforms. Details in `design-language.md`, Track direction.
 
-1. Rail work, as one step. Curved Rails measured on Jingle Bells' 12 gaps: C, S and U shapes, for hits on time, staying in the column and repeatable exits, plus a Draft render. If they pass: one Rail holding several paths, with shape presets; Switchback and Finish removed, as the app hasn't shipped; Bowl is a piece in Insert; Build Track starts on a Rail. If they fail: Switchback stays and the owner hears why.
-2. Keys: a run that plays many hits, maybe a Rail with sections.
+1. Keys: a run that plays many hits, maybe a Rail with sections.
 
 Playground projects and Jingle Bells are the test ground throughout. **Last step and final validation: recreate the reference short through the app.** If the app can't do it, iterate on the app until it can, fixing the app rather than the one film.
 

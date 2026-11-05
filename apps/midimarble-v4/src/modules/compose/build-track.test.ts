@@ -104,7 +104,7 @@ describe('buildTrack function', () => {
 		const outcome = await buildTrack(project, { ...localBuildDeps(simulator), autoPlace: refuse, gapPiece: refuse });
 
 		// Assert: 6 per hit to look for a clean run, 2 to go on past it, then one Auto place for each hit left
-		expect(searches).toBeLessThanOrEqual(9 * 12);
+		expect(searches).toBeLessThanOrEqual(12 * 12);
 		expect(outcome.isStopped).toBe(false);
 		expect(outcome.result.hits).toHaveLength(12);
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime').length + outcome.attention.length).toBe(12);

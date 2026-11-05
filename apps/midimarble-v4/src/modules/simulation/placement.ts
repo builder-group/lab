@@ -75,15 +75,19 @@ export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	const aspect = project.frame.width / project.frame.height;
 	const distance = project.design.camera.distance;
 	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 0.65 : 1);
+	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its lane lies there
+	const releaseX = (entity: TEntity): number => {
+		const x = entity.components.release?.position.x ?? 0;
+		const rail = project.entities.find((item) => item.id === `start-rail-${entity.components.marble?.laneId ?? ''}`)?.components;
+		return rail?.transform != null && Math.abs(rail.transform.position.x - x) < 0.02 ? x + (rail.piece?.params['laneOffset'] ?? 0) : x;
+	};
 	const marbles = project.entities.filter(
 		(entity) => entity.components.marble != null && entity.components.release != null
 	);
 	if (marbles.length <= 1) {
-		const release = project.entities.find((entity) => entity.components.marble != null)?.components
-			.release;
-		return { centerX: release?.position.x ?? 0, halfWidth: width / 2 };
+		const marble = project.entities.find((entity) => entity.components.marble != null);
+		return { centerX: marble != null ? releaseX(marble) : 0, halfWidth: width / 2 };
 	}
-	const releaseX = (entity: TEntity): number => entity.components.release?.position.x ?? 0;
 	const centerX = marbles.reduce((sum, entity) => sum + releaseX(entity), 0) / marbles.length;
 	const ordered = marbles
 		.map((entity, index) => ({ entity, index }))

@@ -1,3 +1,4 @@
+import { startRailId } from './start-rail';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { gravityOf, IMPACT_SPEED, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
@@ -90,8 +91,11 @@ export function releaseFollowsFirstHit(before: TProject, after: TProject, comman
 		const release = entity.components.release;
 		if (laneId == null || release == null) return entity;
 		const first = firstTime(after, laneId);
-		if (first == null || first === firstTime(before, laneId)) return entity;
-		const time = Math.round(Math.max(0, first - RELEASE_LEAD) * 10000) / 10000;
+		const was = firstTime(before, laneId);
+		if (first == null || first === was) return entity;
+		// A marble on a start rail keeps the time the rail takes
+		const hasRail = was != null && after.entities.some((item) => item.id === startRailId(laneId));
+		const time = Math.round(Math.max(0, first - (hasRail ? was - release.time : RELEASE_LEAD)) * 10000) / 10000;
 		return time === release.time ? entity : { ...entity, components: { ...entity.components, release: { ...release, time } } };
 	});
 	return entities.some((entity, index) => entity !== after.entities[index]) ? { ...after, entities } : after;

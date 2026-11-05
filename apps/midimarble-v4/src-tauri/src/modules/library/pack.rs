@@ -458,7 +458,7 @@ mod tests {
         let bundled = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../packs");
         let packs = list_bundled(&bundled);
         let starter = packs.iter().find(|pack| pack.name == "Starter").unwrap();
-        assert_eq!(starter.built_in_decor, vec!["decor:snowfall".to_string()]);
+        assert_eq!(starter.built_in_decor, ["decor:sphere", "decor:ring", "decor:cube", "decor:snowfall"].map(String::from).to_vec());
         let christmas = packs.iter().find(|pack| pack.name == "Christmas").unwrap();
         assert!(christmas.built_in_decor.contains(&"decor:bauble-red".to_string()));
         assert!(starter.items.is_empty());
@@ -468,7 +468,7 @@ mod tests {
         let library = root.join(PACKS_FOLDER);
         let added = import_pack(Path::new(&starter.path), &library).unwrap();
         assert_eq!(added.id, "starter");
-        assert_eq!(added.built_in_decor.len(), 1);
+        assert_eq!(added.built_in_decor.len(), 4);
         fs::remove_dir_all(root).unwrap();
     }
 

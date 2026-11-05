@@ -1,10 +1,11 @@
 import type { TEntity, TProject, TVec2 } from '@/modules/project';
-import { columnOffset, gravityOf, nextPieceName, railLayoutInfo, resolvePieceParams } from '@/modules/simulation';
+import { gravityOf, nextPieceName, railLayoutInfo, resolvePieceParams } from '@/modules/simulation';
 
 // Start on a Rail: Build Track puts a short rail at each marble's release, so the marble rolls into its first hit
 // instead of dropping. It is a normal Rail tied to nothing, which anyone can delete. The marble then falls as long as one
 // released without a rail, so it strikes its first note as firmly, so the release moves earlier by the time the rail
-// takes, and back along the rail so the note lands on the near column of its lane.
+// takes, and back along the rail so the note lands where it would have. The rail keeps that distance as `laneOffset`,
+// since the lane lies where the marble lands (`frameBand`).
 
 const DEGREE = Math.PI / 180;
 /** The shortest and steepest a start rail gets: gentler or shorter and the leave time stops following the formula */
@@ -17,6 +18,10 @@ const BACK_LENGTH = 0.012;
 const MIN_FALL = 0.12;
 /** Seconds it falls when there's time, as a marble released without a rail falls after import: what the track's first bounces are built on */
 const FALL = 0.5;
+/** Room beyond the marble between the run's end and the stop */
+const STOP_ROOM = 0.006;
+/** How far a marble drifts back from the stop as it falls to its note, at Jingle Bells' half gravity */
+const STOP_DRIFT = 0.02;
 /** Between the resting marble and the wire, so it doesn't start inside it */
 const CLEARANCE = 0.0005;
 /** Rolling acceleration of a ball on a slope, g · sin(slope) times this */
@@ -44,8 +49,7 @@ export function startRailPlan(lead: number, gravity: number, fall: number): { sl
 
 /**
  * The project with a start rail at the release of each of these marbles, unless it has one, or its first note comes too
- * soon even from the film's start, or it starts with a speed of its own that a person gave it. Each rail runs toward the
- * frame's middle.
+ * soon even from the film's start, or it starts with a speed of its own that a person gave it.
  */
 export function withStartRails(project: TProject, laneIds: ReadonlySet<string>): TProject {
 	const gravity = -gravityOf(project);
@@ -61,31 +65,45 @@ export function withStartRails(project: TProject, laneIds: ReadonlySet<string>):
 		const lead = Math.min(first.time, Math.max(first.time - release.time, rollTime(MIN_SLOPE, gravity) + FALL));
 		const plan = startRailPlan(lead, gravity, FALL);
 		if (plan == null) continue;
-		const direction = release.position.x > 0 ? -1 : 1;
-		const speed = ROLLING * gravity * Math.sin(plan.slope) * rollTime(plan.slope, gravity);
-		const travel = (ROLL_LENGTH + speed * plan.fall) * Math.cos(plan.slope);
-		// The note lands on the column the marble comes from, so it carries on across the lane as a zigzag does
-		const column = columnOffset(resolvePieceParams('platform', {})['length'] ?? 0.09);
-		const position: TVec2 = { x: Math.round((release.position.x - direction * (travel + column)) * 1e4) / 1e4, y: release.position.y };
+		// Every rail runs the same way: the marbles start side by side and the camera opens on all of them
+		const placed = startRail(entities, lane.id, marble.components.marble.radius, plan.slope);
+		const position: TVec2 = { x: Math.round((release.position.x - placed.reach) * 1e4) / 1e4, y: release.position.y };
 		const moved: TEntity = { ...marble, components: { ...marble.components, release: { ...release, position, time: Math.round((first.time - lead) * 1e4) / 1e4 } } };
-		entities = [...entities.map((entity) => (entity === marble ? moved : entity)), startRail(entities, lane.id, position, marble.components.marble.radius, plan.slope, direction)];
+		entities = [...entities.map((entity) => (entity === marble ? moved : entity)), placed.at(position)];
 	}
 	return entities === project.entities ? project : { ...project, entities };
 }
 
-function startRail(entities: TEntity[], laneId: string, marble: TVec2, marbleRadius: number, slope: number, direction: number): TEntity {
+/**
+ * A rail under a marble at its release, with a short stop past its end: the marble rolls off the run, meets the stop and
+ * drops, so it falls almost straight onto its first note, as one released without a rail does and a Switchback lets it
+ * go. `reach` is how far along x from the release that fall lies.
+ */
+function startRail(entities: TEntity[], laneId: string, marbleRadius: number, slope: number): { reach: number; at: (marble: TVec2) => TEntity } {
 	const params = resolvePieceParams('rail', {});
-	const reach = marbleRadius + (params['radius'] ?? 0.00375) + CLEARANCE;
+	const radius = params['radius'] ?? 0.00375;
+	const onWire = marbleRadius + radius;
 	const round = (value: number): number => Math.round(value * 1e5) / 1e5;
 	const kept: Record<string, number> = {};
 	for (const name of railLayoutInfo.path.params) kept[name] = params[name] ?? 0;
+	const [cos, sin] = [Math.cos(slope), Math.sin(slope)];
+	const gap = 2 * onWire + STOP_ROOM;
+	// World offsets from the run's end to local coordinates of the rail, which is turned by -slope
+	const local = (dx: number, dy: number): TVec2 => ({ x: round(ROLL_LENGTH + dx * cos - dy * sin), y: round(dx * sin + dy * cos) });
+	const toFall = ROLL_LENGTH * cos - (onWire + CLEARANCE) * sin + gap - onWire - STOP_DRIFT;
 	return {
-		id: startRailId(laneId),
-		name: nextPieceName('rail', entities),
-		components: {
-			piece: { type: 'rail', params: kept },
-			transform: { position: { x: round(marble.x - Math.sin(slope) * direction * reach), y: round(marble.y - Math.cos(slope) * reach) }, angle: round(-direction * slope) },
-			path: { points: [{ x: round(-direction * BACK_LENGTH), y: 0 }, { x: 0, y: 0 }, { x: round(direction * ROLL_LENGTH), y: 0 }] }
-		}
+		reach: toFall,
+		at: (marble) => ({
+			id: startRailId(laneId),
+			name: nextPieceName('rail', entities),
+			components: {
+				piece: { type: 'rail', params: { ...kept, laneOffset: round(toFall) } },
+				transform: { position: { x: round(marble.x - sin * (onWire + CLEARANCE)), y: round(marble.y - cos * (onWire + CLEARANCE)) }, angle: round(-slope) },
+				path: {
+					points: [{ x: -BACK_LENGTH, y: 0 }, { x: 0, y: 0 }, { x: ROLL_LENGTH, y: 0 }],
+					paths: [[local(gap, 2 * onWire), local(gap, -2 * marbleRadius)]]
+				}
+			}
+		})
 	};
 }

@@ -43,7 +43,7 @@ describe('withStartRails function', () => {
 		expect(withStartRails(soon, new Set([soon.music.lanes[0]?.id ?? '']))).toBe(soon);
 	});
 
-	it('should roll the marble off the rail before its first note, on the column it comes from', async () => {
+	it('should roll the marble off the rail and against its stop before its first note', async () => {
 		const simulator = await createSimulator();
 		const start = project();
 		const laneId = start.music.lanes[0]?.id ?? '';
@@ -55,13 +55,13 @@ describe('withStartRails function', () => {
 		// Rolling down the rail, then in the air with room to spare at the note
 		const release = built.entities.find((entity) => entity.components.marble != null)?.components.release;
 		expect(release?.time).toBeLessThan(0.5);
-		const leaving = samples.find((sample) => sample.time >= 0.6);
-		expect(Math.abs(leaving?.velocity.x ?? 0)).toBeGreaterThan(0.15);
+		const leaving = samples.find((sample) => sample.time >= 0.4);
+		expect(Math.abs(leaving?.velocity.x ?? 0)).toBeGreaterThan(0.1);
 		const dot = result.hits[0]?.dot;
 		expect(dot).not.toBeNull();
-		// On the column the marble comes from, moving on across the lane
-		expect(dot?.x ?? 0).toBeLessThan(-0.1);
-		expect(dot?.x ?? 0).toBeGreaterThan(-0.2);
+		// Where it would have landed, falling almost straight: the stop took its sideways speed
+		expect(Math.abs((dot?.x ?? 0) + 0.1)).toBeLessThan(0.02);
+		expect(Math.abs(result.hits[0]?.velocity?.x ?? 1)).toBeLessThan(0.1);
 		// Struck firmly, as after a plain drop
 		const before = samples.filter((sample) => sample.time < 1).at(-1);
 		expect(Math.abs(before?.velocity.y ?? 0)).toBeGreaterThan(2);
