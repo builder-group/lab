@@ -85,13 +85,18 @@ export function holdFrom(project: TProject, base: TSimulationResult, laneId: str
 	};
 }
 
-/** Keeps every ride the run has, for a track an edit is about to change */
-export function withRides(project: TProject, result: TSimulationResult): TProject {
+/**
+ * Keeps the rides of a track an edit is about to change, from `fromTime` on. Earlier ones stay simulated: the edit can't
+ * reach them, and a ride played back differs by the last bits, which a rail turns into centimeters on the pieces after it.
+ */
+export function withRides(project: TProject, result: TSimulationResult, fromTime = -Infinity): TProject {
 	let isChanged = false;
+	const timeOf = (laneId: string, hitId: string): number | undefined => project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === hitId)?.time;
 	const entities = project.entities.map((entity) => {
 		const type = entity.components.piece?.type ?? '';
-		if (entity.components.hitLink == null || !hasRide(type) || soundsHit(type, entity.components.hitLink)) return entity;
-		if (entity.components.transit?.key === rideKey(entity)) return entity;
+		const link = entity.components.hitLink;
+		if (link == null || !hasRide(type) || soundsHit(type, link)) return entity;
+		if (entity.components.transit?.key === rideKey(entity) || (timeOf(link.laneId, link.hitId) ?? Infinity) < fromTime) return entity;
 		const transit = bakeRide(project, result, entity);
 		if (transit == null) return entity;
 		isChanged = true;
@@ -643,17 +648,57 @@ export interface TSettleBase {
 	before: TProject;
 	ridden: TProject;
 	base: TSimulationResult;
+	/** The time from which its rides are kept */
+	fromTime: number;
 }
 
-export function settleBase(simulator: TSimulator, before: TProject, known: TSettleBase | null): TSettleBase {
-	if (known?.before === before || (known != null && known.before.id === before.id && known.before.revision === before.revision)) return known;
+export function settleBase(simulator: TSimulator, before: TProject, known: TSettleBase | null, fromTime = -Infinity): TSettleBase {
+	if (known != null && known.fromTime === fromTime && (known.before === before || (known.before.id === before.id && known.before.revision === before.revision))) return known;
 	const first = simulator.simulate(before);
-	const ridden = withRides(before, first);
-	return { before, ridden, base: ridden === before ? first : simulator.simulate(ridden) };
+	const ridden = withRides(before, first, fromTime);
+	return { before, ridden, base: ridden === before ? first : simulator.simulate(ridden), fromTime };
+}
+
+/** The earliest time an edit reaches: the first hit whose pieces differ, on any marble. A moved dot starts at the platform before it */
+export function editStart(before: TProject, after: TProject, moved?: { laneId: string; hitId: string } | null): number {
+	const hitTime = (project: TProject, link: { laneId: string; hitId: string }): number | undefined => project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.time;
+	let start = Infinity;
+	const was = new Map(before.entities.map((entity) => [entity.id, entity]));
+	const seen = new Set<string>();
+	const reach = (entity: TEntity, project: TProject): void => {
+		const { hitLink, piece } = entity.components;
+		// A marble, a tied-to-nothing piece: nothing says how early it matters, so nothing before it is known to be safe
+		if (hitLink == null || piece == null) start = -Infinity;
+		else start = Math.min(start, hitTime(project, hitLink) ?? -Infinity);
+	};
+	for (const entity of after.entities) {
+		seen.add(entity.id);
+		const old = was.get(entity.id);
+		if (old === entity) continue;
+		if (old == null) reach(entity, after);
+		else if (physicsOf(old) !== physicsOf(entity) || JSON.stringify(old.components.release) !== JSON.stringify(entity.components.release)) {
+			reach(old, before);
+			reach(entity, after);
+		}
+	}
+	for (const entity of before.entities) if (!seen.has(entity.id)) reach(entity, before);
+	for (const lane of after.music.lanes) {
+		const old = before.music.lanes.find((item) => item.id === lane.id);
+		for (const hit of lane.hits) {
+			const oldHit = old?.hits.find((item) => item.id === hit.id);
+			if (oldHit?.time !== hit.time) start = Math.min(start, hit.time, oldHit?.time ?? Infinity);
+		}
+	}
+	if (moved != null) {
+		const lane = after.music.lanes.find((item) => item.id === moved.laneId);
+		const index = lane?.hits.findIndex((hit) => hit.id === moved.hitId) ?? -1;
+		start = Math.min(start, lane?.hits[index - 1]?.time ?? -Infinity);
+	}
+	return start === Infinity ? -Infinity : start;
 }
 
 export function answerSettle(simulator: TSimulator, request: TSettleRequest, known: TSettleBase | null): { answer: TSettleAnswer; memo: TSettleBase } {
-	const memo = settleBase(simulator, request.before, known);
+	const memo = settleBase(simulator, request.before, known, editStart(request.before, request.after, request.movedDot));
 	const after = withSameRides(request.after, memo.ridden);
 	const edits = laneEdits(request.before, request.after);
 	const moved = request.movedDot;

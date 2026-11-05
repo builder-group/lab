@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, laneEdits, reconnect, release, settleBase, type TSettleAnswer, withRides } from './local-edit';
+import { answerSettle, editStart, laneEdits, reconnect, release, settleBase, type TSettleAnswer, withRides } from './local-edit';
 import { createSimulator, type TSimulator } from './simulate';
 import type { TSimulationResult } from './types';
 
@@ -105,6 +105,46 @@ describe('settling an edit', () => {
 			expect(moved?.dot?.y).toBeCloseTo(dot.y, 2);
 			expect(run.hits.every((item) => item.status === 'onTime')).toBe(true);
 			for (const later of run.hits.slice(7)) expect(shift(run, before, later.hitId)).toBeLessThan(0.003);
+		});
+	});
+
+	describe('a dragged piece', () => {
+		it('should leave every piece before the platform aiming at it where it was, rides not played back', async () => {
+			// Prepare
+			const project = loadFixture('long-gap');
+			const before = await fresh(project);
+			const lane = project.music.lanes[0];
+			const hits = lane?.hits ?? [];
+			const target = hits[hits.length - 2];
+			const aiming = hits[hits.length - 3];
+			const dot = before.hits.find((hit) => hit.hitId === target?.id)?.dot;
+			if (lane == null || target == null || aiming == null || dot == null) throw new Error('Missing hit');
+
+			// Act
+			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { laneId: lane.id, hitId: target.id, dot: { x: dot.x + 0.02, y: dot.y } } }, null);
+			const run = await fresh(landed(project, answer));
+
+			// Assert
+			const timeOf = (id: string): number => {
+				const link = project.entities.find((entity) => entity.id === id)?.components.hitLink;
+				return hits.find((hit) => hit.id === link?.hitId)?.time ?? Infinity;
+			};
+			const earlier = before.pieces.filter((piece) => timeOf(piece.entityId) < aiming.time);
+			expect(earlier.length).toBeGreaterThan(0);
+			for (const piece of earlier) {
+				const now = run.pieces.find((item) => item.entityId === piece.entityId);
+				expect(now?.position).toEqual(piece.position);
+				expect(now?.angle).toEqual(piece.angle);
+			}
+			expect(answer.entities.filter((entity) => timeOf(entity.id) < aiming.time)).toEqual([]);
+		});
+
+		it('should start an edit at its earliest changed hit, or the platform before a moved dot', () => {
+			const project = loadFixture('zigzag');
+			const hits = project.music.lanes[0]?.hits ?? [];
+			expect(editStart(project, turned(project, 'piece-1-5', 0.01))).toBe(hits[4]?.time);
+			expect(editStart(project, project, { laneId: 'lane-1', hitId: hits[6]?.id ?? '' })).toBe(hits[5]?.time);
+			expect(editStart(project, project)).toBe(-Infinity);
 		});
 	});
 
