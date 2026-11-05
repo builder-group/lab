@@ -1204,6 +1204,7 @@ export class ComposeCx {
 			case 'move': {
 				if (!drag.moved) {
 					this.$override.set(null);
+					this.playheadToPiece(drag.entityId);
 					return;
 				}
 				const move = drag.playsDrop === 'keeps' ? movedNote(drag, drag.current) : null;
@@ -1677,7 +1678,12 @@ export class ComposeCx {
 		this.revealPoint(piece.contactPoint ?? piece.position);
 	}
 
-	/** Selecting one piece moves the playhead to its hit, unless playing */
+	/** A click on a piece on the wall moves the playhead to its hit, unless playing. Nothing else selecting does */
+	private playheadToPiece(entityId: string): void {
+		const linked = this.project != null && !this.studio.$playing.get() ? linkedPieces(this.project).find((item) => item.entity.id === entityId) : undefined;
+		if (linked != null) this.studio.$playhead.set(linked.time + (linked.entity.components.piece?.params['entryDelay'] ?? 0));
+	}
+
 	private followSelection(selection: string[]): void {
 		const only = selection.length === 1 ? selection[0] : undefined;
 		this.placedId = only != null && this.result?.pieces.some((piece) => piece.entityId === only) !== true ? only : null;
@@ -1689,10 +1695,6 @@ export class ComposeCx {
 		const hit = hitKey != null ? this.result?.hits.find((item) => item.laneId === hitKey.laneId && item.hitId === hitKey.hitId) : undefined;
 		const piece = this.result?.pieces.find((item) => item.entityId === only);
 		this.revealPoint(hit?.dot ?? piece?.contactPoint ?? piece?.position ?? null, 0, 0);
-		const linked = linkedPieces(project).find((item) => item.entity.id === selection[0]);
-		if (linked == null) return;
-		const delay = linked.entity.components.piece?.params['entryDelay'] ?? 0;
-		this.studio.$playhead.set(linked.time + delay);
 	}
 
 	// MARK: - Moving, placing and turning
