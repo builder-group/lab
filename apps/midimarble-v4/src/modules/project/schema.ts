@@ -217,10 +217,8 @@ export const SPiece = z.strictObject({
 const SShot = z.strictObject({
 	id: SId,
 	time: z.number(),
-	kind: z.enum(['wide', 'follow', 'pushIn', 'closeUp']),
 	distance: z.number().positive(),
-	// Seconds the shot holds before the camera eases back to the rig, 0 until the next shot; absent uses the kind's
-	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow)
+	// Seconds the shot holds before the camera eases back to the rig; absent or 0 holds until the next shot
 	hold: z.number().nonnegative().optional()
 });
 

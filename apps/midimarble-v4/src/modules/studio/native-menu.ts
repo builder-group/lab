@@ -110,7 +110,6 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 		cx.$save.listen(schedule),
 		cx.$isTemporary.listen(schedule),
 		cx.film.$status.listen(schedule),
-		cx.film.$camera.listen(schedule),
 		cx.film.$placing.listen(schedule),
 		cx.film.$links.listen(schedule)
 	];

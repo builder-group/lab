@@ -109,7 +109,13 @@ export class StudioCx {
 		getResult: () => this.simulation.$result.get(),
 		getPackagePath: () => this.$path.get(),
 		getPlayhead: () => this.$playhead.get(),
-		isPlaying: () => this.$playing.get()
+		isPlaying: () => this.$playing.get(),
+		leaveCameraToBlender: () => {
+			const camera = this.project?.film.camera;
+			if (camera == null || !camera.auto) return;
+			this.execute([{ type: 'updateFilm', film: { camera: { ...camera, auto: false } } }]);
+			this.notify('The camera was edited in Blender, so Follow Marbles is off and the edit stays. Turning it on follows the marbles again and discards the edit.');
+		}
 	});
 	readonly library = new FilmLibraryCx({
 		getPackagePath: () => this.$path.get(),

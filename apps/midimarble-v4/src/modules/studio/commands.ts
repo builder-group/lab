@@ -591,14 +591,6 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => void cx.film.relink(unlinkedSelection(cx))
 	},
 	{
-		id: 'film.regenerateCamera',
-		title: 'Reset Camera',
-		section: 'Film',
-		keywords: 'regenerate rig follow automatic camera taken over discard blender changes',
-		isEnabled: (cx) => hasBlender(cx) && cx.film.$camera.get() === 'takenOver',
-		run: (cx) => void cx.film.regenerateCamera()
-	},
-	{
 		id: 'camera.addShot',
 		workspace: null,
 		title: 'Add Shot',
@@ -788,7 +780,6 @@ export type TCommandId =
 	| 'film.renderPreview'
 	| 'film.addText'
 	| 'film.resetToTrack'
-	| 'film.regenerateCamera'
 	| 'camera.addShot'
 	| 'light.add'
 	| 'decor.scatter'

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import type { TReadyPackTheme } from './project-commands';
-import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
+import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
@@ -41,7 +41,7 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.export': 'the export_film tool',
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
-	'camera.addShot': 'args.time, kind, distance and hold if wanted',
+	'camera.addShot': 'args.time, distance and hold if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
@@ -284,10 +284,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
-		const { time, kind, distance, hold } = SShotArgs.parse(args);
+		const { time, distance, hold } = SShotArgs.parse(args);
 		const project = cx.project;
 		if (project == null) return;
-		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
 		cx.$workspace.set('film');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
@@ -339,9 +339,8 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	}
 };
 
-const SShotArgs = z.object({
+const SShotArgs = z.strictObject({
 	time: z.number().min(0).optional(),
-	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
 	distance: z.number().positive().optional(),
 	hold: z.number().nonnegative().optional()
 });

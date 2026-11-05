@@ -25,8 +25,6 @@ export class FilmCx {
 	readonly $blenderVersion = createState<string | null>(null);
 	/** Link state of app-owned holders by piece ID, from `inspect` after each sync */
 	readonly $links = createState<Record<string, TFilmLink>>({});
-	/** Camera state the last sync reported; `takenOver` means the user edited it in Blender */
-	readonly $camera = createState<TApplySceneResult['camera'] | null>(null);
 	/** Set while the next click on the preview places something on the wall */
 	readonly $placing = createState<'text' | null>(null);
 	/** A title just placed, whose Text field takes focus with its contents selected; the inspector clears it */
@@ -162,15 +160,6 @@ export class FilmCx {
 		});
 	}
 
-	/** Rebuilds the follow camera after the user took it over in Blender; ask the user first */
-	async regenerateCamera(): Promise<boolean> {
-		return this.enqueue(async () => {
-			const applied = await this.sync({ regenerateCamera: true });
-			if (applied) this.requestPreview(0);
-			return applied;
-		});
-	}
-
 	/** Syncs the scene so a film render sees the project as it is now */
 	prepareRender(): Promise<boolean> {
 		return this.enqueue(() => this.sync());
@@ -217,7 +206,6 @@ export class FilmCx {
 		this.$preview.set(null);
 		this.$links.set({});
 		this.$blenderObjects.set([]);
-		this.$camera.set(null);
 		this.$status.set('idle');
 		if (packagePath == null) return;
 		await blender.save(packagePath);
@@ -248,7 +236,7 @@ export class FilmCx {
 		return true;
 	}
 
-	private async sync(options: { relink?: string[]; regenerateCamera?: boolean } = {}): Promise<boolean> {
+	private async sync(options: { relink?: string[] } = {}): Promise<boolean> {
 		const project = this.source.getProject();
 		const result = this.source.getResult();
 		const packagePath = this.source.getPackagePath();
@@ -256,7 +244,7 @@ export class FilmCx {
 		if (!(await this.ensureStarted(packagePath))) return false;
 		const fps = renderFps(project);
 		const key = `${packagePath}:${result.revision}:${fps}`;
-		const isForced = (options.relink?.length ?? 0) > 0 || options.regenerateCamera === true;
+		const isForced = (options.relink?.length ?? 0) > 0;
 		if (this.syncedKey === key && !isForced) {
 			// An object added in Blender since the last look shows up in Layers once the app next talks to Blender
 			if (Date.now() - this.inspectedAt > INSPECT_EVERY_MS) void this.refreshLinks();
@@ -270,7 +258,7 @@ export class FilmCx {
 			return false;
 		}
 		if (import.meta.env.DEV) console.debug('[film] apply_scene', applied);
-		this.$camera.set(applied.camera);
+		if (applied.camera === 'takenOver') this.source.leaveCameraToBlender();
 		this.syncedKey = key;
 		if (isForced) this.forcedApplies++;
 		this.live.sceneApplied(packagePath, sceneSignature(build, String(this.forcedApplies)), applied);
@@ -319,6 +307,8 @@ export interface TFilmSource {
 	getPackagePath: () => string | null;
 	getPlayhead: () => number;
 	isPlaying: () => boolean;
+	/** The person edited the baked camera in Blender: Follow Marbles goes off, so the next sync leaves their edit alone */
+	leaveCameraToBlender: () => void;
 }
 
 export interface TFilmPreview {

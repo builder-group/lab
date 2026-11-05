@@ -93,10 +93,22 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 				...rig,
 				tilt: pitch,
 				...(side != null ? { turn: side } : {}),
-				shots: shots.map(({ length, ...shot }: TAny) => ({ ...shot, ...(length != null ? { hold: length } : {}) }))
+				shots: shots.map(({ length, hold, ...shot }: TAny) => convertShot({ ...shot, hold: length ?? hold }))
 			}
 		}
 	});
+}
+
+/** A shot is a time, a distance and a hold: a Push In and a Close-Up without a hold of their own held 2 s */
+function convertShot({ kind, hold, ...shot }: TAny): TAny {
+	const held = hold ?? (kind === 'pushIn' || kind === 'closeUp' ? 2 : undefined);
+	return { ...shot, ...(held != null ? { hold: held } : {}) };
+}
+
+/** A @6 project from before `themes` and shot kinds went */
+function trimProject(raw: TAny, notes: string[]): TAny {
+	const { theme, themes, wall, lights, camera, ...film } = raw.film;
+	return { ...raw, film: { ...film, ...convertTheme(theme, themes, wall, lights, notes), camera: { ...camera, shots: camera.shots.map(convertShot) } } };
 }
 
 /** The one theme worn: the rest of `themes` is dropped, and its colors, Wall skin and light go on the Wall and Lights underneath the project's own */
@@ -231,5 +243,6 @@ function convertSongs(music: TAny, notes: string[]): TAny[] {
 }
 
 export default function convert(raw: unknown): unknown {
-	return convertProject(raw);
+	const project = raw as TAny;
+	return project.$schema === 'marble-project@6' ? trimProject(project, []) : convertProject(project);
 }

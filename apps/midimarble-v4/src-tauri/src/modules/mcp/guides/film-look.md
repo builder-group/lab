@@ -20,7 +20,7 @@ Film dresses the run without changing a single hit. Make the environment fit the
 
 | Field | Default | What it does |
 | --- | --- | --- |
-| `auto` | `true` | The Follow Marbles toggle. On, the camera follows the marbles. Off, the camera is left to Blender, so use it only with Open in Blender, as it freezes the camera where it is |
+| `auto` | `true` | The Follow Marbles toggle. On, the camera follows the marbles. Off, the camera is left to Blender, so use it only with Open in Blender, as it freezes the camera where it is. It goes off by itself when the person edits the camera in Blender, and turning it on discards that edit |
 | `distance` | 0.48 | How close: the 30 mm lens shows about `0.68 × distance` of wall across in 9:16 from the front, about `0.79 × distance` at the default tilt. Marbles get smaller as it grows, and side Decor belongs inside that width |
 | `tilt` | 0.54 | Downward angle: 0 looks straight at the wall, larger looks further along it |
 | `turn` | 1.57 (90°) | How far around the marbles the camera stands, 0 to 2π radians |
@@ -30,7 +30,7 @@ Film dresses the run without changing a single hit. Make the environment fit the
 
 With more than one marble the rig widens beyond `distance` when it must, to a limit, and otherwise keeps the leading marble.
 
-A shot eases the camera to its values at `time`. `run_command('camera.addShot', { time, kind, distance, hold })` adds one at the playhead with no arguments; `kind` is `wide` (1.6 × the rig's distance), `follow` (1 ×), `pushIn` (0.7 ×, the usual) or `closeUp` (0.45 ×), and its distance can be set outright. `hold` is the seconds it holds before easing back, 0 until the next shot. A closer shot can make a marble leave the frame: the reply's `problems` say so. To change or remove shots, set the whole `camera.shots` list, each `{ id, time, kind, distance, hold? }`.
+A shot eases the camera to its distance at `time`. `run_command('camera.addShot', { time, distance, hold })` adds one at the playhead with no arguments. Without a distance it stands at 0.7 × the rig's, the usual push-in; about 1.6 × is wide and 0.45 × a close-up. `hold` is the seconds it holds before easing back, 2 by default; 0 holds until the next shot. A closer shot can make a marble leave the frame: the reply's `problems` say so. To change or remove shots, set the whole `camera.shots` list, each `{ id, time, distance, hold? }`.
 
 ## Judging it
 

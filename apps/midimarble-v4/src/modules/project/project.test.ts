@@ -284,7 +284,7 @@ describe('applyProjectCommands function', () => {
 			{ type: 'addPiece', piece: { ...piece('p1'), skin: { assetId: 'platform:copper' } } },
 			{ type: 'addPiece', piece: piece('p2') },
 			{ type: 'addGroup', group: group('g', ['p1']) },
-			{ type: 'updateFilm', film: { camera: { auto: true, distance: 1, tilt: 1, sway: 1, shots: [{ id: 'shot-2', time: 2, kind: 'wide', distance: 1 }, { id: 'shot-1', time: 1, kind: 'wide', distance: 1 }] } } }
+			{ type: 'updateFilm', film: { camera: { auto: true, distance: 1, tilt: 1, sway: 1, shots: [{ id: 'shot-2', time: 2, distance: 1 }, { id: 'shot-1', time: 1, distance: 1 }] } } }
 		]);
 	}
 
@@ -307,7 +307,7 @@ describe('applyProjectCommands function', () => {
 		addGroup: { type: 'addGroup', group: group('g2', ['p2']) },
 		updateGroup: { type: 'updateGroup', groupId: 'g', patch: { name: 'Bridge' } },
 		removeGroups: { type: 'removeGroups', groupIds: ['g'] },
-		updateFilm: { type: 'updateFilm', film: { theme: { base: 'brass' }, titles: [], camera: { auto: false, distance: 2, tilt: 1, sway: 0, shots: [{ id: 'shot-4', time: 4, kind: 'wide', distance: 1 }, { id: 'shot-3', time: 3, kind: 'wide', distance: 1 }] } } }
+		updateFilm: { type: 'updateFilm', film: { theme: { base: 'brass' }, titles: [], camera: { auto: false, distance: 2, tilt: 1, sway: 0, shots: [{ id: 'shot-4', time: 4, distance: 1 }, { id: 'shot-3', time: 3, distance: 1 }] } } }
 	};
 
 	it.each(Object.values(commands))('should never mutate its input: $type', (command) => {

@@ -440,9 +440,9 @@ describe('MCP tools', () => {
 
 		it('should add a shot from its arguments, readable in get_state', async () => {
 			const { cx } = studio();
-			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', distance: 1.2, hold: 2 } });
+			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, distance: 1.2, hold: 2 } });
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { camera: { shots: unknown[]; distance: number } };
-			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, hold: 2 })]);
+			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, distance: 1.2, hold: 2 })]);
 			expect(state.camera.distance).toBeGreaterThan(0);
 		});
 	});

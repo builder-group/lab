@@ -153,7 +153,7 @@ describe('follow camera on whole songs', () => {
 						camera: {
 							...jingle.film.camera,
 							shots: [
-								{ id: 'shot', time: 10, kind: 'pushIn', distance: rig * 0.7, hold: 2 }
+								{ id: 'shot', time: 10, distance: rig * 0.7, hold: 2 }
 							]
 						}
 					}
@@ -296,7 +296,6 @@ describe('follow camera on whole songs', () => {
 						{
 							id: 'shot',
 							time: 6,
-							kind: 'pushIn',
 							distance: rig * 0.7,
 							...(length != null ? { hold: length } : {})
 						}
