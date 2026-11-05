@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { BACKING_ID, SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type THit, type TLane, type TPhysics, type TProject, type TSource, type TTempo } from './schema';
+import { BACKING_ID, SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type TGroup, type THit, type TLane, type TPhysics, type TProject, type TSource, type TTempo } from './schema';
 
 export type TProjectCommand =
 	| { type: 'setTitle'; title: string }
@@ -17,6 +17,8 @@ export type TProjectCommand =
 	| { type: 'setBackingInstrument'; instrument: number | null }
 	| { type: 'upsertEntity'; entity: TEntity }
 	| { type: 'removeEntities'; entityIds: string[] }
+	| { type: 'upsertGroup'; group: TGroup }
+	| { type: 'removeGroups'; groupIds: string[] }
 	| { type: 'setComponent'; entityId: string; component: TComponentPatch }
 	| { type: 'removeComponent'; entityId: string; name: TComponentName }
 	| { type: 'setDesign'; design: Partial<TDesign> }
@@ -79,6 +81,7 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			project.entities = project.entities.filter(
 				(entity) => entity.components.marble?.laneId !== command.laneId
 			);
+			if (project.groups != null) setGroups(project, project.groups.filter((group) => group.laneId !== command.laneId));
 			return Ok(project);
 		}
 		case 'upsertHits': {
@@ -125,8 +128,16 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 		case 'removeEntities': {
 			const removed = new Set(command.entityIds);
 			project.entities = project.entities.filter((entity) => !removed.has(entity.id));
+			// A Group lists its pieces; one that lost them all is gone with them
+			if (project.groups != null) setGroups(project, project.groups.map((group) => ({ ...group, pieceIds: group.pieceIds.filter((id) => !removed.has(id)) })).filter((group) => group.pieceIds.length > 0 || !project.groups?.find((item) => item.id === group.id)?.pieceIds.length));
 			return Ok(project);
 		}
+		case 'upsertGroup':
+			setGroups(project, upsertById(project.groups ?? [], command.group));
+			return Ok(project);
+		case 'removeGroups':
+			setGroups(project, (project.groups ?? []).filter((group) => !command.groupIds.includes(group.id)));
+			return Ok(project);
 		case 'setComponent': {
 			const entity = project.entities.find((item) => item.id === command.entityId);
 			if (entity == null) return Err(new Error(`Entity ${command.entityId} does not exist`));
@@ -157,6 +168,12 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok(project);
 		}
 	}
+}
+
+/** A project without Groups has no list at all, as its file stays the same */
+function setGroups(project: TProject, groups: TGroup[]): void {
+	if (groups.length > 0) project.groups = groups;
+	else delete project.groups;
 }
 
 /** The hit list a command edits: a lane's hits, or Backing for `BACKING_ID`. Writes to `hits` go to the project. */

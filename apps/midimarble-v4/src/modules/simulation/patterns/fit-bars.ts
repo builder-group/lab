@@ -1,0 +1,338 @@
+import type { TEntity, TProject } from '@/modules/project';
+import { gravityOf } from '../geometry';
+import { createLinkedPiece } from '../placement';
+import type { TSimulator } from '../simulate';
+import { rollingHits } from '../track-look';
+import type { TMarbleSample, TSimulationResult } from '../types';
+
+// Zigzag and Staircase: decide the shape first, then solve each bar's tilt, and optionally its bounce, against the real
+// simulator. Promoted from the Patterns experiment (`.local/patterns/zigzag.mts`).
+
+const DEGREE = Math.PI / 180;
+/** A column the marble lands within this of is reached; the fast path aims for 1 mm */
+const COLUMN_CLOSE = 0.003;
+/** Further off a column than this reads on the wall, so it is a problem */
+export const COLUMN_PROBLEM = 0.01;
+
+export const BAR_LENGTH = 0.09;
+export const MAX_TILT = 40;
+
+export interface TBarShape {
+	kind: 'zigzag' | 'staircase';
+	/** Bar centres apart (Zigzag) or sideways per hit (Staircase), in metres */
+	width: number;
+	/** Strike this far from the bar's centre toward where it flies next, in metres */
+	strike: number;
+	/** Fixed bounce per bar; the seed when `drop` is set */
+	bounce: number;
+	/** When set, a bounce per bar too, aiming for this wall drop per hit */
+	drop?: number;
+	barLength?: number;
+	maxTilt?: number;
+	/** Staircase direction, Zigzag's first side when no arrival motion decides */
+	dir?: number;
+	/** Fixed column centre instead of the arrival's */
+	centre?: number;
+	minTakeoff?: number;
+	/** The last bar sends the marble toward this x, where a following rail should start */
+	exitToFrame?: number;
+	/** The last id is the next Pattern's first hit: aim there, place nothing on it */
+	stopBefore?: boolean;
+}
+
+export interface TBar {
+	hitId: string;
+	/** Seconds to the next hit; the 0.3 s it is given when it is the last */
+	hop: number;
+	angle: number;
+	bounce: number;
+	contactAt: number;
+	errX: number;
+	errY: number;
+	trials: number;
+	why: TBarIssue[];
+}
+
+export type TBarIssue = 'late' | 'resting' | 'restrike' | 'stray' | 'rolls';
+
+export interface TBarsFit {
+	project: TProject;
+	entities: TEntity[];
+	bars: TBar[];
+	sims: number;
+	centre: number;
+}
+
+interface TVelocity {
+	x: number;
+	y: number;
+}
+
+interface TTrial {
+	entity: TEntity;
+	project: TProject;
+	result: TSimulationResult;
+	x: number;
+	y: number;
+	angle: number;
+	bounce: number;
+	contactAt: number;
+	errX: number;
+	errY: number;
+	why: TBarIssue[];
+}
+
+export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
+	const gravity = Math.abs(gravityOf(base));
+	const lane = base.music.lanes.find((item) => item.id === laneId);
+	if (lane == null) throw new Error(`Lane ${laneId} does not exist`);
+	const times = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
+	const length = shape.barLength ?? BAR_LENGTH;
+	const maxTilt = (shape.maxTilt ?? MAX_TILT) * DEGREE;
+	let sims = 0;
+	const run = (next: TProject, until: number): TSimulationResult => {
+		sims++;
+		return sim.simulate({ ...next, end: until });
+	};
+	let project = base;
+	const bars: TBar[] = [];
+	const entities: TEntity[] = [];
+	const first = times.get(hitIds[0] ?? '') ?? 0;
+	let result = run(project, first + 0.03);
+	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [], time - 1e-6);
+	const firstArrival = arrival(first);
+	if (firstArrival == null) return { project, entities, bars, sims, centre: 0 };
+	const firstDot = result.hits.find((hit) => hit.hitId === hitIds[0])?.dot ?? firstArrival.position;
+
+	// Sides. Zigzag: a marble moving right lands in the right column
+	const firstSide = shape.dir ?? (Math.abs(firstArrival.velocity.x) > 0.02 ? Math.sign(firstArrival.velocity.x) : 1);
+	const sideOf = (index: number): number => (shape.kind === 'zigzag' ? (index % 2 === 0 ? firstSide : -firstSide) : firstSide);
+	const span = shape.width - 2 * shape.strike;
+	const centre = shape.centre ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
+	const dotX = (index: number): number => (shape.kind === 'zigzag' ? centre + (sideOf(index) * span) / 2 : centre + index * firstSide * shape.width);
+	const total = shape.stopBefore === true ? hitIds.length - 1 : hitIds.length;
+
+	for (let index = 0; index < total; index++) {
+		const id = hitIds[index] as string;
+		const time = times.get(id) as number;
+		const nextId = hitIds[index + 1];
+		const nextTime = nextId != null ? (times.get(nextId) as number) : time + 0.3;
+		const hop = nextTime - time;
+		result = run(project, time + 0.03);
+		const here = result.hits.find((hit) => hit.hitId === id);
+		const sample = arrival(time);
+		const dot = here?.dot ?? sample?.position ?? firstDot;
+		const incoming: TVelocity = sample?.velocity ?? { x: 0, y: -1 };
+		const toward = nextId == null && shape.exitToFrame != null ? Math.sign(shape.exitToFrame - dot.x) || 1 : shape.kind === 'zigzag' ? -sideOf(index) : firstSide;
+		const targetX = nextId != null ? dotX(index + 1) : dot.x + toward * 0.05;
+
+		// The drop aimed for stays small enough for a real bounce: the rule asks a takeoff of about 0.37 m/s
+		const sideways = Math.abs(((nextId != null ? dotX(index + 1) : dot.x) - dot.x) / hop);
+		const guess = Math.atan2(sideways + Math.abs(incoming.x), Math.max(0.3, Math.abs(incoming.y) + 0.35));
+		const minUp = Math.max(0.12, ((shape.minTakeoff ?? 0.4) - sideways * Math.sin(guess)) / Math.cos(guess));
+		const dropHere = shape.drop != null ? Math.max(0.02, Math.min(shape.drop, (gravity * hop * hop) / 2 - minUp * hop)) : null;
+		const targetY = dropHere != null ? dot.y - dropHere : null;
+		const want = { x: (targetX - dot.x) / hop, y: ((targetY ?? dot.y - 0.05) - dot.y + (gravity * hop * hop) / 2) / hop };
+
+		// Seed: the normal lies along the change in velocity
+		const change = { x: want.x - incoming.x, y: want.y - incoming.y };
+		let angle = clamp(Math.atan2(-change.x, change.y), -maxTilt, maxTilt);
+		const seedNormal = normalOf(angle);
+		let bounce = dropHere != null ? clamp(-(want.x * seedNormal.x + want.y * seedNormal.y) / (incoming.x * seedNormal.x + incoming.y * seedNormal.y), 0.1, 0.95) : shape.bounce;
+		const bounceSeed = bounce;
+		const strikeAt = 0.5 + (toward * shape.strike) / length; // contactAt grows toward +x
+		let trials = 0;
+		const found: { best: TTrial | null } = { best: null };
+
+		const cleanOf = (trial: Pick<TTrial, 'entity' | 'project' | 'result'>): TBarIssue[] => {
+			const out: TBarIssue[] = [];
+			const hit = trial.result.hits.find((item) => item.hitId === id);
+			if (hit?.status !== 'onTime' && hit?.status !== 'drifting') out.push(hit?.reason === 'resting' ? 'resting' : 'late');
+			for (const contact of trial.result.contacts) {
+				if (contact.kind !== 'piece' || contact.time > nextTime - 0.004) continue;
+				if (contact.otherEntityId === trial.entity.id) {
+					if (contact.time > time + 0.03) {
+						out.push('restrike');
+						break;
+					}
+					continue;
+				}
+				if (contact.time > time + 0.004 && project.entities.find((item) => item.id === contact.otherEntityId)?.components.piece?.type === 'platform') {
+					out.push('stray');
+					break;
+				}
+			}
+			if (nextId != null && rollingHits(trial.project, trial.result).some((item) => item.hitId === id)) out.push('rolls');
+			return out;
+		};
+
+		/** One real run; a restrike first moves the strike toward the end flown to, which leaves the flight alone */
+		const trial = (tryAngle: number, tryBounce: number): TTrial => {
+			let out: TTrial | null = null;
+			for (const shift of [0, 0.012, 0.02, 0.028]) {
+				const contactAt = clamp(strikeAt + (toward * shift) / length, 0.05, 0.95);
+				const entity = barEntity(laneId, id, tryAngle, tryBounce, contactAt, length);
+				const next = withEntity(project, entity);
+				const trialResult = run(next, nextTime + 0.03);
+				trials++;
+				const nextHit = nextId != null ? trialResult.hits.find((hit) => hit.hitId === nextId) : null;
+				const samples = trialResult.marbles.find((marble) => marble.laneId === laneId)?.samples ?? [];
+				const position = nextHit?.dot ?? sampleAt(samples, nextTime - 1e-6)?.position ?? dot;
+				const why = cleanOf({ entity, project: next, result: trialResult });
+				out = { entity, project: next, result: trialResult, x: position.x, y: position.y, angle: tryAngle, bounce: tryBounce, contactAt, errX: targetX - position.x, errY: targetY != null ? targetY - position.y : 0, why };
+				if (!why.includes('restrike')) break;
+			}
+			return out as TTrial;
+		};
+		const score = (item: TTrial): number => (item.why.length > 0 ? 10 : 0) + Math.abs(item.errX) * 20 + Math.abs(item.errY) * 2;
+		const isGood = (item: TTrial): boolean => !item.why.length && Math.abs(item.errX) < 0.001 && (targetY == null || Math.abs(item.errY) < 0.005 || (item.bounce <= 0.1 && item.errY < 0) || (item.bounce >= 0.95 && item.errY > 0));
+		const keep = (item: TTrial): void => {
+			if (found.best == null || score(item) < score(found.best)) found.best = item;
+		};
+
+		// Fast path: the bounce model as a Jacobian, the simulator as the truth
+		for (let step = 0; step < 6 && nextId != null; step++) {
+			const item = trial(angle, bounce);
+			keep(item);
+			if (isGood(item)) break;
+			const dvx = item.errX / hop;
+			const dvy = item.errY / hop;
+			const small = 0.2 * DEGREE;
+			const m0 = bounceModel(incoming, angle, bounce);
+			const ma = bounceModel(incoming, angle + small, bounce);
+			const me = bounceModel(incoming, angle, bounce + 0.01);
+			const jxa = (ma.x - m0.x) / small;
+			const jya = (ma.y - m0.y) / small;
+			const jxe = (me.x - m0.x) / 0.01;
+			const jye = (me.y - m0.y) / 0.01;
+			let da: number;
+			let de = 0;
+			if (targetY != null && !(bounce <= 0.1 && dvy < 0) && !(bounce >= 0.95 && dvy > 0)) {
+				const determinant = jxa * jye - jya * jxe;
+				da = (dvx * jye - dvy * jxe) / determinant;
+				de = (jxa * dvy - jya * dvx) / determinant;
+			} else da = dvx / (Math.abs(jxa) > 1e-3 ? jxa : 1e-3);
+			angle = clamp(angle + clamp(da, -12 * DEGREE, 12 * DEGREE), -maxTilt, maxTilt);
+			bounce = clamp(bounce + clamp(de, -0.25, 0.25), 0.1, 0.95);
+		}
+
+		if (nextId == null) {
+			// A last bar has no column to reach, but the marble must still leave it once
+			let last = trial(angle, bounce);
+			outer: for (const de of [0, 0.1, 0.2, 0.3, 0.4]) {
+				for (const da of [0, 6, -6, 12, -12, 18, -18]) {
+					if (!last.why.length) break outer;
+					const item = trial(clamp(angle + da * DEGREE, -maxTilt, maxTilt), Math.min(0.95, bounce + de));
+					if (item.why.length < last.why.length) last = item;
+				}
+			}
+			found.best = last;
+		}
+
+		// Slow path: tilt scan with the bounce held, then bisection between clean trials on either side of the column
+		if (nextId != null && (found.best == null || !isGood(found.best))) {
+			const seeds = shape.drop != null ? [0, 0.1, -0.1, 0.2, -0.2, 0.3].map((d) => bounceSeed + d) : [0, 0.08, 0.16, -0.08, 0.24, -0.16].map((d) => shape.bounce + d);
+			let solved: TTrial | null = null;
+			for (const seed of seeds.map((item) => clamp(item, 0.1, 0.95))) {
+				let previous: TTrial | null = null;
+				const roots: TTrial[] = [];
+				for (let step = -40; step <= 40; step += 4) {
+					if (Math.abs(step) * DEGREE > maxTilt) continue;
+					const item = trial(step * DEGREE, seed);
+					keep(item);
+					if (previous != null && !previous.why.length && !item.why.length && previous.errX * item.errX <= 0) {
+						let low: TTrial = previous;
+						let high: TTrial = item;
+						for (let round = 0; round < 8; round++) {
+							const weight = low.errX / (low.errX - high.errX);
+							const middle = trial(low.angle + (high.angle - low.angle) * clamp(weight, 0.1, 0.9), seed);
+							keep(middle);
+							if (Math.abs(middle.errX) < 0.001) {
+								low = middle;
+								high = middle;
+								break;
+							}
+							if (middle.why.length > 0) break;
+							if (low.errX * middle.errX <= 0) high = middle;
+							else low = middle;
+						}
+						const root = Math.abs(low.errX) < Math.abs(high.errX) ? low : high;
+						if (Math.abs(root.errX) < 0.002 && !root.why.length) roots.push(root);
+					}
+					previous = item;
+				}
+				if (roots.length > 0) {
+					roots.sort((a, b) => Math.abs(a.angle) - Math.abs(b.angle));
+					const root = roots[0] as TTrial;
+					if (targetY == null || Math.abs(root.errY) < 0.02) {
+						solved = root;
+						break;
+					}
+					keep(root);
+				}
+			}
+			if (solved != null) found.best = solved;
+		}
+
+		const chosen = found.best as TTrial;
+		entities.push(chosen.entity);
+		project = chosen.project;
+		result = chosen.result;
+		bars.push({ hitId: id, hop, angle: chosen.angle, bounce: chosen.bounce, contactAt: chosen.contactAt, errX: chosen.errX, errY: chosen.errY, trials, why: chosen.why });
+		onBar?.(index + 1, total);
+	}
+	return { project, entities, bars, sims, centre };
+}
+
+/** The column shape counts as held for a bar within this */
+export function isOffColumn(bar: TBar): boolean {
+	return Math.abs(bar.errX) > COLUMN_CLOSE;
+}
+
+function barEntity(laneId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number): TEntity {
+	const entity = createLinkedPiece('platform', laneId, hitId, angle, { id: `bar-${hitId}`, contactAt });
+	const piece = entity.components.piece;
+	if (piece != null) piece.params = { length, thickness: 0.012, depth: 0.045, bounce, entryDelay: 0 };
+	return entity;
+}
+
+/** The project with this entity in place of its old self, without the checks of a command: the solver's trials stay fast */
+export function withEntity(project: TProject, entity: TEntity): TProject {
+	const index = project.entities.findIndex((item) => item.id === entity.id);
+	if (index < 0) return { ...project, entities: [...project.entities, entity] };
+	const entities = [...project.entities];
+	entities[index] = entity;
+	return { ...project, entities };
+}
+
+/** Rough bounce: restitution on the normal, friction limited loss on the tangent. Only a guess and a Jacobian; the simulator decides */
+function bounceModel(incoming: TVelocity, angle: number, bounce: number): TVelocity {
+	const tangent = { x: Math.cos(angle), y: Math.sin(angle) };
+	const normal = normalOf(angle);
+	const along = incoming.x * tangent.x + incoming.y * tangent.y;
+	const across = incoming.x * normal.x + incoming.y * normal.y;
+	const impulse = Math.min(0.3 * (1 + bounce) * Math.abs(across), (2 / 7) * Math.abs(along));
+	const nextAlong = along - Math.sign(along) * impulse;
+	const nextAcross = -bounce * across;
+	return { x: nextAlong * tangent.x + nextAcross * normal.x, y: nextAlong * tangent.y + nextAcross * normal.y };
+}
+
+function normalOf(angle: number): TVelocity {
+	return { x: -Math.sin(angle), y: Math.cos(angle) };
+}
+
+function clamp(value: number, low: number, high: number): number {
+	return Math.max(low, Math.min(high, value));
+}
+
+export function sampleAt(samples: TMarbleSample[], time: number): TMarbleSample | null {
+	if (!samples.length) return null;
+	let low = 0;
+	let high = samples.length - 1;
+	while (low < high) {
+		const middle = (low + high + 1) >> 1;
+		if ((samples[middle] as TMarbleSample).time <= time) low = middle;
+		else high = middle - 1;
+	}
+	return samples[low] as TMarbleSample;
+}

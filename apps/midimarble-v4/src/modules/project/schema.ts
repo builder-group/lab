@@ -354,6 +354,25 @@ export const SPhysics = z.strictObject({ gravityScale: z.number().min(0.05).max(
  */
 export const BACKING_ID = 'backing';
 
+/**
+ * What a Pattern made (prototype): an ordinary list of ordinary pieces, one Undo step, named after the Pattern. The
+ * range and settings let it run again; hand edits to its pieces stay until it does. `from` and `to` are song seconds.
+ */
+export const SGroup = z.strictObject({
+	id: SId,
+	name: z.string(),
+	laneId: SId,
+	from: z.number(),
+	to: z.number(),
+	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	width: z.number().positive(),
+	bounce: z.number().min(0).max(1),
+	pieceIds: z.array(SId),
+	// What the last run used and couldn't do, shown beside the tiles
+	widthUsed: z.number().positive().optional(),
+	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
+});
+
 export const SProject = z.strictObject({
 	$schema: z.literal('marble-project@5'),
 	id: SId,
@@ -372,6 +391,8 @@ export const SProject = z.strictObject({
 		tempo: STempo.optional()
 	}),
 	entities: z.array(SEntity),
+	// Absent until a Pattern makes one
+	groups: z.array(SGroup).optional(),
 	physics: SPhysics,
 	design: SDesign
 });
@@ -405,6 +426,7 @@ export type TSnowfall = NonNullable<TDecor['snowfall']>;
 export type TMadeInBlender = z.infer<typeof SMadeInBlender>;
 export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;
+export type TGroup = z.infer<typeof SGroup>;
 export type TTempo = z.infer<typeof STempo>;
 export type TPhysics = z.infer<typeof SPhysics>;
 export type TPathNode = z.infer<typeof SPathNode>;
