@@ -7,7 +7,7 @@ import { lanesWithoutBowl } from '@/modules/compose/bowl-assist';
 import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
-import { canGroup, canUngroup, groupSelected, ungroupSelected } from '@/modules/compose/group-commands';
+import { canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected } from '@/modules/compose/group-commands';
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
@@ -54,7 +54,7 @@ export interface TCommand {
 	run: (cx: StudioCx) => void;
 }
 
-export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Track' | 'Marble' | 'Film' | 'Help';
+export type TCommandSection = 'File' | 'Edit' | 'View' | 'Playback' | 'Tools' | 'Track' | 'Marble' | 'Film' | 'Agent' | 'Help';
 
 function compose(cx: StudioCx): ComposeCx | null {
 	return cx.$workspace.get() === 'compose' ? cx.$compose.get() : null;
@@ -262,7 +262,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Edit
 	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0, run: (cx) => cx.undo() },
 	{ id: 'edit.redo', title: 'Redo', section: 'Edit', shortcut: '⇧⌘Z', isEnabled: (cx) => (cx.$history.get()?.future.length ?? 0) > 0, run: (cx) => cx.redo() },
-	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', isEnabled: (cx) => cx.renameTarget() != null, run: (cx) => cx.renameSelection() },
+	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', shortcut: 'F2', isEnabled: (cx) => cx.renameTarget() != null, run: (cx) => cx.renameSelection() },
 	{
 		id: 'edit.delete',
 		title: 'Delete',
@@ -283,6 +283,18 @@ export const commands: readonly TCommand[] = [
 	{ id: 'edit.duplicate', title: 'Duplicate', section: 'Edit', shortcut: '⌘D', keywords: 'copy clone', isEnabled: (cx) => hasPieces(cx) || (inDesign(cx) && selectedDecorIds(cx.$selection.get()).length > 0), run: (cx) => void duplicateSelection(cx) },
 	{ id: 'edit.group', title: 'Group Selection', section: 'Edit', shortcut: '⌘G', keywords: 'folder collect', isEnabled: canGroup, run: (cx) => groupSelected(cx) },
 	{ id: 'edit.ungroup', title: 'Ungroup', section: 'Edit', shortcut: '⇧⌘G', keywords: 'folder separate', isEnabled: canUngroup, run: (cx) => ungroupSelected(cx) },
+	{
+		id: 'edit.flatten',
+		workspace: 'compose',
+		title: 'Flatten',
+		section: 'Edit',
+		keywords: 'pattern apply plain pieces keep edit one by one modifier',
+		isEnabled: (cx) => compose(cx) != null && selectedPattern(cx) != null,
+		run: (cx) => {
+			const group = selectedPattern(cx);
+			if (group != null) compose(cx)?.patterns.flatten(group);
+		}
+	},
 	{
 		id: 'edit.selectAll', workspace: 'compose',
 		title: 'Select All Track Pieces',
@@ -532,6 +544,14 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => openScatterPanel(cx)
 	},
 	{
+		id: 'decor.add',
+		title: 'Add Decor…',
+		section: 'Film',
+		keywords: 'decoration bauble ornament insert library',
+		isEnabled: inDesign,
+		run: (cx) => cx.library.$insertOpen.set(true)
+	},
+	{
 		id: 'light.add',
 		title: 'Add Light',
 		section: 'Film',
@@ -655,12 +675,12 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.$quickHelp.set(!cx.$quickHelp.get())
 	},
 	{ id: 'help.resetHints', title: 'Reset Hints', section: 'Help', keywords: 'tips onboarding beginner show again first run', run: (cx) => cx.hints.reset() },
-	{ id: 'help.enableMcp', title: 'Enable MCP', section: 'Help', keywords: 'ai agent claude code codex chatgpt connect server tools', isChecked: (cx) => cx.mcp.$isEnabled.get(), run: (cx) => void cx.mcp.setEnabled(!cx.mcp.$isEnabled.get()) },
+	{ id: 'help.enableMcp', title: 'Enable MCP', section: 'Agent', keywords: 'ai agent claude code codex chatgpt connect server tools', isChecked: (cx) => cx.mcp.$isEnabled.get(), run: (cx) => void cx.mcp.setEnabled(!cx.mcp.$isEnabled.get()) },
 	{
 		id: 'help.connectClaude',
 		title: connectTitle('claude', false),
 		currentTitle: (cx) => connectTitle('claude', cx.mcp.$connections.get().claude),
-		section: 'Help',
+		section: 'Agent',
 		keywords: 'ai agent claude code mcp disconnect remove terminal',
 		isEnabled: (cx) => cx.mcp.$connecting.get() == null,
 		run: (cx) => void cx.mcp.toggleConnection('claude')
@@ -669,13 +689,13 @@ export const commands: readonly TCommand[] = [
 		id: 'help.connectCodex',
 		title: connectTitle('codex', false),
 		currentTitle: (cx) => connectTitle('codex', cx.mcp.$connections.get().codex),
-		section: 'Help',
+		section: 'Agent',
 		keywords: 'ai agent openai mcp disconnect remove terminal',
 		isEnabled: (cx) => cx.mcp.$connecting.get() == null,
 		run: (cx) => void cx.mcp.toggleConnection('codex')
 	},
-	{ id: 'help.copyMcpCommand', title: 'Copy Command for Other Apps', section: 'Help', keywords: 'ai agent connect mcp stdio server clipboard', run: (cx) => void cx.mcp.copyServerCommand() },
-	{ id: 'agent.showFolder', title: 'Show Agent Folder', section: 'File', keywords: 'ai references notes runs scratch finder', isEnabled: hasProject, run: (cx) => void cx.showAgentFolder() },
+	{ id: 'help.copyMcpCommand', title: 'Copy Command for Other Apps', section: 'Agent', keywords: 'ai agent connect mcp stdio server clipboard', run: (cx) => void cx.mcp.copyServerCommand() },
+	{ id: 'agent.showFolder', title: 'Show Agent Folder', section: 'Agent', keywords: 'ai references notes runs scratch finder', isEnabled: hasProject, run: (cx) => void cx.showAgentFolder() },
 	{ id: 'design.packs', title: 'Packs…', section: 'File', keywords: 'themes skins decor library browse import export add remove starter community share file look', run: (cx) => cx.library.$isPacksOpen.set(true) },
 	// An agent's ways to the same, with their arguments; a person has Packs…
 	{ id: 'design.addPack', title: 'Add Pack', section: 'File', isForAgents: true, run: (cx) => cx.library.$isPacksOpen.set(true) },
@@ -701,6 +721,7 @@ export type TCommandId =
 	| 'camera.addShot'
 	| 'light.add'
 	| 'decor.scatter'
+	| 'decor.add'
 	| 'design.deleteTheme'
 	| 'design.cancelExport'
 	| 'edit.undo'
@@ -749,6 +770,7 @@ export type TCommandId =
 	| 'edit.duplicate'
 	| 'edit.group'
 	| 'edit.ungroup'
+	| 'edit.flatten'
 	| 'edit.makeBacking'
 	| 'piece.detach'
 	| 'marble.add'

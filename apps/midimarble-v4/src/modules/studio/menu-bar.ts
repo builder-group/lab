@@ -11,7 +11,7 @@ import type { StudioCx, TStudioPanel } from './StudioCx';
 export type TMenuLine =
 	| {
 			command: TCommandId;
-			/** Tells two items of one command apart, such as Add Bowl in Insert and in Track */
+			/** Tells two items of one command apart */
 			variant?: string;
 			/** A title for the menu bar where the palette's would read wrong there */
 			title?: string;
@@ -84,7 +84,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'edit.selectAll', title: 'Select All', text: 'selectAll' },
 			{ command: 'edit.deselect' },
 			'separator',
-			{ command: 'edit.rename' },
+			{ command: 'edit.rename', showsKey: true },
 			{ command: 'edit.makeBacking', hasNoKey: true },
 			{ command: 'edit.firstProblem' }
 		]
@@ -92,17 +92,19 @@ export const menuLayout: readonly TMenuSection[] = [
 	{
 		title: 'Insert',
 		items: [
-			{ command: 'tool.platform', showsKey: true },
-			{ command: 'tool.path', showsKey: true },
-			{ command: 'tool.tunnel', showsKey: true },
-			{ command: 'build.addBowl', variant: 'insert' },
+			// The same as + in each workspace, by the same plain nouns
+			{ command: 'marble.add', title: 'Marble', showsKey: true },
+			{ command: 'tool.platform', title: 'Platform', showsKey: true },
+			{ command: 'tool.path', title: 'Rail', showsKey: true },
+			{ command: 'tool.tunnel', title: 'Tunnel', showsKey: true },
+			{ command: 'tool.windmill', title: 'Windmill', showsKey: true },
+			{ command: 'tool.bowl', title: 'Bowl', showsKey: true },
 			'separator',
-			{ command: 'design.addText', showsKey: true },
+			{ command: 'decor.add', title: 'Decor…' },
+			{ command: 'design.addText', title: 'Title', showsKey: true },
+			{ command: 'light.add', title: 'Light' },
 			'separator',
-			{ command: 'light.add' },
-			{ command: 'camera.addShot', showsKey: true },
-			{ command: 'marble.add', showsKey: true },
-			{ command: 'file.importMidi', variant: 'insert', hasNoKey: true }
+			{ command: 'camera.addShot', title: 'Shot', showsKey: true }
 		]
 	},
 	{
@@ -154,7 +156,6 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.mirror', showsKey: true },
 			{ command: 'build.repeat', showsKey: true },
 			{ command: 'build.fix', showsKey: true },
-			{ command: 'build.addBowl' },
 			'separator',
 			{ command: 'piece.detach' }
 		]
@@ -167,7 +168,7 @@ export const menuLayout: readonly TMenuSection[] = [
 	{
 		title: 'Help',
 		role: 'help',
-		items: [{ command: 'help.quickHelp', title: 'MidiMarble Help' }, { command: 'help.resetHints' }, 'separator', { command: 'help.connectClaude' }, { command: 'help.connectCodex' }, { command: 'help.copyMcpCommand' }, { command: 'help.enableMcp' }]
+		items: [{ command: 'help.quickHelp', title: 'MidiMarble Help' }, { command: 'help.resetHints' }]
 	}
 ];
 

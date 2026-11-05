@@ -1,5 +1,5 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
-import { canUngroup } from '@/modules/compose/group-commands';
+import { canUngroup, selectedPattern } from '@/modules/compose/group-commands';
 import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
 import { createId, laneColors, type TEntity, type TLane, type TProjectCommand } from '@/modules/project';
 import { commandItem, getCommand, runInWorkspace } from './commands';
@@ -67,11 +67,13 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		commandItem(cx, 'edit.duplicate'),
 		commandItem(cx, 'edit.group'),
 		canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null,
+		selectedPattern(cx) != null ? commandItem(cx, 'edit.flatten') : null,
 		commandItem(cx, 'edit.rename'),
 		selectionLabelItem(cx),
-		commandItem(cx, 'edit.delete'),
 		'separator',
-		...pieceLinkItems(cx)
+		...pieceLinkItems(cx),
+		'separator',
+		commandItem(cx, 'edit.delete')
 	]);
 }
 

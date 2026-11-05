@@ -484,15 +484,16 @@ function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 			}
 		},
 		labelColorItem(decorLabelEntries(cx, ids)),
+		'separator',
+		commandItem(cx, 'decor.scatter'),
+		'separator',
 		{
 			label: 'Delete',
 			shortcut: '⌫',
 			onSelect: () => {
 				if (project != null && cx.execute(deleteDecorCommands(project, ids))) cx.$selection.set([]);
 			}
-		},
-		'separator',
-		commandItem(cx, 'decor.scatter')
+		}
 	];
 }
 

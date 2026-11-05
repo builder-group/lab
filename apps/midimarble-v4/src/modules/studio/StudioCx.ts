@@ -32,7 +32,7 @@ import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
-import { parseGroupKey, parseHitKey, stepHitTarget, toHitKey } from './selection';
+import { KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey } from './selection';
 import { tapTime } from './tap';
 import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
@@ -847,12 +847,14 @@ export class StudioCx {
 		this.$renaming.set(id);
 	}
 
-	/** What Rename… names: the first selected entity, or a plain Group selected as a whole. A Pattern's Group is named after it */
+	/** What Rename… names: the first selected entity, Decor layer, added light, or a plain Group selected as a whole. A Pattern's Group is named after it */
 	renameTarget(): string | null {
 		const project = this.project;
 		const id = this.$selection.get()[0];
 		if (project == null || id == null) return null;
-		if (project.entities.some((entity) => entity.id === id)) return id;
+		if (project.entities.some((entity) => entity.id === id) || parseDecorKey(id) != null) return id;
+		const lightId = parseLightKey(id);
+		if (lightId != null) return lightId !== KEY_LIGHT_ID ? id : null;
 		const groupId = parseGroupKey(id);
 		const group = project.groups?.find((item) => item.id === groupId);
 		return group != null && !isPatternGroup(group) ? id : null;

@@ -83,6 +83,12 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				}
 				return;
 			}
+			if (event.key === 'F2') {
+				event.preventDefault();
+				const target = getCommand('edit.rename');
+				if (isCommandEnabled(cx, target)) target.run(cx);
+				return;
+			}
 			if (event.key === ' ') {
 				event.preventDefault();
 				cx.$playing.set(!cx.$playing.get());

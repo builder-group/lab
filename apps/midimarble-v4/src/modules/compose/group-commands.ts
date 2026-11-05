@@ -1,4 +1,4 @@
-import { createId, isPatternGroup, type TEntity, type TGroup, type TLane, type TPlainGroup, type TProject, type TProjectCommand } from '@/modules/project';
+import { createId, isPatternGroup, type TEntity, type TGroup, type TLane, type TPatternGroup, type TPlainGroup, type TProject, type TProjectCommand } from '@/modules/project';
 import { startRailOf, patternLockWords, patternOfPiece, type THitResult } from '@/modules/simulation';
 import { parseGroupKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
@@ -42,6 +42,12 @@ export function groupCommands(project: TProject, pieces: readonly TEntity[], id:
 function selectedGroups(project: TProject, selection: readonly string[]): TGroup[] {
 	const keys = new Set(selection.flatMap((key) => parseGroupKey(key) ?? []));
 	return (project.groups ?? []).filter((group) => keys.has(group.id) || group.pieceIds.some((id) => selection.includes(id)));
+}
+
+/** The live Pattern the selection stands for, which Flatten turns into plain pieces */
+export function selectedPattern(cx: StudioCx): TPatternGroup | null {
+	const selection = cx.$selection.get();
+	return cx.project?.groups?.filter(isPatternGroup).find((group) => selection.some((key) => parseGroupKey(key) === group.id || group.pieceIds.includes(key))) ?? null;
 }
 
 export function canGroup(cx: StudioCx): boolean {

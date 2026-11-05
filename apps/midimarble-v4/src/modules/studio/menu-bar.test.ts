@@ -104,7 +104,13 @@ describe('Playback and Piece menus', () => {
 
 	it('should list the transport and the piece assists', () => {
 		expect(section('Playback')).toEqual(['play.toggle', 'play.start', 'play.previousHit', 'play.nextHit', 'play.repeat']);
-		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'build.continue', 'build.mirror', 'build.repeat', 'build.fix', 'build.addBowl', 'piece.detach']);
+		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'build.continue', 'build.mirror', 'build.repeat', 'build.fix', 'piece.detach']);
+	});
+
+	it('should mirror + in Insert by plain nouns, and leave the agent items out of Help', () => {
+		const titles = menuLayout.find((item) => item.title === 'Insert')?.items.filter(isCommandLine).map((line) => line.title);
+		expect(titles).toEqual(['Marble', 'Platform', 'Rail', 'Tunnel', 'Windmill', 'Bowl', 'Decor…', 'Title', 'Light', 'Shot']);
+		expect(section('Help')).toEqual(['help.quickHelp', 'help.resetHints']);
 	});
 
 	it('should show single keys in the title and never as menu keys, and name Pause while playing', () => {
