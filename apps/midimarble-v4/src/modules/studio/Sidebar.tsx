@@ -371,7 +371,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isEmpty === true ? undefined : row.isOpen };
 		case 'patternGroup':
-			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, title: `${row.group.name}: made by a Pattern, ordinary pieces you can edit`, isOpen: row.hasChildren ? row.isOpen : undefined };
+			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, title: `${row.group.name}: made by a Pattern; Flatten to edit its pieces one by one`, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'wall':
 			return { icon: <BrickWall size={14} strokeWidth={1.75} />, label: 'Wall' };
 		case 'light':

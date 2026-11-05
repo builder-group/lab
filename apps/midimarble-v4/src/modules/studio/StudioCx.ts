@@ -37,6 +37,7 @@ import type { THitFlash } from './timeline/hit-flash';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
+import { withWholePatterns } from '@/modules/compose/PatternsCx';
 import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/compose/reachability';
 import type { TView } from '@/modules/compose/view';
 import { McpCx } from '@/modules/mcp/McpCx';
@@ -967,7 +968,13 @@ export class StudioCx {
 		const kept = new Set(next.present.entities.map((entity) => entity.id));
 		const removed = new Set(history.present.entities.filter((entity) => !kept.has(entity.id)).map((entity) => entity.id));
 		const selection = this.$selection.get();
-		if (selection.some((id) => removed.has(id))) this.$selection.set(selection.filter((id) => !removed.has(id)));
+		const left = selection.filter((id) => !removed.has(id));
+		// A live Pattern a step brought back stands for its pieces again, as a click on one does
+		const whole = withWholePatterns(next.present, left);
+		if (whole.length !== selection.length) this.$selection.set(whole);
+		// The notice of the edit this step took back would still say it happened
+		const notice = this.$notice.get();
+		if (notice != null && notice.actions?.some((action) => action.isUndo === true && action.undoGroup === history.groups.present) === true) this.dismissNotice(notice.id);
 		this.$historyReveal.set({ revision: next.present.revision });
 		this.scheduleSave();
 	}
