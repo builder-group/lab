@@ -251,16 +251,16 @@ pub async fn copy_file_out(
     .await;
 }
 
-/// The worker runs from the source tree in debug builds and from bundled resources in release builds
+/// The worker runs from bundled resources in any `.app`, and from the source tree under `tauri dev`, so Python edits apply.
+/// A bundled app never reads the source tree: under Documents, that would stop on a macOS privacy prompt nobody may see.
 fn worker_script(app: &AppHandle) -> Result<PathBuf, String> {
-    if cfg!(debug_assertions) {
+    let resources = app.path().resource_dir().map_err(|error| error.to_string())?;
+    let bundled = resources.join("blender/worker.py");
+    let is_bundle = resources.components().any(|part| part.as_os_str().to_string_lossy().ends_with(".app"));
+    if cfg!(debug_assertions) && !is_bundle {
         return Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../blender/worker.py"));
     }
-    let resources = app
-        .path()
-        .resource_dir()
-        .map_err(|error| error.to_string())?;
-    return Ok(resources.join("blender/worker.py"));
+    return Ok(bundled);
 }
 
 async fn run_blocking<T, F>(task: F) -> Result<T, String>
