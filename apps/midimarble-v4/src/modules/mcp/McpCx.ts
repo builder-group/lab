@@ -65,6 +65,9 @@ export class McpCx {
 		const release = (): void => {
 			this.isPointerDown = false;
 		};
+		// A command pasted into Terminal connects from outside the window
+		const refresh = (): void => void this.refreshConnections();
+		window.addEventListener('focus', refresh);
 		window.addEventListener('pointerdown', press, true);
 		window.addEventListener('pointerup', release, true);
 		window.addEventListener('pointercancel', release, true);
@@ -74,6 +77,7 @@ export class McpCx {
 			stopClients?.();
 			stopWatching();
 			this.presence.dispose();
+			window.removeEventListener('focus', refresh);
 			window.removeEventListener('pointerdown', press, true);
 			window.removeEventListener('pointerup', release, true);
 			window.removeEventListener('pointercancel', release, true);

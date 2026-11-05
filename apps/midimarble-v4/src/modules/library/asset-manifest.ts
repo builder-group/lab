@@ -39,7 +39,7 @@ export const SAssetManifest = z.strictObject({
 	// Extra skin properties beside Colour, On Hit, Glow Colour and Variant
 	properties: z.array(SAssetProperty).optional(),
 	notes: z.string().optional(),
-	// A marble skin that has one colour whatever the marble's: the marble takes it on, so the timeline and Compose agree
+	// Read and ignored: a skin no longer sets a marble's label colour
 	color: SHexColor.optional(),
 	// Where the item comes from: `agent` is set when a Result is accepted; absent means it was brought in another way
 	origin: z.enum(['agent', 'imported']).optional(),

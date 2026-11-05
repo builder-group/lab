@@ -135,7 +135,7 @@ project.entities.forEach((entity, index) => {
 	const release = RELEASES[index];
 	if (entity.components.marble == null || release == null) return;
 	entity.name = index === 0 ? 'Melody' : 'Bass';
-	entity.components.marble.color = index === 0 ? MELODY_RED : BASS_GREEN;
+	entity.components.skin = { ...entity.components.skin, color: index === 0 ? MELODY_RED : BASS_GREEN };
 	entity.components.release = { position: { x: release.x, y: release.y }, time: entity.components.release?.time ?? 0 };
 });
 

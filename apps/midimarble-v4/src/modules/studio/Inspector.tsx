@@ -3,7 +3,6 @@ import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Sparkles, T
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, MenuButton, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
-import { InsertPopover } from '@/modules/compose/InsertLibrary';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
 import { GroupInspector, PatternRangeInspector, PatternTiles } from '@/modules/compose/PatternInspector';
@@ -12,16 +11,15 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
 import { ZOOM_100_SCALE } from '@/modules/compose/view';
-import { fixedColorSkinLabel } from '@/modules/design/design-commands';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector } from '@/modules/design/DesignInspector';
 import { MarbleSkin } from '@/modules/design/SkinProperties';
 import { THEME_HELP } from '@/modules/design/concept-words';
 import { ThemeRow } from '@/modules/design/ThemePanel';
 import { DecorInspector, MadeInBlenderInspector } from '@/modules/design/DecorInspector';
-import { ColorWell, KeyLightInspector, LightInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
+import { KeyLightInspector, LightInspector, WallInspector } from '@/modules/design/SceneLayerInspector';
 import { addedLights } from '@/modules/design/scene-layers';
 import { DEFAULT_HIT_VELOCITY, findLaneConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts } from '@/modules/music';
-import { BACKING_ID, laneColors, type THit, type TEntity, type TLane, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { BACKING_ID, type THit, type TEntity, type TLane, type TProject, type TVec2 } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { formatTime, noteName, parseNoteName, stepPitch } from './format';
@@ -170,8 +168,6 @@ const ZoomMenu: React.FC<{ cx: StudioCx; compose: ComposeCx }> = (props) => {
 
 const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; marble: TEntity; isFilm: boolean }> = (props) => {
 	const { cx, project, lane, marble, isFilm } = props;
-	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
 	const conflicts = findLaneConflicts(lane).size;
 
 	const release = marble.components.release;
@@ -193,9 +189,6 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 		cx.simulation.endPreview();
 	}
 
-	// One colour per marble: the commands keep the lane and the marble on it
-	const colorCommands = (color: string): TProjectCommand[] => [{ type: 'upsertLane', lane: { ...lane, color } }];
-	const fixedBy = fixedColorSkinLabel(project.design, marble.components.skin, [...projectItems, ...globalItems]);
 
 	return (
 		<>
@@ -210,77 +203,11 @@ const LaneInspector: React.FC<{ cx: StudioCx; project: TProject; lane: TLane; ma
 					) : null
 				}
 			/>
-			<Panel id="marble.marble" title="Marble">
-				{fixedBy != null ? (
-					<ReadoutField label="Colour" name="Marble colour" span={2}>
-						<span className="flex items-center gap-1.5">
-							<span className="h-3 w-3 shrink-0 rounded-full" style={{ background: lane.color }} aria-hidden />
-							<span className="truncate">Set by {fixedBy}</span>
-						</span>
-					</ReadoutField>
-				) : (
-					<MarbleColor cx={cx} color={lane.color} commandsFor={colorCommands} />
-				)}
-			</Panel>
 			{release != null && !isFilm ? (
-				<Panel id="marble.release" title="Release" defaultCollapsed>
+				<Panel id="marble.release" title="Release">
 					<ScrubField id="release-x" label="X" name="Release X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 					<ScrubField id="release-y" label="Y" name="Release Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 				</Panel>
-			) : null}
-		</>
-	);
-};
-
-/** One colour well that opens the marble colours and a hex field in a popover, like Figma's fill */
-const MarbleColor: React.FC<{ cx: StudioCx; color: string; commandsFor: (color: string) => TProjectCommand[] }> = (props) => {
-	const { cx, color, commandsFor } = props;
-	const [isOpen, setIsOpen] = React.useState(false);
-	const wellRef = React.useRef<HTMLButtonElement>(null);
-	const close = React.useCallback(() => setIsOpen(false), []);
-
-	React.useEffect(() => {
-		if (!isOpen) return undefined;
-		function onKeyDown(event: KeyboardEvent): void {
-			if (event.key !== 'Escape') return;
-			event.preventDefault();
-			event.stopPropagation();
-			setIsOpen(false);
-		}
-		window.addEventListener('keydown', onKeyDown, true);
-		return () => window.removeEventListener('keydown', onKeyDown, true);
-	}, [isOpen]);
-
-	return (
-		<>
-			<span className="mm-ifield" data-span="2">
-				<label htmlFor="marble-color-well" className="mm-ifield-label">
-					Colour
-				</label>
-				<button ref={wellRef} id="marble-color-well" className="mm-color-well" style={{ background: color }} aria-label="Marble colour" aria-haspopup="dialog" aria-expanded={isOpen} onClick={() => setIsOpen(!isOpen)} type="button" />
-				<span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{color}</span>
-			</span>
-			{isOpen ? (
-				<InsertPopover anchor={wellRef} onClose={close} title="Colour" side="end">
-					<div className="mm-insp-swatches" role="radiogroup" aria-label="Colour">
-						{laneColors.map((option) => (
-							<button
-								key={option}
-								role="radio"
-								aria-checked={option === color}
-								aria-label={`Colour ${option}`}
-								className="h-4 w-4 rounded-full"
-								style={{
-									background: option,
-									boxShadow: option === color ? '0 0 0 2px var(--content), 0 0 0 3.5px var(--text-secondary)' : 'inset 0 0 0 0.5px rgb(0 0 0 / 0.2)'
-								}}
-								onClick={() => cx.execute(commandsFor(option))}
-								type="button"
-							/>
-						))}
-					</div>
-					<ColorWell cx={cx} id="marble-color" label="Hex" name="Marble colour" own={color} shown={color} isHexEditable commandsFor={(value) => (value != null ? commandsFor(value) : [])} />
-				</InsertPopover>
 			) : null}
 		</>
 	);

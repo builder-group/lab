@@ -93,8 +93,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-1",
-					"radius": 0.012,
-					"color": "#3478f6"
+					"radius": 0.012
 				},
 				"release": {
 					"position": {
@@ -102,6 +101,9 @@
 						"y": 0.6
 					},
 					"time": 0
+				},
+				"skin": {
+					"color": "#3478f6"
 				}
 			}
 		},

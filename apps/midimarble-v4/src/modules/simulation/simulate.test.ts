@@ -25,7 +25,7 @@ function addMarble(
 	project.music.lanes.push(lane);
 	project.entities.push({
 		id: `marble-${index + 1}`,
-		components: { marble: { laneId: lane.id, radius: 0.008, color: lane.color }, release }
+		components: { marble: { laneId: lane.id, radius: 0.008 }, release }
 	});
 	return lane.id;
 }

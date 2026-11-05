@@ -854,8 +854,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-1",
-					"radius": 0.012,
-					"color": "#c8102e"
+					"radius": 0.012
 				},
 				"release": {
 					"position": {
@@ -863,6 +862,9 @@
 						"y": 0.6
 					},
 					"time": 0.0559
+				},
+				"skin": {
+					"color": "#c8102e"
 				}
 			}
 		},
@@ -872,8 +874,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-2",
-					"radius": 0.012,
-					"color": "#0c8a3a"
+					"radius": 0.012
 				},
 				"release": {
 					"position": {
@@ -881,6 +882,9 @@
 						"y": 0.6
 					},
 					"time": 0.0559
+				},
+				"skin": {
+					"color": "#0c8a3a"
 				}
 			}
 		},

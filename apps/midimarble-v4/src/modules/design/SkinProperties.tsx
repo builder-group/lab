@@ -3,14 +3,14 @@ import { RotateCcw } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/library/asset-manifest';
-import type { TEntity, TProject } from '@/modules/project';
+import { marbleFilmColor, type TEntity, type TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { resetToThemeCommands, skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
 import { resolveElementLook, resolveTheme } from './project-themes';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { SkinPicker } from './SkinPickers';
-import { catalogSkin, COLOUR_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties } from './skin-catalog';
+import { catalogSkin, COLOUR_LABELS, entitySkinElement, ON_HIT_LABELS, sharedSkinProperties, type TSkinColour } from './skin-catalog';
 
 // The standard skin properties in the Skin panel, the same rows for pieces and marbles.
 
@@ -52,6 +52,10 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	const firstSkin = first != null ? catalogSkin(first.look.skin) : null;
 	// Showing the theme's skin, a value not set here comes from the theme: "From Brass"; on a skin of its own, it is that skin's
 	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.design);
+	// On a marble, Marble means a colour of its own, set in the row below
+	const isMarbles = looks.length > 0 && looks.every(({ element }) => element === 'marble');
+	const colourLabel = (colour: TSkinColour): string => (isMarbles && colour === 'marble' ? 'Custom' : COLOUR_LABELS[colour]);
+	const hasOwnColour = isMarbles && looks.every(({ look }) => look.colour === 'marble');
 
 	return (
 		<>
@@ -60,10 +64,21 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 					id="skin-colour"
 					label="Colour"
 					value={valueOf('colour')}
-					options={options(valueOf('colour'), first != null ? `${COLOUR_LABELS[first.look.colour]} · ${origin}` : origin, shared.colours.map((colour) => ({ value: colour, label: COLOUR_LABELS[colour] })))}
+					options={options(valueOf('colour'), first != null ? `${colourLabel(first.look.colour)} · ${origin}` : origin, shared.colours.map((colour) => ({ value: colour, label: colourLabel(colour) })))}
 					onChange={(value) => {
 						if (value !== MIXED) set({ colour: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colour']>) });
 					}}
+				/>
+			) : null}
+			{hasOwnColour ? (
+				<ColourRow
+					cx={cx}
+					id="skin-own-colour"
+					label="Marble Colour"
+					value={sameOf(entities.map((entity) => entity.components.skin?.color))}
+					fallback={first?.entity.components.marble != null ? marbleFilmColor(project, first.entity.components.marble.laneId) : '#ffffff'}
+					origin="Default"
+					patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { color })}
 				/>
 			) : null}
 			{shared.onHit.length > 0 ? (

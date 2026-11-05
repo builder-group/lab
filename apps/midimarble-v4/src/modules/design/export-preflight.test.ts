@@ -16,7 +16,7 @@ function createTwoLaneProject(): TProject {
 	const marble = (id: string, laneId: string, x: number): TEntity => ({
 		id,
 		name: id === 'marble-a' ? 'Melody' : 'Bass',
-		components: { marble: { laneId, radius: 0.008, color: '#fff' }, release: { position: { x, y: 0.6 }, time: 0 } }
+		components: { marble: { laneId, radius: 0.008 }, release: { position: { x, y: 0.6 }, time: 0 } }
 	});
 	const platform = (id: string, laneId: string | null, hitId: string): TEntity => ({
 		id,

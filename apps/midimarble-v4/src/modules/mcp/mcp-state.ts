@@ -2,7 +2,7 @@ import { preflightExport, problemSummary } from '@/modules/design/export-preflig
 import { resolveElementLook, resolveTheme } from '@/modules/design/project-themes';
 import { keyLightLayer, wallLayer } from '@/modules/design/scene-layers';
 import type { TEntity, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY_SCALE } from '@/modules/project';
+import { DEFAULT_GRAVITY_SCALE, marbleFilmColor } from '@/modules/project';
 import { noteName } from '@/modules/studio/format';
 import { parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/studio/selection';
 import type { TSimulationResult } from '@/modules/simulation';
@@ -76,7 +76,8 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				laneId: lane.id,
 				entityId: marble?.id ?? null,
 				name: marble?.name ?? lane.name,
-				color: marble?.components.marble?.color ?? lane.color,
+				labelColor: lane.color,
+				filmColor: marbleFilmColor(project, lane.id),
 				radius: marble?.components.marble?.radius ?? null,
 				skin: marble != null ? (marble.components.skin?.assetId ?? resolveElementLook(design, 'marble', marble.components.skin).skin) : null,
 				release: marble?.components.release?.position ?? null,
@@ -139,9 +140,9 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 			return { kind: 'piece', key, ...pose, params: entity.components.piece.params ?? {}, hit: played != null ? { key: played.key, laneId: played.laneId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
 		}
 		if (entity?.components.marble != null) {
-			const { laneId, color, radius } = entity.components.marble;
+			const { laneId, radius } = entity.components.marble;
 			const hits = result?.hits.filter((item) => item.laneId === laneId) ?? [];
-			return { kind: 'marble', key, id: entity.id, laneId, name: entity.name ?? null, color, radius, hits: project.music.lanes.find((lane) => lane.id === laneId)?.hits.length ?? 0, onTime: hits.filter((item) => item.status === 'onTime').length };
+			return { kind: 'marble', key, id: entity.id, laneId, name: entity.name ?? null, labelColor: project.music.lanes.find((lane) => lane.id === laneId)?.color ?? null, filmColor: marbleFilmColor(project, laneId), radius, hits: project.music.lanes.find((lane) => lane.id === laneId)?.hits.length ?? 0, onTime: hits.filter((item) => item.status === 'onTime').length };
 		}
 		if (entity?.components.wallText != null) return { kind: 'title', key, id: entity.id, text: entity.components.wallText.text };
 		const lightId = parseLightKey(key);

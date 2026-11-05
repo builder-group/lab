@@ -2,12 +2,12 @@ import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findLaneConflicts } from '@/modules/music';
 import type { TLane, TProject } from '@/modules/project';
-import { laneMenu } from '../menus';
+import { laneLabelEntries, laneMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
 import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
 
 /**
- * A marble's track header: colour chip, name and hit count. A marble plays nothing, so sound lives on the Song, and
+ * A marble's track header: label colour chip, which opens its choices, name and hit count. A marble plays nothing, so sound lives on the Song, and
  * its row stays flat: notes open only in the Song layer's piano roll.
  */
 export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
@@ -28,7 +28,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 			data-selected={isSelected}
 			onContextMenu={(event) => openContextMenu(event, laneMenu(cx, lane))}
 		>
-			<span className="mm-track-chip" style={{ background: lane.color }} aria-hidden />
+			<button className="mm-track-chip cursor-pointer" style={{ background: lane.color }} onClick={(event) => openContextMenu(event, laneLabelEntries(cx, lane))} title="Label Colour" aria-label={`Label Colour of ${lane.name}`} type="button" />
 			<button
 				className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
 				onClick={() => cx.$selection.set([id])}

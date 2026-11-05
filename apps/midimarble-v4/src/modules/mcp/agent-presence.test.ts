@@ -2,17 +2,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHistory, createLane, createMarble, createProject, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio/StudioCx';
-import { agentClientName, agentStatusLine, doingWords, editPresenceLabel, presenceLabel, touchedKeys } from './agent-presence';
+import { agentClientName, agentStatusLine, connectedAgents, doingWords, editPresenceLabel, presenceLabel, touchedKeys } from './agent-presence';
 import { AgentPresenceCx, PRESENCE_HOLD_MS, STOP_GRACE_MS, TOUCH_MS } from './AgentPresenceCx';
 import { resolveSelection } from './mcp-state';
 
 describe('Agent status line', () => {
 	it('should say who is connected in product names', () => {
 		expect(agentStatusLine(true, [])).toBe('No agent connected');
-		expect(agentStatusLine(true, ['claude-code'])).toBe('Claude Code connected');
-		expect(agentStatusLine(true, ['claude-code', 'claude-code'])).toBe('Claude Code connected');
-		expect(agentStatusLine(true, ['claude-code', 'codex-mcp-client'])).toBe('Claude Code and Codex connected');
-		expect(agentStatusLine(false, ['claude-code'])).toBe('MCP is off');
+		expect(agentStatusLine(true, ['Claude Code'])).toBe('Claude Code connected');
+		expect(agentStatusLine(true, ['Claude Code', 'Codex'])).toBe('Claude Code and Codex connected');
+		expect(agentStatusLine(false, [])).toBe('MCP is off');
+	});
+
+	it('should count a tool set up through Connect as connected, as a live session is, while MCP is on', () => {
+		const none = { claude: false, codex: false };
+		expect(connectedAgents(true, [], none)).toEqual([]);
+		expect(connectedAgents(true, [], { claude: true, codex: false })).toEqual(['Claude Code']);
+		expect(connectedAgents(true, ['claude-code', 'claude-code'], { claude: true, codex: false })).toEqual(['Claude Code']);
+		expect(connectedAgents(true, ['codex-mcp-client'], none)).toEqual(['Codex']);
+		expect(connectedAgents(false, ['claude-code'], { claude: true, codex: true })).toEqual([]);
 	});
 
 	it('should keep an unknown client as it calls itself', () => {

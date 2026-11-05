@@ -16,7 +16,7 @@ import { patternOfPiece, soundsHit, type THitResult, type TResolvedPiece } from 
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
-import { laneMenu, pieceMenu, songMenu } from './menus';
+import { entityLabelEntries, labelColourEntries, labelColourItem, laneLabelEntries, laneMenu, pieceMenu, songMenu } from './menus';
 import { groupSelection } from '@/modules/compose/PatternsCx';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { SCENE_KEY, toDecorKey } from './selection';
@@ -210,7 +210,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
-		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), commandItem(cx, 'edit.delete')]);
+		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.rename'), labelColourItem(entityLabelEntries(cx, row.entity)), commandItem(cx, 'edit.delete')]);
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'camera' || row.kind === 'shot') openContextMenu(event, [commandItem(cx, 'camera.addShot'), ...(row.kind === 'shot' ? [commandItem(cx, 'edit.delete')] : [])]);
@@ -348,6 +348,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 				if (canRename(row)) cx.$renaming.set(row.id);
 			}}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
+			onIconClick={row.kind === 'marble' || row.kind === 'title' || row.kind === 'decor' ? (event) => openContextMenu(event, rowLabelEntries(cx, row)) : undefined}
 		/>
 	);
 });
@@ -381,11 +382,11 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'shot':
 			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: shotKindLabel(row.shot.kind), time: row.shot.time };
 		case 'title':
-			return { icon: <Type size={14} strokeWidth={1.75} />, label: row.entity.name ?? row.entity.components.wallText?.text ?? 'Title' };
+			return { icon: <Type size={14} strokeWidth={1.75} style={{ color: row.entity.labelColor }} />, label: row.entity.name ?? row.entity.components.wallText?.text ?? 'Title' };
 		case 'piece':
 			return { icon: null, label: row.piece.name ?? '' };
 		case 'decor':
-			return { icon: <Sparkles size={14} strokeWidth={1.75} />, label: row.decor.name };
+			return { icon: <Sparkles size={14} strokeWidth={1.75} style={{ color: row.decor.labelColor }} />, label: row.decor.name };
 		case 'madeInBlender':
 			return { icon: <Box size={14} strokeWidth={1.75} />, label: row.name, title: 'Made in Blender' };
 	}
@@ -438,11 +439,34 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 				if (canRename(row)) cx.$renaming.set(row.id);
 			}}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
+			onIconClick={row.kind === 'marble' || row.kind === 'title' || row.kind === 'decor' ? (event) => openContextMenu(event, rowLabelEntries(cx, row)) : undefined}
 		/>
 	);
 });
 
 /** The context menu of the selected decorations */
+function decorLabelEntries(cx: StudioCx, ids: readonly string[]): TMenuEntry[] {
+	const project = cx.project;
+	const current = project == null ? undefined : project.design.decor.find((item) => ids.includes(item.id))?.labelColor;
+	return labelColourEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
+}
+
+/** What clicking a row's icon or dot opens: its Label Colour, on the layers that have one */
+function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
+	switch (row.kind) {
+		case 'marble':
+			return laneLabelEntries(cx, row.lane);
+		case 'title':
+			return entityLabelEntries(cx, row.entity);
+		case 'decor': {
+			const selected = selectedDecorIds(cx.$selection.get());
+			return decorLabelEntries(cx, selected.includes(row.decor.id) ? selected : [row.decor.id]);
+		}
+		default:
+			return [];
+	}
+}
+
 function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 	const ids = selectedDecorIds(cx.$selection.get());
 	const project = cx.project;
@@ -457,6 +481,7 @@ function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 				if (cx.execute(commands)) cx.$selection.set(decorIds.map(toDecorKey));
 			}
 		},
+		labelColourItem(decorLabelEntries(cx, ids)),
 		{
 			label: 'Delete',
 			shortcut: '⌫',
@@ -501,7 +526,11 @@ const PieceRow = React.memo(function PieceRow(
 			joinsTop={joinsTop}
 			joinsBottom={joinsBottom}
 			isDimmed={isHidden}
-			icon={<PieceIcon type={type} size={14} />}
+			icon={
+				<span className="contents" style={{ color: piece.labelColor }}>
+					<PieceIcon type={type} size={14} />
+				</span>
+			}
 			label={name}
 			isRenaming={isRenaming}
 			onRename={(value) => {
@@ -533,6 +562,7 @@ const PieceRow = React.memo(function PieceRow(
 			onClick={(event) => actions.onClick(row, event)}
 			onDoubleClick={() => cx.$renaming.set(piece.id)}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
+			onIconClick={(event) => openContextMenu(event, entityLabelEntries(cx, piece))}
 		/>
 	);
 });
@@ -584,7 +614,7 @@ function useAgentTouchedRows(cx: StudioCx, treeRef: React.RefObject<HTMLDivEleme
 }
 
 const LayerRow: React.FC<TLayerRowProps> = (props) => {
-	const { id, depth, isSelected, isInSelection = false, joinsTop, joinsBottom, isDimmed = false, isOpen, onToggle, icon, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
+	const { id, depth, isSelected, isInSelection = false, joinsTop, joinsBottom, isDimmed = false, isOpen, onToggle, icon, onIconClick, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
 	return (
 		<div
 			role="treeitem"
@@ -622,7 +652,22 @@ const LayerRow: React.FC<TLayerRowProps> = (props) => {
 			) : (
 				<span className="mm-layer-disclosure" />
 			)}
-			<span className="mm-layer-icon">{icon}</span>
+			<span
+				className="mm-layer-icon"
+				style={onIconClick != null ? { cursor: 'pointer' } : undefined}
+				title={onIconClick != null ? 'Label Colour' : undefined}
+				onClick={
+					onIconClick != null
+						? (event) => {
+								event.stopPropagation();
+								onIconClick(event);
+							}
+						: undefined
+				}
+				onDoubleClick={onIconClick != null ? (event) => event.stopPropagation() : undefined}
+			>
+				{icon}
+			</span>
 			{isRenaming ? <RenameField value={label} onDone={onRename} /> : <span className="mm-layer-name">{label}</span>}
 			{meta != null ? <span className="mm-layer-meta">{meta}</span> : null}
 			{actions != null ? <span className="mm-layer-actions">{actions}</span> : null}
@@ -655,6 +700,8 @@ interface TLayerRowProps {
 	onClick: (event: React.MouseEvent) => void;
 	onDoubleClick: () => void;
 	onContextMenu: (event: React.MouseEvent) => void;
+	/** Clicking the icon or dot opens the layer's Label Colour */
+	onIconClick?: ((event: React.MouseEvent) => void) | undefined;
 }
 
 /** Compact time such as `0:03.2` for a row's secondary column */

@@ -1,14 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import type { TBuildProgress } from '@/modules/compose/build-track';
-import { addBowlLabel, lanesWithoutBowl } from '@/modules/compose/bowl-assist';
 import { createState } from 'feature-state';
-import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
+import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
-import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
-import { hasFixes } from '@/modules/compose/fix-it';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
-import { fitToSongOffer } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
@@ -64,23 +60,19 @@ interface TTransportProps {
 
 /**
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
- * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. A click goes
- * to the first problem in time order. Its menu (the chevron or a right-click) lists every problem in time order, scrolling when long, then Show First
- * Problem and Fix. Until the run for the current edit arrives it reads "Checking…", and
- * while Fix runs only its progress line shows, in the notice.
+ * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. An indicator:
+ * with problems a click goes to the first in time order, and the export sheet lists them all. Until the run for the
+ * current edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
  */
 const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const result = useFeatureState(cx.simulation.$result);
 	const compose = useFeatureState(cx.$compose);
 	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
 	const building = useFeatureState(compose?.assist.$building ?? NO_BUILDING);
-	const addingBowl = useFeatureState(compose?.assist.$addingBowl ?? NO_ADDING);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const preflight = useRunPreflight(cx, project);
 	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null), workspace === 'compose' ? 'compose' : 'film'), [preflight, project, workspace]);
-	const isCurrent = result != null && result.revision === project.revision;
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
 	if (fixing != null || building != null || summary.state === 'pending') {
@@ -91,69 +83,23 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
-	// Fit to Song where the user set a length the song no longer matches
-	const fitEnd = fitToSongOffer(project);
-	// Add Bowl for each marble that plays last and has none, so the film ends on the catch
-	const unfinished = lanesWithoutBowl(project);
-	const extras: TMenuEntry[] = [
-		...(compose?.assist.hasOpenHits === true ? [{ label: 'Build Track', shortcut: '⇧N', onSelect: () => void compose.assist.buildTrack() }] : []),
-		...unfinished.map((laneId) => ({
-			label: addBowlLabel(project, laneId, unfinished.length),
-			disabled: compose == null || addingBowl != null,
-			onSelect: () => void compose?.assist.addBowl(laneId)
-		})),
-		// Ends the film `filmTail` after the last hit, measured with a Bowl, like the ruler's Fit to Song
-		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.fitToSong() }] : [])
-	];
-	// Already in time order, as the summary keeps them
-	const problems = summary.problems;
-	const first = problems[0];
-	if (first == null) {
+	if (!summary.problems.length) {
 		return (
-			<span className="inline-flex items-center">
-				<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
-					{summary.label}
-				</span>
-				{extras.length ? <MenuButton className="mm-icon-button !h-5 !w-5" label={<ChevronDown size={12} strokeWidth={2} />} title="Fixes and length" items={extras} /> : null}
+			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
+				{summary.label}
 			</span>
 		);
 	}
-	const canFix = compose != null && isCurrent && !compose.assist.isFixing && hasFixes(project, result);
-	const menu = (): TMenuEntry[] => [
-		{ section: problems.length === 1 ? '1 Problem' : `${problems.length} Problems` },
-		// Every problem in time order; a long list scrolls inside the menu, like Xcode's issue navigator
-		...problems.map((issue) => ({
-			label: issue.title,
-			disabled: issue.target == null,
-			onSelect: () => issue.target != null && cx.revealIssue(issue.target)
-		})),
-		'separator' as const,
-		...(canFix ? [{ label: 'Fix', shortcut: 'A', onSelect: () => void compose.assist.fix() }] : []),
-		...extras
-	];
 	return (
-		<span className="inline-flex items-center">
-			<button
-				className="mm-hit-summary"
-				data-tone="warn"
-				data-quick-help="hitSummary"
-				onClick={() => cx.showFirstProblem()}
-				onContextMenu={(event) => openContextMenu(event, menu())}
-				title="Show the first problem"
-				type="button"
-			>
-				<span className="mm-hit-summary-dot" aria-hidden />
-				{summary.label}
-			</button>
-			<MenuButton className="mm-icon-button !h-5 !w-5" label={<ChevronDown size={12} strokeWidth={2} />} title="Problems and fixes" items={menu()} />
-		</span>
+		<button className="mm-hit-summary" data-tone="warn" data-quick-help="hitSummary" onClick={() => cx.showFirstProblem()} title="Show the first problem" type="button">
+			<span className="mm-hit-summary-dot" aria-hidden />
+			{summary.label}
+		</button>
 	);
 };
 
-/** Beside the summary of a project with hits and no Song: it plays silently, so the summary asks for one */
 const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 const NO_BUILDING = createState<TBuildProgress | null>(null);
-const NO_ADDING = createState<string | null>(null);
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {

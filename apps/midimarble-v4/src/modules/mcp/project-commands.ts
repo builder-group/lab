@@ -5,7 +5,7 @@ import { addDecorCommands, assetDecorSource, builtInSource, $blenderObjects } fr
 import { decorItem } from '@/modules/design/decor-catalog';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/design/decor-scatter';
 import { readScatterChoice } from '@/modules/design/decor-actions';
-import { fixedColorCommands, skinCommands, skinTargetIds } from '@/modules/design/design-commands';
+import { skinCommands } from '@/modules/design/design-commands';
 import { packThemeCommands } from '@/modules/design/packs';
 import { isBuiltInTheme, projectThemes } from '@/modules/design/project-themes';
 import { catalogSkin, catalogSkins, elementLabel, entitySkinElement, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/design/skin-catalog';
@@ -213,7 +213,6 @@ function entityProblem(project: TProject, items: readonly TLibraryItem[], entity
 	}
 	if (marble != null) {
 		if (marble.radius < MARBLE_RADIUS.min || marble.radius > MARBLE_RADIUS.max) return `A marble's radius is in metres, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marble.radius} is outside that. get_state.marbles[].radius has the current one.`;
-		if (!/^#[0-9a-fA-F]{6}$/.test(marble.color)) return `A marble's color is like #ff1a2e; ${marble.color} isn't.`;
 		if (!project.music.lanes.some((lane) => lane.id === marble.laneId)) return `There is no lane ${marble.laneId}. get_state.marbles[].laneId lists them.`;
 	}
 	return null;
@@ -368,8 +367,7 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 		case 'applySkin': {
 			const target = command.entityIds != null ? { kind: 'entities' as const, entityIds: command.entityIds } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
 			if (target == null) return Err(new Error('applySkin needs a pieceType or entityIds'));
-			const fixedColor = items.find((item) => item.id === command.assetId)?.manifest?.color ?? catalogSkin(command.assetId)?.color ?? undefined;
-			const commands = [...skinCommands(project, target, command.assetId.includes(':') ? command.assetId : command.assetId), ...fixedColorCommands(project, skinTargetIds(project, target), fixedColor)];
+			const commands = skinCommands(project, target, command.assetId);
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}
 		case 'setDesign': {

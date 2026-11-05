@@ -112,6 +112,7 @@ export function updateDecorCommands(project: TProject, ids: readonly string[], p
 			const moved = 'position' in patch || 'scale' in patch || 'rotation' in patch;
 			const next: TDecor = { ...(moved ? own : item), ...patch };
 			if (next.hidden !== true) delete next.hidden;
+			if (next.labelColor == null) delete next.labelColor;
 			return next;
 		})
 	);

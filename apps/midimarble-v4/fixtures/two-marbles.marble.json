@@ -61,8 +61,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-1",
-					"radius": 0.012,
-					"color": "#3478f6"
+					"radius": 0.012
 				},
 				"release": {
 					"position": {
@@ -74,6 +73,9 @@
 						"x": 0.65,
 						"y": 0
 					}
+				},
+				"skin": {
+					"color": "#3478f6"
 				}
 			}
 		},
@@ -83,8 +85,7 @@
 			"components": {
 				"marble": {
 					"laneId": "lane-2",
-					"radius": 0.012,
-					"color": "#ff9f0a"
+					"radius": 0.012
 				},
 				"release": {
 					"position": {
@@ -96,6 +97,9 @@
 						"x": -0.65,
 						"y": 0
 					}
+				},
+				"skin": {
+					"color": "#ff9f0a"
 				}
 			}
 		},

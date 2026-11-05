@@ -9,13 +9,14 @@ import type { StudioCx } from '../StudioCx';
 import { formatRulerTime, RULER_HEIGHT, rulerSteps, TIME_INSET, TIME_ORIGIN } from './timeline-layout';
 
 /**
- * Time ruler with minor and major ticks, the playhead head and the draggable project end. Like Logic's ruler it runs
+ * Time ruler with minor and major ticks, the playhead head and the project end with its small drag handle. Like Logic's ruler it runs
  * on past the end, so the end can be dragged out, but the time past the end is shaded and its ticks dimmed, so the
  * film visibly stops at the end bracket.
  */
 export const Ruler: React.FC<TRulerProps> = (props) => {
 	const { cx, end, zoom, width, timeAt } = props;
 	const [endDrag, setEndDrag] = React.useState<number | null>(null);
+	const endGrabRef = React.useRef<number | null>(null);
 	const { step, minor } = rulerSteps(zoom);
 	const shownEnd = endDrag ?? end;
 	// The ruler can grow past the project to fill a wide window
@@ -41,7 +42,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 			onPointerCancel={() => cx.endAudioScrub()}
 			onContextMenu={(event) => openContextMenu(event, [commandItem(cx, 'film.fitToSong')])}
 			onPointerMove={(event) => {
-				if (event.buttons === 1 && endDrag == null) seek(event.clientX);
+				if (event.buttons === 1 && endGrabRef.current == null) seek(event.clientX);
 			}}
 		>
 			{labels.map((tick) => (
@@ -53,27 +54,37 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 				</span>
 			))}
 			<span className="mm-ruler-past-end pointer-events-none absolute top-0 bottom-0" style={{ left: shownEnd * zoom, right: 0 }} />
+			<span className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[var(--text-secondary)]" style={{ left: shownEnd * zoom }} />
+			{/* A tab past the end, where the playhead never goes, like Final Cut's and After Effects' handles beside the playhead */}
 			<span
-				className="absolute top-0 bottom-0 z-10 flex w-3 -translate-x-full cursor-ew-resize items-stretch justify-end"
-				style={{ left: shownEnd * zoom }}
+				className="mm-ruler-end absolute top-0 z-10 cursor-ew-resize"
+				style={{ left: shownEnd * zoom, width: END_HANDLE_WIDTH, height: END_HANDLE_HEIGHT }}
 				title={`Film end ${formatTime(shownEnd)}. Drag to change.`}
 				onPointerDown={(event) => {
 					if (event.button !== 0) return;
+					// The playhead wins: a press on its head bubbles to the ruler and scrubs
+					if (Math.abs(timeAt(event.clientX) - cx.$playhead.get()) * zoom <= PLAYHEAD_HEAD_RADIUS) return;
 					event.stopPropagation();
 					event.currentTarget.setPointerCapture(event.pointerId);
-					setEndDrag(end);
+					endGrabRef.current = event.clientX;
 				}}
 				onPointerMove={(event) => {
-					if (endDrag != null) setEndDrag(Math.max(0.5, Math.round(timeAt(event.clientX) * 20) / 20));
+					const grab = endGrabRef.current;
+					if (grab == null || (endDrag == null && Math.abs(event.clientX - grab) < END_DRAG_THRESHOLD)) return;
+					event.stopPropagation();
+					setEndDrag(Math.max(0.5, Math.round(timeAt(event.clientX) * 20) / 20));
 				}}
 				onPointerUp={() => {
+					endGrabRef.current = null;
+					// One edit however far it went, so one Undo takes it back
 					if (endDrag != null && Math.abs(endDrag - end) > 1e-6) cx.execute([{ type: 'setEnd', end: endDrag }]);
 					setEndDrag(null);
 				}}
-			>
-				{/* End bracket, like the end marker of a Logic project */}
-				<span className="w-[3px] rounded-l-[1px] bg-[var(--text-secondary)]" />
-			</span>
+				onPointerCancel={() => {
+					endGrabRef.current = null;
+					setEndDrag(null);
+				}}
+			/>
 			<RepeatStrip cx={cx} end={end} zoom={zoom} timeAt={timeAt} />
 			<RenderBar cx={cx} zoom={zoom} />
 			<PlayheadHead cx={cx} zoom={zoom} />
@@ -88,6 +99,13 @@ interface TRulerProps {
 	width: number;
 	timeAt: (clientX: number) => number;
 }
+
+const END_HANDLE_WIDTH = 9;
+const END_HANDLE_HEIGHT = 10;
+// Half the playhead's head; within it a press is the playhead's
+const PLAYHEAD_HEAD_RADIUS = 6.5;
+// A press that barely moves changes nothing
+const END_DRAG_THRESHOLD = 3;
 
 // How close to an edge of the Repeat Range, in pixels, a press takes that edge
 const REPEAT_EDGE_PX = 5;

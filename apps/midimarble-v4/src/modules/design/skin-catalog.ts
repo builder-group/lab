@@ -18,8 +18,6 @@ export interface TCatalogSkin {
 	/** Its own colour when nothing overrides it, and the Colour choices it has */
 	colour: TSkinColour;
 	colours: readonly TSkinColour[];
-	/** A fixed colour the marble it dresses takes on, like a manifest's `color` */
-	color: string | null;
 	/** What it does on a hit with no On Hit of its own */
 	reacts: TSkinOnHit;
 	/** Has parts that glow without a hit, so Glow Colour always applies */
@@ -40,14 +38,13 @@ export const SKIN_ELEMENTS = Object.keys(catalog.elements) as TSkinElement[];
 
 const ALL_SKINS: readonly TCatalogSkin[] = SKIN_ELEMENTS.flatMap((element) =>
 	catalog.elements[element].skins.map((skin): TCatalogSkin => {
-		const raw = skin as typeof skin & { hidden?: boolean; origin?: string; glows?: boolean; color?: string; preview?: string; variants?: { id: string; label: string }[]; variant?: string; properties?: TAssetProperty[] };
+		const raw = skin as typeof skin & { hidden?: boolean; origin?: string; glows?: boolean; preview?: string; variants?: { id: string; label: string }[]; variant?: string; properties?: TAssetProperty[] };
 		return {
 			id: raw.id,
 			label: raw.label,
 			element,
 			colour: raw.colour as TSkinColour,
 			colours: raw.colours as TSkinColour[],
-			color: raw.color ?? null,
 			reacts: raw.reacts as TSkinOnHit,
 			glows: raw.glows === true,
 			variants: raw.variants ?? [],

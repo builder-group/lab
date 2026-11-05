@@ -210,15 +210,9 @@ function createBowlId(project: TProject, id: string, existing: TEntity | undefin
 	return `${id}-${index}`;
 }
 
-/** The marbles that play last and have no Bowl yet, which the hit summary's menu and ⌘K offer Add Bowl for */
+/** The marbles that play last and have no Bowl yet, which Insert, the Track menu and ⌘K offer Add Bowl for */
 export function lanesWithoutBowl(project: TProject): string[] {
 	return lastPlayingLanes(project).filter((laneId) => bowlOfLane(project, laneId) == null);
-}
-
-/** "Add Bowl", or "Add Bowl for Bass" when several marbles play last */
-export function addBowlLabel(project: TProject, laneId: string, count: number): string {
-	if (count <= 1) return 'Add Bowl';
-	return `Add Bowl for ${project.music.lanes.find((lane) => lane.id === laneId)?.name ?? 'Marble'}`;
 }
 
 /**

@@ -43,7 +43,6 @@ bpy.ops.wm.save_as_mainfile(filepath='asset.blend')
 }
 ```
 
-A marble skin with one fixed colour adds `"color": "#22ff66"`: the marble takes it on when the skin is applied, so its Compose dot and timeline colour say the same as the film. Leave it out when the skin uses the marble's colour.
 
 `role` is `skin` or `decoration`; `add_asset` also takes `decor`. `id` uses lowercase letters, digits and `-`; a taken id gets a free suffix. For decor, `fittedParams` takes `width` and `height` in metres, which keep it clear of the run. `properties` are optional rows in the inspector, written to the material inputs and nodes of that name. Also put a `preview.png` beside it, a small square render, so the tile shows a picture.
 

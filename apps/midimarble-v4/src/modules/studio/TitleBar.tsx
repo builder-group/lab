@@ -8,7 +8,7 @@ import { blenderState, type TBlenderState } from '@/modules/design/blender-state
 import { workspaceProblems } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { exportStatusLabel } from '@/modules/design/ExportSheet';
-import { agentStatusLine } from '@/modules/mcp/agent-presence';
+import { agentStatusLine, connectedAgents } from '@/modules/mcp/agent-presence';
 import { commandItem } from './commands';
 import { hasUnsavedChanges } from './document';
 import type { StudioCx, TStudioPanel, TWorkspace } from './StudioCx';
@@ -197,18 +197,20 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 
 /**
  * The person's own AI app as a collaborator: who is connected, and what connects one. Like Blender's button, its
- * glyph is yellow while an agent is connected, and pulses with a state word only while it is at work.
+ * glyph is yellow while an agent is connected, through Connect or in a live session, and pulses with a state word only
+ * while it is at work.
  */
 const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const isEnabled = useFeatureState(cx.mcp.$isEnabled);
 	const clients = useFeatureState(cx.mcp.$clients);
-	// The rows read these through the registry
-	useFeatureState(cx.mcp.$connections);
+	const connections = useFeatureState(cx.mcp.$connections);
+	// The rows read this through the registry
 	useFeatureState(cx.mcp.$connecting);
 	const isWorking = useFeatureState(cx.mcp.presence.$current) != null;
 	const working = useWorkingWord(isWorking ? 'Working' : null);
-	const status = agentStatusLine(isEnabled, clients);
+	const connected = connectedAgents(isEnabled, clients, connections);
+	const status = agentStatusLine(isEnabled, connected);
 
 	return (
 		<MenuButton
@@ -218,7 +220,7 @@ const AgentChip: React.FC<{ cx: StudioCx }> = (props) => {
 			onOpen={() => void cx.mcp.refreshConnections()}
 			label={
 				<>
-					<Sparkles className="mm-titlebar-agent-glyph" data-connected={isEnabled && clients.length > 0} data-working={isWorking} size={14} strokeWidth={1.7} aria-hidden />
+					<Sparkles className="mm-titlebar-agent-glyph" data-connected={connected.length > 0} data-working={isWorking} size={14} strokeWidth={1.7} aria-hidden />
 					<span>Agent</span>
 					<span className="mm-titlebar-chip-state" data-shown={working.isShown}>
 						{working.word}

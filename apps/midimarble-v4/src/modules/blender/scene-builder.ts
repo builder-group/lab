@@ -1,4 +1,4 @@
-import type { TDesign, TEntity, TProject, TThemeParts } from '@/modules/project';
+import { marbleFilmColor, type TDesign, type TEntity, type TProject, type TThemeParts } from '@/modules/project';
 import { baseThemeOf, defaultTitleColor, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
 import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
@@ -21,7 +21,6 @@ import {
 export const MOTION_FOLDER = '.cache/motion';
 export const SCENE_DESCRIPTION_PATH = '.cache/scene.json';
 const DEFAULT_PIECE_COLOR = '#c8b89a';
-const DEFAULT_MARBLE_COLOR = '#d0d4dc';
 
 /**
  * Builds the `apply_scene` description and the binary motion files it references from a simulation result.
@@ -58,8 +57,7 @@ export function buildSceneDescription(
 	options: { fps: number }
 ): TSceneBuild {
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
-	const laneColors = new Map(project.music.lanes.map((lane) => [lane.id, lane.color]));
-	const motionFiles: TMotionFile[] = [];
+		const motionFiles: TMotionFile[] = [];
 
 	const marbleFor = (track: TMarbleTrack, id: string, samples: TMarbleSample[]): TSceneMarble => {
 		const entity = entities.get(track.entityId);
@@ -73,7 +71,7 @@ export function buildSceneDescription(
 			name: entity?.name ?? track.entityId,
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
-			color: entity?.components.marble?.color ?? DEFAULT_MARBLE_COLOR,
+			color: marbleFilmColor(project, track.laneId),
 			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
@@ -114,7 +112,7 @@ export function buildSceneDescription(
 			sampleCount,
 			skin: entity?.components.skin != null ? entity.components.skin : null,
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
-			color: (laneId != null ? laneColors.get(laneId) : undefined) ?? DEFAULT_PIECE_COLOR,
+			color: laneId != null && project.music.lanes.some((lane) => lane.id === laneId) ? marbleFilmColor(project, laneId) : DEFAULT_PIECE_COLOR,
 			...notePitchOf(project, entity),
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
 			paths: piece.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null

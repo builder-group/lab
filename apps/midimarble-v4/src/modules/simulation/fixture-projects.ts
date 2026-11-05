@@ -135,7 +135,7 @@ export function createBareRunProject(options: {
 			id: `marble-${index + 1}`,
 			name: lane.name,
 			components: {
-				marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS, color: lane.color },
+				marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
 				release
 			}
 		});

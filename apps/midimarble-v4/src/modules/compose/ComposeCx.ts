@@ -71,7 +71,7 @@ import {
 	withPathBend,
 	withPathEnd
 } from './scene';
-import { newlyBroken } from './bowl-assist';
+import { lanesWithoutBowl, newlyBroken } from './bowl-assist';
 import { asLaneBowl, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
@@ -1367,6 +1367,13 @@ export class ComposeCx {
 
 	/** A click on a library tile arms the tool that places it */
 	armInsert(item: TInsertItem): void {
+		// A Bowl goes where it catches the marble that plays last and has none; with none waiting it is placed by hand
+		const bowlLane = item === 'bowl' && this.project != null ? lanesWithoutBowl(this.project)[0] : undefined;
+		if (bowlLane != null) {
+			this.$libraryOpen.set(false);
+			void this.assist.addBowl(bowlLane);
+			return;
+		}
 		const { tool, pathType } = insertTool(item);
 		this.armTool(tool, pathType);
 	}
@@ -2280,7 +2287,7 @@ export class ComposeCx {
 				buffers = trackBuffers(track);
 				this.trackCache.set(track, buffers);
 			}
-			const color = project?.entities.find((entity) => entity.id === track.entityId)?.components.marble?.color ?? '#3478f6';
+			const color = project?.music.lanes.find((lane) => lane.id === track.laneId)?.color ?? '#3478f6';
 			return { entityId: track.entityId, color, ...buffers };
 		});
 		this.renderer.setTracks(tracks);
@@ -2312,7 +2319,7 @@ export class ComposeCx {
 			// Until the dragged release has a new result, keep the marble on the handle
 			const isDragged = drag?.kind === 'release' && drag.entityId === entity.id;
 			const position = isDragged && playhead <= release.time ? releasePosition : marblePositionAt(track, playhead, releasePosition);
-			return [{ entityId: entity.id, color: marble.color, radius: marble.radius, position }];
+			return [{ entityId: entity.id, color: project?.music.lanes.find((lane) => lane.id === marble.laneId)?.color ?? '#3478f6', radius: marble.radius, position }];
 		});
 		this.renderer.setMarbles(marbles);
 	}

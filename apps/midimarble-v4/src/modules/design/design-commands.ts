@@ -3,9 +3,9 @@ import { createId, type TDesign, type TEntity, type TProject, type TProjectComma
 import { sampleCameraTrack } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { filmCamera, imageToWall } from './film-camera';
-import { resolveElementLook, resolveTheme } from './project-themes';
+import { resolveTheme } from './project-themes';
 import { resetKeyLightCommands, wallCommands } from './scene-layers';
-import { catalogSkin, entitySkinElement, type TSkinElement } from './skin-catalog';
+import { entitySkinElement, type TSkinElement } from './skin-catalog';
 
 export { defaultTitleColor, themeCommands, themeTitleColor } from './project-themes';
 export { builtInSkinLabel } from './skin-catalog';
@@ -40,7 +40,7 @@ export function builtInSkinCommands(project: TProject, target: TSkinTarget, skin
 	const element = skinId.split(':')[0] as TSkinElement;
 	const entityIds = skinTargetIds(project, target);
 	const commands = resolveTheme(project.design).parts[element]?.skin !== skinId ? skinCommands(project, target, skinId) : followThemeSkinCommands(project, entityIds);
-	return [...commands, ...fixedColorCommands(project, entityIds, catalogSkin(skinId)?.color ?? undefined)];
+	return commands;
 }
 
 /** The entities show the theme's skin again and keep their property overrides */
@@ -60,7 +60,7 @@ function skinValueCommand(entityId: string, skin: TSkinComponent): TProjectComma
 }
 
 /** The skin properties the inspector edits, with null removing an override so the theme's value shows again */
-export type TSkinPropertyPatch = { [K in 'colour' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
+export type TSkinPropertyPatch = { [K in 'colour' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
 
 /**
  * Changes skin properties on the target entities, as one edit.
@@ -85,12 +85,17 @@ export function skinPropertyCommands(project: TProject, entityIds: readonly stri
 export function resetToThemeCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
 	return project.entities
 		.filter((entity) => entityIds.includes(entity.id))
-		.flatMap((entity): TProjectCommand[] => (entity.components.skin != null ? [{ type: 'removeComponent', entityId: entity.id, name: 'skin' }] : []));
+		.flatMap((entity): TProjectCommand[] => {
+			const skin = entity.components.skin;
+			if (skin == null) return [];
+			// A marble keeps its film colour: it isn't the theme's to give back
+			return skin.color != null ? [{ type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: { color: skin.color } } }] : [{ type: 'removeComponent', entityId: entity.id, name: 'skin' }];
+		});
 }
 
 /** The entities wearing something of their own over the theme */
 function handSkinnedIds(project: TProject): string[] {
-	return project.entities.filter((entity) => entity.components.skin != null).map((entity) => entity.id);
+	return project.entities.filter((entity) => Object.keys(entity.components.skin ?? {}).some((name) => name !== 'color')).map((entity) => entity.id);
 }
 
 /** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
@@ -131,27 +136,6 @@ export function skinCommands(project: TProject, target: TSkinTarget, assetId: st
 		const own = project.entities.find((entity) => entity.id === entityId)?.components.skin;
 		return { type: 'setComponent' as const, entityId, component: { name: 'skin' as const, value: { ...own, assetId } } };
 	});
-}
-
-/**
- * The marbles among `entityIds` take on a skin's fixed colour, so the timeline and Compose say the same as the film. The
- * reducer keeps the lane on it (`applyProjectCommands`).
- */
-export function fixedColorCommands(project: TProject, entityIds: readonly string[], color: string | undefined): TProjectCommand[] {
-	if (color == null) return [];
-	return project.entities.flatMap((entity): TProjectCommand[] => {
-		const marble = entity.components.marble;
-		return entityIds.includes(entity.id) && marble != null && marble.color !== color ? [{ type: 'setComponent', entityId: entity.id, component: { name: 'marble', value: { ...marble, color } } }] : [];
-	});
-}
-
-/** The name of the skin whose fixed colour a marble wears, its own or the theme's; a built-in one set to Colour: Marble leaves the colour to the marble */
-export function fixedColorSkinLabel(design: Pick<TDesign, 'theme' | 'themes'>, skin: TSkinComponent | undefined, items: readonly TLibraryItem[]): string | null {
-	const item = items.find((candidate) => candidate.id === skin?.assetId && candidate.manifest?.color != null);
-	if (item != null) return item.manifest?.label ?? item.id;
-	const look = resolveElementLook(design, 'marble', skin);
-	const builtIn = catalogSkin(look.skin);
-	return builtIn?.color != null && look.colour !== 'marble' ? builtIn.label : null;
 }
 
 /** The piece type most of the pieces have, so a section selected as a range in Layers shows its platforms' skins */

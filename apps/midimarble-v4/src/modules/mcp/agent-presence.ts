@@ -20,10 +20,15 @@ export function agentClientName(client: string): string {
 	return CLIENT_NAMES[client.trim().toLowerCase()] ?? (client.trim() || 'An agent');
 }
 
+/** Who is connected: a live session, or a tool set up through Connect, whose next session will list this app. MCP off connects nobody. */
+export function connectedAgents(isEnabled: boolean, clients: readonly string[], connections: Readonly<Record<'claude' | 'codex', boolean>>): string[] {
+	if (!isEnabled) return [];
+	return [...new Set([...clients.map(agentClientName), ...(connections.claude ? ['Claude Code'] : []), ...(connections.codex ? ['Codex'] : [])])];
+}
+
 /** The Agent menu's status line */
-export function agentStatusLine(isEnabled: boolean, clients: readonly string[]): string {
+export function agentStatusLine(isEnabled: boolean, names: readonly string[]): string {
 	if (!isEnabled) return 'MCP is off';
-	const names = [...new Set(clients.map(agentClientName))];
 	if (!names.length) return 'No agent connected';
 	const last = names[names.length - 1];
 	return `${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${last}` : last} connected`;

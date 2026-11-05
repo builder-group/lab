@@ -253,6 +253,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					const isSelected = selection.includes(entity.id);
 					const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === entity.id) || (drag?.kind === 'release' && drag.entityId === entity.id);
 					const radius = Math.max(9, marble.radius * camera.view.scale + 5);
+					const labelColor = project.music.lanes.find((lane) => lane.id === marble.laneId)?.color;
 					return (
 						<g key={`release-${entity.id}`}>
 							{isSelected ? <circle cx={center.x} cy={center.y} r={radius + 3} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} /> : null}
@@ -261,14 +262,14 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 								cy={center.y}
 								r={radius}
 								fill="none"
-								stroke={marble.color}
+								stroke={labelColor}
 								strokeWidth={isActive ? 2 : 1.5}
 								strokeDasharray={isActive ? undefined : '3 2.5'}
 							/>
 							<path
 								d={`M ${center.x} ${center.y - radius - 7} L ${center.x} ${center.y - radius - 1.5} M ${center.x - 3} ${center.y - radius - 4.5} L ${center.x} ${center.y - radius - 1.5} L ${center.x + 3} ${center.y - radius - 4.5}`}
 								fill="none"
-								stroke={marble.color}
+								stroke={labelColor}
 								strokeWidth={1.5}
 								strokeLinecap="round"
 								strokeLinejoin="round"

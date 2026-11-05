@@ -4,7 +4,7 @@ import { BOWL_TAIL, projectSongEnd } from '@/modules/music';
 import { type TProject } from '@/modules/project';
 import { bowlCatch, bowlOfLane } from '@/modules/simulation/bowl';
 import { createSimulator, type TSimulator } from '@/modules/simulation/simulate';
-import { addBowlLabel, findBowl, bowlFix, lanesWithoutBowl } from './bowl-assist';
+import { findBowl, bowlFix, lanesWithoutBowl } from './bowl-assist';
 import { asLaneBowl } from './step-loop';
 import { loadFixture } from '@/modules/project/test-helpers';
 
@@ -26,8 +26,6 @@ describe('Add Bowl', () => {
 		expect(lanesWithoutBowl(duet)).toEqual(['lane-1', 'lane-2']);
 		// With Marble 2's last note later than that, only it does
 		expect(lanesWithoutBowl({ ...duet, music: { ...duet.music, lanes: duet.music.lanes.map((lane) => (lane.id === 'lane-2' ? { ...lane, hits: [...lane.hits, { id: 'late', time: 5 }] } : lane)) } })).toEqual(['lane-2']);
-		expect(addBowlLabel(duet, 'lane-2', 2)).toBe('Add Bowl for Marble 2');
-		expect(addBowlLabel(duet, 'lane-1', 1)).toBe('Add Bowl');
 		expect(lanesWithoutBowl(loadFixture('two-marbles'))).toEqual([]);
 	});
 

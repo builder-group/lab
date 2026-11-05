@@ -72,7 +72,6 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			const existing = project.music.lanes.find((lane) => lane.id === command.lane.id);
 			const lane: TLane = { ...command.lane, hits: sortHits(command.lane.hits ?? existing?.hits ?? []) };
 			project.music.lanes = upsertById(project.music.lanes, lane);
-			syncMarbleToLane(project, lane);
 			return Ok(project);
 		}
 		case 'removeLane': {
@@ -123,7 +122,6 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 		}
 		case 'upsertEntity':
 			project.entities = upsertById(project.entities, command.entity);
-			syncLaneToMarble(project, command.entity);
 			return Ok(project);
 		case 'removeEntities': {
 			const removed = new Set(command.entityIds);
@@ -142,7 +140,6 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			const entity = project.entities.find((item) => item.id === command.entityId);
 			if (entity == null) return Err(new Error(`Entity ${command.entityId} does not exist`));
 			(entity.components as Record<string, unknown>)[command.component.name] = command.component.value;
-			syncLaneToMarble(project, entity);
 			return Ok(project);
 		}
 		case 'removeComponent': {
@@ -213,17 +210,3 @@ function sortHits(hits: THit[]): THit[] {
 	return [...hits].sort((a, b) => a.time - b.time);
 }
 
-/** A marble has one colour: the lane's and the marble's stay the same however an edit sets them */
-function syncMarbleToLane(project: TProject, lane: TLane): void {
-	for (const entity of project.entities) {
-		const marble = entity.components.marble;
-		if (marble?.laneId === lane.id && marble.color !== lane.color) entity.components.marble = { ...marble, color: lane.color };
-	}
-}
-
-function syncLaneToMarble(project: TProject, entity: TEntity): void {
-	const marble = entity.components.marble;
-	if (marble == null) return;
-	const lane = project.music.lanes.find((item) => item.id === marble.laneId);
-	if (lane != null && lane.color !== marble.color) lane.color = marble.color;
-}

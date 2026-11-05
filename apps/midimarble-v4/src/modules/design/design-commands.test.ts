@@ -6,8 +6,6 @@ import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import {
 	addWallTextCommands,
 	cameraCommands,
-	fixedColorCommands,
-	fixedColorSkinLabel,
 	handChangeCount,
 	resetHandChangesCommands,
 	builtInSkinCommands,
@@ -250,42 +248,15 @@ describe('hand changes', () => {
 	});
 });
 
-describe('fixedColorCommands function', () => {
-	it('should give a skin\'s fixed colour to the marbles it dresses, and the lane follows', () => {
-		const project = createStaircaseProject();
-		const marble = project.entities.find((entity) => entity.components.marble != null);
-		const next = apply(project, fixedColorCommands(project, [marble?.id as string], '#22ff66'));
-		expect(next.entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe('#22ff66');
-		expect(next.music.lanes.find((lane) => lane.id === marble?.components.marble?.laneId)?.color).toBe('#22ff66');
-		expect(fixedColorCommands(project, [marble?.id as string], undefined)).toEqual([]);
-	});
-
-	it("should give a built-in skin's fixed colour to the marble, and leave a skin without one alone", () => {
+describe('a skin and the label colour', () => {
+	it("should leave a marble's label colour and film colour alone when a skin is applied", () => {
 		const project = createStaircaseProject();
 		const marble = project.entities.find((entity) => entity.components.marble != null);
 		const target = { kind: 'entities' as const, entityIds: [marble?.id as string] };
-		const green = apply(project, builtInSkinCommands(project, target, 'marble:glass-green')).entities.find((entity) => entity.id === marble?.id);
-		expect(green?.components.skin?.assetId).toBe('marble:glass-green');
-		expect(green?.components.marble?.color).toBe('#0c8a3a');
-		expect(apply(project, builtInSkinCommands(project, target, 'marble:glass')).entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe(marble?.components.marble?.color);
-	});
-
-	it('should say which skin sets a marble\'s colour', () => {
-		const item = { id: 'lime', manifest: { color: '#22ff66', label: 'Lime' } } as never;
-		const design = { theme: 'brass', themes: [] };
-		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green' }, [])).toBe('Green Glass');
-		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass-green', colour: 'marble' }, [])).toBeNull();
-		expect(fixedColorSkinLabel(design, { assetId: 'marble:glass' }, [])).toBeNull();
-		expect(fixedColorSkinLabel(design, { assetId: 'lime' }, [item])).toBe('Lime');
-		expect(fixedColorSkinLabel(design, undefined, [item])).toBeNull();
-	});
-
-	it("should leave every marble's colour alone when a theme with a fixed-colour marble skin is picked", () => {
-		const project = createStaircaseProject();
-		const theme = { id: 'theme-green', name: 'Green', base: 'brass', overrides: {}, parts: { marble: { skin: 'marble:glass-green' } } };
-		const withTheme = apply(project, [{ type: 'setDesign', design: { themes: [theme] } }]);
-		const next = apply(withTheme, themeCommands(withTheme, theme.id));
-		const color = (current: typeof project) => current.entities.find((entity) => entity.components.marble != null)?.components.marble?.color;
-		expect(color(next)).toBe(color(withTheme));
+		const next = apply(project, builtInSkinCommands(project, target, 'marble:glass-green'));
+		const dressed = next.entities.find((entity) => entity.id === marble?.id);
+		expect(dressed?.components.skin?.assetId).toBe('marble:glass-green');
+		expect(dressed?.components.skin?.color).toBe(marble?.components.skin?.color);
+		expect(next.music.lanes[0]?.color).toBe(project.music.lanes[0]?.color);
 	});
 });

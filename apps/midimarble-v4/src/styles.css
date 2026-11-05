@@ -3062,3 +3062,13 @@ button.mm-lcd-length:hover {
 	font-size: var(--text-small);
 	line-height: 1.4;
 }
+
+/* The film end's handle on the ruler: a small flag past the end line, so the playhead never covers all of it */
+.mm-ruler-end {
+	border-radius: 0 3px 3px 0;
+	background: var(--text-secondary);
+}
+
+.mm-ruler-end:hover {
+	background: var(--text);
+}

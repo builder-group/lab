@@ -67,6 +67,17 @@ interface TCreateProjectOptions {
 
 export const laneColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff'];
 
+/**
+ * The colour a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
+ * reads the lane's `color`, which is only a label for organising.
+ */
+export function marbleFilmColor(project: Pick<TProject, 'music' | 'entities'>, laneId: string): string {
+	const own = project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.skin?.color;
+	if (own != null) return own;
+	const index = Math.max(0, project.music.lanes.findIndex((lane) => lane.id === laneId));
+	return laneColors[index % laneColors.length] ?? '#3478f6';
+}
+
 export function createLane(index: number, id = createId('lane')): TLane {
 	return {
 		id,
@@ -83,7 +94,7 @@ export function createMarble(lane: TLane, position: { x: number; y: number }): T
 		id: createId('marble'),
 		name: lane.name,
 		components: {
-			marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS, color: lane.color },
+			marble: { laneId: lane.id, radius: DEFAULT_MARBLE_RADIUS },
 			release: { position, time: 0 }
 		}
 	};

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands } from './commands';
-import { createProject } from './create-project';
+import { createProject, marbleFilmColor } from './create-project';
 import { createHistory, pushHistory, redoHistory, undoHistory } from './history';
 import { parseProject, serializeProject } from './project-file';
 import { BACKING_ID, type TProject } from './schema';
@@ -171,14 +171,32 @@ describe('older files', () => {
 	});
 });
 
-describe('one colour per marble', () => {
-	it('should keep the lane and the marble on one colour however an edit sets it', () => {
+describe('label colour and film colour', () => {
+	it('should keep a lane\'s label colour out of the film', () => {
 		const project = createProject({ id: 'p', title: 'T' });
 		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
-		const marble = project.entities.find((entity) => entity.components.marble != null);
-		const [, , byLane] = applyProjectCommands(project, [{ type: 'upsertLane', lane: { ...lane, color: '#112233' } }]);
-		expect(byLane?.entities.find((entity) => entity.id === marble?.id)?.components.marble?.color).toBe('#112233');
-		const [, , byMarble] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marble?.id as string, component: { name: 'marble', value: { ...(marble?.components.marble as NonNullable<typeof marble>['components']['marble'] & object), color: '#445566' } } }]);
-		expect(byMarble?.music.lanes[0]?.color).toBe('#445566');
+		const film = marbleFilmColor(project, lane.id);
+		const [, , next] = applyProjectCommands(project, [{ type: 'upsertLane', lane: { ...lane, color: '#112233' } }]);
+		expect(next?.music.lanes[0]?.color).toBe('#112233');
+		expect(marbleFilmColor(next as TProject, lane.id)).toBe(film);
+	});
+
+	it('should read a marble\'s film colour from its skin', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		const lane = project.music.lanes[0] as TProject['music']['lanes'][number];
+		const marble = project.entities.find((entity) => entity.components.marble != null) as TProject['entities'][number];
+		const [, , next] = applyProjectCommands(project, [{ type: 'setComponent', entityId: marble.id, component: { name: 'skin', value: { color: '#445566' } } }]);
+		expect(marbleFilmColor(next as TProject, lane.id)).toBe('#445566');
+		expect(next?.music.lanes[0]?.color).toBe(lane.color);
+	});
+
+	it('should move a saved marble colour to its skin when a file opens', () => {
+		const project = createProject({ id: 'p', title: 'T' });
+		const stored = JSON.parse(serializeProject(project)) as { entities: { components: { marble?: { color?: string } } }[] };
+		const marble = stored.entities.find((entity) => entity.components.marble != null)?.components.marble;
+		if (marble != null) marble.color = '#778899';
+		const [isOk, , opened] = parseProject(JSON.stringify(stored));
+		expect(isOk).toBe(true);
+		expect(marbleFilmColor(opened as TProject, project.music.lanes[0]?.id as string)).toBe('#778899');
 	});
 });

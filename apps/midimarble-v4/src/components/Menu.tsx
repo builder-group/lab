@@ -170,6 +170,7 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 						type="button"
 					>
 						<span className="mm-menu-check">{entry.checked === true ? '✓' : ''}</span>
+						{entry.swatch != null ? <span className="mr-1.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: entry.swatch }} aria-hidden /> : null}
 						<span className="truncate">{entry.label}</span>
 						{entry.submenu != null ? (
 							<span className="mm-menu-shortcut" aria-hidden>
@@ -216,6 +217,8 @@ export interface TMenuItem {
 	disabled?: boolean;
 	/** Shows a check mark column entry, like View menu toggles */
 	checked?: boolean;
+	/** A colour dot before the label, like Finder's tags */
+	swatch?: string;
 	/** Entries of a submenu that opens beside the item on hover, click or Right Arrow, like Piece ▸ */
 	submenu?: TMenuEntry[];
 	onSelect: () => void;

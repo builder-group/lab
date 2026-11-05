@@ -42,8 +42,7 @@ export const STempo = z.strictObject({
 
 const SMarbleComponent = z.strictObject({
 	laneId: SId,
-	radius: z.number().positive(),
-	color: z.string()
+	radius: z.number().positive()
 });
 
 const SReleaseComponent = z.strictObject({
@@ -110,7 +109,7 @@ const SPathComponent = z.strictObject({
 
 /**
  * A skin's properties, the same names on every skin. Absent fields come from the theme (while the piece shows the
- * theme's skin), else from the skin. `colour`: `skin` its own, `marble` its marble's, `note` the note it plays. `onHit`
+ * theme's skin), else from the skin. `colour`: `skin` its own, `marble` its marble's film colour, `note` the note it plays. `onHit`
  * is the reaction, `glowColor` what a glow shines in, `variant` an id from the skin's variants.
  */
 const skinPropertyShape = {
@@ -128,6 +127,11 @@ const SSkinComponent = z.strictObject({
 	// below
 	assetId: z.string().optional(),
 	...skinPropertyShape,
+	// A marble's own film colour, what Colour: Marble shows on it and on the pieces it plays. Never the lane's label colour
+	color: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.optional(),
 	// Values of the extra properties a library skin's manifest declares, by their names
 	properties: z.record(z.string(), z.union([z.number(), z.string()])).optional()
 });
@@ -189,6 +193,11 @@ export const SComponents = z.strictObject({
 export const SEntity = z.strictObject({
 	id: SId,
 	name: z.string().optional(),
+	// Organises Layers, like Blender's collection colour tags; the film never reads it. A marble's is its lane's `color`
+	labelColor: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.optional(),
 	components: SComponents
 });
 
@@ -285,6 +294,8 @@ export const SProjectTheme = z.strictObject({
 const SDecor = z.strictObject({
 	id: SId,
 	name: z.string(),
+	// Organises Layers; the film never reads it
+	labelColor: SHexColor.optional(),
 	source: z.string().min(1),
 	// Wall point in metres the item is centred on
 	position: SVec2,

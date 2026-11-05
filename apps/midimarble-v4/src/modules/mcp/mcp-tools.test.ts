@@ -311,13 +311,6 @@ describe('MCP tools', () => {
 			expect(marbleOf(cx).components.skin?.assetId).toBe('green-glass');
 		});
 
-		it("should give the marble a built-in skin's fixed colour", async () => {
-			const { cx } = studio();
-			const marble = marbleOf(cx);
-			expect((await execute(cx, { type: 'applySkin', assetId: 'marble:glass-green', entityIds: [marble.id] })).isError).toBe(false);
-			expect(marbleOf(cx).components.marble?.color).toBe('#0c8a3a');
-		});
-
 		it('should list every built-in skin and the library in list_commands', async () => {
 			const { cx } = studio();
 			cx.library.$projectItems.set([skinItem('green-glass', 'marble')]);
@@ -384,11 +377,12 @@ describe('MCP tools', () => {
 			const { cx } = studio();
 			const id = marbleOf(cx).id;
 			const radius = marbleOf(cx).components.marble?.radius;
-			const colour = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { color: '#22ff66' } } }))) as { notices?: string[] };
-			expect(marbleOf(cx).components.marble).toMatchObject({ color: '#22ff66', radius });
+			const colour = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'skin', value: { color: '#22ff66' } } }))) as { notices?: string[] };
+			expect(marbleOf(cx).components.skin?.color).toBe('#22ff66');
+			expect(marbleOf(cx).components.marble?.radius).toBe(radius);
 			expect(colour.notices).toBeUndefined();
-			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; color: string }[] };
-			expect(state.marbles[0]).toMatchObject({ radius, color: '#22ff66' });
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; filmColor: string }[] };
+			expect(state.marbles[0]).toMatchObject({ radius, filmColor: '#22ff66' });
 			const bigger = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 0.0125 } } }))) as { notices: string[] };
 			expect(bigger.notices[0]).toContain('radius changes the run');
 			expect((await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 1.2 } } })).isError).toBe(true);

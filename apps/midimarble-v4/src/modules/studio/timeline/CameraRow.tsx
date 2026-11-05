@@ -13,9 +13,9 @@ import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
 /**
- * The Camera track of the Film workspace, last like the Camera row in Layers: shots as Final Cut markers.
- * Click selects, dragging moves the time with one undo step, double-click on the row adds a shot; shots are
- * also added from the Add menu. The header selects the Camera, as its row in Layers does.
+ * The Camera track of the Film workspace, last like the Camera row in Layers: its shots are the marks on the lane, like
+ * Blender's camera markers. A press anywhere on the row selects the Camera, as its row in Layers does; a press on a mark
+ * selects that shot, dragging moves its time with one undo step, and a double-click on the lane adds a shot.
  */
 export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 	const { cx, project, zoom, width, selection, timeAt } = props;
@@ -24,13 +24,18 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 	const [drag, setDrag] = React.useState<{ shotId: string; grab: number; originX: number; time: number; moved: boolean } | null>(null);
 
 	return (
-		<div className="flex shrink-0" style={{ height: CAMERA_ROW_HEIGHT }}>
+		<div
+			className="flex shrink-0"
+			style={{ height: CAMERA_ROW_HEIGHT }}
+			onPointerDown={(event) => {
+				if (event.button === 0 && !event.shiftKey) cx.$selection.set([CAMERA_KEY]);
+			}}
+		>
 			<div
 				className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-2.5 pl-5"
 				style={{ width: HEADER_WIDTH }}
 				data-track={CAMERA_KEY}
 				data-selected={isSelected}
-				onClick={() => cx.$selection.set([CAMERA_KEY])}
 				onContextMenu={(event) => openContextMenu(event, [commandItem(cx, 'camera.addShot')])}
 			>
 				<span className="mm-song-icon">
@@ -42,12 +47,8 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 			<TimeGutter />
 			<div
 				className="relative flex-1 border-b border-[var(--separator)]"
-				style={{ minWidth: width }}
+				style={{ minWidth: width, background: isSelected ? 'color-mix(in srgb, var(--text) 3%, transparent)' : undefined }}
 				aria-label="Camera shot markers"
-				onPointerDown={(event) => {
-					if (event.button !== 0 || event.target !== event.currentTarget || event.shiftKey) return;
-					cx.$selection.set([]);
-				}}
 				onDoubleClick={(event) => {
 					if (event.target !== event.currentTarget) return;
 					const { commands: shotCommands, shotId } = addShotCommands(project, timeAt(event.clientX));

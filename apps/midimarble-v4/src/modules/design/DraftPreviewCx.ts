@@ -4,7 +4,7 @@ import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose } fr
 import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/ComposeRenderer';
 import { distanceToSegment, isPointInPolygon } from '@/modules/compose/picking';
 import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modules/compose/scene';
-import type { TVec2 } from '@/modules/project';
+import { marbleFilmColor, type TVec2 } from '@/modules/project';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
 import { decorExtent, decorItem, isFrameEffect, type TDecorItem } from './decor-catalog';
@@ -301,12 +301,17 @@ export class DraftPreviewCx {
 			const { marble, release } = entity.components;
 			if (marble == null || release == null || hidden.includes(entity.id)) return [];
 			const motion = result?.marbles.find((item) => item.entityId === entity.id);
+			const look = resolveElementLook(project.design, 'marble', entity.components.skin);
+			const draft = draftMarble(theme.base, marbleFilmColor(project, marble.laneId), appliedOverrides(project.design), look);
+			// Draft isn't the film: a marble no skin dresses shows its label colour, so it reads as the same marble as in Compose
+			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.lanes.find((lane) => lane.id === marble.laneId)?.color : undefined;
 			return [
 				{
 					entityId: entity.id,
 					radius: marble.radius,
 					position: marblePositionAt(motion, playhead, release.position),
-					...draftMarble(theme.base, marble.color, appliedOverrides(project.design), resolveElementLook(project.design, 'marble', entity.components.skin))
+					...draft,
+					...(label != null ? { body: label, rim: null } : {})
 				}
 			];
 		});

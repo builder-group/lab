@@ -4,7 +4,7 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library, packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack } from '@/modules/library';
 import { type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
-import { fixedColorCommands, skinCommands, skinTargetIds, themeCommands, type TSkinTarget } from './design-commands';
+import { skinCommands, themeCommands, type TSkinTarget } from './design-commands';
 import { packAddedNotice } from './concept-words';
 import { packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions } from './packs';
 import { packOrigin, packOriginLine, resolveTheme } from './project-themes';
@@ -76,8 +76,7 @@ export class DesignLibraryCx {
 			this.source.notify('No piece is selected. Select a piece, then apply the skin.');
 			return false;
 		}
-		// A skin with a fixed colour gives it to the marbles it dresses, so the timeline and Compose agree with the film
-		return this.source.execute([...commands, ...fixedColorCommands(project, skinTargetIds(project, target), item.manifest?.color)]);
+		return this.source.execute(commands);
 	}
 
 	/**
