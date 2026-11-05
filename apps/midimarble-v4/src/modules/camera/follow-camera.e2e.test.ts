@@ -109,7 +109,9 @@ describe('follow camera on whole songs', () => {
 	});
 
 	it('opens on the release points and the first struck pieces', () => {
-		for (const name of ['jingle-bells', 'reference-20'] as const) {
+		// Jingle Bells' box spans 0.78 m and needs 2.28 m of distance, past the 2.25 m at which a marble still spans
+		// 4.5 % of the frame width (`OPENING_MARBLE_SHARE`), so it opens at that limit with 8 % to spare, not 10 %
+		for (const [name, margin] of [['jingle-bells', 0.08], ['reference-20', 0.1]] as const) {
 			const { project: loaded, result } = fixture(name);
 			const track = required(followCameraTrack(loaded, result, 30));
 			const firstPieces = result.pieces
@@ -117,11 +119,11 @@ describe('follow camera on whole songs', () => {
 				.sort((a, b) => (a.hitTime ?? 0) - (b.hitTime ?? 0))
 				.slice(0, 3);
 			const releases = result.marbles.map((marble) => required(marble.samples[0]).position);
-			// Every one inside the opening frame with a margin of 10 % of it
+			// Every one inside the opening frame with a margin of it
 			for (const { x, y } of [...firstPieces.map((piece) => piece.position), ...releases]) {
 				const [u, v] = project(track, 0, x, y);
-				expect(Math.min(u, v)).toBeGreaterThan(0.1);
-				expect(Math.max(u, v)).toBeLessThan(0.9);
+				expect(Math.min(u, v)).toBeGreaterThan(margin);
+				expect(Math.max(u, v)).toBeLessThan(1 - margin);
 			}
 			// And the marbles stay inside with a margin of 5 % until the first hit
 			const firstHit = Math.min(...result.hits.map((hit) => hit.actualTime ?? Infinity));

@@ -111,7 +111,7 @@ def painted_studio(tree, horizon=True):
     fac = _math(tree, 'ADD', _math(tree, 'MULTIPLY', _math(tree, 'ADD', separate.outputs['Y'], bend), 0.5), 0.5)
     tree.links.new(fac, ramp.inputs['Fac'])
     color = ramp.outputs['Color']
-    for direction, low, high, strength in (((-0.42, 0.58, 0.7), 0.955, 0.975, 3.5), ((0.5, -0.56, 0.66), 0.985, 0.992, 1.1)):
+    for direction, low, high, strength in (((-0.42, 0.58, -0.7), 0.955, 0.975, 3.5), ((0.5, -0.56, -0.66), 0.985, 0.992, 1.1)):
         dot = tree.nodes.new('ShaderNodeVectorMath')
         dot.operation = 'DOT_PRODUCT'
         tree.links.new(normal, dot.inputs[0])
@@ -356,7 +356,7 @@ def glass_marble_material(color, variant='swirl', vane_value=0.85):
         dot = nodes.new('ShaderNodeVectorMath')
         dot.operation = 'DOT_PRODUCT'
         links.new(_camera_normal(tree), dot.inputs[0])
-        dot.inputs[1].default_value = (0.42, -0.72, 0.55)
+        dot.inputs[1].default_value = (0.42, -0.72, -0.55)
         gather = nodes.new('ShaderNodeEmission')
         gather.inputs['Color'].default_value = (*_hue(color, 1.0, 0.55), 1.0)
         links.new(_math(tree, 'MULTIPLY', _range(tree, dot.outputs['Value'], 0.5, 0.98), 0.5), gather.inputs['Strength'])

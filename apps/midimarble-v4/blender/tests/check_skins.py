@@ -83,6 +83,22 @@ def node_types(material):
     return {node.type for node in material.node_tree.nodes}
 
 
+def check_long_posts():
+    # Past the body's depth a skin keeps the bar's size and stands it out on a post; its body still reaches the marble's lane
+    for skin in ('platform:plate-gold', 'platform:chrome-device', 'platform:dark-housing', 'platform:gold', 'platform:device'):
+        def back_and_reach(depth):
+            context = {**skins.skin_context('brass', RADIUS), 'pathDepth': depth / 2}
+            part = piece(linked_skin(skin))
+            part['params'] = {**part['params'], 'depth': depth}
+            spec = skins.build_spec('piece', part, context)
+            root = [vertex.co.y for vertex in spec['root'].vertices]
+            bar = [vertex.co.y for vertex in spec['parts'][0]['mesh'].vertices]
+            return depth / 2 - max(bar), max(root) - min(bar)
+        short, _ = back_and_reach(0.05)
+        long, _ = back_and_reach(0.1)
+        check(short < 0.005 and long > 0.03, '%s stands out on a post only when deep (%.3f m at 5 cm, %.3f m at 10 cm)' % (skin, short, long))
+
+
 def check_marbles():
     context = skins.skin_context('pegboard', RADIUS)
     marble = {'radius': RADIUS, 'color': '#3478f6'}
@@ -292,5 +308,6 @@ check_marbles()
 check_properties()
 check_extra_properties()
 check_apply()
+check_long_posts()
 print('\n'.join(summary))
 print('CHECK PASSED: %d assertions' % len(summary))

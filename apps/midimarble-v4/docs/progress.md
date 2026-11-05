@@ -21,6 +21,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - Titles: a white wall title and a white screen title in Eevee stills on the Christmas wall. The wall title reads, with less contrast than the screen title.
 - `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
 - With the chosen look: `blender:design`.
+- The film's look against the reference, on Brass's defaults: gold, wall, marble and scroll energy near its numbers (`references.md`, Look). The camera holds at both 85 mm and the 30 mm trial.
 - Patterns on the reference's hit times: 58 of 58 on time, no double hits or rolls, at Width 14 cm and Gravity 0.5.
 
 ## Not verified
@@ -40,6 +41,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
 - No Problem for a missing asset: only Blender knows, and only while open
+- `blender:film` fails its first check: its made-up run lifts the marble above the frame at 0.25 s, before and after the look round. The rest passes with that check limited to after 0.5 s.
 - Flat Light reads paler than Fast on the Christmas look. Draft Preview draws no lights, shadows or metal.
 - Skin: Cat's-Eye reads weakly when the platform behind has its hue
 

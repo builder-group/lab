@@ -525,8 +525,9 @@ def check_color_by_note():
 
 
 def check_marble_contrast():
-    """Every lane's marble stays 3:1 apart from its wall and from every surface of its own platform in every theme,
-    by the luminance of the materials Blender renders; a dark project wall turns Pegboard's marbles pearl"""
+    """Every lane's marble stays 3:1 apart from its wall and from every surface of its own platform in Pegboard and Neon,
+    by the luminance of the materials Blender renders; Brass's clear glass reads by color on dark gold, so it only keeps
+    its body apart from the wall; a dark project wall turns Pegboard's marbles pearl"""
     from mm_worker import themes, skins
     lanes = ('#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff', '#808080')
 
@@ -537,7 +538,9 @@ def check_marble_contrast():
         high, low = sorted((luminance(a), luminance(b)), reverse=True)
         return (high + 0.05) / (low + 0.05)
 
-    for theme in ('pegboard', 'brass', 'neon'):
+    for color in lanes:
+        check(themes.marble_look('brass', color)['contrast'] >= 2.8, 'brass: a %s marble stands apart from the wall' % color)
+    for theme in ('pegboard', 'neon'):
         context = skins.skin_context(theme, RADIUS)
         wall = themes.wall_material(theme, 0.025).diffuse_color
         lowest = []

@@ -26,7 +26,7 @@ Source: `~/Downloads/Legendary-Meme-Songs-SnapYT.App.mp4` from [@virtual3dworld_
 
 **Camera.** Steeply down along the wall, which reads almost as a floor. Travels continuously, marble slightly above the frame's center. The roll changes slowly, turning the columns from diagonal to almost vertical and back. No hard moves.
 
-**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the upper left with long diagonal shadows, metallic and glossy materials with clear reflections.
+**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the left with soft sideways shadows, dark metal with thin bright edges, a clear marble. Measured on the film: wall L* 57, a 6, b -10, 6 L* across the frame; gold L* 41, chroma 33; 1 % of piece area over L* 80; marble L* 33, chroma 42. Brass's defaults aim at these.
 
 ## Second reference: pitch-colored tubes
 
@@ -66,7 +66,7 @@ Measured from the reference short and an earlier Jingle Bells film, with both ch
 
 The main finding on the look. Our bars read as thin sticks laid across the wall; the reference reads in depth. It takes three things together, none of them physics:
 
-- **Bars long in Z.** Platforms are 3 cm along the wall and 9 cm deep. Hops, columns and the canvas's fit stay spaced by `PLACEMENT_LENGTH`, 9 cm, since spacing by 3 cm stopped repeated Next at 4 of 16 hits on a 0.25 s run.
+- **Bars long in Z.** Platforms are 3 cm along the wall and 9 cm deep. A Depth past 9 cm keeps the bar's size and stands it out on a long post, as the reference does at about 15 cm; the default stays until the camera is decided. Hops, columns and the canvas's fit stay spaced by `PLACEMENT_LENGTH`, 9 cm, since spacing by 3 cm stopped repeated Next at 4 of 16 hits on a 0.25 s run.
 - **A side-turned view.** `SIDE_ANGLE` 95°, chosen by the owner, so bars show their long sides. 145° turned only 3° against 150°.
 - **A steep pitch and a long lens.** Pitch 1.0 rad and 85 mm at a 1.36 m rig, which frames what 0.8 m did at 50 mm, so far rows don't shrink to a pile. Perspective folds a 2.7 bar column step together: a frame shows 6 to 8 bars per column. At 1.3 the near bars are oversized.
 
@@ -110,7 +110,7 @@ Bounce doesn't lower tilt; Gravity does. Build Track on the same hits falls 35, 
 
 **Film endings.** The tail after the last note is 0.4 s (`SONG_TAIL`), the longest that keeps the last marble in the final frame on the song fixtures. With Bowls catching it, 0.6 to 1.5 s.
 
-**Flat Light against Fast.** The wall's median color stays within 5 per 8-bit channel per theme (`check_flat_colors.py`), at about 16 ms per 360 × 640 frame, through a per-theme exposure and sheen. A project theme's changed light or background isn't modeled in Flat Light, only its wall.
+**Flat Light against Fast.** The wall's median color stays within 9 per 8-bit channel per theme (`check_flat_colors.py`), at about 16 ms per 360 × 640 frame, through a per-theme exposure and sheen, and a wall sheen for the room a wall reflects whatever its color. A project theme's changed light or background isn't modeled in Flat Light, only its wall.
 
 **Bloom** is cheap at quality Low and only runs while `bloom > 0`; Flat Light skips it.
 

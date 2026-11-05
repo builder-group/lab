@@ -284,7 +284,7 @@ def workbench_settings(scene, samples):
     depth of field or motion blur. Flat lighting keeps a surface's color at any camera angle, and the scene's own
     view transform and look with the theme's exposure offset (`themes.flat_look`) bring it to what Fast shows."""
     shading = scene.display.shading
-    exposure, sheen = themes.flat_look(scene.get('mm_theme'))
+    exposure, sheen, wall_sheen = themes.flat_look(scene.get('mm_theme'))
     aa = min(WORKBENCH_AA, key=lambda item: abs(item[0] - (samples or 8)))[1]
     settings = [
         (scene.render, 'engine', 'BLENDER_WORKBENCH'),
@@ -310,7 +310,7 @@ def workbench_settings(scene, samples):
     ]
     if scene.camera is not None and scene.camera.type == 'CAMERA':
         settings.append((scene.camera.data.dof, 'use_dof', False))
-    settings += [(material, 'diffuse_color', flat_color(material, sheen)) for material in bpy.data.materials]
+    settings += [(material, 'diffuse_color', flat_color(material, sheen + (wall_sheen if material.name.startswith(('MM · wall', 'MM · pegboard')) else 0.0))) for material in bpy.data.materials]
     settings += decor_effects.flat_settings(bpy.data.collections.get(MANAGED_COLLECTION))
     return settings
 

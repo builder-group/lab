@@ -24,7 +24,7 @@ describe('resolveTheme function', () => {
 	});
 
 	it("should give each override its base's own color while it is not set", () => {
-		expect(themeDefaultColor('brass', 'wallColor')).toBe('#ada1c0');
+		expect(themeDefaultColor('brass', 'wallColor')).toBe('#a79ebc');
 		expect(themeDefaultColor('neon', 'lightColor')).toBe('#eff6ff');
 		expect(themeDefaultColor('neon', 'glowColor')).toBeNull();
 	});
@@ -122,7 +122,7 @@ describe('project themes in Blender and the Draft Preview', () => {
 	it("should draw a project theme's wall and glow in the Draft Preview", () => {
 		expect(draftWall('neon', { wallColor: '#112233' }).color).toBe('#112233');
 		expect(draftWall('pegboard', { wallColor: '#336699' })).toMatchObject({ color: '#336699', holes: expect.any(String) });
-		expect(draftWall('brass').color).toBe('#a098ac');
+		expect(draftWall('brass').color).toBe('#888296');
 		const piece = { type: 'platform', color: '#d94f4f', skin: null };
 		expect(draftPieceColors('neon', piece, { glowColor: '#00ff88' }).bar).toBe('#00ff88');
 		expect(draftPieceColors('neon', piece).bar).not.toBe('#00ff88');

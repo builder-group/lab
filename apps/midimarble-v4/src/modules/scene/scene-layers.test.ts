@@ -28,7 +28,7 @@ describe('wall layer', () => {
 
 	it('should override a built-in theme per project and return to the theme on reset', () => {
 		const project = withTheme('brass');
-		expect(wallLayer(project.film)).toMatchObject({ color: '#ada1c0', kind: 'plaster', own: {} });
+		expect(wallLayer(project.film)).toMatchObject({ color: '#a79ebc', kind: 'plaster', own: {} });
 
 		const colored = apply(project, wallCommands(project, { color: '#336699', backgroundColor: '#112233', kind: 'grid' }));
 		expect(wallLayer(colored.film)).toMatchObject({ color: '#336699', backgroundColor: '#112233', kind: 'grid' });
@@ -73,7 +73,7 @@ describe('key light layer', () => {
 		expect(sceneThemeOverrides(lit.film)).toEqual({ lightColor: '#ff8800' });
 		expect(sceneLayers(lit.film)).toEqual({ keyLight: { strength: 9, side: 0.25 } });
 		// Softness, Exposure and Bloom: read from the theme until set, stored with the pose, cleared by Reset
-		expect(themed.softness).toBeCloseTo(16 / 60);
+		expect(themed.softness).toBeCloseTo(30 / 60);
 		expect(themed).toMatchObject({ exposure: 0, bloom: 0 });
 		const soft = apply(lit, keyLightCommands(lit, { softness: 0.5, exposure: 0.4, bloom: 0.3 }));
 		expect(keyLightLayer(soft.film)).toMatchObject({ softness: 0.5, exposure: 0.4, bloom: 0.3 });

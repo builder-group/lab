@@ -15,25 +15,19 @@ import type { TMotionFile, TSceneCamera, TSceneDescription } from '@/modules/sce
 // Constants mirror camera.py; see the comments there
 const ROLL_FOLLOW = 0.5;
 const ROLL_LIMIT = radians(40);
-const ROLL_DRIFT = radians(16);
-const ROLL_PERIOD = 14.0;
+const ROLL_DRIFT = radians(8);
+const ROLL_PERIOD = 56.0;
 /** The Turn of a project that sets none: `SIDE_ANGLE` in `camera.py` */
 export const SIDE_ANGLE = radians(95);
 const SIDE_FOLLOW = 0.3;
 const HEADING_TAU = 1.5;
 const LEAD_LIMIT = 0.0235;
-/**
- * While the follow point falls faster than FALL_START meters per second, the frame looks FALL_AHEAD seconds of the
- * extra speed below it, at most FALL_LIMIT of the camera distance, eased over FALL_EASE seconds; the speed is taken
- * over FALL_WINDOW seconds either side, and the lead lasts FALL_HOLD seconds past the fall
- */
-const FALL_START = 0.3;
-const FALL_AHEAD = 0.25;
-const FALL_LIMIT = 0.088;
-const FALL_EASE = 0.6;
-const FALL_WINDOW = 0.1;
-const FALL_HOLD = 0.5;
 const FRAME_KEEP = 0.55;
+/** Time constant in seconds of the pull that keeps the marble in frame: a fast one would stand out as a lurch against the frame's steady scroll */
+const KEEP_EASE = 0.3;
+/** Past this share of the half frame, in a free fall that outruns that pull, a fast one takes over */
+const FRAME_LIMIT = 0.7;
+const LIMIT_EASE = 0.08;
 const ASPECT_GUESS = 0.56;
 const SHOT_EASE = 0.8;
 const LENS = 85;
@@ -326,8 +320,6 @@ interface TFraming {
 	ahead: [Float64Array, Float64Array];
 	depth: number;
 	distance: Float64Array;
-	/** How much of the fall lead applies per frame: none while a group is framed */
-	fallScale: Float64Array;
 	/** Weight of the opening frame per frame, null without one */
 	openingWeight: Float64Array | null;
 }
@@ -720,10 +712,8 @@ function groupFraming(
 		}
 	}
 	const need = held(held(zoomNeed, fps, GROUP_SPIKE / 2, 'median'), fps, 1.0, 'max');
-	// A close shot frames the leading marble alone, and only then leads one marble's fall
-	const isGroup = marbles.filter(hasMotion).length > 1;
+	// A close shot frames the leading marble alone
 	const push = scale.map((value) => clamp((1 - value) / (1 - PUSH_FOCUS), 0.0, 1.0));
-	const fallScale = push.map((value) => (isGroup ? value : 1.0));
 	// The zoom follows what the group needs, slowly
 	const groupDistance = need.map((value) => Math.max(value, base));
 	const distance = criticallyDamped(groupDistance, fps, DISTANCE_TAU);
@@ -755,9 +745,6 @@ function groupFraming(
 		}
 	}
 	if (opening != null) {
-		// The opening frames its box; it leads no fall
-		for (let index = 0; index < count; index++)
-			fallScale[index] = (fallScale[index] ?? 0) * (1 - (opening.weight[index] ?? 0));
 		for (const axis of [0, 1] as const) {
 			for (let index = 0; index < count; index++) {
 				const w = opening.weight[index] ?? 0;
@@ -771,7 +758,7 @@ function groupFraming(
 		settle(center, times, hold, settings.bowl);
 		settle(ahead, times, hold, settings.bowl);
 	}
-	return { current: center, ahead, depth, distance, fallScale, openingWeight: opening?.weight ?? null };
+	return { current: center, ahead, depth, distance, openingWeight: opening?.weight ?? null };
 }
 
 /**
@@ -917,50 +904,6 @@ function settle(points: [Float64Array, Float64Array], times: Float64Array, hold:
 	}
 }
 
-/**
- * `fall_lead`: how far below the follow point the camera looks while it falls. Above FALL_START meters per second
- * the frame leads by FALL_AHEAD seconds of the extra speed, at most FALL_LIMIT of the camera distance, eased over
- * FALL_EASE seconds, so a falling marble sits above the center with the pieces it falls toward in frame. Over the
- * HOLD_SPAN seconds before the hold the lead fades out, so the held frame still shows the last pieces.
- */
-function fallLead(
-	pointY: Float64Array,
-	distance: Float64Array,
-	fps: number,
-	times: Float64Array,
-	hold: number | null
-): Float64Array {
-	const count = pointY.length;
-	const window = Math.max(1, pyRound(FALL_WINDOW * fps));
-	const lead = new Float64Array(count);
-	for (let index = 0; index < count; index++) {
-		const ahead = Math.min(count - 1, index + window);
-		const behind = Math.max(0, index - window);
-		const speed = ((pointY[behind] ?? 0) - (pointY[ahead] ?? 0)) / (Math.max(ahead - behind, 1) / fps);
-		lead[index] = Math.min(
-			Math.max(speed - FALL_START, 0.0) * FALL_AHEAD,
-			FALL_LIMIT * (distance[index] ?? 0)
-		);
-	}
-	// The lead lasts FALL_HOLD seconds past the fall, as the smoothed target slows before the marble lands
-	const span = pyRound(FALL_HOLD * fps);
-	const kept = new Float64Array(count);
-	for (let index = 0; index < count; index++) {
-		let deepest = 0.0;
-		for (let back = Math.max(0, index - span); back <= index; back++)
-			deepest = Math.max(deepest, lead[back] ?? 0);
-		kept[index] = deepest;
-	}
-	const eased = criticallyDamped(kept, fps, FALL_EASE / 3);
-	if (hold != null) {
-		for (let index = 0; index < count; index++)
-			eased[index] =
-				(eased[index] ?? 0) *
-				(1.0 - smoothstep(((times[index] ?? 0) - (hold - HOLD_SPAN)) / HOLD_SPAN));
-	}
-	return eased;
-}
-
 /** `follow_target`: look target on the wall per frame and the run direction (heading) the camera turns with */
 function followTarget(
 	framing: TFraming,
@@ -984,37 +927,38 @@ function followTarget(
 		followX[index] = (currentX[index] ?? 0) + dx * scale;
 		followY[index] = (currentY[index] ?? 0) + dy * scale;
 	}
-	const fall = fallLead(currentY, distance, fps, times, settings.hold);
-	for (let index = 0; index < count; index++)
-		followY[index] = (followY[index] ?? 0) - (fall[index] ?? 0) * (framing.fallScale[index] ?? 0);
 	const tau = 0.04 + 0.5 * settings.smoothing;
 	const targetX = criticallyDamped(followX, fps, tau);
 	const targetY = criticallyDamped(followY, fps, tau);
 	// Pull the target back wherever the marble would leave the inner part of the frame
-	const reach = new Float64Array(count);
+	const halfFrame = new Float64Array(count);
 	for (let index = 0; index < count; index++)
-		reach[index] = (((distance[index] ?? 0) * CAMERA_SENSOR) / 2 / settings.lens) * FRAME_KEEP;
-	for (let iteration = 0; iteration < 8; iteration++) {
-		const excessX = new Float64Array(count);
-		const excessY = new Float64Array(count);
-		let isAny = false;
-		for (let index = 0; index < count; index++) {
-			excessX[index] = excess(
-				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(reach[index] ?? 0) * ASPECT_GUESS
-			);
-			excessY[index] = excess(
-				(currentY[index] ?? 0) - (targetY[index] ?? 0),
-				(reach[index] ?? 0) * 1.0
-			);
-			if (excessX[index] !== 0 || excessY[index] !== 0) isAny = true;
-		}
-		if (!isAny) break;
-		const smoothX = criticallyDamped(excessX, fps, 0.08);
-		const smoothY = criticallyDamped(excessY, fps, 0.08);
-		for (let index = 0; index < count; index++) {
-			targetX[index] = (targetX[index] ?? 0) + (smoothX[index] ?? 0) * 1.3;
-			targetY[index] = (targetY[index] ?? 0) + (smoothY[index] ?? 0) * 1.3;
+		halfFrame[index] = ((distance[index] ?? 0) * CAMERA_SENSOR) / 2 / settings.lens;
+	const reach = new Float64Array(count);
+	for (const [share, ease] of [[FRAME_KEEP, KEEP_EASE], [FRAME_LIMIT, LIMIT_EASE]] as const) {
+		for (let index = 0; index < count; index++) reach[index] = (halfFrame[index] ?? 0) * share;
+		for (let iteration = 0; iteration < 8; iteration++) {
+			const excessX = new Float64Array(count);
+			const excessY = new Float64Array(count);
+			let isAny = false;
+			for (let index = 0; index < count; index++) {
+				excessX[index] = excess(
+					(currentX[index] ?? 0) - (targetX[index] ?? 0),
+					(reach[index] ?? 0) * ASPECT_GUESS
+				);
+				excessY[index] = excess(
+					(currentY[index] ?? 0) - (targetY[index] ?? 0),
+					(reach[index] ?? 0) * 1.0
+				);
+				if (excessX[index] !== 0 || excessY[index] !== 0) isAny = true;
+			}
+			if (!isAny) break;
+			const smoothX = criticallyDamped(excessX, fps, ease);
+			const smoothY = criticallyDamped(excessY, fps, ease);
+			for (let index = 0; index < count; index++) {
+				targetX[index] = (targetX[index] ?? 0) + (smoothX[index] ?? 0) * 1.3;
+				targetY[index] = (targetY[index] ?? 0) + (smoothY[index] ?? 0) * 1.3;
+			}
 		}
 	}
 	// Safety net for extreme motion: never let a marble leave the frame
@@ -1023,11 +967,11 @@ function followTarget(
 			(targetX[index] ?? 0) +
 			excess(
 				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(reach[index] ?? 0) * ASPECT_GUESS * 1.5
+				(halfFrame[index] ?? 0) * FRAME_KEEP * ASPECT_GUESS * 1.5
 			);
 		targetY[index] =
 			(targetY[index] ?? 0) +
-			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (reach[index] ?? 0) * 1.0 * 1.5);
+			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (halfFrame[index] ?? 0) * FRAME_KEEP * 1.0 * 1.5);
 	}
 	// Run direction from the smoothed target over one second, then smoothed again for slow heading changes
 	const window = Math.max(1, pyRound(0.5 * fps));

@@ -55,7 +55,7 @@ export function trackWall(element: Element, labelColor: string | undefined): TWa
 		: { color: style.getPropertyValue('--track-wall').trim(), holes: style.getPropertyValue('--track-wall-hole').trim() };
 }
 
-const DRAFT_WALL_COLORS: Record<string, string> = { brass: '#a098ac', neon: '#141a2a' };
+const DRAFT_WALL_COLORS: Record<string, string> = { brass: '#888296', neon: '#141a2a' };
 
 /**
  * Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon. A project
@@ -76,7 +76,7 @@ export const PLAIN_PIECE_COLOR = WOOD;
 const CHROME = '#cfd2d8';
 /** Brass bar finishes, after `FINISHES` in themes.py */
 const FINISHES: Record<string, string> = {
-	gold: '#b8863f',
+	gold: '#885e2c',
 	copper: '#b8704a',
 	silver: '#9c9ea6',
 	dark: '#2e3034'
@@ -269,11 +269,12 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 }
 
 /**
- * Surfaces a marble rolls over in a theme without Color by Note: Pegboard's tint of its color here and the color
- * itself on the film's platform, Brass's gold bars, Neon's deep body in its hue. `marble_surfaces` in themes.py.
+ * Surfaces a marble must stand apart from in lightness, without Color by Note: Pegboard's tint of its color here and the
+ * color itself on the film's platform, Neon's deep body in its hue. Brass has none: a glass marble reads by its color on
+ * dark gold, as in the reference. `marble_surfaces` in themes.py.
  */
 function marbleSurfaces(theme: string, color: string): string[] {
-	if (theme === 'brass') return [FINISHES['gold'] ?? CHROME];
+	if (theme === 'brass') return [];
 	if (theme === 'neon') return [saturate(color, NEON_BODY_VALUE)];
 	return [tint(color, PEGBOARD_TINT), color];
 }
