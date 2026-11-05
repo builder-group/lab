@@ -297,6 +297,7 @@ interface TPlanMarble {
 	radius: number;
 	release: TVec2;
 	releaseVelocity: TVec2;
+	releaseSpin: number;
 	releaseTime: number;
 	releaseStep: number;
 }
@@ -368,6 +369,7 @@ function createPlan(project: TProject): TPlan {
 			radius: marble.radius,
 			release: release.position,
 			releaseVelocity: release.velocity ?? { x: 0, y: 0 },
+			releaseSpin: release.spin ?? 0,
 			releaseTime: release.time,
 			releaseStep: Math.ceil(release.time * PHYSICS_HZ - STEP_EPSILON)
 		});
@@ -820,7 +822,7 @@ function releaseMarbles(worlds: RAPIER.World[], plan: TPlan, state: TRunState): 
 			plan.gravity
 		);
 		const body = world.createRigidBody(
-			marbleBodyDesc().setTranslation(position.x, position.y, MARBLE_Z).setLinvel(velocity.x, velocity.y, 0)
+			marbleBodyDesc().setTranslation(position.x, position.y, MARBLE_Z).setLinvel(velocity.x, velocity.y, 0).setAngvel({ x: 0, y: 0, z: marble.releaseSpin })
 		);
 		const collider = world.createCollider(
 			marbleColliderDesc(marble.radius).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
@@ -833,6 +835,21 @@ function releaseMarbles(worlds: RAPIER.World[], plan: TPlan, state: TRunState): 
 		hasReleased = true;
 	}
 	return hasReleased;
+}
+
+/** Spin from the two samples before `time`, a contact, which the steps just before it don't feel yet */
+function spinBefore(samples: TMarbleSample[], time: number): number {
+	let low = 0;
+	let high = samples.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if ((samples[middle]?.time ?? Infinity) < time - 2 * DT) low = middle + 1;
+		else high = middle;
+	}
+	const a = samples[low - 2];
+	const b = samples[low - 1];
+	if (a == null || b == null || b.time <= a.time) return 0;
+	return Math.atan2(Math.sin(b.angle - a.angle), Math.cos(b.angle - a.angle)) / (b.time - a.time);
 }
 
 function marbleBodyDesc(): RAPIER.RigidBodyDesc {
@@ -1962,6 +1979,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 				const error = contact.time - hit.time;
 				result.actualTime = contact.time;
 				result.error = error;
+				result.spin = spinBefore(samples, contact.time);
 				result.status =
 					Math.abs(error) <= HIT_DRIFT
 						? 'onTime'

@@ -135,6 +135,8 @@ export interface THitResult {
 	dot: TVec2 | null;
 	/** Marble velocity at the target time, used for default angles and guardrails */
 	velocity: TVec2 | null;
+	/** Marble spin just before its contact with the linked piece, in radians per second */
+	spin?: number;
 	/** First contact time of the marble with the linked piece */
 	actualTime: number | null;
 	/** actualTime - targetTime */

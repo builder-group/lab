@@ -73,7 +73,7 @@ describe('fixTrack function on Jingle Bells', () => {
 	}, 120_000);
 
 	it('should keep the Bowl and say what is left when it cannot recover the run after 7 Melody notes', async () => {
-		// Prepare: a released marble has no spin, so the run parts from the old one and no tilt brings it back by hit 15
+		// Prepare: the moved release carries the old arrival and spin, yet the small difference grows until Bass runs into pieces at 12.5 s
 		const { before, edited, broken } = handFirstNotesToBacking(7);
 
 		// Act

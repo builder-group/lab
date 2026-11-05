@@ -49,7 +49,9 @@ const SMarbleComponent = z.strictObject({
 const SReleaseComponent = z.strictObject({
 	position: SVec2,
 	time: z.number(),
-	velocity: SVec2.optional()
+	velocity: SVec2.optional(),
+	// Radians per second around the wall normal: Fix's release carries on a run that was already rolling
+	spin: z.number().optional()
 });
 
 const SPieceComponent = z.strictObject({

@@ -5,7 +5,6 @@ import {
 	extraStrikes,
 	rollingHits,
 	findLongGaps,
-	frameBand,
 	freePose,
 	getPieceDefinition,
 	gravityOf,
@@ -31,12 +30,9 @@ import { preflightExport, type TPreflightIssue } from '@/modules/design/export-p
 // The one Fix, after an edit that broke the run or for a piece with a problem. The edit's notice, the hit summary's
 // menu, a piece's status pill and A all offer it. Undo goes back; Rebuild From Here deletes and builds again.
 
-/** A hit that needs attention while its marble's run is being mended: broken, early or late, or on time but outside its lane */
-function needsFix(project: TProject, hit: THitResult): boolean {
-	if (isBroken(hit) || hit.status === 'drifting') return true;
-	if (hit.dot == null) return false;
-	const band = frameBand(project, hit.laneId);
-	return Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
+/** A hit that needs attention while its marble's run is being mended: broken, early or late */
+function needsFix(hit: THitResult): boolean {
+	return isBroken(hit) || hit.status === 'drifting';
 }
 
 /**
@@ -751,7 +747,7 @@ async function suggestBridge(fixing: TFixing, base: TProject, run: TSimulationRe
 	const gap = findLongGaps(base, launch.laneId).find((item) => item.fromHitId === launch.hitId && item.bridgedBy != null);
 	const after = gap == null ? undefined : run.hits.find((hit) => hit.laneId === gap.laneId && hit.hitId === gap.toHitId);
 	const bridge = gap == null ? undefined : base.entities.find((item) => item.id === gap.bridgedBy);
-	if (gap == null || after == null || bridge == null || !needsFix(base, after)) return null;
+	if (gap == null || after == null || bridge == null || !needsFix(after)) return null;
 	const dot = run.hits.find((hit) => hitKeyOf(hit) === hitKeyOf(launch))?.dot;
 	const angle = base.entities.find((item) => item.id === launch.pieceEntityId)?.components.hitLink?.angle;
 	const key = `${bridge.id}@${dot?.x.toFixed(4)},${dot?.y.toFixed(4)},${angle?.toFixed(5)}`;
@@ -787,32 +783,25 @@ async function replaceStep(fixing: TFixing, base: TProject, run: TSimulationResu
 	return [...commands, ...(bridge ?? [])];
 }
 
-/** The earliest hit to work on. A marble without broken hits is done, even with hits outside its band */
-function firstProblem(fixing: TFixing, base: TProject, run: TSimulationResult, laneId?: string): THitResult | undefined {
+/** The earliest hit to work on. A marble without broken hits is done */
+function firstProblem(fixing: TFixing, run: TSimulationResult, laneId?: string): THitResult | undefined {
 	const open = run.hits.filter((hit) => hit.pieceEntityId != null && (laneId == null || hit.laneId === laneId) && hit.targetTime > (fixing.left.get(hit.laneId) ?? -Infinity) + 1e-6);
 	const lanes = new Set(open.filter(isBroken).map((hit) => hit.laneId));
-	return open.filter((hit) => lanes.has(hit.laneId) && needsFix(base, hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
+	return open.filter((hit) => lanes.has(hit.laneId) && needsFix(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
 }
 
-/**
- * Whether `trial` fixes `problem` without setting another marble back. A hit that plays on time but outside its
- * frame band is fixed only without breaking hits after it.
- */
+/** Whether `trial` fixes `problem` without setting another marble back */
 function advances(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult): boolean {
 	const { current, latest } = fixing;
 	// A try simulated only up to its horizon is judged on the hits before it
 	const end = trial.duration - 1e-6;
 	const tried = { ...trial, hits: trial.hits.filter((hit) => hit.targetTime < end) };
 	const was = latest.hits.filter((hit) => hit.targetTime < end);
-	if ((firstProblem(fixing, base, tried, problem.laneId)?.targetTime ?? Infinity) <= problem.targetTime + 1e-6) return false;
-	const broken = (hits: THitResult[]): number => brokenHits(hits).filter((hit) => hit.laneId === problem.laneId).length;
-	// Broken hits are counted over the whole song only, since a try may break one early and mend many after it
-	const isWhole = trial.duration >= current.end - 1e-6;
-	if (isWhole && !isBroken(problem) && problem.status !== 'drifting' && broken(tried.hits) > broken(was)) return false;
+	if ((firstProblem(fixing, tried, problem.laneId)?.targetTime ?? Infinity) <= problem.targetTime + 1e-6) return false;
 	for (const lane of base.music.lanes) {
 		if (lane.id === problem.laneId) continue;
-		const first = firstProblem(fixing, current, latest, lane.id)?.targetTime ?? Infinity;
-		if ((firstProblem(fixing, base, tried, lane.id)?.targetTime ?? Infinity) < Math.min(first, end) - 1e-6) return false;
+		const first = firstProblem(fixing, latest, lane.id)?.targetTime ?? Infinity;
+		if ((firstProblem(fixing, tried, lane.id)?.targetTime ?? Infinity) < Math.min(first, end) - 1e-6) return false;
 	}
 	return !newlyBroken(was, tried.hits).some((hit) => hit.laneId !== problem.laneId);
 }
@@ -914,9 +903,6 @@ async function fixProblem(fixing: TFixing, problem: THitResult): Promise<TFix | 
 		const rebuilt = await rebuild(fixing, run, index, depth, problem);
 		if (rebuilt != null) return rebuilt;
 	}
-	// A hit that plays on time outside its marble's part of the frame is not turned by hand: turns rarely bring
-	// it in, and they cost most of the time
-	if (!isBroken(problem) && problem.status !== 'drifting') return null;
 	// Auto place gives the same tilts for the same run, so what a user tries next: turning the platform before
 	// the problem, or the one before that, by hand, and placing from there
 	for (let depth = 0; depth < TURN_DEPTH && index - 1 - depth >= 0; depth++) {
@@ -935,7 +921,7 @@ async function fixPlatforms(fixing: TFixing, progress: TFixProgress): Promise<bo
 	left.clear();
 	leftCount.clear();
 	while (!isCancelled(fixing)) {
-		const problem = firstProblem(fixing, fixing.current, fixing.latest);
+		const problem = firstProblem(fixing, fixing.latest);
 		if (problem == null) break;
 		reportProblem(fixing, progress, problem);
 		const fixed = await fixProblem(fixing, problem);
@@ -944,8 +930,7 @@ async function fixPlatforms(fixing: TFixing, progress: TFixProgress): Promise<bo
 			if (!(await commitFix(fixing, fixed.commands, true, fixed.run))) return false;
 			continue;
 		}
-		// Only broken hits count toward giving up on a marble; one outside its band is just left as it is
-		const count = (leftCount.get(problem.laneId) ?? 0) + (isBroken(problem) ? 1 : 0);
+		const count = (leftCount.get(problem.laneId) ?? 0) + 1;
 		leftCount.set(problem.laneId, count);
 		left.set(problem.laneId, count >= MAX_LEFT ? Infinity : problem.targetTime);
 	}
@@ -1015,7 +1000,7 @@ const MIN_RELEASE_LEAD = 0.1;
 /**
  * When a marble's first notes went elsewhere, its remaining run starts with a long fall from the release that
  * breaks everything after it. This moves the release to just before the first remaining note, so the marble
- * arrives where and how fast it did in `before`, the hits from before the edit, which keeps the rest of the run
+ * arrives where, how fast and with the spin it did in `before`, the hits from before the edit, which keeps the rest of the run
  * as it was. Returns no commands when nothing on the marble is broken, its first fall is short already or
  * `before` does not know the old arrival.
  */
@@ -1042,7 +1027,8 @@ export function releaseFix(project: TProject, results: THitResult[], laneId: str
 		...release,
 		time: round4(first.time - lead),
 		position: { x: round4(position.x), y: round4(position.y) },
-		velocity: { x: round4(velocity.x), y: round4(velocity.y) }
+		velocity: { x: round4(velocity.x), y: round4(velocity.y) },
+		...(old.spin != null ? { spin: round4(old.spin) } : {})
 	};
 	return [{ type: 'setComponent', entityId: marble.id, component: { name: 'release', value: next } }];
 }
