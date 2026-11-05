@@ -11,6 +11,7 @@ import type { StudioCx, TTrackView } from '@/modules/studio/StudioCx';
 import type { ComposeCx } from './ComposeCx';
 import { groupSelection } from './PatternsCx';
 import { toPoints } from './PieceLayer';
+import { canvasMenu } from './menus';
 import { Track3DCx } from './Track3DCx';
 
 const views: { id: TTrackView; label: string; Icon: LucideIcon; tooltip: string; shortcut?: string }[] = [
@@ -163,7 +164,10 @@ const Viewport: React.FC<{ compose: ComposeCx; view: TTrackView; startsIn3d: boo
 			onPointerLeave={() => setHover(null)}
 			onContextMenu={(event) => {
 				const id = track.pick(pointOf(event));
-				if (id == null) return;
+				if (id == null) {
+					openContextMenu(event, canvasMenu(track.compose));
+					return;
+				}
 				if (!cx.$selection.get().includes(id)) select(id, false);
 				openContextMenu(event, pieceMenu(cx));
 			}}

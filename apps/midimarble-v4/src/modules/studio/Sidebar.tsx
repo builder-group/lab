@@ -5,8 +5,8 @@ import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/compon
 import { attachState } from '@/modules/compose/attach-edit';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { badgeStatus, StatusIcon, type TBadgeStatus } from '@/modules/compose/status';
-import { $blenderObjects, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
-import { $scatterPanel, moveDecorClearAction, revealMadeInBlender } from '@/modules/design/decor-actions';
+import { $blenderObjects, madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
+import { $scatterPanel, revealMadeInBlender } from '@/modules/design/decor-actions';
 import { decorTips, pieceProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { updateLightCommands } from '@/modules/design/scene-layers';
@@ -16,10 +16,10 @@ import { patternOfPiece, soundsHit, type THitResult, type TResolvedPiece } from 
 import { commandItem } from './commands';
 import { formatTime } from './format';
 import { inspectorTarget } from './inspector-target';
-import { entityLabelEntries, labelColorEntries, labelColorItem, laneLabelEntries, laneMenu, pieceMenu, songMenu } from './menus';
+import { decorLabelEntries, decorMenu, entityLabelEntries, laneLabelEntries, laneMenu, pieceMenu, songMenu, titleMenu } from './menus';
 import { groupSelection } from '@/modules/compose/PatternsCx';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
-import { SCENE_KEY, toDecorKey } from './selection';
+import { SCENE_KEY } from './selection';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 /** Full-height sidebar after Paper and Figma, and only Layers; what you add is in the tool rail's Insert */
@@ -210,7 +210,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
-		else if (row.kind === 'title') openContextMenu(event, [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, row.entity)), 'separator', commandItem(cx, 'edit.delete')]);
+		else if (row.kind === 'title') openContextMenu(event, titleMenu(cx, row.entity));
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'group' && row.id === DECOR_KEY) openContextMenu(event, [commandItem(cx, 'decor.scatter')]);
@@ -269,7 +269,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 					if (row.kind === 'decor' || row.kind === 'madeInBlender') {
 						return <DecorRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} tip={tips?.get(row.id)?.label} />;
 					}
-					return <OutlineRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} />;
+					return <OutlineRow key={row.id} {...common} cx={cx} isRenaming={renaming === row.id} isHidden={hidden.includes(row.id)} />;
 				})}
 			</div>
 		</section>
@@ -303,8 +303,8 @@ function canRename(row: TOutlineRow): boolean {
 }
 
 /** Every row except pieces: the song, marbles, groups, the wall, lights, the camera, shots and titles */
-const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: StudioCx; isRenaming: boolean }) {
-	const { cx, row, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, actions } = props;
+const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: StudioCx; isRenaming: boolean; isHidden: boolean }) {
+	const { cx, row, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, isHidden, actions } = props;
 	const view = outlineRowView(row);
 
 	function rename(value: string | null): void {
@@ -324,6 +324,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 			isInSelection={isInSelection}
 			joinsTop={joinsTop}
 			joinsBottom={joinsBottom}
+			isDimmed={isHidden}
 			isOpen={view.isOpen}
 			onToggle={'groupKey' in row ? () => actions.onToggle(row.groupKey) : undefined}
 			icon={view.icon}
@@ -343,6 +344,13 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 						) : null}
 						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
 					</>
+				) : undefined
+			}
+			actions={
+				row.kind === 'marble' || row.kind === 'wall' || row.kind === 'light' || row.kind === 'title' ? (
+					<RowToggle label={isHidden ? 'Show' : 'Hide'} isOn={isHidden} onClick={() => cx.toggleHidden(row.id)}>
+						{isHidden ? <EyeOff size={12} strokeWidth={1.8} /> : <Eye size={12} strokeWidth={1.8} />}
+					</RowToggle>
 				) : undefined
 			}
 			onClick={(event) => actions.onClick(row, event)}
@@ -446,13 +454,6 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 	);
 });
 
-/** The context menu of the selected decorations */
-function decorLabelEntries(cx: StudioCx, ids: readonly string[]): TMenuEntry[] {
-	const project = cx.project;
-	const current = project == null ? undefined : project.design.decor.find((item) => ids.includes(item.id))?.labelColor;
-	return labelColorEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
-}
-
 /** What clicking a row's icon or dot opens: its Label Color, on the layers that have one */
 function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 	switch (row.kind) {
@@ -467,35 +468,6 @@ function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 		default:
 			return [];
 	}
-}
-
-function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
-	const ids = selectedDecorIds(cx.$selection.get());
-	const project = cx.project;
-	return [
-		...(overlaps && ids.length === 1 ? [{ label: 'Move Clear', onSelect: () => moveDecorClearAction(cx, ids[0] as string) }, 'separator' as const] : []),
-		commandItem(cx, 'edit.copy'),
-		{
-			label: 'Duplicate',
-			shortcut: '⌘D',
-			onSelect: () => {
-				if (project == null) return;
-				const { commands, decorIds } = duplicateDecorCommands(project, ids);
-				if (cx.execute(commands)) cx.$selection.set(decorIds.map(toDecorKey));
-			}
-		},
-		labelColorItem(decorLabelEntries(cx, ids)),
-		'separator',
-		commandItem(cx, 'decor.scatter'),
-		'separator',
-		{
-			label: 'Delete',
-			shortcut: '⌫',
-			onSelect: () => {
-				if (project != null && cx.execute(deleteDecorCommands(project, ids))) cx.$selection.set([]);
-			}
-		}
-	];
 }
 
 const PieceRow = React.memo(function PieceRow(

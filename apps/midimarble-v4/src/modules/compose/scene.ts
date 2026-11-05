@@ -17,6 +17,11 @@ import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, ty
 // Pure derivations from a project and its simulation result that the canvas draws and picks against
 
 /** Marble center at `time`, interpolated between samples. Before release it waits at its release point. */
+/** The lanes of the marbles the eye in Layers hides: their trajectories and dots go with them */
+export function hiddenMarbleLanes(project: TProject, hidden: readonly string[]): Set<string> {
+	return new Set(project.entities.flatMap((entity) => (entity.components.marble != null && hidden.includes(entity.id) ? [entity.components.marble.laneId] : [])));
+}
+
 export function marblePositionAt(track: TMarbleTrack | undefined, time: number, release: TVec2): TVec2 {
 	const samples = track?.samples ?? [];
 	const first = samples[0];

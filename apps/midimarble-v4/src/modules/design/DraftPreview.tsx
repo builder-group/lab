@@ -1,10 +1,12 @@
 import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
+import { openContextMenu } from '@/components';
 import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/compose/PieceLayer';
 import { pieceKind } from '@/modules/compose/scene';
 import type { TVec2 } from '@/modules/project';
 import type { TTouched } from '@/modules/mcp/AgentPresenceCx';
+import { filmObjectMenu } from '@/modules/studio/menus';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { placeDecor, startDecorDrag } from './decor-actions';
 import { DraftDecorShape } from './DraftDecorShape';
@@ -98,6 +100,14 @@ export const DraftPreview: React.FC<TDraftPreviewProps> = (props) => {
 					className="mm-preview absolute inset-0 overflow-hidden rounded-[6px]"
 					style={{ boxShadow: '0 0 0 0.5px rgb(0 0 0 / 0.15), 0 12px 40px rgb(0 0 0 / 0.18)' }}
 					onClick={onClick}
+					onContextMenu={(event) => {
+						// Over nothing the menu of Film's empty space opens, on the view around it
+						const id = draft.pick(pointOf(event).point, titleBoxes(draft.titles()));
+						if (id == null) return;
+						if (!studio.$selection.get().includes(id)) onPick(id, false);
+						const menu = filmObjectMenu(studio, id);
+						if (menu != null) openContextMenu(event, menu);
+					}}
 					onPointerDown={(event) => {
 						if (isPlacing || event.button !== 0 || !studio.$selection.get().some((key) => key.startsWith('decor:'))) return;
 						startDecorDrag(studio, event, (point) => draft.decorAt(point), (wasDragged) => {

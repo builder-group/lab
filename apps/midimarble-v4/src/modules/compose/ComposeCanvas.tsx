@@ -24,7 +24,7 @@ import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, projectedOutline, toPoints, usePannedProjection, type TScreenProjection } from './PieceLayer';
 import { placeBar, type TScreenRect } from './view';
-import { pathRun, pathToWorld, pieceKind } from './scene';
+import { hiddenMarbleLanes, pathRun, pathToWorld, pieceKind } from './scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
 import { findStepTarget, linkedPieces, nextOpenHitPerLane, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
@@ -249,7 +249,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 				<AgentTouched compose={compose} pieces={pieces} />
 				<g transform={transform}>
 					{drag == null ? <PieceBadges projection={projection} result={result} /> : null}
-					<HitDots compose={compose} projection={projection} scale={scale} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
+					<HitDots hidden={hidden} compose={compose} projection={projection} scale={scale} project={project} result={result} nextDots={nextDots} selection={selection} hoveredDot={hoveredDot} isDragging={drag != null} />
 				</g>
 				<HitFlashLayer compose={compose} />
 				{snap?.kind === 'link' ? <SnapRing position={compose.toScreen(snap.dot)} /> : null}
@@ -391,15 +391,16 @@ const HitDot = React.memo(function HitDot(props: { x: number; y: number; color: 
 const ON_TIME_DOT_MIN_SCALE = 180;
 
 /** Every hit's dot, redrawn when the run, the selection, the hovered dot or the zoom changes and not when the view pans */
-const HitDots = React.memo(function HitDots(props: { compose: ComposeCx; projection: TScreenProjection; scale: number; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
-	const { compose, projection, scale, project, result, nextDots, selection, hoveredDot, isDragging } = props;
+const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; compose: ComposeCx; projection: TScreenProjection; scale: number; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
+	const { hidden, compose, projection, scale, project, result, nextDots, selection, hoveredDot, isDragging } = props;
 	const band = frameBand(project);
 	const longGaps = compose.longGapKeys(project);
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
+	const hiddenLanes = hiddenMarbleLanes(project, hidden);
 	return (
 		<>
 			{result.hits.map((hit) => {
-				if (hit.dot == null) return null;
+				if (hit.dot == null || hiddenLanes.has(hit.laneId)) return null;
 				const { x, y } = projection.toScreen(hit.dot);
 				if (hit.status !== 'open') {
 					// Zoomed far out a dot is wider than its platform, so on-time ones step aside for the track

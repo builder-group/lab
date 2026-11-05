@@ -1,7 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle, Type } from 'lucide-react';
 import React from 'react';
+import { openContextMenu } from '@/components';
 import { isEditingTarget } from '@/lib';
+import { filmMenu, filmObjectMenu } from '@/modules/studio/menus';
 import { CAMERA_KEY } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { startCameraOrbit } from './camera-orbit';
@@ -64,8 +66,10 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	}, [studio]);
 
 	const canRunBlender = status !== 'unavailable' && status !== 'missing';
-	const isDraft = preview == null || !canRunBlender || status === 'error' || !isLiveEnabled || isLiveMode || orbit != null;
-	const canShowLive = isLiveEnabled && canRunBlender;
+	// Blender's frames hold every layer, so with a layer hidden the view is the Draft, which leaves it out
+	const hasHiddenLayer = useFeatureState(studio.$hidden).length > 0;
+	const isDraft = preview == null || !canRunBlender || status === 'error' || !isLiveEnabled || isLiveMode || orbit != null || hasHiddenLayer;
+	const canShowLive = isLiveEnabled && canRunBlender && !hasHiddenLayer;
 
 	function toImage(event: React.MouseEvent<HTMLElement>): { u: number; v: number } {
 		const rect = event.currentTarget.getBoundingClientRect();
@@ -119,6 +123,9 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 			onPointerDownCapture={(event) => {
 				if (canOrbit && event.button === 0 && event.target instanceof Element && event.target.closest('.mm-preview') != null) startCameraOrbit(studio, event);
 			}}
+			onContextMenu={(event) => {
+				if (!event.defaultPrevented) openContextMenu(event, filmMenu(studio));
+			}}
 			onClick={(event) => {
 				// The surroundings of the preview are empty space, like the wall around a piece
 				if (event.target === event.currentTarget && !event.shiftKey && placing == null) studio.$selection.set([]);
@@ -148,6 +155,15 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					data-drop-target={dropTarget}
 					className="mm-preview max-h-full max-w-full rounded-[6px] object-contain"
 					onClick={(event) => void onClick(event)}
+					onContextMenu={(event) => {
+						event.preventDefault();
+						const { clientX, clientY } = event;
+						const { u, v } = toImage(event);
+						void cx.pick(u, v).then((id) => {
+							if (id != null && !studio.$selection.get().includes(id)) onPick(id, false);
+							openContextMenu({ clientX, clientY, preventDefault: () => undefined }, (id != null ? filmObjectMenu(studio, id) : null) ?? filmMenu(studio));
+						});
+					}}
 					onPointerDown={(event) => {
 						const project = studio.project;
 						if (project == null || placing != null || event.button !== 0 || !studio.$selection.get().some((key) => key.startsWith('decor:'))) return;

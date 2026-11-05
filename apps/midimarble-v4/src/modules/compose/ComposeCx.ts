@@ -22,7 +22,7 @@ import {
 	type TSimulationResult
 } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
-import { CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey } from '@/modules/studio/selection';
+import { CAMERA_KEY, parseHitKey, SONG_KEY, toHitKey, WALL_KEY } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
 import { groupSelection, PatternsCx, withWholeGroups } from './PatternsCx';
@@ -69,7 +69,8 @@ import {
 	rotationGrip,
 	trackBuffers,
 	withPathBend,
-	withPathEnd
+	withPathEnd,
+	hiddenMarbleLanes
 } from './scene';
 import { lanesWithoutBowl, newlyBroken } from './bowl-assist';
 import { asLaneBowl, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
@@ -183,6 +184,7 @@ export class ComposeCx {
 
 		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
 		const applyTheme = (): void => {
+			renderer.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 			const style = getComputedStyle(container);
 			const canvasColor = style.getPropertyValue('--canvas').trim() || '#f2f1ee';
 			const guide = new THREE.Color(canvasColor).lerp(new THREE.Color(scheme.matches ? '#ffffff' : '#000000'), 0.13);
@@ -249,7 +251,12 @@ export class ComposeCx {
 			this.studio.$playing.listen(() => this.fitFirstHits()),
 			this.$override.listen(() => this.syncPieces()),
 			this.$placing.listen(() => this.syncPieces()),
-			this.studio.$hidden.listen(() => this.syncPieces()),
+			this.studio.$hidden.listen(() => {
+				this.syncTracks();
+				this.syncPieces();
+				this.syncMarbles();
+				this.renderer?.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
+			}),
 			this.studio.$playing.listen(() => this.wakeMotion()),
 			this.studio.$playhead.subscribe(({ value }) => {
 				renderer.setPlayhead(value);
@@ -470,8 +477,9 @@ export class ComposeCx {
 		}
 		// An armed tool or Play a Note… is after open dots; placed ones select their hit only with the Move tool
 		const pickPlaced = this.$tool.get() === 'select' && this.$playNoteFor.get() == null;
+		const hiddenLanes = hiddenMarbleLanes(project, hidden);
 		for (const hit of result.hits) {
-			if (hit.dot == null || (hit.status !== 'open' && !pickPlaced)) continue;
+			if (hit.dot == null || (hit.status !== 'open' && !pickPlaced) || hiddenLanes.has(hit.laneId)) continue;
 			scene.dots.push({ laneId: hit.laneId, hitId: hit.hitId, position: this.toScreen(hit.dot), radius: hit.status === 'open' ? undefined : PLACED_DOT_PICK_RADIUS });
 		}
 		for (const entity of project.entities) {
@@ -2308,7 +2316,8 @@ export class ComposeCx {
 		const result = this.result;
 		const project = this.project;
 		if (this.renderer == null) return;
-		const tracks = (result?.marbles ?? []).map((track) => {
+		const hidden = this.studio.$hidden.get();
+		const tracks = (result?.marbles ?? []).filter((track) => !hidden.includes(track.entityId)).map((track) => {
 			let buffers = this.trackCache.get(track);
 			if (buffers == null) {
 				buffers = trackBuffers(track);

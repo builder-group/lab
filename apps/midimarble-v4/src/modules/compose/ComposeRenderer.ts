@@ -193,6 +193,13 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
+	/** The Wall layer's eye: the views show the pieces on the bare canvas */
+	setWallHidden(isHidden: boolean): void {
+		if (this.wall.visible !== isHidden) return;
+		this.wall.visible = !isHidden;
+		this.invalidate();
+	}
+
 	/** Track's 3D view, like Blender's Solid mode: a stronger light from above, so a bar's top, front and sides read apart */
 	setSolidLight(): void {
 		this.ambient.intensity = 0.55 * Math.PI;

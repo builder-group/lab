@@ -5,7 +5,7 @@ import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/
 import { isPointInPolygon } from '@/modules/compose/picking';
 import { marblePositionAt, pieceAngleAt } from '@/modules/compose/scene';
 import { marbleFilmColor, type TVec2 } from '@/modules/project';
-import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
+import { toDecorKey, toMadeInBlenderKey, WALL_KEY } from '@/modules/studio/selection';
 import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
 import { decorExtent, decorItem, isFrameEffect, type TDecorItem } from './decor-catalog';
 import { snowfallOf, snowFlakes, type TFlake } from './decor-effects';
@@ -142,10 +142,11 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
+		const hidden = this.studio.$hidden.get();
 		return project.entities.flatMap((entity) => {
 			const text = entity.components.wallText;
 			const transform = entity.components.transform;
-			if (text == null) return [];
+			if (text == null || hidden.includes(entity.id)) return [];
 			const color = text.color ?? defaultTitleColor(project.design);
 			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
 				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame, plain unless they ask for a plate
@@ -383,6 +384,7 @@ export class DraftPreviewCx {
 		const playhead = this.studio.$playhead.get();
 		const track = this.filmCamera()?.track ?? null;
 		this.pose = track != null ? sampleCameraTrack(track, playhead, this.scratchPose) : null;
+		renderer.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 		renderer.setFilm(this.pose != null ? { pose: this.pose, aspect: this.aspect(), frame: { x: 0, y: 0, ...this.size } } : null);
 
 		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece), pathZ: this.pathZ() }));

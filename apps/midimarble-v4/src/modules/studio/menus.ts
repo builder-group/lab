@@ -2,9 +2,11 @@ import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern } from '@/modules/compose/group-commands';
 import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
 import { createId, laneColors, type TEntity, type TLane, type TProjectCommand } from '@/modules/project';
-import { commandItem, getCommand, runInWorkspace } from './commands';
+import { selectedDecorIds, updateDecorCommands } from '@/modules/design/decor';
+import { moveDecorClearAction } from '@/modules/design/decor-actions';
+import { commandItem, getCommand, isCommandEnabled, runInWorkspace, type TCommandId } from './commands';
 import { formatTime } from './format';
-import { toHitKey } from './selection';
+import { parseDecorKey, toHitKey } from './selection';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
 import { deleteHits, playedByMenu } from './timeline/hand-notes';
@@ -89,6 +91,47 @@ function pieceLinkItems(cx: StudioCx): TMenuEntry[] {
 		{ label: 'Follow a Marble…', disabled: !canFollow(cx), submenu: follow, onSelect: () => undefined },
 		{ label: 'Detach', disabled: !hasTiedSelection(cx), onSelect: () => detachSelection(cx) }
 	];
+}
+
+/** Right-click on a title, in Layers or Film's preview */
+export function titleMenu(cx: StudioCx, title: TEntity): TMenuEntry[] {
+	return [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, title)), 'separator', commandItem(cx, 'edit.delete')];
+}
+
+/** The Label Color of the selected decorations */
+export function decorLabelEntries(cx: StudioCx, ids: readonly string[]): TMenuEntry[] {
+	const project = cx.project;
+	const current = project == null ? undefined : project.design.decor.find((item) => ids.includes(item.id))?.labelColor;
+	return labelColorEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
+}
+
+/** Right-click on the selected decorations, in Layers or Film's preview */
+export function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
+	const ids = selectedDecorIds(cx.$selection.get());
+	return [
+		...(overlaps && ids.length === 1 ? [{ label: 'Move Clear', onSelect: () => moveDecorClearAction(cx, ids[0] as string) }, 'separator' as const] : []),
+		commandItem(cx, 'edit.copy'),
+		commandItem(cx, 'edit.duplicate'),
+		labelColorItem(decorLabelEntries(cx, ids)),
+		'separator',
+		commandItem(cx, 'decor.scatter'),
+		'separator',
+		commandItem(cx, 'edit.delete')
+	];
+}
+
+/** The menu of what a right-click found in Film's preview, which it has selected; null for empty space */
+export function filmObjectMenu(cx: StudioCx, id: string): TMenuEntry[] | null {
+	if (parseDecorKey(id) != null) return decorMenu(cx, false);
+	const entity = cx.project?.entities.find((item) => item.id === id);
+	if (entity?.components.wallText != null) return titleMenu(cx, entity);
+	return entity?.components.piece != null ? pieceMenu(cx) : null;
+}
+
+/** Right-click on empty space in Film's preview: what works here, as Track's canvas lists its assists */
+export function filmMenu(cx: StudioCx): TMenuEntry[] {
+	const working = (id: TCommandId): TMenuEntry | null => (isCommandEnabled(cx, getCommand(id)) ? commandItem(cx, id) : null);
+	return tidyMenu([working('edit.paste'), 'separator', working('decor.add'), working('design.addText'), working('light.add'), working('camera.addShot'), 'separator', working('decor.scatter'), working('design.editInBlender'), 'separator', working('file.export')]);
 }
 
 /** Right-click on a hit in the timeline */

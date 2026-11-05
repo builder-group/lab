@@ -9,6 +9,7 @@ import { createCameraPose, sampleCameraTrack } from '@/modules/camera';
 import { FilmCameraCache } from '@/modules/design/film-camera';
 import type { ComposeCx } from './ComposeCx';
 import { ComposeRenderer, MARBLE_Z } from './ComposeRenderer';
+import { WALL_KEY } from '@/modules/studio/selection';
 import { marblePositionAt, pieceAngleAt } from './scene';
 
 /** The field of view of the free look, wide enough for depth to read */
@@ -180,6 +181,7 @@ export class Track3DCx {
 			}))
 		);
 		const hidden = studio.$hidden.get();
+		renderer.setWallHidden(hidden.includes(WALL_KEY));
 		renderer.setMarbles(
 			project.entities.flatMap((entity) => {
 				const { marble, release } = entity.components;

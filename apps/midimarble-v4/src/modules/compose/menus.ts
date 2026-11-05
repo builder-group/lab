@@ -34,7 +34,7 @@ export function dotMenu(compose: ComposeCx, laneId: string, hitId: string): TMen
 	]);
 }
 
-/** Right-click on the empty wall: the assists and view commands */
+/** Right-click on the empty wall, in 2D, 3D and Camera: the assists and view commands */
 export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 	const cx = compose.studio;
 	return tidyMenu([
@@ -48,6 +48,7 @@ export function canvasMenu(compose: ComposeCx): TMenuEntry[] {
 		'separator',
 		cx.$clipboard.get()?.pieces.length ? commandItem(cx, 'edit.paste') : null,
 		commandItem(cx, 'edit.selectAll'),
-		commandItem(cx, 'marble.add')
+		// Releasing a new marble takes a click on the flat wall
+		cx.$trackView.get() === '2d' ? commandItem(cx, 'marble.add') : null
 	]);
 }
