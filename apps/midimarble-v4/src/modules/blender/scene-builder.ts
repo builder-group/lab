@@ -3,7 +3,7 @@ import { baseThemeOf, defaultTitleColor, sceneThemeOverrides, sceneThemeParts } 
 import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
 import { shotLength } from '@/modules/camera/shots';
-import { getPieceDefinition } from '@/modules/simulation/pieces';
+import { getPieceDefinition, pathDepth } from '@/modules/simulation/pieces';
 import { bowlCatch, BOWL_TYPE } from '@/modules/simulation/bowl';
 import { lastPlayingLanes } from '@/modules/music/lane-commands';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
@@ -72,6 +72,7 @@ export function buildSceneDescription(
 			id,
 			name: entity?.name ?? track.entityId,
 			radius: track.radius,
+			pathDepth: pathDepth(result.pieces, track.radius),
 			color: entity?.components.marble?.color ?? DEFAULT_MARBLE_COLOR,
 			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),

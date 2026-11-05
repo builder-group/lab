@@ -15,7 +15,7 @@ const COLUMN_CLOSE = 0.003;
 /** Further off a column than this reads on the wall, so it is a problem */
 export const COLUMN_PROBLEM = 0.01;
 
-export const BAR_LENGTH = 0.09;
+export const BAR_LENGTH = 0.03;
 export const MAX_TILT = 40;
 
 export interface TBarShape {

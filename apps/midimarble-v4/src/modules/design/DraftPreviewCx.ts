@@ -70,8 +70,13 @@ export class DraftPreviewCx {
 		};
 	}
 
+	/** How far out from the wall the film runs the marble's path */
+	private pathZ(): number {
+		return this.camera?.value.build.description.marbles[0]?.pathDepth ?? MARBLE_Z;
+	}
+
 	/** CSS pixel position in the frame of a wall point at depth `z`, through the film camera */
-	toScreen(point: TVec2, z = MARBLE_Z): TVec2 {
+	toScreen(point: TVec2, z = this.pathZ()): TVec2 {
 		return this.renderer?.project(point, z) ?? { x: Number.NaN, y: Number.NaN };
 	}
 
@@ -322,7 +327,7 @@ export class DraftPreviewCx {
 	selectionOutline(piece: TResolvedPiece): TVec2[] {
 		const kind = pieceKind(piece);
 		const wall = pieceOutline(piece);
-		if (kind === 'path' || kind === 'tube') return wall.map((corner) => this.toScreen(corner, MARBLE_Z));
+		if (kind === 'path' || kind === 'tube') return wall.map((corner) => this.toScreen(corner, this.pathZ()));
 		const depth = shownDepth(piece);
 		return selectionHull([...wall.map((corner) => this.toScreen(corner, 0)), ...wall.map((corner) => this.toScreen(corner, depth))], 3);
 	}
@@ -330,7 +335,7 @@ export class DraftPreviewCx {
 	/** A piece's hitbox in CSS pixels at the playhead: its colliders' outlines in the plane the marble moves in */
 	hitboxOutline(piece: TResolvedPiece): TVec2[][] {
 		const time = this.studio.$playhead.get();
-		return hitboxOutlines(piece, time).map((outline) => outline.map((corner) => this.toScreen(corner, MARBLE_Z)));
+		return hitboxOutlines(piece, time).map((outline) => outline.map((corner) => this.toScreen(corner, this.pathZ())));
 	}
 
 	/** Title or piece under a CSS pixel point of the frame, titles first like the Blender ID pass shows them on top */
@@ -344,7 +349,7 @@ export class DraftPreviewCx {
 			const kind = pieceKind(piece);
 			const wall = pieceOutline(piece);
 			if (kind === 'path' || kind === 'tube') {
-				const outline = wall.map((corner) => this.toScreen(corner, MARBLE_Z));
+				const outline = wall.map((corner) => this.toScreen(corner, this.pathZ()));
 				if (isPointInPolygon(point, outline)) return piece.entityId;
 				// Thin rails stay pickable within a few pixels of their outline
 				const distance = distanceToOutline(point, outline);
@@ -404,10 +409,10 @@ export class DraftPreviewCx {
 		this.pose = track != null ? sampleCameraTrack(track, playhead, this.scratchPose) : null;
 		renderer.setFilm(this.pose != null ? { pose: this.pose, aspect: this.aspect(), frame: { x: 0, y: 0, ...this.size } } : null);
 
-		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece) }));
+		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece), pathZ: this.pathZ() }));
 		renderer.setPieces(items);
 		renderer.setMarbles(
-			this.marbles().map(({ entityId, body, radius, position }) => ({ entityId, color: body, radius, position }))
+			this.marbles().map(({ entityId, body, radius, position }) => ({ entityId, color: body, radius, position, z: this.pathZ() }))
 		);
 		renderer.render();
 		this.$frame.set((value) => value + 1);

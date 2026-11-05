@@ -14,6 +14,7 @@ import {
 	createLinkedPiece,
 	frameBand,
 	isMusicalPiece,
+	PLACEMENT_LENGTH,
 	resolvePieceParams,
 	startRailId,
 	touchingPairs,
@@ -35,7 +36,7 @@ import { hitReach } from './reachability';
 // Build Track: the app's own way of building a whole track from a song, one implementation for the command, Next's
 // fallback and the fixture script. Marbles are built together in time order, so each keeps clear of what the others
 // have built so far. Each step takes the first of these that keeps every placed hit on time, every marble on its own
-// pieces and striking each platform once, every piece clear of the others as the film shows them, the next dot in
+// pieces and striking each platform once, every piece clear of the others on the wall, the next dot in
 // frame and near the shared pace: a rail across a long gap, or its Switchback layout where a straight one won't do, Continue and Mirror when the rhythm repeats and
 // the next dot stays on its column, Auto place (which launches into a coming gap and ranks its angles by how regular the
 // track looks), a wider Auto place. When none does,
@@ -411,7 +412,7 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	// And bounces off it, a platform not being for rolling
 	const rolling = rollingHits(applied, result).filter((roll) => !tolerated.rolls.has(roll.entityId) && roll.time < (frontier.get(marbleOfLane(applied, roll.laneId)) ?? Infinity));
 	if (rolling.length > 0) return reject(state, `rolls ${rolling.map((roll) => roll.hitId).join(' ')}`);
-	// No two pieces touch as the film shows them
+	// No two pieces touch on the wall
 	const touching = touchingPairs(applied, result).filter((pair) => !tolerated.touching.has(pairKey(pair.a, pair.b)));
 	if (touching.length > 0) return reject(state, `touching ${touching.map((pair) => `${pair.a}/${pair.b}`).join(' ')}`);
 	if (!checkFrame) return applied;
@@ -449,7 +450,7 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 	const from = result.hits.find((hit) => hit.laneId === laneId && hit.hitId === previous?.id)?.dot;
 	if (from == null) return true;
 	const band = frameBand(project, laneId);
-	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+	const length = PLACEMENT_LENGTH;
 	const column = band.centerX - Math.sign(from.x - band.centerX) * columnOffset(length);
 	return Math.abs(next.dot.x - column) <= COLUMN_TOLERANCE * length;
 }
@@ -460,7 +461,7 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
  */
 function lookCost(project: TProject, result: TSimulationResult, laneId: string): number {
 	const band = frameBand(project, laneId);
-	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
+	const length = PLACEMENT_LENGTH;
 	const played = result.hits.filter((hit) => hit.laneId === laneId && hit.pieceEntityId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
 	let cost = 0;
 	played.forEach((hit, index) => {

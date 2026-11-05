@@ -16,7 +16,6 @@ from .util import (
     DEFAULT_MARBLE_RADIUS,
     DEFAULT_PIECE_DEPTH,
     DETACHED_COLLECTION,
-    MARBLE_WALL_GAP,
     MANAGED_COLLECTION,
     OWNER,
     WorkerError,
@@ -25,6 +24,7 @@ from .util import (
     ensure_detached_collection,
     finite,
     link_only_to,
+    path_depth,
     resolve_package_path,
     tag,
 )
@@ -73,6 +73,8 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     themes.set_scene_look(description.get('wallKind'), description.get('keyLight'))
     marble_radius = max([float(marble['radius']) for marble in marbles] or [DEFAULT_MARBLE_RADIUS])
     context = skins.skin_context(theme, marble_radius, description.get('reactions'), description.get('themeParts'))
+    if marbles:
+        context['pathDepth'] = max(path_depth(marble) for marble in marbles)
     context['projectDir'] = project_dir
     context['assets'] = {}
     managed = ensure_collection(MANAGED_COLLECTION)
@@ -325,7 +327,7 @@ def write_marble(holder, marble, motion, fps, pieces=()):
     radius = finite(marble['radius'], 'radius')
     channelbag = anim.ensure_channelbag(holder)
     anim.clear_channels(holder, KEYED_PATHS)
-    holder.location = (0.0, -(radius + MARBLE_WALL_GAP), 0.0)
+    holder.location = (0.0, -path_depth(marble), 0.0)
     holder.rotation_euler = (0.0, 0.0, 0.0)
     holder.scale = (1.0, 1.0, 1.0)
     holder.empty_display_size = radius

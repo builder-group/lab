@@ -245,7 +245,7 @@ function problemsOf(fit: TScoredFit, hits: readonly { id: string; time: number }
 	}
 	for (const hitId of fit.strikes) add(hitId, `The marble strikes a bar twice at ${when(hitId)}.`);
 	for (const hitId of fit.rolls) add(hitId, `The marble rolls along a bar at ${when(hitId)} instead of bouncing. Try a higher Bounce.`);
-	for (const hitId of fit.touching) add(hitId, `Two pieces touch at ${when(hitId)}. Try a wider Width.`);
+	for (const hitId of fit.touching) add(hitId, `Two pieces touch on the wall at ${when(hitId)}. Try another Width or Bounce.`);
 	return problems;
 }
 

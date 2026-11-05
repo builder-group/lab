@@ -2,6 +2,19 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## Chosen look: 3×9 bars, marble at mid depth
+
+New platforms are 3 cm long and 9 cm deep on the current camera (85 mm, pitch 1.15, 1.36 m); a 145° side turn stays a test setting: as `SIDE_ANGLE` it turns only 3° against 150, and the grid's option C looked closer to 120.
+
+- **Marble depth.** `pathDepth` (`pieces.ts`): half the median platform Depth, 4.5 cm by default, sent as `pathDepth` on scene marbles. A look only; physics stays in one plane. `camera.py` and `follow-camera.ts` aim at it, the Draft Preview draws at it.
+- **Path pieces.** Rails, the Bowl and Windmills run at that depth, existing posts reach the wall. Tunnels gain posts with balls. Asset rails, tunnels and windmills follow; asset bars already sit about mid depth.
+- **Spacing.** `PLACEMENT_LENGTH` (9 cm) keeps hops, columns and the canvas's fit as tuned: spaced by the 3 cm length, repeated Next stopped at 4 of 16 hits on a 0.25 s run.
+- **Touching.** Owner's decision: only the wall plane counts. `filmView`, `filmGap` and `filmPitch` are gone; `touchingPairs`, `nearestPieceGap` and Auto place use `visualShapes` directly.
+- **Not fixed.** A Group's re-run drops its bars' skins: `barEntity` keeps size only. The chosen stills restored them by hit.
+- **Words.** "Try a wider Width" was wrong for a stacked column: "Try another Width or Bounce."
+
+Checks: typecheck, lint on touched files, unit tests, `camera:check`, `blender:check`, `blender:design`. Skipped on purpose: `test:e2e`, Balanced film. Fixtures keep their 9 cm bars.
+
 ## Tuned film view
 
 Lens 85 mm, rig distance 1.36 m, pitch 1.15 and platform depth 9 cm are the defaults of new projects. Numbers and reasons in `references.md`, Tuned film view.

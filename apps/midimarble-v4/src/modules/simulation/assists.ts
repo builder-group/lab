@@ -11,11 +11,11 @@ import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
 import { GRAVITY_Y, gravityOf, surfaceNormal } from './geometry';
 import { descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
 import { layoutOf } from './piece-layout';
-import { getPieceDefinition, isMusicalPiece, resolvePieceParams, soundsHit } from './pieces';
+import { getPieceDefinition, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
 import { BOWL_TYPE } from './bowl';
-import { bounceTakeoff, columnOffset, extraStrikes, filmGap, filmPitch, filmView, MIN_PIECE_GAP, riseAfterHit, rollingHits, touchingPairs } from './track-look';
+import { bounceTakeoff, columnOffset, extraStrikes, MIN_PIECE_GAP, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-look';
 import {
 	HIT_TOLERANCE,
 	IMPACT_SPEED,
@@ -202,7 +202,7 @@ const DEGREE = Math.PI / 180;
  *   marble never bounces in place. `minTravel` is the piece length plus `CLEARANCE` at each end, which
  *   also keeps the next piece clear of this one.
  * - restrike, roll and touching: a marble that strikes the piece again before the next hit or doesn't leave its surface
- *   (`riseAfterHit`), or a piece closer than `MIN_PIECE_GAP` to another as the film shows them (`filmView`), is a
+ *   (`riseAfterHit`), or a piece closer than `MIN_PIECE_GAP` to another in the wall plane (`visualShapes`), is a
  *   hard rejection like the checks above.
  *   Only when no angle at all passes does a last round allow them, at `RESTRIKE_WEIGHT` per strike and
  *   `CLEARANCE_WEIGHT` per share of the gap missing, so a person pressing N still gets a platform that plays on time
@@ -581,7 +581,7 @@ function placementContext(
 	);
 	const until = trialEnd(project, lane.hits, index);
 	const pieceLength = resolvePieceParams(baseType, base.components.piece?.params ?? {})['length'];
-	const length = pieceLength ?? resolvePieceParams('platform', {})['length'] ?? 0.09;
+	const length = Math.max(pieceLength ?? PLACEMENT_LENGTH, PLACEMENT_LENGTH);
 	// Placed in the middle of a run a person or Fix Hits is mending, the pieces after it follow the marble wherever the
 	// new tilt sends it, so the tilt that keeps closest to the old run wins and only what came before it is judged
 	const isMending = lane.hits.slice(index + 1).some((later) => owners.has(later.id));
@@ -760,7 +760,7 @@ function evaluatePlacement(
 	const own = placed.find((piece) => piece.entityId === entity.id);
 	const nextId = probe?.id ?? (nextHit != null ? owners.get(nextHit.id)?.id : undefined);
 	const next = placed.find((piece) => piece.entityId === nextId);
-	const { ownTouching, visualShortfall, shorter } = filmGaps(context, own, next, placed);
+	const { ownTouching, visualShortfall, shorter } = pieceGaps(context, own, next, placed);
 	// A platform is for bouncing: the marble must leave its surface, unless this is its last note and it may rest
 	const ownTrack = trial.marbles.find((marble) => marble.laneId === laneId);
 	const risen = isBox && own != null && ownTrack != null && followingHit != null && trialHit?.actualTime != null ? riseAfterHit(own, ownTrack, trialHit.actualTime, followingHit.time) : null;
@@ -820,22 +820,23 @@ function evaluatePlacement(
 }
 
 /**
- * How far the piece and the next one fall short of the least gap as the film shows them, and the shorter length that
+ * How far the piece and the next one fall short of the least gap in the wall plane, and the shorter length that
  * clears the piece's own gap. Only the piece's own gap rejects: the next piece gets its tilt when it is placed.
  */
-function filmGaps(context: TPlacementContext, own: TResolvedPiece | undefined, next: TResolvedPiece | undefined, placed: TResolvedPiece[]): { ownTouching: number; visualShortfall: number; shorter: number | undefined } {
-	const { project, later, marbleRadius, isMending, isBox } = context;
+function pieceGaps(context: TPlacementContext, own: TResolvedPiece | undefined, next: TResolvedPiece | undefined, placed: TResolvedPiece[]): { ownTouching: number; visualShortfall: number; shorter: number | undefined } {
+	const { later, marbleRadius, isMending, isBox } = context;
 	let visualShortfall = 0;
 	const nearby = placed.filter((other) => other !== own && other.type !== BOWL_TYPE && other.status !== 'free' && !later.has(other.entityId));
-	const pitch = filmPitch(project);
-	const nearbyViews = nearby.map((other) => ({ other, view: filmView(other, marbleRadius, pitch) }));
-	const touchingBy = (length: number | null): number => {
+	const nearbyShapes = nearby.map((other) => ({ other, shapes: visualShapes(other, marbleRadius) }));
+	const ownAt = (piece: TResolvedPiece, length: number | undefined): TPieceShape[] => visualShapes(length != null ? { ...piece, params: { ...piece.params, length } } : piece, marbleRadius);
+	const missing = (a: TPieceShape[], b: TPieceShape[]): number => Math.max(0, MIN_PIECE_GAP - shapesGap(a, b, MIN_PIECE_GAP));
+	const touchingBy = (length: number | undefined): number => {
 		if (own == null) return 0;
-		const view = filmView(length != null ? { ...own, params: { ...own.params, length } } : own, marbleRadius, pitch);
-		return Math.max(0, ...nearbyViews.map((item) => MIN_PIECE_GAP - filmGap(view, item.view, MIN_PIECE_GAP)));
+		const shapes = ownAt(own, length);
+		return Math.max(0, ...nearbyShapes.map((item) => missing(shapes, item.shapes)));
 	};
 	let shorter: number | undefined;
-	let ownTouching = touchingBy(null);
+	let ownTouching = touchingBy(undefined);
 	if (ownTouching > 0 && !isMending && isBox && own?.params['length'] != null) {
 		const lengths = SHORTER_LENGTHS.map((share) => Math.round((own.params['length'] ?? 0) * share * 1e4) / 1e4);
 		const fits = lengths.find((item) => touchingBy(item) <= 0);
@@ -845,11 +846,11 @@ function filmGaps(context: TPlacementContext, own: TResolvedPiece | undefined, n
 		}
 	}
 	if (next != null) {
-		const nextView = filmView(next, marbleRadius, pitch);
-		for (const { other, view } of nearbyViews) {
-			if (other !== next) visualShortfall += Math.max(0, MIN_PIECE_GAP - filmGap(nextView, view, MIN_PIECE_GAP));
+		const nextShapes = visualShapes(next, marbleRadius);
+		for (const { other, shapes } of nearbyShapes) {
+			if (other !== next) visualShortfall += missing(nextShapes, shapes);
 		}
-		if (own != null) visualShortfall += Math.max(0, MIN_PIECE_GAP - filmGap(nextView, filmView(shorter != null ? { ...own, params: { ...own.params, length: shorter } } : own, marbleRadius, pitch), MIN_PIECE_GAP));
+		if (own != null) visualShortfall += missing(nextShapes, ownAt(own, shorter));
 	}
 	return { ownTouching, visualShortfall, shorter };
 }

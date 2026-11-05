@@ -266,6 +266,7 @@ export function followCameraInput(
 		marbles: description.marbles.map((marble) => ({
 			id: marble.id,
 			radius: marble.radius,
+			...(marble.pathDepth != null ? { pathDepth: marble.pathDepth } : {}),
 			activeUntil: marble.activeUntil,
 			hitTimes: marble.hitTimes,
 			motion: decodeMotion(files.get(marble.motionPath))
@@ -296,6 +297,8 @@ export interface TOpeningPiece {
 export interface TFollowMarble {
 	id: string;
 	radius: number;
+	/** How far out from the wall its path runs; absent: right at the wall */
+	pathDepth?: number;
 	/** `activeUntil` of the scene marble: the camera stops framing it then */
 	activeUntil?: number;
 	/** Times of the marble's notes, sorted; the marble with more notes ahead leads the frame */
@@ -514,7 +517,7 @@ function followPoints(
 			totalY[index] = (totalY[index] ?? 0) + (y[index] ?? 0) * weight;
 			weights[index] = (weights[index] ?? 0) + weight;
 		}
-		depth = Math.max(depth, marble.radius + MARBLE_WALL_GAP);
+		depth = Math.max(depth, marble.pathDepth ?? marble.radius + MARBLE_WALL_GAP);
 	}
 	if (!weights.some((weight) => weight !== 0)) return { point: null, depth };
 	for (let index = 0; index < times.length; index++) {

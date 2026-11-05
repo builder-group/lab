@@ -12,6 +12,11 @@ STUDIO_COLLECTION = 'MidiMarble · studio'
 OWNER = 'midimarble'
 # Space between a marble and the wall so its skin never intersects the wall plane
 MARBLE_WALL_GAP = 0.0005
+
+
+def path_depth(marble):
+    """How far out from the wall a marble's path runs, a look only: `pathDepth` in pieces.ts, right at the wall when absent"""
+    return float(marble.get('pathDepth', float(marble['radius']) + MARBLE_WALL_GAP))
 DEFAULT_PIECE_DEPTH = 0.02
 DEFAULT_MARBLE_RADIUS = 0.008
 

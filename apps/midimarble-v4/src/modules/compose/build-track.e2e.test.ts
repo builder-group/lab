@@ -73,7 +73,7 @@ describe('buildTrack function', () => {
 		for (const lane of outcome.project.music.lanes) expect(bowlOfLane(outcome.project, lane.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
 		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision })).label).toBe('115 of 115 hits on time');
-		// How it looks: nothing touches as the film shows it, each platform is struck once
+		// How it looks: nothing touches on the wall, each platform is struck once
 		expect(touchingPairs(outcome.project, outcome.result)).toEqual([]);
 		expect(extraStrikes(outcome.project, outcome.result)).toEqual([]);
 	}, 10 * MINUTES);

@@ -150,7 +150,7 @@ What depended on the old lens, and why:
 - `frameBand` (`placement.ts`) scaled with distance as metres at 50 mm. It now reads 0.45 m at 1.263 m, so the 1.36 m default keeps the 0.485 m band Build Track was tuned on. Scaling it 1:1 with the frame (0.55 m) left a hit open on Zigzag and 114 of 115 on Jingle Bells, so this is a builder's preference rather than the frame. The small-kit fixtures moved to 1.166 m times their kit for the same reason, framing about 14 % wider than their old 0.6 m at 50 mm.
 
 - **Depth was not free of physics.** At 9 cm colliders Jingle Bells missed 53 of 115 hits and the marble ended up 5 m away; 6 cm missed 6, 12 cm 26. Zigzag and Reference 20 were bit-identical. Normals stay in the wall plane, but Rapier's rounding differs with a box's size and a long run amplifies it. Colliders now keep a fixed 4.5 cm (`COLLIDER_DEPTH`), so every depth plays bit-identically to the earlier default, and depth is truly visual.
-- **A skin follows Depth and Length, however large.** The app decides physics; a skin only has to match the Hitbox at its contact surface. Draft and Compose show the real Depth (`shownDepth`), and the folded clearance (`filmView`) measures it: a 9 cm plate covers 20 cm of wall above it at pitch 1.15.
+- **A skin follows Depth and Length, however large.** The app decides physics; a skin only has to match the Hitbox at its contact surface. Draft and Compose show the real Depth (`shownDepth`). Clearance is measured in the wall plane only: bars lying over each other in the film's view are fine, the reference does it too.
 - **Custom assets.** A manifest with `fittedParams.depth` scales across the depth about its middle: built for 4.5 cm it doubles on a 9 cm plate. Without one, the asset's measured depth stands for it (`check_design.py`). No scale limit.
 - **Wall edge.** At pitch 1.15 and 85 mm a frame corner's ray stays at most 79.5° from the wall normal and meets the wall within 5.5 camera heights; the wall is fitted to 60 (`.local/tuned/wedge.py` over the dumps of `camera:check`). So the wall needed no change. The black wedge seen at pitch 1.25 didn't return in stills of Reference 20 at 1.25 and its cause wasn't found; the film at 1.15 is checked frame by frame for it.
 - **Titles.** The encoder drew Captions, Song Names and End Cards with a soft dark box and shadow, while the Blender preview draws only the text; the grey box was that plate. Plain text is now the default in the film and Draft, and the title's Plate field asks for it.
@@ -219,7 +219,7 @@ Measured on 2026-11-04 on Jingle Bells through the import sheet's defaults. L is
 | Measure | Target (study) | V3 film | Before | New |
 | --- | --- | --- | --- | --- |
 | On time, preflight | | | 115/115, clean | 115/115, clean |
-| Least gap between pieces as the film shows them | clear | "touching" | -1.3 cm (hitbox -0.5) | 1.2 cm (hitbox 1.7) |
+| Least gap between pieces as the film showed them, before the check moved to the wall plane | clear | "touching" | -1.3 cm (hitbox -0.5) | 1.2 cm (hitbox 1.7) |
 | Median nearest gap | | | 9.3 cm | 9.7 cm |
 | Pairs under 1.2 cm | 0 | | 10 | 0 |
 | Platforms struck twice, extra strikes | 0 | not measurable | 21, 25 | 0, 0 |

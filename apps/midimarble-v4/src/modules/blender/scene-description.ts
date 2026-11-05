@@ -126,6 +126,8 @@ export interface TSceneMarble {
 	id: string;
 	name: string;
 	radius: number;
+	/** How far out from the wall the marble's path runs, a look only (`pathDepth`). Absent: right at the wall. Optional and additive. */
+	pathDepth?: number;
 	color: string;
 	/** Package-relative path of a little-endian Float32 file with records [time, x, y, angle] */
 	motionPath: string;

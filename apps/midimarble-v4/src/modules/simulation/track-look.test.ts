@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
+import { pathDepth } from './pieces';
 import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-look';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
@@ -48,24 +49,9 @@ describe('touchingPairs function', () => {
 		expect(pairs[0]?.gap).toBeLessThan(MIN_PIECE_GAP);
 	});
 
-	it('should name two bars the film shows on top of each other, well apart on the wall', () => {
-		// 8 cm apart on the wall; a 3 cm Depth stands for 6.7 cm of wall, and the bars' bodies close the rest, at a pitch of 1.15 rad
-		const pieces = [platform('piece-a', 0, 0.08, 1), platform('piece-b', 0, 0, 2)];
-		const pairs = touchingPairs(project(['a', 'b']), run(pieces));
-		expect(pairs.map((pair) => [pair.a, pair.b])).toEqual([['piece-a', 'piece-b']]);
-	});
-
-	it('should measure the film overlap with the piece\'s real Depth', () => {
-		// 25 cm apart on the wall: clear at 9 cm Depth, which stands for 20 cm of wall, not at 12 cm, which stands for 27 cm
-		const at = (depth: number) => [platform('piece-a', 0, 0.25, 1, 0, depth), platform('piece-b', 0, 0, 2, 0, depth)];
-		expect(touchingPairs(project(['a', 'b']), run(at(0.09)))).toEqual([]);
-		expect(touchingPairs(project(['a', 'b']), run(at(0.12))).map((pair) => pair.a)).toEqual(['piece-a']);
-	});
-
-	it('should leave bars seen straight on alone at the same distance', () => {
-		const flat = project(['a', 'b']);
-		flat.design.camera.pitch = 0;
-		expect(touchingPairs(flat, run([platform('piece-a', 0, 0.08, 1), platform('piece-b', 0, 0, 2)]))).toEqual([]);
+	it('should leave bars alone that only lie over each other in the film, however deep', () => {
+		const pieces = [platform('piece-a', 0, 0.08, 1, 0, 0.12), platform('piece-b', 0, 0, 2, 0, 0.12)];
+		expect(touchingPairs(project(['a', 'b']), run(pieces))).toEqual([]);
 	});
 
 	it('should leave pieces apart by the least gap alone', () => {
@@ -126,5 +112,18 @@ describe('rollingHits function', () => {
 		const marble = result.marbles[0];
 		if (marble == null) throw new Error('No marble');
 		expect(rollingHits(cut, { ...result, marbles: [{ ...marble, samples: marble.samples.filter((sample) => sample.time < 1.05) }] })).toEqual([]);
+	});
+});
+
+describe('pathDepth function', () => {
+	const bar = (depth: number) => ({ type: 'platform', params: { depth } });
+
+	it('should run the marble through the middle of a typical bar', () => {
+		expect(pathDepth([bar(0.09), bar(0.09), bar(0.12)], 0.012)).toBeCloseTo(0.045);
+	});
+
+	it('should use the default Depth without bars, and stay clear of the wall', () => {
+		expect(pathDepth([{ type: 'rail', params: {} }], 0.012)).toBeCloseTo(0.045);
+		expect(pathDepth([bar(0.02)], 0.012)).toBeCloseTo(0.0125);
 	});
 });

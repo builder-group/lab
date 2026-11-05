@@ -28,6 +28,8 @@ export interface TRenderPiece {
 	angle: number;
 	/** Overrides the piece type's flat colours, for the Film Draft Preview's theme look */
 	colors?: { bar: string; nub: string };
+	/** The film's marble path depth, in the Draft Preview: a Windmill turns around it */
+	pathZ?: number;
 }
 
 /** Wall surface in the Camera view: its colour and the peg hole colour, or no holes for a plain wall */
@@ -43,6 +45,8 @@ export interface TRenderMarble {
 	color: string;
 	radius: number;
 	position: TVec2;
+	/** Depth from the wall; absent: the plane physics runs in */
+	z?: number;
 }
 
 export interface TRenderTrack {
@@ -189,7 +193,9 @@ export class ComposeRenderer {
 				object.geometryKey = geometryKey;
 			}
 			const definition = getPieceDefinition(piece.type);
-			object.group.position.set(piece.position.x, piece.position.y, definition?.wallOffset ?? 0);
+			// A Windmill turns around the marble's path
+			const rotorZ = kind === 'rotor' && item.pathZ != null ? item.pathZ - (piece.params['depth'] ?? 0.03) * 0.4 : 0;
+			object.group.position.set(piece.position.x, piece.position.y, (definition?.wallOffset ?? 0) + rotorZ);
 			object.group.rotation.z = item.angle;
 			for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.colors);
 			object.group.renderOrder = 1;
@@ -217,7 +223,7 @@ export class ComposeRenderer {
 			}
 			marble.radius = item.radius;
 			marble.mesh.material = this.marbleMaterial(item.color);
-			marble.mesh.position.set(item.position.x, item.position.y, MARBLE_Z);
+			marble.mesh.position.set(item.position.x, item.position.y, item.z ?? MARBLE_Z);
 			this.scaleMarble(marble);
 		}
 		for (const [id, marble] of this.marbles) {

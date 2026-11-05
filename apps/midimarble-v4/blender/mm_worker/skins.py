@@ -258,7 +258,7 @@ def skin_key(kind, entity, context):
         values = [
             'piece', context['theme'], entity.get('type', 'platform'), entity.get('color'),
             sorted((name, round(float(value), 6)) for name, value in (entity.get('params') or {}).items()),
-            round(frame.wall_offset, 6), round(context['marbleRadius'], 6),
+            round(frame.wall_offset, 6), round(context['marbleRadius'], 6), round(frame.wall_y - frame.marble_y, 6),
             [[round(value, 5) for value in point] for point in frame.local_path()],
             [[[round(value, 5) for value in point] for point in wire] for wire in frame.local_wires()],
             math.copysign(1.0, frame.angle), sorted(piece_reaction(entity, context).items()), frame.skin,
@@ -395,7 +395,7 @@ class PieceFrame:
         self.wall_y = self.wall_offset + self.depth / 2
         self.context = context
         self.marble_radius = context['marbleRadius']
-        self.marble_y = self.wall_y - (self.marble_radius + MARBLE_WALL_GAP)
+        self.marble_y = self.wall_y - context.get('pathDepth', self.marble_radius + MARBLE_WALL_GAP)
         self.angle = float(piece.get('angle', 0.0))
         position = piece.get('position') or {'x': 0.0, 'y': 0.0}
         self.origin = (float(position['x']), float(position['y']))
@@ -920,6 +920,11 @@ def tunnel_spec(frame, piece):
             start, toward = Vector(points[end]), Vector(points[inner])
             direction = (toward - start).normalized()
             builder.tube([start - direction * 0.001, start + direction * 0.006], radius * 1.12, material=1, sides=24, cap=False)
+        # The tube runs at the marble's depth, held by posts back to the wall
+        for index in post_indices(line):
+            x, z = line[index]
+            builder.tube([(x, frame.marble_y + radius, z), (x, frame.wall_y, z)], 0.0013 * frame.marble_radius / 0.008, material=1, sides=8)
+            wall_ball(builder, frame, x, z, 0.0016 * frame.marble_radius / 0.008)
     else:
         builder.cylinder(radius, 0.05, (0.0, frame.marble_y, 0.0), axis='X')
     return {'root': builder.to_mesh('MM tunnel', materials), 'parts': []}
@@ -941,7 +946,7 @@ def windmill_spec(frame, piece):
         materials = [frame.toy(0.42, 0.3), themes.wood_material()]
     builder = MeshBuilder()
     depth = frame.depth * 0.85
-    center_y = frame.wall_y - frame.depth + depth / 2
+    center_y = frame.marble_y
     builder.cylinder(hub, depth * 1.05, (0.0, center_y, 0.0), axis='Y', material=0, bevel=0.0012, segments=32)
     builder.cylinder(hub * 0.45, frame.depth * 0.3, (0.0, center_y - depth * 0.6, 0.0), axis='Y', material=1, bevel=0.0005)
     builder.cylinder(hub * 0.35, frame.wall_y - center_y, (0.0, (frame.wall_y + center_y) / 2, 0.0), axis='Y', material=1)

@@ -527,7 +527,7 @@ function rollIssues(project: TProject, result: TSimulationResult, names: TNames)
 	}));
 }
 
-/** Two pieces closer than the least gap as the film shows them, where skins hang below their hitboxes: a tip, since every hit still plays */
+/** Two pieces closer than the least gap in the wall plane, where skins hang below their hitboxes: a tip, since every hit still plays */
 function touchingIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return touchingPairs(project, result).map((pair) => ({
 		id: `touching:${pair.a}:${pair.b}`,
@@ -535,7 +535,7 @@ function touchingIssues(project: TProject, result: TSimulationResult, names: TNa
 		severity: 'info' as const,
 		title: `${names.entity(pair.a)} touches ${names.entity(pair.b)}`,
 		label: 'Touching',
-		detail: pair.gap <= 0 ? 'They overlap in the film.' : `${(pair.gap * 100).toFixed(1)} cm apart in the film, where skins reach below the hitbox.`,
+		detail: pair.gap <= 0 ? 'They overlap on the wall.' : `${(pair.gap * 100).toFixed(1)} cm apart on the wall, where skins reach below the hitbox.`,
 		time: pair.time,
 		target: { ids: [pair.b, pair.a], point: pair.point, time: pair.time }
 	}));

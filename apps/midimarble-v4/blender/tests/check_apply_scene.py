@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from mm_worker.bridge import Bridge  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
-from mm_worker.scene import MARBLE_WALL_GAP  # noqa: E402
+from mm_worker.util import MARBLE_WALL_GAP  # noqa: E402
 from mm_worker import scene as worker_scene  # noqa: E402
 from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION  # noqa: E402
 

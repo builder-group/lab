@@ -42,7 +42,7 @@ import numpy as np
 from mathutils import Euler, Matrix, Vector
 
 from . import anim
-from .util import MARBLE_WALL_GAP
+from .util import path_depth
 
 # Image roll per radian of run direction, its limit, and a slow drift that turns the columns between diagonal and
 # near vertical like the reference
@@ -296,7 +296,7 @@ def follow_points(marbles, motions, times):
         total[:, 0] += x * weight
         total[:, 1] += y * weight
         weights += weight
-        depth = max(depth, float(marble['radius']) + MARBLE_WALL_GAP)
+        depth = max(depth, path_depth(marble))
     if not weights.any():
         return None, depth
     return total / weights[:, None], depth

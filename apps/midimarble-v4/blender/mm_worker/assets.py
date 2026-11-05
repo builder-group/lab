@@ -174,7 +174,7 @@ def skin_key(piece, template, manifest, context):
         'asset', template.get('mm_asset_path'), stamp(template), piece.get('type', 'platform'),
         sorted((name, round(float(value), 6)) for name, value in (piece.get('params') or {}).items()),
         sorted((manifest.get('fittedParams') or {}).items()) if isinstance(manifest.get('fittedParams'), dict) else [],
-        round(float(piece.get('wallOffset', 0.0)), 6), round(context['marbleRadius'], 6),
+        round(float(piece.get('wallOffset', 0.0)), 6), round(context['marbleRadius'], 6), context.get('pathDepth'),
         [[round(float(point['x']), 5), round(float(point['y']), 5)] for point in (piece.get('path') or [])],
         [round(float(piece['position']['x']), 6), round(float(piece['position']['y']), 6), round(float(piece.get('angle', 0.0)), 6)]
         if layout(piece.get('type')) in ('path', 'tube') else None,
@@ -270,7 +270,7 @@ def contact_matrix(frame, kind, manifest, built_depth=None):
         return scale
     if kind == 'rotor':
         # Origin at the hub with +Z toward the camera; blade angle 0 along +x like the physics rotor
-        return Matrix.Rotation(math.pi / 2, 4, 'X') @ scale
+        return Matrix.Translation((0.0, frame.marble_y, 0.0)) @ Matrix.Rotation(math.pi / 2, 4, 'X') @ scale
     if kind in ('path', 'tube'):
         return scale
     thickness = frame.params.get('thickness', 0.008)

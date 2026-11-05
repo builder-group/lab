@@ -9,6 +9,7 @@ import {
 	gravityOf,
 	layoutOf,
 	linkPieceToHit,
+	PLACEMENT_LENGTH,
 	resolvePieceParams,
 	resolvePiecePath,
 	soundsHit,
@@ -553,7 +554,7 @@ export class ComposeCx {
 
 	/** Pixels per metre at which a default platform is still `MIN_FIT_PLATFORM_PX` long */
 	private minFitScale(): number {
-		return MIN_FIT_PLATFORM_PX / (resolvePieceParams('platform', {})['length'] ?? 0.09);
+		return MIN_FIT_PLATFORM_PX / PLACEMENT_LENGTH;
 	}
 
 	/** After tapping or importing, the next open dots come into view with their hint and build bar, once the run shows them */

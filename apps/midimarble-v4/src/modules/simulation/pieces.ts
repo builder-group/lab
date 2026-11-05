@@ -15,6 +15,26 @@ export function shownDepth(piece: { type: string; params: Record<string, number>
 	return piece.params['depth'] ?? 0.03;
 }
 
+/** Bar length that hops, columns and the canvas's fit are spaced by, whatever a bar's own length: a thin bar doesn't crowd the run */
+export const PLACEMENT_LENGTH = 0.09;
+
+/** Gap between a marble and the wall at its closest, `MARBLE_WALL_GAP` in `mm_worker/util.py` */
+const MARBLE_WALL_GAP = 0.0005;
+
+/**
+ * How far the marble's path runs out from the wall in the film and the Draft Preview: the middle of a typical platform's
+ * Depth, so the marble lands in the middle of its bars. Rails, Tunnels, Windmills and the Bowl run there too, on posts
+ * back to the wall. Only a look: physics stays in one plane and never reads it.
+ */
+export function pathDepth(pieces: readonly { type: string; params: Record<string, number> }[], marbleRadius: number): number {
+	const depths = pieces
+		.filter((piece) => piece.type === 'platform')
+		.map(shownDepth)
+		.sort((a, b) => a - b);
+	const depth = depths[Math.floor(depths.length / 2)] ?? platformDefinition.params['depth']?.default ?? 0.09;
+	return Math.max(depth / 2, marbleRadius + MARBLE_WALL_GAP);
+}
+
 function kit(value: number): number {
 	return Math.round(value * KIT_SCALE * 1e6) / 1e6;
 }
@@ -31,7 +51,8 @@ export const platformDefinition: TPieceDefinition = {
 	type: 'platform',
 	label: 'Platform',
 	params: {
-		length: { default: kit(0.06), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
+		// A thin plate seen end on, 3 cm along the wall: the collider's length too
+		length: { default: kit(0.02), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
 		// How far the plate stands out of the wall, 9 cm by default: visual only, as the marble moves in the wall plane
 		depth: { default: kit(0.06), min: 0.02, max: 0.12, label: 'Depth', unit: 'm' },
