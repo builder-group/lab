@@ -68,7 +68,7 @@ export class SourcesCx {
 		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
 		const replaced = project.songs.filter((item) => item.kind === 'midi');
 		const source: TSong = {
-			id: createId('source'),
+			id: createId('song'),
 			kind: 'midi',
 			path: relativePath,
 			name: pending.file.name,
@@ -115,7 +115,7 @@ export class SourcesCx {
 		}
 		const replaced = project.songs.filter((item) => item.kind === 'audio');
 		const source: TSong = {
-			id: createId('source'),
+			id: createId('song'),
 			kind: 'audio',
 			path: relativePath,
 			name: file.name,

@@ -19,6 +19,7 @@ export function suggestedHitsLabel(count: number): string {
 }
 
 export function addSuggestedHits(cx: StudioCx, marble: TMarble): void {
-	const hits = suggestedHits(cx, marble).map((time) => ({ id: createId('hit'), time }));
+	const audio = cx.project?.songs.find((song) => song.kind === 'audio' && song.path != null);
+	const hits = suggestedHits(cx, marble).map((time) => ({ id: createId('hit'), time, ...(audio != null ? { songId: audio.id } : {}) }));
 	if (hits.length > 0) cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits }]);
 }
