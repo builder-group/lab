@@ -88,6 +88,7 @@ import {
 	type TView,
 	type TViewport
 } from './view';
+import { trackPieceColors } from '@/modules/design/label-colors';
 import { createViewMotion, FOLLOW_RATE, followMarble, isSettled, keepInView, NAVIGATE_RATE, stepViewMotion, type TViewMotion } from './view-follow';
 
 export type { TComposeTool } from './keys';
@@ -2320,7 +2321,8 @@ export class ComposeCx {
 		this.renderer.setPieces(
 			this.displayPieces().map((piece) => ({
 				piece,
-				angle: pieceAngleAt(piece, playhead)
+				angle: pieceAngleAt(piece, playhead),
+				colors: trackPieceColors(this.project, piece.entityId, piece.type)
 			}))
 		);
 	}

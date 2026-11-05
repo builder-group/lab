@@ -193,7 +193,7 @@ export const SComponents = z.strictObject({
 export const SEntity = z.strictObject({
 	id: SId,
 	name: z.string().optional(),
-	// Organizes Layers, like Blender's collection color tags; the film never reads it. A marble's is its lane's `color`
+	// Organizes Layers and colors the piece in Track; in the film only the skin None wears it. A marble's is its lane's `color`
 	labelColor: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)

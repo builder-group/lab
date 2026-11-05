@@ -1,5 +1,8 @@
 import { marbleFilmColor, type TDesign, type TEntity, type TProject, type TThemeParts } from '@/modules/project';
-import { baseThemeOf, defaultTitleColor, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
+import { PLAIN_PIECE_COLOR } from '@/modules/design/draft-look';
+import { pieceLabelColor } from '@/modules/design/label-colors';
+import { baseThemeOf, defaultTitleColor, resolveElementLook, sceneThemeOverrides, sceneThemeParts } from '@/modules/design/project-themes';
+import { skinElement } from '@/modules/design/skin-catalog';
 import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
 import { shotLength } from '@/modules/camera/shots';
@@ -71,7 +74,8 @@ export function buildSceneDescription(
 			name: entity?.name ?? track.entityId,
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
-			color: marbleFilmColor(project, track.laneId),
+			// The skin None wears the label color, the only skin that does
+			color: resolveElementLook(project.design, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.lanes.find((lane) => lane.id === track.laneId)?.color ?? marbleFilmColor(project, track.laneId)) : marbleFilmColor(project, track.laneId),
 			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
@@ -112,7 +116,11 @@ export function buildSceneDescription(
 			sampleCount,
 			skin: entity?.components.skin != null ? entity.components.skin : null,
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
-			color: laneId != null && project.music.lanes.some((lane) => lane.id === laneId) ? marbleFilmColor(project, laneId) : DEFAULT_PIECE_COLOR,
+			// The skin None wears the label color, the only skin that does
+			color:
+				entity != null && resolveElementLook(project.design, skinElement(piece.type), entity.components.skin).skin.endsWith(':none') ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR)
+				: laneId != null && project.music.lanes.some((lane) => lane.id === laneId) ? marbleFilmColor(project, laneId)
+				: DEFAULT_PIECE_COLOR,
 			...notePitchOf(project, entity),
 			path: piece.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
 			paths: piece.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null

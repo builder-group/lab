@@ -53,6 +53,8 @@ export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallC
 
 /** Wood of pegs, hubs and rail posts in Pegboard */
 const WOOD = '#b98a5a';
+/** What the skin None shows on a piece with no label color and no marble */
+export const PLAIN_PIECE_COLOR = WOOD;
 /** Chrome brackets, rails and hubs in Brass */
 const CHROME = '#cfd2d8';
 /** Brass bar finishes, after `FINISHES` in themes.py */
@@ -91,6 +93,8 @@ export function draftPieceColors(
 	const look = resolveSkinLook(theme, withNote, skinElement(piece.type), piece.skin);
 	const style = look.skin.split(':')[1] ?? '';
 	const accent = accentOf(look, piece);
+	// None is a plain piece in its label color, whatever the theme
+	if (style === 'none') return { bar: accent ?? WOOD, nub: WOOD };
 	// Glowing skins: what reads is the glow, in their marble's or note's hue
 	if (style === 'neon' || style === 'glow') return neonColors(piece.type, accent ?? GLOW_SKIN, look.glowColor ?? overrides.glowColor ?? null);
 	if (style === 'pegboard' || style === 'wood') {
@@ -141,7 +145,7 @@ export function draftSkinMarks(theme: string, piece: Pick<TScenePiece, 'type' | 
 	if (piece.type !== 'platform') return [];
 	const look = resolveSkinLook(theme, parts, 'platform', piece.skin);
 	const style = look.skin.split(':')[1] ?? '';
-	if (style === 'pegboard' || style === 'neon') return [];
+	if (style === 'pegboard' || style === 'neon' || style === 'none') return [];
 	if (style === 'gift') return [{ x0: -0.06, x1: 0.06, y0: -0.5, y1: 0.5, color: RIBBON }, { x0: -0.5, x1: 0.5, y0: -0.07, y1: 0.07, color: RIBBON }];
 	const [device, trim = 'gold'] = style.split('-');
 	if (device === 'key') return [{ x0: -0.27, x1: 0.39, y0: 0.08, y1: 0.5, color: KEY_WHITE }];
@@ -220,6 +224,8 @@ function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverride
 	const deep: TDraftMarble = { body: deepColor(color, deepLuminance(around)), rim: null, tone: 'deep' };
 	const chosen = (marble: TDraftMarble): { marble: TDraftMarble; contrast: number } => ({ marble, contrast: lowest(marble.body) });
 	switch (skin?.skin) {
+		case 'marble:none':
+			return chosen({ body: color, rim: null, tone: 'deep' });
 		case 'marble:pearl':
 			return chosen(skin.colorSource === 'skin' ? { ...pearl, body: tint('#d0d4dc', PEARL_WHITE), rim: null } : pearl);
 		case 'marble:deep':

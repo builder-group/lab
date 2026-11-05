@@ -11,6 +11,16 @@
 			],
 			"skins": [
 				{
+					"id": "platform:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "press",
+					"preview": "platform-pegboard.png"
+				},
+				{
 					"id": "platform:gold",
 					"label": "Gold",
 					"colorSource": "skin",
@@ -294,6 +304,16 @@
 			],
 			"skins": [
 				{
+					"id": "rail:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-wood.png"
+				},
+				{
 					"id": "rail:chrome",
 					"label": "Chrome Rail",
 					"colorSource": "skin",
@@ -351,6 +371,16 @@
 			],
 			"skins": [
 				{
+					"id": "tunnel:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "tunnel-wood.png"
+				},
+				{
 					"id": "tunnel:frosted",
 					"label": "Frosted Tunnel",
 					"colorSource": "skin",
@@ -394,6 +424,16 @@
 				"glow"
 			],
 			"skins": [
+				{
+					"id": "windmill:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "glow",
+					"preview": "windmill-wood.png"
+				},
 				{
 					"id": "windmill:gold",
 					"label": "Gold Windmill",
@@ -439,6 +479,16 @@
 			],
 			"skins": [
 				{
+					"id": "bowl:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "bowl-wood.png"
+				},
+				{
 					"id": "bowl:chrome",
 					"label": "Chrome Bowl",
 					"colorSource": "skin",
@@ -479,6 +529,16 @@
 			"plural": "Marbles",
 			"onHit": [],
 			"skins": [
+				{
+					"id": "marble:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "marble-deep.png"
+				},
 				{
 					"id": "marble:contrast",
 					"label": "Pearl or Deep",

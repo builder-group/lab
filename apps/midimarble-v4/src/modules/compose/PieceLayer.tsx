@@ -1,6 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TVec2 } from '@/modules/project';
+import { trackPieceColors } from '@/modules/design/label-colors';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
@@ -28,7 +29,7 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	return (
 		<g transform={transform}>
 			{compose.displayPieces(result).map((piece) => (
-				<PieceShape key={piece.entityId} compose={projection} piece={piece} scale={scale} />
+				<PieceShape key={piece.entityId} compose={projection} piece={piece} scale={scale} palette={trackPieceColors(cx.project, piece.entityId, piece.type)} />
 			))}
 		</g>
 	);
@@ -38,14 +39,14 @@ interface TPieceLayerProps {
 	compose: ComposeCx;
 }
 
-const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProjection; piece: TResolvedPiece; scale: number }) {
-	const { compose, piece, scale } = props;
+const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProjection; piece: TResolvedPiece; scale: number; palette: { bar: string; nub: string } }) {
+	const { compose, piece, scale, palette } = props;
 	const kind = pieceKind(piece);
-	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={1} />;
-	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={1} />;
-	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={1} />;
-	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={1} />;
-	return <MinimumShape compose={compose} piece={piece} />;
+	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={1} palette={palette} />;
+	return <MinimumShape compose={compose} piece={piece} palette={palette} />;
 });
 
 /**

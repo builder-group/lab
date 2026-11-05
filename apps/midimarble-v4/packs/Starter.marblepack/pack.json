@@ -26,6 +26,12 @@
 		},
 		{
 			"kind": "skin",
+			"id": "platform-none",
+			"label": "None",
+			"source": "platform:none"
+		},
+		{
+			"kind": "skin",
 			"id": "platform-gold",
 			"label": "Gold",
 			"source": "platform:gold"
@@ -86,6 +92,12 @@
 		},
 		{
 			"kind": "skin",
+			"id": "rail-none",
+			"label": "None",
+			"source": "rail:none"
+		},
+		{
+			"kind": "skin",
 			"id": "rail-chrome",
 			"label": "Chrome Rail",
 			"source": "rail:chrome"
@@ -101,6 +113,12 @@
 			"id": "rail-glow",
 			"label": "Glow Rail",
 			"source": "rail:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-none",
+			"label": "None",
+			"source": "tunnel:none"
 		},
 		{
 			"kind": "skin",
@@ -122,6 +140,12 @@
 		},
 		{
 			"kind": "skin",
+			"id": "windmill-none",
+			"label": "None",
+			"source": "windmill:none"
+		},
+		{
+			"kind": "skin",
 			"id": "windmill-gold",
 			"label": "Gold Windmill",
 			"source": "windmill:gold"
@@ -140,6 +164,12 @@
 		},
 		{
 			"kind": "skin",
+			"id": "bowl-none",
+			"label": "None",
+			"source": "bowl:none"
+		},
+		{
+			"kind": "skin",
 			"id": "bowl-chrome",
 			"label": "Chrome Bowl",
 			"source": "bowl:chrome"
@@ -155,6 +185,12 @@
 			"id": "bowl-glow",
 			"label": "Glow Bowl",
 			"source": "bowl:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-none",
+			"label": "None",
+			"source": "marble:none"
 		},
 		{
 			"kind": "skin",

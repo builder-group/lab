@@ -1279,6 +1279,9 @@ def marble_mesh(marble, context):
         material = themes.neon_marble_material('#d0d4dc' if look['colorSource'] == 'skin' else color)
     elif skin == 'marble:deep':
         material = themes.glossy_marble_material(themes.deep_color(color))
+    elif skin == 'marble:none':
+        # None wears the label color the scene builder passes
+        material = themes.glossy_marble_material(color)
     else:
         tone = themes.marble_look(theme, color)
         if theme == 'neon' and tone['tone'] == 'pearl':

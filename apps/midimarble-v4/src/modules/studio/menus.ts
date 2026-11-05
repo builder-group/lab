@@ -15,7 +15,7 @@ const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan'];
 
 /**
  * The choices of a layer's Label Color, opened from its icon or dot and from Label Color beside Rename: it organizes
- * Layers and the timeline, like Blender's collection color tags and Logic's track colors, and never changes the film.
+ * Layers, the timeline and Track, like Blender's collection color tags and Logic's track colors; a film shows it only on the skin None.
  * `commandsFor(null)` takes the label away, where a layer can do without.
  */
 export function labelColorEntries(cx: StudioCx, current: string | undefined, commandsFor: (color: string | null) => TProjectCommand[], canClear = true): TMenuEntry[] {

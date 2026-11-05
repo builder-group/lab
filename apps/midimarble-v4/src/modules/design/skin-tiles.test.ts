@@ -59,7 +59,7 @@ describe('wallTiles function', () => {
 describe('hidden skins', () => {
 	it('should stay off the tiles until the project uses them, and show their origin then', () => {
 		const labels = (skins?: ReadonlySet<string>): string[] => skinTiles(brassProject().design, 'platform', [], skins).map((tile) => tile.label);
-		expect(labels()).toEqual(['Theme: Gold', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
+		expect(labels()).toEqual(['Theme: Gold', 'None', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
 		const used = usedSkinIds(brassProject([platform('a', 'platform:knob')]));
 		expect(labels(used)).toContain('Knob');
 		expect(skinTiles(brassProject().design, 'platform', [], used).find((tile) => tile.label === 'Knob')?.detail).toBe('Brass Sections');
@@ -72,7 +72,7 @@ describe('hidden skins', () => {
 	});
 
 	it('should offer Glass, Metal and Magic for marbles, with the theme\'s Pearl or Deep first', () => {
-		expect(skinTiles(brassProject().design, 'marble', []).map((tile) => tile.label)).toEqual([expect.stringMatching(/^Theme: (Pearl|Deep)$/), 'Glass', 'Metal', 'Magic']);
+		expect(skinTiles(brassProject().design, 'marble', []).map((tile) => tile.label)).toEqual([expect.stringMatching(/^Theme: (Pearl|Deep)$/), 'None', 'Glass', 'Metal', 'Magic']);
 	});
 });
 

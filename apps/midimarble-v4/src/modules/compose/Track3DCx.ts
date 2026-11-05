@@ -1,6 +1,7 @@
 import { createState } from 'feature-state';
-import { draftPieceColors, draftWall } from '@/modules/design/draft-look';
+import { draftWall } from '@/modules/design/draft-look';
 import { pickPiece, pieceScreenOutline } from '@/modules/design/draft-outline';
+import { trackPieceColors } from '@/modules/design/label-colors';
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece } from '@/modules/simulation';
 import { pathDepth } from '@/modules/simulation/pieces';
@@ -19,7 +20,7 @@ export const MAX_ORBIT = (85 / 180) * Math.PI;
 /**
  * Track's free 3D view, like orbiting Blender's viewport: its own canvas over the flat one, on the same center and scale
  * of `compose.$camera`, so wheel, pinch, the zoom commands and Follow move both. The Pegboard look whatever the project's
- * theme, marbles in their label colors. It looks and selects; nothing drags here.
+ * theme, pieces and marbles in their label colors. It looks and selects; nothing drags here.
  */
 export class Track3DCx {
 	/** Bumps after every draw, so the overlay's outlines reproject */
@@ -130,7 +131,7 @@ export class Track3DCx {
 			pieces.map((piece) => ({
 				piece,
 				angle: pieceAngleAt(piece, playhead),
-				colors: draftPieceColors('pegboard', { type: piece.type, color: '#c8b89a', skin: null }, false),
+				colors: trackPieceColors(project, piece.entityId, piece.type),
 				pathZ: this.pathZ,
 				hasSolidPaths: true
 			}))
