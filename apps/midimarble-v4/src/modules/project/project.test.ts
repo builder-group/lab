@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands } from './commands';
 import { createProject } from './create-project';
-import { changedEntityIds, createHistory, pushHistory, redoHistory, undoHistory } from './history';
+import { createHistory, pushHistory, redoHistory, undoHistory } from './history';
 import { parseProject, serializeProject } from './project-file';
 import { BACKING_ID, type TProject } from './schema';
 
@@ -153,19 +153,6 @@ describe('history', () => {
 		history = redoHistory(history);
 		expect(history.present.title).toBe('A');
 		expect(history.present.revision).toBe(3);
-	});
-
-	it('names the entities an undo changed or brought back', () => {
-		const project = createProject();
-		const piece = { id: 'piece-a', name: 'A', components: { transform: { position: { x: 0, y: 0 }, angle: 0 } } };
-		const [, , withPiece] = applyProjectCommands(project, [{ type: 'upsertEntity', entity: piece }]);
-		const [, , moved] = applyProjectCommands(withPiece as TProject, [
-			{ type: 'upsertEntity', entity: { ...piece, components: { transform: { position: { x: 1, y: 0 }, angle: 0 } } } }
-		]);
-
-		expect(changedEntityIds(moved as TProject, withPiece as TProject)).toEqual(['piece-a']);
-		expect(changedEntityIds(withPiece as TProject, project)).toEqual([]);
-		expect(changedEntityIds(project, withPiece as TProject)).toEqual(['piece-a']);
 	});
 });
 

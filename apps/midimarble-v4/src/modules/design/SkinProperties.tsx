@@ -6,7 +6,7 @@ import type { TAssetProperty } from '@/modules/library/asset-manifest';
 import type { TEntity, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { resetToThemeCommands, skinPropertyCommands, type TSkinPropertyPatch } from './design-commands';
-import { appliedOverrides, resolveElementLook, resolveTheme } from './project-themes';
+import { resolveElementLook, resolveTheme } from './project-themes';
 import { SKIN_HELP } from './concept-words';
 import { themeOriginLabel } from './scene-layers';
 import { SkinPicker } from './SkinPickers';

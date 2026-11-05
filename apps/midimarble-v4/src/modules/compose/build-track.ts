@@ -15,7 +15,6 @@ import {
 	frameBand,
 	isMusicalPiece,
 	PLACEMENT_LENGTH,
-	resolvePieceParams,
 	startRailId,
 	touchingPairs,
 	type TAutoPlaceAnswer,

@@ -160,17 +160,6 @@ export function smoothPath(points: TVec2[]): TVec2[] {
 	return mergeStraight(sampled);
 }
 
-/** Length of the polyline */
-export function pathLength(path: TVec2[]): number {
-	let length = 0;
-	for (let i = 1; i < path.length; i++) {
-		const a = path[i - 1] as TVec2;
-		const b = path[i] as TVec2;
-		length += Math.hypot(b.x - a.x, b.y - a.y);
-	}
-	return length;
-}
-
 /** Closest point on the polyline with its arc length and the unit tangent of its segment */
 export function projectOnPath(
 	path: TVec2[],

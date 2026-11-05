@@ -4,7 +4,7 @@ import { applyProjectCommands, createHistory, createProject, pushHistory, type T
 import { createLinkedPiece, createSimulator, type TAutoPlaceAnswer, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { addNoteCommands } from '@/modules/studio/timeline/piano-roll';
 import { stepHitTarget, toHitKey } from '@/modules/studio/selection';
-import { deleteHitCommands, platformsOfHits } from '@/modules/studio/timeline/hand-notes';
+import { deleteHitCommands } from '@/modules/studio/timeline/hand-notes';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { AssistCx } from './AssistCx';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
@@ -302,12 +302,6 @@ describe('⌫ on hits', () => {
 		if (link == null) throw new Error('expected a platform');
 		return { project, result, key: toHitKey(link.laneId, link.hitId), pieceId: 'piece-1-5', hitId: link.hitId, laneId: link.laneId };
 	}
-
-	it('should find the platform of a hit, which ⌫ takes first', async () => {
-		const { project, key, pieceId } = await played();
-		expect(platformsOfHits(project, [key]).map((entity) => entity.id)).toEqual([pieceId]);
-		expect(platformsOfHits(project, ['hit:other:nope'])).toEqual([]);
-	});
 
 	it('should leave nothing tied to the hit when Delete Hit removes it, as one edit', async () => {
 		const { project, result, key, hitId, laneId, pieceId } = await played();

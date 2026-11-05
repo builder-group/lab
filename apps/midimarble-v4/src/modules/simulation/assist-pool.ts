@@ -22,7 +22,7 @@ export interface TAssistPoolOptions {
 	createWorker: () => TPoolWorker;
 }
 
-export type TAutoPlaceRequest = Omit<Extract<TWorkerRequest, { kind: 'autoPlace' }>, 'kind' | 'launchAngles'>;
+export type TAutoPlaceRequest = Omit<Extract<TWorkerRequest, { kind: 'autoPlace' }>, 'kind'>;
 export type TGapPieceRequest = Omit<Extract<TWorkerRequest, { kind: 'gapPiece' }>, 'kind'>;
 
 export interface TSearchRunOptions {

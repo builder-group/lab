@@ -54,7 +54,7 @@ export function createSimulationClient(): TSimulationClient {
 			return assists.queue.enqueue<TSimulationResult>('simulate', { kind: 'simulate', project });
 		},
 		autoPlace(request, options) {
-			if (request.launchAngles != null || poolSize < 2)
+			if (poolSize < 2)
 				return assists.queue.enqueue<TAutoPlaceAnswer>('autoPlace', { kind: 'autoPlace', ...request });
 			return startPool().autoPlace(request, options);
 		},

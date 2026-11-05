@@ -14,7 +14,6 @@ import {
 	type TContinueResult,
 	type TSimulateFn
 } from './assists';
-import { createLinkedPiece } from './placement';
 import {
 	createRailForGap,
 	createChainForGap,
@@ -44,12 +43,6 @@ export type TWorkerRequest =
 			hitId: string;
 			type: string;
 			entityId?: string;
-			/**
-			 * Angles tried in order instead of the Auto place search, for a hit before a long gap: the
-			 * first angle that keeps the hit on time and sends the marble off the piece wins. Auto place
-			 * itself launches into a rail before a long gap, so Compose no longer sends these.
-			 */
-			launchAngles?: number[];
 			/** Angle range searched first, in radians; see `TAutoPlaceOptions` */
 			range?: [number, number];
 	  }
@@ -191,12 +184,7 @@ export function answerWorkerRequest(
 	const result = simulate(request.project);
 	switch (request.kind) {
 		case 'autoPlace': {
-			const { project, laneId, hitId, type, entityId, launchAngles, range } = request;
-			if (launchAngles != null) {
-				const entity = launchPlace(project, simulate, laneId, hitId, type, launchAngles, entityId);
-				if (entity == null) throw new Error('No angle sends the marble off this piece on time');
-				return { entity, angle: entity.components.hitLink?.angle ?? 0, nextDot: null, computeMs: performance.now() - startedAt };
-			}
+			const { project, laneId, hitId, type, entityId, range } = request;
 			const [isOk, error, placement] = autoPlace(project, result, laneId, hitId, { simulate, type, id: entityId, ...(range != null ? { range } : {}) });
 			if (!isOk) throw error;
 			return {
@@ -286,30 +274,4 @@ function prepareSearch(simulate: TSimulateFn, request: TSearchRequest): TResult<
 	const toTime = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === request.toHitId)?.time;
 	const base = toTime != null ? simulateTrial(simulate, project, toTime + 0.02 + BASE_MARGIN) : simulate(project);
 	return prepareGapSearch(request.type, project, base, laneId, request.fromHitId, request.toHitId, { simulate, id });
-}
-
-/** First of `angles` whose piece lands the hit on time and that the marble has left 0.25 s later */
-function launchPlace(
-	project: TProject,
-	simulate: TSimulateFn,
-	laneId: string,
-	hitId: string,
-	type: string,
-	angles: number[],
-	id?: string
-): TEntity | null {
-	const time = project.music.lanes.find((lane) => lane.id === laneId)?.hits.find((hit) => hit.id === hitId)?.time;
-	const marbleId = project.entities.find((entity) => entity.components.marble?.laneId === laneId)?.id;
-	if (time == null) return null;
-	for (const angle of angles) {
-		const entity = createLinkedPiece(type, laneId, hitId, angle, { entities: project.entities, id });
-		const trial = simulateTrial(simulate, withEntities(project, [entity]), time + 0.35);
-		const status = findHitResult(trial, laneId, hitId)?.status;
-		if (status !== 'onTime' && status !== 'drifting') continue;
-		const isBack = trial.contacts.some(
-			(contact) => contact.marbleEntityId === marbleId && contact.otherEntityId === entity.id && contact.time > time + 0.25
-		);
-		if (!isBack) return entity;
-	}
-	return null;
 }

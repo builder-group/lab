@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import { createPatternClient, flattenCommands, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCancelledError, type TGroupChange, type TPatternAnswer, type TPatternClient, type TPatternKind, type TPatternProblem, type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TProject } from '@/modules/project';
-import { parseGroupKey, parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
+import { parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 
 /** How long a pointer rests on a tile before its ghost is worked out: real rhythm takes about 230 ms for 9 hits, so moving across tiles asks nothing */
@@ -274,7 +274,3 @@ export function rangeSelection(project: TProject, laneId: string, from: number, 
 	return hits.length > 0 ? hits.map((hit) => toHitKey(laneId, hit.id)) : [toRangeKey(laneId, from, to)];
 }
 
-export function selectedGroup(project: TProject, selection: readonly string[]): TGroup | null {
-	const id = selection.flatMap((key) => parseGroupKey(key) ?? [])[0];
-	return project.groups?.find((group) => group.id === id) ?? null;
-}

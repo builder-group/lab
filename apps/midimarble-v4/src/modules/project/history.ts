@@ -69,22 +69,3 @@ export function redoHistory(history: TProjectHistory): TProjectHistory {
 		groups: { past: [...groups.past, groups.present], present: groups.future[0] ?? 0, future: groups.future.slice(1) }
 	};
 }
-
-/** Entities that differ in `after` from `before`, or are new in it: what an undo or redo changed that still exists */
-/** An entity without what only keeps the run as it was: a person never edited those, so they are nothing to show */
-function placedPart(entity: TEntity): unknown {
-	const { transit: _transit, hitLink, ...components } = entity.components;
-	if (hitLink == null) return components;
-	const { leaves: _leaves, held: _held, ...link } = hitLink;
-	return { ...components, hitLink: link };
-}
-
-export function changedEntityIds(before: TProject, after: TProject): string[] {
-	const previous = new Map(before.entities.map((entity) => [entity.id, entity]));
-	return after.entities
-		.filter((entity) => {
-			const old = previous.get(entity.id);
-			return old == null || JSON.stringify(placedPart(old)) !== JSON.stringify(placedPart(entity));
-		})
-		.map((entity) => entity.id);
-}

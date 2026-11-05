@@ -14,7 +14,7 @@ vi.mock('@/modules/music', () => ({
 }));
 
 const result: TRenderFilmResult = {
-	path: '/tmp/Song.marble/renders/film-fast.mp4',
+	path: '/tmp/Song.marble/renders/film-draft.mp4',
 	frames: 30,
 	fps: 30,
 	width: 720,
@@ -77,8 +77,7 @@ describe('renderFilm function', () => {
 		expect(write).toHaveBeenCalledWith('/tmp/Song.marble', SOUNDTRACK_PATH, new Uint8Array([1, 2, 3]));
 		expect(start).toHaveBeenCalledWith('/tmp/Song.marble', {
 			preset: 'draft',
-			engine: undefined,
-			outputPath: 'renders/film-fast.mp4',
+			outputPath: 'renders/film-draft.mp4',
 			audioPath: SOUNDTRACK_PATH,
 			samples: undefined
 		});

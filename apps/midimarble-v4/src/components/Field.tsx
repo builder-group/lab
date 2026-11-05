@@ -153,13 +153,3 @@ interface TStateRowProps {
 	action?: React.ReactNode;
 }
 
-/** A checkbox with its label on the grid, like Figma's Clip content */
-export const CheckField: React.FC<{ id: string; label: string; checked: boolean; span?: 2; title?: string; onChange: (checked: boolean) => void }> = (props) => {
-	const { id, label, checked, span = 2, title, onChange } = props;
-	return (
-		<label className="mm-insp-check" htmlFor={id} data-span={span} title={title}>
-			<input id={id} type="checkbox" className="mm-checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-			<span>{label}</span>
-		</label>
-	);
-};

@@ -6,7 +6,7 @@ import type { StudioCx } from '@/modules/studio';
 import { parseHexColor } from '@/modules/studio/format';
 import { SKIN_HELP } from './concept-words';
 import { WallPicker } from './SkinPickers';
-import { appliedOverrides, baseThemeOf, resolveTheme } from './project-themes';
+import { resolveTheme } from './project-themes';
 import {
 	keyLightCommands,
 	keyLightLayer,

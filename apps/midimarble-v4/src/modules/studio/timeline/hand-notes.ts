@@ -1,8 +1,8 @@
 import type { TMenuEntry } from '@/components';
 import { canMakeBacking } from '@/modules/compose/reachability';
 import { assignNotesCommands, BACKING_COLOR, DEFAULT_BACKING_INSTRUMENT, newMarbleCommands, soundsNotes } from '@/modules/music';
-import { BACKING_ID, type TEntity, type THit, type TProject, type TProjectCommand } from '@/modules/project';
-import { soundsHit, type TSimulationResult } from '@/modules/simulation';
+import { BACKING_ID, type THit, type TProject, type TProjectCommand } from '@/modules/project';
+import type { TSimulationResult } from '@/modules/simulation';
 import { parseHitKey, toHitKey } from '../selection';
 import type { StudioCx } from '../StudioCx';
 
@@ -75,15 +75,6 @@ export function deleteHitCommands(project: TProject, result: TSimulationResult |
 	if (!notes.length) return [];
 	const onMarbles = notes.filter((item) => item.ownerId !== BACKING_ID).map((item) => item.hit.id);
 	return [...(onMarbles.length ? assignNotesCommands(project, result, onMarbles, BACKING_ID) : []), { type: 'removeHits', laneId: BACKING_ID, hitIds }];
-}
-
-/** The platforms that play the hits of selection keys */
-export function platformsOfHits(project: TProject, keys: string[]): TEntity[] {
-	const wanted = new Set(keys);
-	return project.entities.filter((entity) => {
-		const link = entity.components.hitLink;
-		return link != null && entity.components.piece != null && soundsHit(entity.components.piece.type, link) && wanted.has(toHitKey(link.laneId, link.hitId));
-	});
 }
 
 /** Context menu entries that hand the selected notes over: each marble with its number key, New Marble, Backing */

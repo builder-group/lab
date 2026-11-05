@@ -186,7 +186,6 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const selection = useFeatureState(cx.$selection);
 	const hover = useFeatureState(compose.$hover);
 	const drag = useFeatureState(compose.$drag);
-	const tool = useFeatureState(compose.$tool);
 	useFeatureState(compose.$override);
 	const hidden = useFeatureState(cx.$hidden);
 	const insertSnap = useFeatureState(compose.$insertSnap);
