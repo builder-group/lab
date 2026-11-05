@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { TProject } from '@/modules/project';
+import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, editStart, marbleEdits, reconnect, release, settleBase, type TSettleAnswer, withRides } from './local-edit';
 import { createSimulator, type TSimulator } from './simulate';
@@ -11,16 +11,16 @@ function turned(project: TProject, id: string, by: number): TProject {
 	return {
 		...project,
 		revision: project.revision + 1,
-		entities: project.entities.map((entity) => {
-			const link = entity.components.hitLink;
-			return entity.id === id && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, angle: link.angle + by } } } : entity;
-		})
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+			const link = tieOf(entity);
+			return entity.id === id && link != null ? { ...entity, angle: entity.angle + by } : entity;
+		}) }
 	};
 }
 
 function landed(project: TProject, answer: TSettleAnswer): TProject {
 	const changed = new Map(answer.entities.map((entity) => [entity.id, entity]));
-	return { ...project, entities: project.entities.map((entity) => changed.get(entity.id) ?? entity) };
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } };
 }
 
 function shift(a: TSimulationResult, b: TSimulationResult, hitId: string): number {
@@ -41,24 +41,24 @@ describe('settling an edit', () => {
 		const project = loadFixture('zigzag');
 
 		it('should name the marble and the hit of a turned platform', () => {
-			expect(marbleEdits(project, turned(project, 'piece-1-5', 0.01))).toEqual([{ marbleId: 'lane-1', afterIndex: 4 }]);
+			expect(marbleEdits(project, turned(project, 'piece-1-5', 0.01))).toEqual([{ marbleId: 'marble-1', afterIndex: 4 }]);
 		});
 
 		it('should only keep the rides for a slide along the bar, and ask nothing of a turn of the last platform', () => {
 			const slid = {
 				...project,
-				entities: project.entities.map((entity) => {
-					const link = entity.components.hitLink;
-					return entity.id === 'piece-1-5' && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, contactAt: 0.3 } } } : entity;
-				})
+				track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+					const link = tieOf(entity);
+					return entity.id === 'piece-1-5' && link != null ? { ...entity, place: { ...link, contactAt: 0.3 } } : entity;
+				}) }
 			};
-			expect(marbleEdits(project, slid)).toEqual([{ marbleId: 'lane-1', afterIndex: project.music.marbles[0]?.hits.length }]);
+			expect(marbleEdits(project, slid)).toEqual([{ marbleId: 'marble-1', afterIndex: project.marbles[0]?.hits.length }]);
 			expect(marbleEdits(project, turned(project, 'piece-1-16', 0.01))).toEqual([]);
 		});
 
 		it('should count the platform before one taken away among those that take up the change', () => {
-			const without = { ...project, entities: project.entities.filter((entity) => entity.id !== 'piece-1-5') };
-			expect(marbleEdits(project, without)).toEqual([{ marbleId: 'lane-1', afterIndex: 2 }]);
+			const without = { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== 'piece-1-5') } };
+			expect(marbleEdits(project, without)).toEqual([{ marbleId: 'marble-1', afterIndex: 2 }]);
 		});
 	});
 
@@ -97,7 +97,7 @@ describe('settling an edit', () => {
 			const dot = { x: hit.dot.x, y: hit.dot.y - 0.008 };
 
 			// Act
-			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { marbleId: 'lane-1', hitId: 'hit-1-5', dot } }, null);
+			const { answer } = answerSettle(simulator, { before: project, after: project, movedDot: { marbleId: 'marble-1', hitId: 'hit-1-5', dot } }, null);
 			const run = await fresh(landed(project, answer));
 
 			// Assert
@@ -113,7 +113,7 @@ describe('settling an edit', () => {
 			// Prepare
 			const project = loadFixture('long-gap');
 			const before = await fresh(project);
-			const marble = project.music.marbles[0];
+			const marble = project.marbles[0];
 			const hits = marble?.hits ?? [];
 			const target = hits[hits.length - 2];
 			const aiming = hits[hits.length - 3];
@@ -126,7 +126,7 @@ describe('settling an edit', () => {
 
 			// Assert
 			const timeOf = (id: string): number => {
-				const link = project.entities.find((entity) => entity.id === id)?.components.hitLink;
+				const link = tieOf(project.track.pieces.find((entity) => entity.id === id));
 				return hits.find((hit) => hit.id === link?.hitId)?.time ?? Infinity;
 			};
 			const earlier = before.pieces.filter((piece) => timeOf(piece.entityId) < aiming.time);
@@ -141,9 +141,9 @@ describe('settling an edit', () => {
 
 		it('should start an edit at its earliest changed hit, or the platform before a moved dot', () => {
 			const project = loadFixture('zigzag');
-			const hits = project.music.marbles[0]?.hits ?? [];
+			const hits = project.marbles[0]?.hits ?? [];
 			expect(editStart(project, turned(project, 'piece-1-5', 0.01))).toBe(hits[4]?.time);
-			expect(editStart(project, project, { marbleId: 'lane-1', hitId: hits[6]?.id ?? '' })).toBe(hits[5]?.time);
+			expect(editStart(project, project, { marbleId: 'marble-1', hitId: hits[6]?.id ?? '' })).toBe(hits[5]?.time);
 			expect(editStart(project, project)).toBe(-Infinity);
 		});
 	});
@@ -154,7 +154,7 @@ describe('settling an edit', () => {
 			const project = loadFixture('long-gap');
 			const run = await fresh(project);
 			const ridden = withRides(project, run);
-			const pieces = ridden.entities.filter((entity) => entity.components.transit != null);
+			const pieces = ridden.track.pieces.filter((entity) => entity.ride != null);
 
 			// Act
 			const again = await fresh(ridden);
@@ -170,14 +170,14 @@ describe('settling an edit', () => {
 		it('should be simulated again once the piece changes', async () => {
 			const project = loadFixture('long-gap');
 			const ridden = withRides(project, await fresh(project));
-			const ride = ridden.entities.find((entity) => entity.components.transit != null);
+			const ride = ridden.track.pieces.find((entity) => entity.ride != null);
 			if (ride == null) throw new Error('No ride');
 			const changed = {
 				...ridden,
-				entities: ridden.entities.map((entity) => {
-					const { hitLink } = entity.components;
-					return entity.id === ride.id && hitLink != null ? { ...entity, components: { ...entity.components, hitLink: { ...hitLink, angle: hitLink.angle + 0.05 } } } : entity;
-				})
+				track: { ...ridden.track, pieces: ridden.track.pieces.map((entity) => {
+					const hitLink = tieOf(entity);
+					return entity.id === ride.id && hitLink != null ? { ...entity, angle: entity.angle + 0.05 } : entity;
+				}) }
 			};
 			const a = await fresh(ridden);
 			const b = await fresh(changed);
@@ -229,7 +229,7 @@ describe('settling an edit', () => {
 		it('should let every piece follow the marble again on release', async () => {
 			const { after, answer } = breakIt();
 			const released = release(landed(after, answer));
-			expect(released.entities.every((entity) => entity.components.hitLink?.held == null)).toBe(true);
+			expect(released.track.pieces.every((entity) => tieOf(entity)?.held == null)).toBe(true);
 		});
 	});
 

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { BACKING_COLOR } from '@/modules/music';
-import { createProject, type THit, type TProject, type TSource } from '@/modules/project';
+import { createMarble, createProject, type THit, type TProject, type TSong } from '@/modules/project';
 import { noteSpans, soundingKeys } from './sounding-keys';
 
-const MIDI: TSource = { id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song.mid', offset: 0 };
+const MIDI: TSong = { id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song.mid', start: 0, backing: [] };
 
-function song(melody: THit[], backing: THit[] = [], sources: TSource[] = [MIDI]): TProject {
+function song(melody: THit[], backing: THit[] = [], songs: TSong[] = [MIDI]): TProject {
 	const base = createProject({ title: 'Keys' });
-	return { ...base, music: { ...base.music, sources, backing, marbles: [{ id: 'melody', name: 'Melody', color: '#3478f6', instrument: 0, hits: melody }] } };
+	return { ...base, songs: songs.map((item) => ({ ...item, backing })), marbles: [{ ...createMarble(0, { x: 0, y: 0 }, 'melody'), name: 'Melody', labelColor: '#3478f6', sound: 0, hits: melody }] };
 }
 
 describe('soundingKeys function', () => {
@@ -45,7 +45,7 @@ describe('soundingKeys function', () => {
 	});
 
 	it('should light nothing for a recording, whose hits make no sound of their own', () => {
-		const audio: TSource = { id: 'audio', kind: 'audio', path: 'a.wav', name: 'a.wav', offset: 0 };
+		const audio: TSong = { id: 'audio', kind: 'audio', path: 'a.wav', name: 'a.wav', start: 0, backing: [] };
 
 		expect(noteSpans(song([{ id: 'a', time: 1, pitch: 60 }], [], [audio]))).toEqual([]);
 	});

@@ -1,5 +1,5 @@
-import { createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
-import { anchorHit, frameBand, nextPieceName, freePose, getPieceDefinition, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, resolvePiecePath, shapeDistance, soundsHit, transformShape, type TLayoutInput, type TPieceLayout, type TPieceShape, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { createId, DEFAULT_MARBLE_RADIUS, freePosition, type TPiece, type TPathNode, type TProject, type TVec2, tieOf } from '@/modules/project';
+import { anchorHit, frameBand, nextPieceName, freePose, getPieceDefinition, hitPlace, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, resolvePiecePath, shapeDistance, soundsHit, transformShape, type TLayoutInput, type TPieceLayout, type TPieceShape, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { sampleNodes } from './bezier';
 
 // Pure edits behind the open canvas: an element is free, anchored to a moment on a marble's trajectory or,
@@ -25,53 +25,39 @@ export type TSnap =
 /** Seconds before the closest trajectory moment that an anchor is set, so the element appears ahead of the marble */
 export const ANCHOR_LEAD = 0.12;
 
-export function attachState(project: TProject, entity: TEntity): TAttachState {
-	const link = entity.components.hitLink;
+export function attachState(project: TProject, entity: TPiece): TAttachState {
+	const link = tieOf(entity);
 	if (link == null) return { kind: 'free' };
-	if (soundsHit(entity.components.piece?.type ?? '', link)) return { kind: 'linked', marbleId: link.marbleId, hitId: link.hitId };
-	const hitTime = project.music.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time ?? 0;
-	return { kind: 'anchored', marbleId: link.marbleId, hitId: link.hitId, time: hitTime + (entity.components.piece?.params['entryDelay'] ?? 0) };
+	if (soundsHit(entity.type ?? '', link)) return { kind: 'linked', marbleId: link.marbleId, hitId: link.hitId };
+	const hitTime = project.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time ?? 0;
+	return { kind: 'anchored', marbleId: link.marbleId, hitId: link.hitId, time: hitTime + (entity.params['entryDelay'] ?? 0) };
 }
 
 /** The free transform that reproduces where a piece is now: its transform, or the pose the run gave it */
-export function piecePose(entity: TEntity, resolved: TResolvedPiece | undefined, marbleRadius = DEFAULT_MARBLE_RADIUS): TPose | null {
-	const transform = entity.components.transform;
-	if (entity.components.hitLink == null && transform != null) return { position: { ...transform.position }, angle: transform.angle };
+export function piecePose(entity: TPiece, resolved: TResolvedPiece | undefined, marbleRadius = DEFAULT_MARBLE_RADIUS): TPose | null {
+	const position = freePosition(entity);
+	if (position != null) return { position: { ...position }, angle: entity.angle };
 	if (resolved == null || resolved.status === 'unreached') return null;
 	return freePose(entity, resolved, marbleRadius);
 }
 
 /** A piece standing free at `pose` */
-export function asFree(entity: TEntity, pose: TPose): TEntity {
-	const { hitLink: _, ...components } = entity.components;
-	const piece = components.piece;
-	if (piece != null) {
-		const params = { ...piece.params };
-		delete params['entryDelay'];
-		components.piece = { ...piece, params };
-	}
-	return { ...entity, components: { ...components, transform: { position: { ...pose.position }, angle: pose.angle } } };
+export function asFree(entity: TPiece, pose: TPose): TPiece {
+	const params = { ...entity.params };
+	delete params['entryDelay'];
+	return { ...entity, params, angle: pose.angle, place: { kind: 'free', position: { ...pose.position } } };
 }
 
 /**
  * A platform linked to a hit so it sounds the note. It keeps its angle; where the dot falls along its
  * surface becomes the contact point, so the run places it touching the marble right there.
  */
-export function asLinked(entity: TEntity, pose: TPose, marbleId: string, hitId: string, dot: TVec2): TEntity {
-	const { transform: _, ...components } = entity.components;
-	const piece = components.piece ?? { type: 'platform', params: {} };
-	const params = resolvePieceParams(piece.type, piece.params);
+export function asLinked(entity: TPiece, pose: TPose, marbleId: string, hitId: string, dot: TVec2): TPiece {
+	const params = resolvePieceParams(entity.type, entity.params);
 	const length = params['length'] ?? 0.06;
 	const along = (dot.x - pose.position.x) * Math.cos(pose.angle) + (dot.y - pose.position.y) * Math.sin(pose.angle);
-	const contactAt = layoutOf(piece.type) === 'box' ? Math.min(0.95, Math.max(0.05, 0.5 + along / length)) : 0.5;
-	return {
-		...entity,
-		components: {
-			...components,
-			piece: { ...piece, params: { ...piece.params, entryDelay: 0 } },
-			hitLink: { marbleId, hitId, angle: pose.angle, contactAt }
-		}
-	};
+	const contactAt = layoutOf(entity.type) === 'box' ? Math.min(0.95, Math.max(0.05, 0.5 + along / length)) : 0.5;
+	return { ...entity, params: { ...entity.params, entryDelay: 0 }, angle: pose.angle, place: hitPlace(entity.type, marbleId, hitId, contactAt) };
 }
 
 /**
@@ -79,25 +65,21 @@ export function asLinked(entity: TEntity, pose: TPose, marbleId: string, hitId: 
  * relative to the marble at that moment and plays no note. Returns null when the marble has no hit within
  * `ANCHOR_DELAY` of the moment (see `anchorHit`).
  */
-export function asAnchored(project: TProject, entity: TEntity, pose: TPose, marbleId: string, time: number, marble: TVec2): TEntity | null {
-	const hits = project.music.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
+export function asAnchored(project: TProject, entity: TPiece, pose: TPose, marbleId: string, time: number, marble: TVec2): TPiece | null {
+	const hits = project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const hit = anchorHit(hits, time);
 	if (hit == null) return null;
-	const { transform: _, ...components } = entity.components;
-	const piece = components.piece ?? { type: 'platform', params: {} };
+	const contactAt = tieOf(entity)?.contactAt ?? 0.5;
 	return {
 		...entity,
-		components: {
-			...components,
-			piece: { ...piece, params: { ...piece.params, entryDelay: Math.round((time - hit.time) * 1e4) / 1e4 } },
-			hitLink: {
-				marbleId,
-				hitId: hit.id,
-				angle: pose.angle,
-				contactAt: entity.components.hitLink?.contactAt ?? 0.5,
-				anchored: true,
-				offset: { x: pose.position.x - marble.x, y: pose.position.y - marble.y }
-			}
+		params: { ...entity.params, entryDelay: Math.round((time - hit.time) * 1e4) / 1e4 },
+		angle: pose.angle,
+		place: {
+			kind: 'follows',
+			marbleId,
+			hitId: hit.id,
+			...(contactAt !== 0.5 ? { contactAt } : {}),
+			offset: { x: pose.position.x - marble.x, y: pose.position.y - marble.y }
 		}
 	};
 }
@@ -119,30 +101,30 @@ export function playsDrop(note: { marbleId: string; hitId: string; dot: TVec2 | 
 }
 
 /** The entity a drop produces at `pose` for a snap, falling back to free when the anchor has no hit before it */
-export function withSnap(project: TProject, entity: TEntity, pose: TPose, snap: TSnap | null): TEntity {
+export function withSnap(project: TProject, entity: TPiece, pose: TPose, snap: TSnap | null): TPiece {
 	if (snap?.kind === 'link') return asLinked(entity, pose, snap.marbleId, snap.hitId, snap.dot);
 	if (snap?.kind === 'anchor') return asAnchored(project, entity, pose, snap.marbleId, snap.time, snap.marble) ?? asFree(entity, pose);
 	return asFree(entity, pose);
 }
 
 /** True when a drop may link this piece to a hit dot: only music pieces sound notes */
-export function canLink(entity: TEntity): boolean {
-	return getPieceDefinition(entity.components.piece?.type ?? '')?.musical === true;
+export function canLink(entity: TPiece): boolean {
+	return getPieceDefinition(entity.type ?? '')?.musical === true;
 }
 
 /** A new free piece with default parameters, numbered after the pieces of its type */
-export function createFreePiece(type: string, pose: TPose, entities: TEntity[], path?: { points: TVec2[]; nodes?: TPathNode[] }): TEntity {
+export function createFreePiece(type: string, pose: TPose, entities: TPiece[], path?: { points: TVec2[]; nodes?: TPathNode[] }): TPiece {
 	const definition = getPieceDefinition(type);
 	const params: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(definition?.params ?? {})) if (name !== 'entryDelay') params[name] = spec.default;
 	return {
 		id: createId('piece'),
 		name: nextPieceName(type, entities),
-		components: {
-			piece: { type, params },
-			transform: { position: { ...pose.position }, angle: pose.angle },
-			...(path != null ? { path } : {})
-		}
+		type,
+		params,
+		angle: pose.angle,
+		place: { kind: 'free', position: { ...pose.position } },
+		...(path != null ? { path } : {})
 	};
 }
 
@@ -159,32 +141,31 @@ export function isPathPieceType(type: string | undefined): type is TPathPieceTyp
  * The path piece as `type`, keeping its path, transform or anchor and its anchor moment. The other type's
  * parameters take their defaults, and a default name such as `Rail 2` is renumbered after the new type.
  */
-export function withPathType(entity: TEntity, type: TPathPieceType, entities: TEntity[]): TEntity {
-	const piece = entity.components.piece;
-	if (piece == null || piece.type === type || !isPathPieceType(piece.type)) return entity;
+export function withPathType(entity: TPiece, type: TPathPieceType, entities: TPiece[]): TPiece {
+	if (entity.type === type || !isPathPieceType(entity.type)) return entity;
 	const params: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(getPieceDefinition(type)?.params ?? {})) if (name !== 'entryDelay') params[name] = spec.default;
-	const entryDelay = piece.params['entryDelay'];
+	const entryDelay = entity.params['entryDelay'];
 	if (entryDelay != null) params['entryDelay'] = entryDelay;
 	// A piece on its definition's default path keeps that shape, since the other type's default differs
-	const path = entity.components.path ?? { points: resolvePiecePath(piece.type, undefined).map((point) => ({ ...point })) };
-	const oldLabel = getPieceDefinition(piece.type)?.label ?? piece.type;
+	const path = entity.path ?? { points: resolvePiecePath(entity.type, undefined).map((point) => ({ ...point })) };
+	const oldLabel = getPieceDefinition(entity.type)?.label ?? entity.type;
 	const isDefaultName = entity.name == null || new RegExp(`^${oldLabel} \\d+$`).test(entity.name);
-	const count = entities.filter((item) => item.id !== entity.id && item.components.piece?.type === type).length;
+	const count = entities.filter((item) => item.id !== entity.id && item.type === type).length;
 	const name = isDefaultName ? `${getPieceDefinition(type)?.label ?? type} ${count + 1}` : entity.name;
-	return { ...entity, ...(name != null ? { name } : {}), components: { ...entity.components, piece: { type, params }, path } };
+	const { layout: _layout, ...rest } = entity;
+	return { ...rest, ...(name != null ? { name } : {}), type, params, path };
 }
 
 /**
  * The Rail with another layout: the parameters that layout starts from, keeping those it shares such as thickness and
  * when it starts. Drawn takes away the layout and uses the path the Rail holds.
  */
-export function withRailLayout(entity: TEntity, layout: TRailLayout): TEntity {
-	const piece = entity.components.piece;
-	if (piece == null || piece.type !== 'rail' || (piece.layout ?? 'path') === layout) return entity;
-	const { layout: _layout, ...rest } = piece;
-	const params = { ...piece.params, ...railLayoutInfo[layout].defaults };
-	return { ...entity, components: { ...entity.components, piece: layout === 'path' ? { ...rest, params } : { ...rest, layout, params } } };
+export function withRailLayout(entity: TPiece, layout: TRailLayout): TPiece {
+	if (entity.type !== 'rail' || (entity.layout ?? 'path') === layout) return entity;
+	const { layout: _layout, ...rest } = entity;
+	const params = { ...entity.params, ...railLayoutInfo[layout].defaults };
+	return layout === 'path' ? { ...rest, params } : { ...rest, layout, params };
 }
 
 /** Rail drawn with the path tool: the first node is the local origin, so the transform sits on it */
@@ -201,21 +182,21 @@ export function railPath(nodes: TPathNode[]): { points: TVec2[]; nodes: TPathNod
  * How a piece looks at a pose before the run has simulated it, for the dragged piece. Free poses use the
  * free layout; a snapped link places it on the dot the way the run will.
  */
-export function displayPiece(entity: TEntity, at: { pose: TPose } | { pose: TPose; dot: TVec2; velocity: TVec2 | null }, marbleRadius = DEFAULT_MARBLE_RADIUS): TResolvedPiece {
-	const type = entity.components.piece?.type ?? 'platform';
-	const params = resolvePieceParams(type, entity.components.piece?.params ?? {});
+export function displayPiece(entity: TPiece, at: { pose: TPose } | { pose: TPose; dot: TVec2; velocity: TVec2 | null }, marbleRadius = DEFAULT_MARBLE_RADIUS): TResolvedPiece {
+	const type = entity.type ?? 'platform';
+	const params = resolvePieceParams(type, entity.params ?? {});
 	const input: TLayoutInput = {
 		type,
 		params,
-		path: resolvePiecePath(type, entity.components.path?.points),
-		extraPaths: entity.components.path?.paths,
-		layout: entity.components.piece?.layout,
+		path: resolvePiecePath(type, entity.path?.points),
+		extraPaths: entity.path?.paths,
+		layout: entity.layout,
 		angle: at.pose.angle,
-		contactAt: entity.components.hitLink?.contactAt ?? 0.5,
+		contactAt: tieOf(entity)?.contactAt ?? 0.5,
 		marbleRadius
 	};
 	const layout: TPieceLayout = 'dot' in at ? layoutAtMarble(input, at.dot, at.velocity) : layoutFree(input, at.pose.position);
-	const railLayout = entity.components.piece?.layout;
+	const railLayout = entity.layout;
 	return {
 		entityId: entity.id,
 		type,
@@ -256,9 +237,9 @@ export function rotateResolved(piece: TResolvedPiece, pivot: TVec2, angle: numbe
 }
 
 /** Replaces one entity, or adds it when it is new */
-export function withEntity(project: TProject, entity: TEntity): TProject {
-	const exists = project.entities.some((item) => item.id === entity.id);
-	return { ...project, entities: exists ? project.entities.map((item) => (item.id === entity.id ? entity : item)) : [...project.entities, entity] };
+export function withEntity(project: TProject, entity: TPiece): TProject {
+	const exists = project.track.pieces.some((item) => item.id === entity.id);
+	return { ...project, track: { ...project.track, pieces: exists ? project.track.pieces.map((item) => (item.id === entity.id ? entity : item)) : [...project.track.pieces, entity] } };
 }
 
 /** Gap a windmill added beside a fall keeps between its arm circle and every marble path and piece */

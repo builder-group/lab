@@ -1,4 +1,4 @@
-import type { TEntity, TProject } from '@/modules/project';
+import { type TPiece, type TProject, tieOf } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
 import { draftPieceColors, type TDraftColors } from './draft-look';
 
@@ -7,10 +7,10 @@ import { draftPieceColors, type TDraftColors } from './draft-look';
 const startRails = new WeakMap<TProject, Map<string, string>>();
 
 /** The piece's own label color, else its marble's; null for a piece no marble plays or starts on */
-export function pieceLabelColor(project: TProject, entity: TEntity): string | null {
+export function pieceLabelColor(project: TProject, entity: TPiece): string | null {
 	if (entity.labelColor != null) return entity.labelColor;
-	const marbleId = entity.components.hitLink?.marbleId ?? startRailsOf(project).get(entity.id);
-	return project.music.marbles.find((marble) => marble.id === marbleId)?.color ?? null;
+	const marbleId = tieOf(entity)?.marbleId ?? startRailsOf(project).get(entity.id);
+	return project.marbles.find((marble) => marble.id === marbleId)?.labelColor ?? null;
 }
 
 /** The marble's start rail per project state, since every piece asks on every frame */
@@ -18,7 +18,7 @@ function startRailsOf(project: TProject): Map<string, string> {
 	let rails = startRails.get(project);
 	if (rails == null) {
 		rails = new Map();
-		for (const marble of project.music.marbles) {
+		for (const marble of project.marbles) {
 			const rail = startRailOf(project, marble.id);
 			if (rail != null) rails.set(rail.id, marble.id);
 		}
@@ -27,14 +27,14 @@ function startRailsOf(project: TProject): Map<string, string> {
 	return rails;
 }
 
-const entityIndexes = new WeakMap<TProject, Map<string, TEntity>>();
+const entityIndexes = new WeakMap<TProject, Map<string, TPiece>>();
 
 /** Entities by id per project state, since every piece asks on every draw. An edit makes a new project, and with it a new index */
-function entityOf(project: TProject, entityId: string): TEntity | undefined {
+function entityOf(project: TProject, entityId: string): TPiece | undefined {
 	let index = entityIndexes.get(project);
 	if (index == null) {
 		index = new Map();
-		for (const entity of project.entities) if (!index.has(entity.id)) index.set(entity.id, entity);
+		for (const entity of project.track.pieces) if (!index.has(entity.id)) index.set(entity.id, entity);
 		entityIndexes.set(project, index);
 	}
 	return index.get(entityId);

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createState } from 'feature-state';
 import { describe, expect, it, vi } from 'vitest';
 import { earliestHitTime, releaseFollowsFirstHit } from '@/modules/building';
-import { createProject, parseProject, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
+import { createProject, parseProject, type TPiece, type TProject, type TProjectCommand } from '@/modules/project';
 import { addHit } from './menus';
 import { StudioCx } from './StudioCx';
 import { tapTime } from './tap';
@@ -53,7 +53,7 @@ describe('hits work without a Song', () => {
 	});
 
 	it('should place T at 0:00 at the earliest reachable time, move the playhead there and keep adding', () => {
-		const marble = noSong.music.marbles[0];
+		const marble = noSong.marbles[0];
 		if (marble == null) throw new Error('A new project has a marble');
 		const cx = studio(noSong);
 		const earliest = earliestHitTime(noSong, marble.id) ?? 0;
@@ -65,7 +65,7 @@ describe('hits work without a Song', () => {
 		expect(placed[0][0]?.hits[0]?.time).toBe(earliest);
 		expect(cx.$playhead.get()).toBe(earliest);
 
-		const next = studio({ ...noSong, music: { ...noSong.music, marbles: [{ ...marble, hits: [{ id: 'a', time: earliest }] }] } });
+		const next = studio({ ...noSong, marbles: [{ ...marble, hits: [{ id: 'a', time: earliest }] }] });
 		next.$playhead.set(earliest);
 
 		next.tapHit();
@@ -76,22 +76,22 @@ describe('hits work without a Song', () => {
 	});
 
 	it('should release a marble with no track before its first hit, and leave it once it has pieces', () => {
-		const marble = noSong.music.marbles[0];
+		const marble = noSong.marbles[0];
 		if (marble == null) throw new Error('A new project has a marble');
 		const commands: TProjectCommand[] = [{ type: 'upsertHits', marbleId: marble.id, hits: [{ id: 'a', time: 3 }] }];
-		const hit = { ...noSong, music: { ...noSong.music, marbles: [{ ...marble, hits: [{ id: 'a', time: 3 }] }] } };
+		const hit = { ...noSong, marbles: [{ ...marble, hits: [{ id: 'a', time: 3 }] }] };
 
-		expect(releaseFollowsFirstHit(noSong, hit, commands).entities[0]?.components.release?.time).toBe(2.5);
-		const later = { ...hit, music: { ...hit.music, marbles: [{ ...marble, hits: [{ id: 'a', time: 3 }, { id: 'b', time: 4 }] }] } };
+		expect(releaseFollowsFirstHit(noSong, hit, commands).marbles[0]?.start.time).toBe(2.5);
+		const later = { ...hit, marbles: [{ ...marble, hits: [{ id: 'a', time: 3 }, { id: 'b', time: 4 }] }] };
 		expect(releaseFollowsFirstHit(hit, later, commands)).toBe(later);
-		const piece = { id: 'p', components: { piece: { type: 'platform', params: {} } } } as unknown as TEntity;
-		const tracked = { ...hit, entities: [...hit.entities, piece] };
+		const piece: TPiece = { id: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
+		const tracked = { ...hit, track: { ...hit.track, pieces: [...hit.track.pieces, piece] } };
 		expect(releaseFollowsFirstHit(noSong, tracked, commands)).toBe(tracked);
 	});
 
 	it('should place a hit by hand without a Song and without a pitch', () => {
 		const cx = studio(noSong);
-		const marble = noSong.music.marbles[0];
+		const marble = noSong.marbles[0];
 		if (marble == null) throw new Error('A new project has a marble');
 
 		addHit(cx as unknown as StudioCx, marble, 1);
@@ -116,9 +116,9 @@ describe('hits work without a Song', () => {
 describe('stepHit method', () => {
 	function stepping(workspace: 'track' | 'film'): StudioCx {
 		const base = createProject({ title: 'Two' });
-		const marble = base.music.marbles[0];
+		const marble = base.marbles[0];
 		if (marble == null) throw new Error('A new project has a marble');
-		const project: TProject = { ...base, music: { ...base.music, marbles: [{ ...marble, hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2 }] }] } };
+		const project: TProject = { ...base, marbles: [{ ...marble, hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2 }] }] };
 		const cx = {
 			project,
 			$playhead: createState(0),

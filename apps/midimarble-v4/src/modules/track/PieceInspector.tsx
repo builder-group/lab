@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
-import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
+import type { TPiece, TPlace, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { bowlCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, noteName, toHitKey } from '@/modules/project';
+import { formatTime, freePosition, noteName, toHitKey, tieOf } from '@/modules/project';
 import { pieceProblems, struckPieces, type TPreflightIssue, attachState, isPathPieceType, pathPieceTypes, withPathType, withRailLayout, type TPathPieceType } from '@/modules/building';
 import { useRunPreflight, PieceIcon } from '@/modules/canvas';
 import type { StudioCx } from '@/modules/studio';
@@ -25,24 +25,24 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const preflight = useRunPreflight(cx, project);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
-	const entities = project.entities.filter((entity) => ids.includes(entity.id) && entity.components.piece != null);
+	const entities = project.track.pieces.filter((entity) => ids.includes(entity.id));
 	const first = entities[0];
 	if (first == null) return null;
-	const type = first.components.piece?.type ?? 'platform';
+	const type = first.type ?? 'platform';
 	const definition = getPieceDefinition(type);
 	const isSingle = entities.length === 1;
 	const label = definition?.label ?? type;
-	const isSameType = entities.every((entity) => entity.components.piece?.type === type);
-	const kind = pieceKind(first.components.piece ?? { type });
+	const isSameType = entities.every((entity) => entity.type === type);
+	const kind = pieceKind(first);
 	const isPath = kind === 'path' || kind === 'tube';
 	const resolved = result?.pieces.find((item) => item.entityId === first.id);
 	const attach = attachState(project, first);
-	const isFree = entities.every((entity) => entity.components.hitLink == null);
+	const isFree = entities.every((entity) => tieOf(entity) == null);
 
-	const angles = entities.map(pieceAngle).filter((angle) => angle != null);
+	const angles = entities.map(pieceAngle);
 	const sharedAngle = angles.length > 0 && angles.every((angle) => Math.abs(angle - (angles[0] ?? 0)) < 1e-9) ? (angles[0] ?? null) : null;
-	const link = isSingle ? first.components.hitLink : undefined;
-	const transform = isSingle ? first.components.transform : undefined;
+	const link = isSingle ? tieOf(first) : undefined;
+	const free = isSingle ? freePosition(first) : undefined;
 
 	// Scrubs preview through the simulation without history; a release commits one edit
 	function preview(edit: TPieceEdit): void {
@@ -55,12 +55,12 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const cancel = (): void => cx.simulation.endPreview();
 
 	const angleEdit = (degrees: number): TPieceEdit => ({ angle: toRadians(degrees) });
-	const contactEdit = (percent: number): TPieceEdit => ({ hitLink: { contactAt: percent / 100 } });
+	const contactEdit = (percent: number): TPieceEdit => ({ contactAt: percent / 100 });
 	const positionEdit = (axis: 'x' | 'y', centimeters: number): TPieceEdit => ({ position: { [axis]: centimeters / 100 } });
 
 	const title = isSingle ? (first.name ?? label) : isSameType ? `${entities.length} ${label}s` : `${entities.length} Pieces`;
 	const subtitle = isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
-	const position = transform?.position ?? resolved?.position ?? null;
+	const position = free ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
 	const look = isSingle ? looks.get(first.id) : undefined;
 	const status = isSingle ? lookStatus(struckStatus(pieceStatus(project, first, resolved, result), hitBy), look) : null;
@@ -73,7 +73,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				icon={<PieceIcon type={isSameType ? type : 'platform'} size={16} />}
 				title={title}
 				subtitle={subtitle}
-				onRename={isSingle ? (name) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name } }]) : undefined}
+				onRename={isSingle ? (name) => cx.execute([{ type: 'addPiece', piece: { ...first, name } }]) : undefined}
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 				fix={
 					// Fix sits under the problem
@@ -127,13 +127,13 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						onCancel={cancel}
 					/>
 				) : null}
-				{isPath && isSingle && resolved != null && first.components.path?.nodes == null ? <PathRunFields cx={cx} project={project} entity={first} piece={resolved} /> : null}
+				{isPath && isSingle && resolved != null && first.path?.nodes == null ? <PathRunFields cx={cx} project={project} entity={first} piece={resolved} /> : null}
 				{link != null && attach.kind === 'linked' && kind === 'box' ? (
 					<ScrubField
 						id="piece-contact"
 						label="Lands At"
 						name="Where along the platform the marble lands"
-						value={Math.round(link.contactAt * 100)}
+						value={Math.round((link.contactAt ?? 0.5) * 100)}
 						unit="%"
 						step={0.5}
 						min={0}
@@ -189,10 +189,10 @@ function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | unde
 
 
 /** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `None` */
-function tieLabel(project: TProject, entity: TEntity): string {
+function tieLabel(project: TProject, entity: TPiece): string {
 	const attach = attachState(project, entity);
 	if (attach.kind === 'free') return 'None';
-	const marble = project.music.marbles.find((item) => item.id === attach.marbleId);
+	const marble = project.marbles.find((item) => item.id === attach.marbleId);
 	if (attach.kind === 'anchored') return `Follows ${marble?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
 	const index = marble?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
 	const hit = marble?.hits[index];
@@ -201,27 +201,27 @@ function tieLabel(project: TProject, entity: TEntity): string {
 }
 
 /** The header pill: the hit's timing for a platform that plays a note, what the marble does for a rail or tunnel */
-function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiece | undefined, result: TSimulationResult | null): TTimingStatus | null {
-	const link = entity.components.hitLink;
-	const type = entity.components.piece?.type ?? '';
+function pieceStatus(project: TProject, entity: TPiece, resolved: TResolvedPiece | undefined, result: TSimulationResult | null): TTimingStatus | null {
+	const link = tieOf(entity);
+	const type = entity.type ?? '';
 	if (link == null) return null;
 	const attach = attachState(project, entity);
 	if (attach.kind === 'linked' && isMusicalPiece(type)) {
 		const hit = result?.hits.find((item) => item.pieceEntityId === entity.id || (item.marbleId === link.marbleId && item.hitId === link.hitId));
-		const marble = project.music.marbles.find((item) => item.id === link.marbleId);
+		const marble = project.marbles.find((item) => item.id === link.marbleId);
 		const pitch = marble?.hits.find((item) => item.id === link.hitId)?.pitch;
 		return timingStatus(resolved, hit, { marble: marble?.name, note: pitch == null ? undefined : noteName(pitch), piece: entity.name ?? undefined });
 	}
-	const kind = pieceKind(entity.components.piece ?? { type });
+	const kind = pieceKind(entity);
 	if ((kind === 'path' || kind === 'tube' || kind === 'generated') && resolved != null && result != null) return rideStatus(project, resolved, result, link.marbleId);
 	if (kind === 'catcher' && resolved != null && result != null) return bowlStatus(project, entity, resolved, result, link.marbleId);
-	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.music.marbles.find((item) => item.id === link.marbleId)?.name });
+	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.marbles.find((item) => item.id === link.marbleId)?.name });
 	return null;
 }
 
 /** Whether the Bowl catches its marble: Catches, Missed, Bounces Out or Blocked, read from the simulation */
-function bowlStatus(project: TProject, entity: TEntity, piece: TResolvedPiece, result: TSimulationResult, marbleId: string): TTimingStatus {
-	const marble = project.music.marbles.find((item) => item.id === marbleId)?.name ?? 'The marble';
+function bowlStatus(project: TProject, entity: TPiece, piece: TResolvedPiece, result: TSimulationResult, marbleId: string): TTimingStatus {
+	const marble = project.marbles.find((item) => item.id === marbleId)?.name ?? 'The marble';
 	const caught = bowlCatch(result, entity.id);
 	const enters = piece.entryTime != null ? `Opens at ${formatTime(piece.entryTime)}.\n` : '';
 	switch (caught.status) {
@@ -242,35 +242,35 @@ function bowlStatus(project: TProject, entity: TEntity, piece: TResolvedPiece, r
 
 /** What the marble does on a rail or tunnel, read from the simulation */
 function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulationResult, marbleId: string): TTimingStatus {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const start = pieceTime(piece) ?? 0;
 	const next = marble?.hits.find((hit) => hit.time > start + 1e-3);
 	const nextIndex = next != null ? (marble?.hits.indexOf(next) ?? -1) : -1;
 	const ride = pathRide(result, piece, marbleId, next?.time ?? result.duration);
 	const label = getPieceDefinition(piece.type)?.label.toLowerCase() ?? 'piece';
-	const marbleEntity = marble?.name ?? 'The marble';
+	const marbleName = marble?.name ?? 'The marble';
 	const starts = `Starts at ${formatTime(start)}.`;
-	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `${marbleEntity} already passes through this spot earlier in its run` };
-	if (ride.enter == null) return { tone: 'bad', label: 'Missed', detail: `${starts}\n${marbleEntity} passes the ${label} without touching it.` };
+	if (piece.status === 'blocked') return { tone: 'bad', label: 'Blocked', detail: `${marbleName} already passes through this spot earlier in its run` };
+	if (ride.enter == null) return { tone: 'bad', label: 'Missed', detail: `${starts}\n${marbleName} passes the ${label} without touching it.` };
 	if (ride.leave == null) {
 		return next != null
-			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marbleEntity} is still on the ${label} at hit ${nextIndex + 1}.` }
-			: { tone: 'neutral', label: 'Rides to End', detail: `${starts}\n${marbleEntity} stays on the ${label} to the end.` };
+			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marbleName} is still on the ${label} at hit ${nextIndex + 1}.` }
+			: { tone: 'neutral', label: 'Rides to End', detail: `${starts}\n${marbleName} stays on the ${label} to the end.` };
 	}
 	const rides = ride.leave - ride.enter;
 	const flight = next == null ? '' : `, then falls ${(next.time - ride.leave).toFixed(2)} s to hit ${nextIndex + 1}`;
-	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marbleEntity} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
+	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marbleName} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
 }
 
 /**
  * The piece's tie, as one row that selects what it is tied to: the note a platform plays, or the marble and
  * moment a piece follows. The icon button detaches it in place.
  */
-const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
+const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TPiece }> = (props) => {
 	const { cx, project, entity } = props;
 	const attach = attachState(project, entity);
 	if (attach.kind === 'free') return null;
-	const marble = project.music.marbles.find((item) => item.id === attach.marbleId);
+	const marble = project.marbles.find((item) => item.id === attach.marbleId);
 	const hitIndex = marble?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
 	const hit = marble?.hits[hitIndex];
 
@@ -293,12 +293,12 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 
 	function openMarble(): void {
 		if (attach.kind !== 'anchored') return;
-		const marble = project.entities.find((item) => item.components.marble?.marbleId === attach.marbleId);
+		const marble = project.marbles.find((item) => item.id === attach.marbleId);
 		if (marble != null) cx.$selection.set([marble.id]);
 		if (!cx.$playing.get()) cx.$playhead.set(attach.time);
 	}
 
-	const marbleDot = <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: marble?.color }} />;
+	const marbleDot = <span className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: marble?.labelColor }} />;
 
 	return (
 		<Panel
@@ -353,22 +353,22 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 // MARK: - Rails and tunnels
 
 /** Rail or Tunnel for a drawn path, switched in one edit that keeps the path and where it sits */
-const PathTypeFields: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
+const PathTypeFields: React.FC<{ cx: StudioCx; project: TProject; entities: TPiece[] }> = (props) => {
 	const { cx, project, entities } = props;
-	const types = new Set(entities.map((entity) => entity.components.piece?.type));
+	const types = new Set(entities.map((entity) => entity.type));
 	const current = types.size === 1 ? [...types][0] : null;
-	const layouts = new Set(entities.map((entity) => entity.components.piece?.layout ?? 'path'));
+	const layouts = new Set(entities.map((entity) => entity.layout ?? 'path'));
 	const layout = layouts.size === 1 ? [...layouts][0] : null;
 
 	function switchTo(type: TPathPieceType): void {
-		const switched: TEntity[] = [];
-		for (const entity of entities) switched.push(withPathType(entity, type, [...project.entities, ...switched]));
-		const commands = switched.filter((entity, index) => entity !== entities[index]).map((entity): TProjectCommand => ({ type: 'upsertEntity', entity }));
+		const switched: TPiece[] = [];
+		for (const entity of entities) switched.push(withPathType(entity, type, [...project.track.pieces, ...switched]));
+		const commands = switched.filter((entity, index) => entity !== entities[index]).map((entity): TProjectCommand => ({ type: 'addPiece', piece: entity }));
 		if (commands.length > 0) cx.execute(commands);
 	}
 
 	function setLayout(value: TRailLayout): void {
-		if (cx.execute(entities.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity: withRailLayout(entity, value) })))) cx.$trackCx.get()?.revealOnceSimulated(entities.map((entity) => entity.id));
+		if (cx.execute(entities.map((entity): TProjectCommand => ({ type: 'addPiece', piece: withRailLayout(entity, value) })))) cx.$trackCx.get()?.revealOnceSimulated(entities.map((entity) => entity.id));
 	}
 
 	return (
@@ -404,10 +404,10 @@ const PathTypeFields: React.FC<{ cx: StudioCx; project: TProject; entities: TEnt
 };
 
 /** Length and slope of a rail or tunnel run, edited by scaling and turning it around the entry */
-const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity; piece: TResolvedPiece }> = (props) => {
+const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TPiece; piece: TResolvedPiece }> = (props) => {
 	const { cx, project, entity, piece } = props;
-	const type = entity.components.piece?.type ?? 'rail';
-	const controls = resolvePiecePath(type, entity.components.path?.points);
+	const type = entity.type ?? 'rail';
+	const controls = resolvePiecePath(type, entity.path?.points);
 	const run = pathRun(controls);
 	const world = worldRunSlope(piece, controls);
 
@@ -415,10 +415,10 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 	const withSlope = (degrees: number): TVec2[] => turnPathRun(controls, -(toRadians(degrees) - world.slope) * world.direction);
 	const pathProject = (points: TVec2[]): TProject => ({
 		...project,
-		entities: project.entities.map((item) => (item.id === entity.id ? { ...item, components: { ...item.components, path: { points } } } : item))
+		track: { ...project.track, pieces: project.track.pieces.map((item) => (item.id === entity.id ? { ...item, path: { points } } : item)) }
 	});
 	const commitPath = (points: TVec2[]): void => {
-		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'path', value: { points } } }]);
+		cx.execute([{ type: 'updatePiece', pieceId: entity.id, patch: { path: { points } } }]);
 		cx.simulation.endPreview();
 	};
 
@@ -459,10 +459,10 @@ const PathRunFields: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 // MARK: - Shape and Physics
 
 /** The piece type's parameters in two panels: its size, open like Position, and how it behaves, collapsed */
-const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; railLayout: TRailLayout | undefined }> = (props) => {
+const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TPiece[]; type: string; railLayout: TRailLayout | undefined }> = (props) => {
 	const { type, railLayout, cx, project, entities } = props;
 	const panels = pieceParamPanels(type, railLayout);
-	const isPath = entities.every((entity) => isPathPieceType(entity.components.piece?.type));
+	const isPath = entities.every((entity) => isPathPieceType(entity.type));
 	return (
 		<>
 			{panels.shape.length > 0 || isPath ? (
@@ -476,7 +476,7 @@ const ParamsSections: React.FC<{ cx: StudioCx; project: TProject; entities: TEnt
 };
 
 /** One panel of parameters, collapsed unless `isOpen`, with units people read: cm, mm, ms, rpm */
-const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[]; type: string; id: string; title: string; help?: string; names: string[]; isOpen?: boolean; children?: React.ReactNode }> = (props) => {
+const ParamsPanel: React.FC<{ cx: StudioCx; project: TProject; entities: TPiece[]; type: string; id: string; title: string; help?: string; names: string[]; isOpen?: boolean; children?: React.ReactNode }> = (props) => {
 	const { cx, project, entities, type, id, title, help, names, isOpen = false, children } = props;
 	const definition = getPieceDefinition(type);
 	if (definition == null) return null;
@@ -542,48 +542,45 @@ function displayUnit(name: string, unit: string, isInteger: boolean): { unit: st
 // MARK: - Edits
 
 interface TPieceEdit {
-	hitLink?: Partial<NonNullable<TComponents['hitLink']>>;
+	/** Where a tied piece's marble lands along it */
+	contactAt?: number;
 	params?: Record<string, number>;
-	/** Surface angle: the link's for attached pieces, the transform's for free ones */
 	angle?: number;
-	/** Free position, ignored for attached pieces */
+	/** Free position, ignored for tied pieces */
 	position?: Partial<TVec2>;
 }
 
 /**
- * The same edit for every piece, as a preview project and as the commands that commit it. An edited link drops a pin,
+ * The same edit for every piece, as a preview project and as the commands that commit it. An edited tie drops a pin,
  * so the piece follows its hit.
  */
-function applyPieceEdit(project: TProject, entities: TEntity[], edit: TPieceEdit): { project: TProject; commands: TProjectCommand[] } {
+function applyPieceEdit(project: TProject, entities: TPiece[], edit: TPieceEdit): { project: TProject; commands: TProjectCommand[] } {
 	const commands: TProjectCommand[] = [];
-	const edited = new Map<string, TEntity>();
+	const edited = new Map<string, TPiece>();
 	for (const entity of entities) {
-		const components = { ...entity.components };
-		const linkPatch = edit.hitLink != null || edit.angle != null ? { ...edit.hitLink, ...(edit.angle != null ? { angle: edit.angle } : {}) } : null;
-		if (linkPatch != null && components.hitLink != null) {
-			const { held: _held, ...link } = components.hitLink;
-			components.hitLink = { ...link, ...linkPatch };
-			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: components.hitLink } });
-		} else if ((edit.angle != null || edit.position != null) && components.hitLink == null && components.transform != null) {
-			components.transform = { position: { ...components.transform.position, ...edit.position }, angle: edit.angle ?? components.transform.angle };
-			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'transform', value: components.transform } });
+		const patch: { angle?: number; place?: TPlace; params?: Record<string, number> } = {};
+		const link = tieOf(entity);
+		if (link != null && (edit.contactAt != null || edit.angle != null)) {
+			const { held: _held, ...kept } = link;
+			patch.place = edit.contactAt != null ? { ...kept, contactAt: edit.contactAt } : kept;
+			if (edit.angle != null) patch.angle = edit.angle;
+		} else if (entity.place.kind === 'free' && (edit.angle != null || edit.position != null)) {
+			if (edit.position != null) patch.place = { kind: 'free', position: { ...entity.place.position, ...edit.position } };
+			if (edit.angle != null) patch.angle = edit.angle;
 		}
-		if (edit.params != null && components.piece != null) {
-			components.piece = { ...components.piece, params: { ...components.piece.params, ...edit.params } };
-			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'piece', value: components.piece } });
-		}
-		edited.set(entity.id, { ...entity, components });
+		if (edit.params != null) patch.params = { ...entity.params, ...edit.params };
+		if (Object.keys(patch).length > 0) commands.push({ type: 'updatePiece', pieceId: entity.id, patch });
+		edited.set(entity.id, { ...entity, ...patch });
 	}
-	return { project: { ...project, entities: project.entities.map((entity) => edited.get(entity.id) ?? entity) }, commands };
+	return { project: { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => edited.get(entity.id) ?? entity) } }, commands };
 }
 
 /** The layout all these rails share, Drawn when none is set, or undefined when they differ */
-function sharedRailLayout(entities: TEntity[]): TRailLayout | undefined {
-	const layouts = new Set(entities.map((entity) => entity.components.piece?.layout ?? 'path'));
+function sharedRailLayout(entities: TPiece[]): TRailLayout | undefined {
+	const layouts = new Set(entities.map((entity) => entity.layout ?? 'path'));
 	return layouts.size === 1 ? [...layouts][0] : undefined;
 }
 
-function resolvedParam(entity: TEntity, name: string): number {
-	const piece = entity.components.piece;
-	return piece?.params[name] ?? getPieceDefinition(piece?.type ?? '')?.params[name]?.default ?? 0;
+function resolvedParam(entity: TPiece, name: string): number {
+	return entity.params[name] ?? getPieceDefinition(entity.type)?.params[name]?.default ?? 0;
 }

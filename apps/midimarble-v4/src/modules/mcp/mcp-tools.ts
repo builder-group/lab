@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, preflightExport } from '@/modules/building';
+import { framingProblemAt, patternSpan, preflightExport } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
@@ -360,15 +360,11 @@ function addTitle(cx: StudioCx, args: Record<string, unknown>): void {
 	const playhead = cx.$playhead.get();
 	const frameHeight = frameHeightOnWall(project, result, playhead);
 	const point = at ?? previewPointToWall(project, result, playhead, 0.5, 0.5);
-	const { commands, entityId } = addWallTextCommands(point, { color: color ?? defaultTitleColor(project.film), frameHeight, ...(text != null ? { text } : {}) });
-	const styled = commands.flatMap((command) => {
-		if (command.type !== 'upsertEntity' || command.entity.components.wallText == null) return [command];
-		const title = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.length, songName: songDisplayName(project), aspect: project.format.width / project.format.height });
-		const wallText = { ...title, ...(start != null ? { in: start } : {}), ...(out != null ? { out } : {}) };
-		return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
-	});
+	const { title } = addWallTextCommands(project, point, { color: color ?? defaultTitleColor(project.film), frameHeight, ...(text != null ? { text } : {}) });
+	const styled = withTitleStyle(title, style, { frameHeight, playhead, end: project.length, songName: songDisplayName(project), aspect: project.format.width / project.format.height });
+	const added = { ...styled, name: styled.text, ...(start != null ? { in: start } : {}), ...(out != null ? { out } : {}) };
 	cx.$workspace.set('film');
-	if (cx.execute(styled)) cx.$selection.set([entityId]);
+	if (cx.execute([{ type: 'updateFilm', film: { titles: [...project.film.titles, added] } }])) cx.$selection.set([added.id]);
 }
 
 /** Remove Pack by name, which the Packs… sheet does for a person */
@@ -414,11 +410,15 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const { marbleId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
-	if (!project.music.marbles.some((marble) => marble.id === marbleId)) return fail(cx, `No marble has marble ${marbleId}. get_state lists them.`);
+	if (!project.marbles.some((marble) => marble.id === marbleId)) return fail(cx, `No marble has marble ${marbleId}. get_state lists them.`);
 	openTrack(cx);
 	const stop = cx.mcp.presence.stopEpoch;
 	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
-	const existing = project.groups?.filter(isPatternGroup).find((group) => group.marbleId === marbleId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
+	const patternMarble = project.marbles.find((marble) => marble.id === marbleId);
+	const existing = project.track.groups.filter(isPatternGroup).find((group) => {
+		const span = patternMarble == null ? null : patternSpan(patternMarble, group);
+		return group.marbleId === marbleId && group.pattern.kind === kind && span != null && Math.abs(span.from - from) < 1e-3 && Math.abs(span.to - to) < 1e-3;
+	});
 	const target = { marbleId, from, to, ...(existing != null ? { group: existing } : {}) };
 	const report = (answer: Awaited<ReturnType<typeof cx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
@@ -460,8 +460,8 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 		applySelection(cx, args);
 		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
 	}
-	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'upsertEntity' && command.entity.id === expanded.createdIds[0]) : undefined;
-	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'upsertEntity' ? (created.entity.name ?? null) : null));
+	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'addPiece' && command.piece.id === expanded.createdIds[0]) : undefined;
+	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'addPiece' ? (created.piece.name ?? null) : null));
 	return editStep(cx, label ?? expanded.summary ?? 'Edit', () => {
 		if (!cx.execute(expanded.commands)) return;
 		if (expanded.createdIds.length > 0) cx.$selection.set(expanded.createdIds);
@@ -516,7 +516,7 @@ function gapPreference(args: Record<string, unknown>): 'rail' | 'switchback' | '
 function buildFrom(cx: StudioCx, args: Record<string, unknown>): { marbleId: string; hitId: string } | string | null {
 	const hitId = args['from'];
 	if (hitId == null) return null;
-	const marble = cx.project?.music.marbles.find((item) => item.hits.some((hit) => hit.id === hitId));
+	const marble = cx.project?.marbles.find((item) => item.hits.some((hit) => hit.id === hitId));
 	if (marble == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
 	if (cx.assist.isBuilding) return buildRefusal(cx);
 	return { marbleId: marble.id, hitId };
@@ -524,7 +524,7 @@ function buildFrom(cx: StudioCx, args: Record<string, unknown>): { marbleId: str
 
 function buildRefusal(cx: StudioCx): string {
 	if (cx.assist.isBuilding) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
-	if (cx.project?.music.marbles.some((marble) => marble.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
+	if (cx.project?.marbles.some((marble) => marble.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
 	return 'Every hit already has a platform.';
 }
 
@@ -553,9 +553,9 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 	if (!Array.isArray(select) || project == null) return null;
 	const isKnown = (key: unknown): boolean => {
 		if (typeof key !== 'string') return false;
-		if (project.entities.some((entity) => entity.id === key)) return true;
+		if ([...project.marbles, ...project.track.pieces, ...project.film.titles].some((entity) => entity.id === key)) return true;
 		const hit = parseHitKey(key);
-		if (hit != null) return project.music.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
+		if (hit != null) return project.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
 		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLane, createMarble, createProject, type TEntity, type TProject } from '@/modules/project';
+import { createMarble, createProject, freePosition, type TPiece, type TProject, tieOf } from '@/modules/project';
 import { createLinkedPiece, layoutFree, resolvePieceParams, resolvePiecePath, smoothPath } from '@/modules/simulation';
 import { asAnchored, asFree, asLinked, attachState, createFreePiece, displayPiece, railPath, rotateResolved, withSnap, rebaseNodes, sampleNodes, segmentPoint, withNodeHandle, withNodePoint } from '@/modules/building';
 import { distanceToSegment } from '@/modules/scene';
@@ -49,54 +49,55 @@ describe('bezier', () => {
 });
 
 describe('open canvas attachments', () => {
-	function project(): { project: TProject; marble: TEntity } {
+	function project(): { project: TProject } {
 		const base = createProject({ title: 'Test' });
-		const marble = { ...createLane(0, 'lane-1'), hits: [{ id: 'hit-a', time: 0.5 }, { id: 'hit-b', time: 1 }] };
-		const marbleEntity = createMarble(marble, { x: 0, y: 0.6 });
-		return { project: { ...base, music: { ...base.music, marbles: [marble] }, entities: [marbleEntity] }, marble: marbleEntity };
+		const marble = { ...createMarble(0, { x: 0, y: 0.6 }, 'marble-1'), hits: [{ id: 'hit-a', time: 0.5 }, { id: 'hit-b', time: 1 }] };
+		return { project: { ...base, marbles: [marble] } };
 	}
 
 	it('should keep the pose when a free platform links to a dot and frees again', () => {
 		const { project: base } = project();
-		const piece = createFreePiece('platform', { position: { x: 0.1, y: 0.2 }, angle: 0.2 }, base.entities);
+		const piece = createFreePiece('platform', { position: { x: 0.1, y: 0.2 }, angle: 0.2 }, base.track.pieces);
 		const dot = { x: 0.12, y: 0.215 };
-		const linked = asLinked(piece, { position: { x: 0.1, y: 0.2 }, angle: 0.2 }, 'lane-1', 'hit-b', dot);
-		expect(linked.components.transform).toBeUndefined();
-		expect(linked.components.hitLink?.angle).toBe(0.2);
-		expect(linked.components.hitLink?.contactAt).toBeGreaterThan(0.5);
-		expect(attachState(base, linked)).toEqual({ kind: 'linked', marbleId: 'lane-1', hitId: 'hit-b' });
+		const linked = asLinked(piece, { position: { x: 0.1, y: 0.2 }, angle: 0.2 }, 'marble-1', 'hit-b', dot);
+		expect(freePosition(linked)).toBeUndefined();
+		expect(linked.angle).toBe(0.2);
+		expect(tieOf(linked)?.contactAt).toBeGreaterThan(0.5);
+		expect(attachState(base, linked)).toEqual({ kind: 'linked', marbleId: 'marble-1', hitId: 'hit-b' });
 		const free = asFree(linked, { position: { x: 0.1, y: 0.2 }, angle: 0.2 });
-		expect(free.components.hitLink).toBeUndefined();
-		expect(free.components.piece?.params['entryDelay']).toBeUndefined();
+		expect(tieOf(free)).toBeNull();
+		expect(free.params['entryDelay']).toBeUndefined();
 		expect(attachState(base, free)).toEqual({ kind: 'free' });
 	});
 
 	it('should anchor to the latest hit before the moment with the offset from the marble', () => {
 		const { project: base } = project();
-		const piece = createFreePiece('windmill', { position: { x: 0.1, y: 0.2 }, angle: 0 }, base.entities);
-		const anchored = asAnchored(base, piece, { position: { x: 0.1, y: 0.2 }, angle: 0 }, 'lane-1', 1.25, { x: 0.05, y: 0.25 });
-		expect(anchored?.components.hitLink).toMatchObject({ hitId: 'hit-b', anchored: true });
-		expect(anchored?.components.hitLink?.offset?.x).toBeCloseTo(0.05, 9);
-		expect(anchored?.components.hitLink?.offset?.y).toBeCloseTo(-0.05, 9);
-		expect(anchored?.components.piece?.params['entryDelay']).toBeCloseTo(0.25, 6);
-		expect(attachState(base, anchored as TEntity)).toEqual({ kind: 'anchored', marbleId: 'lane-1', hitId: 'hit-b', time: 1.25 });
+		const piece = createFreePiece('windmill', { position: { x: 0.1, y: 0.2 }, angle: 0 }, base.track.pieces);
+		const anchored = asAnchored(base, piece, { position: { x: 0.1, y: 0.2 }, angle: 0 }, 'marble-1', 1.25, { x: 0.05, y: 0.25 });
+		const place = anchored?.place;
+		if (place?.kind !== 'follows') throw new Error('An anchored piece follows');
+		expect(place.hitId).toBe('hit-b');
+		expect(place.offset?.x).toBeCloseTo(0.05, 9);
+		expect(place.offset?.y).toBeCloseTo(-0.05, 9);
+		expect(anchored?.params['entryDelay']).toBeCloseTo(0.25, 6);
+		expect(attachState(base, anchored as TPiece)).toEqual({ kind: 'anchored', marbleId: 'marble-1', hitId: 'hit-b', time: 1.25 });
 		// Before the first hit the anchor counts back from it
-		const early = asAnchored(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, 'lane-1', 0.2, { x: 0, y: 0 });
-		expect(early?.components.hitLink).toMatchObject({ hitId: 'hit-a', anchored: true });
-		expect(attachState(base, early as TEntity)).toMatchObject({ kind: 'anchored', hitId: 'hit-a' });
-		expect((attachState(base, early as TEntity) as { time: number }).time).toBeCloseTo(0.2, 6);
+		const early = asAnchored(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, 'marble-1', 0.2, { x: 0, y: 0 });
+		expect(tieOf(early)).toMatchObject({ kind: 'follows', hitId: 'hit-a' });
+		expect(attachState(base, early as TPiece)).toMatchObject({ kind: 'anchored', hitId: 'hit-a' });
+		expect((attachState(base, early as TPiece) as { time: number }).time).toBeCloseTo(0.2, 6);
 		// A marble without hits has nothing to count from, so a drop stays free
-		expect(withSnap(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, { kind: 'anchor', marbleId: 'missing', time: 0.2, marble: { x: 0, y: 0 } }).components.hitLink).toBeUndefined();
+		expect(tieOf(withSnap(base, piece, { position: { x: 0, y: 0 }, angle: 0 }, { kind: 'anchor', marbleId: 'missing', time: 0.2, marble: { x: 0, y: 0 } }))).toBeNull();
 	});
 
 	it('should draw a free piece where the engine lays it out', () => {
 		const { project: base } = project();
 		const nodes = [{ point: { x: 0, y: 0 } }, { point: { x: 0.1, y: -0.02 } }];
-		const rail = createFreePiece('rail', { position: { x: 0.3, y: 0.1 }, angle: 0.1 }, base.entities, railPath(nodes));
+		const rail = createFreePiece('rail', { position: { x: 0.3, y: 0.1 }, angle: 0.1 }, base.track.pieces, railPath(nodes));
 		const shown = displayPiece(rail, { pose: { position: { x: 0.3, y: 0.1 }, angle: 0.1 } });
 		const type = 'rail';
 		const layout = layoutFree(
-			{ type, params: resolvePieceParams(type, rail.components.piece?.params ?? {}), path: resolvePiecePath(type, rail.components.path?.points), angle: 0.1, contactAt: 0.5, marbleRadius: 0.012 },
+			{ type, params: resolvePieceParams(type, rail.params ?? {}), path: resolvePiecePath(type, rail.path?.points), angle: 0.1, contactAt: 0.5, marbleRadius: 0.012 },
 			{ x: 0.3, y: 0.1 }
 		);
 		expect(shown.path).toEqual(layout.path);
@@ -105,7 +106,7 @@ describe('open canvas attachments', () => {
 	});
 
 	it('should turn a resolved piece around its pivot', () => {
-		const piece = displayPiece(createLinkedPiece('platform', 'lane-1', 'hit-a', 0), { pose: { position: { x: 0.1, y: 0 }, angle: 0 } });
+		const piece = displayPiece(createLinkedPiece('platform', 'marble-1', 'hit-a', 0), { pose: { position: { x: 0.1, y: 0 }, angle: 0 } });
 		const turned = rotateResolved(piece, { x: 0, y: 0 }, Math.PI / 2);
 		expect(turned.position.x).toBeCloseTo(0, 9);
 		expect(turned.position.y).toBeCloseTo(0.1, 9);

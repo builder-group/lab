@@ -1,4 +1,4 @@
-import type { TEntity, TProject, TVec2 } from '@/modules/project';
+import { type TPiece, type TProject, type TVec2, tieOf, type TPlays } from '@/modules/project';
 import { gravityOf } from './geometry';
 import { getPieceDefinition, soundsHit } from './pieces';
 import { trajectoryAt, type TSimulator } from './simulate';
@@ -61,27 +61,27 @@ export interface TSettled {
  * after it doesn't fold them into a heap, and a fix can bring the marble back to them.
  */
 export function holdFrom(project: TProject, base: TSimulationResult, marbleId: string, time: number): TProject {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const samples = base.marbles.find((marble) => marble.marbleId === marbleId)?.samples;
 	const first = samples?.[0]?.time;
 	if (marble == null || samples == null || first == null) return project;
 	const g = gravityOf(project);
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
-			const link = entity.components.hitLink;
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+			const link = tieOf(entity);
 			if (link == null || link.marbleId !== marbleId || link.held != null) return entity;
 			const hit = marble.hits.find((item) => item.id === link.hitId);
 			if (hit == null) return entity;
-			const type = entity.components.piece?.type ?? '';
-			const at = hit.time + (soundsHit(type, link) ? 0 : (entity.components.piece?.params['entryDelay'] ?? 0));
+			const type = entity.type ?? '';
+			const at = hit.time + (soundsHit(type, link) ? 0 : (entity.params['entryDelay'] ?? 0));
 			if (at < time - 1e-6) return entity;
 			const played = soundsHit(type, link) ? base.hits.find((item) => item.marbleId === marbleId && item.hitId === link.hitId) : undefined;
 			const moment = played?.dot != null ? { position: played.dot, velocity: played.velocity } : trajectoryAt(samples, at, g);
 			if (moment == null) return entity;
 			const leaves = soundsHit(type, link) ? leavingAt(base, marbleId, hit.time) : null;
-			return { ...entity, components: { ...entity.components, hitLink: { ...link, held: { dot: moment.position, velocity: moment.velocity, leaves } } } };
-		})
+			return { ...entity, place: { ...link, held: { dot: moment.position, velocity: moment.velocity, leaves } } };
+		}) }
 	};
 }
 
@@ -91,18 +91,18 @@ export function holdFrom(project: TProject, base: TSimulationResult, marbleId: s
  */
 export function withRides(project: TProject, result: TSimulationResult, fromTime = -Infinity): TProject {
 	let isChanged = false;
-	const timeOf = (marbleId: string, hitId: string): number | undefined => project.music.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === hitId)?.time;
-	const entities = project.entities.map((entity) => {
-		const type = entity.components.piece?.type ?? '';
-		const link = entity.components.hitLink;
+	const timeOf = (marbleId: string, hitId: string): number | undefined => project.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === hitId)?.time;
+	const entities = project.track.pieces.map((entity) => {
+		const type = entity.type ?? '';
+		const link = tieOf(entity);
 		if (link == null || !hasRide(type) || soundsHit(type, link)) return entity;
-		if (entity.components.transit?.key === rideKey(entity) || (timeOf(link.marbleId, link.hitId) ?? Infinity) < fromTime) return entity;
+		if (entity.ride?.key === rideKey(entity) || (timeOf(link.marbleId, link.hitId) ?? Infinity) < fromTime) return entity;
 		const transit = bakeRide(project, result, entity);
 		if (transit == null) return entity;
 		isChanged = true;
-		return { ...entity, components: { ...entity.components, transit } };
+		return { ...entity, ride: transit };
 	});
-	return isChanged ? { ...project, entities } : project;
+	return isChanged ? { ...project, track: { ...project.track, pieces: entities } } : project;
 }
 
 /** A platform's aim: where the marble must be at its next hit, or how it must leave */
@@ -120,38 +120,35 @@ interface TStep {
 function setValues(project: TProject, id: string, angle: number, bounce: number): TProject {
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
 			if (entity.id !== id) return entity;
-			const { hitLink, piece } = entity.components;
-			if (hitLink == null || piece == null) return entity;
-			return { ...entity, components: { ...entity.components, hitLink: { ...hitLink, angle }, piece: { ...piece, params: { ...piece.params, bounce } } } };
-		})
+			return tieOf(entity) == null ? entity : { ...entity, angle, params: { ...entity.params, bounce } };
+		}) }
 	};
 }
 
-function withLeaves(project: TProject, id: string, leaves: NonNullable<NonNullable<TEntity['components']['hitLink']>['leaves']>): TProject {
+function withLeaves(project: TProject, id: string, leaves: NonNullable<TPlays['leaves']>): TProject {
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
-			const { hitLink } = entity.components;
-			return entity.id === id && hitLink != null ? { ...entity, components: { ...entity.components, hitLink: { ...hitLink, leaves } } } : entity;
-		})
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+			return entity.id === id && entity.place.kind === 'plays' ? { ...entity, place: { ...entity.place, leaves } } : entity;
+		}) }
 	};
 }
 
-function linkedPlatform(project: TProject, marbleId: string, hitId: string): TEntity | undefined {
-	return project.entities.find((entity) => {
-		const link = entity.components.hitLink;
-		const type = entity.components.piece?.type ?? '';
+function linkedPlatform(project: TProject, marbleId: string, hitId: string): TPiece | undefined {
+	return project.track.pieces.find((entity) => {
+		const link = tieOf(entity);
+		const type = entity.type ?? '';
 		return link?.marbleId === marbleId && link.hitId === hitId && soundsHit(type, link) && getPieceDefinition(type)?.params['bounce'] != null;
 	});
 }
 
 /** Whether a piece the marble rides follows this hit */
 function launchesRide(project: TProject, marbleId: string, hitId: string): boolean {
-	return project.entities.some((entity) => {
-		const link = entity.components.hitLink;
-		return link?.marbleId === marbleId && link.hitId === hitId && hasRide(entity.components.piece?.type ?? '');
+	return project.track.pieces.some((entity) => {
+		const link = tieOf(entity);
+		return link?.marbleId === marbleId && link.hitId === hitId && hasRide(entity.type ?? '');
 	});
 }
 
@@ -194,8 +191,8 @@ interface TWas {
 }
 
 /** How the marble met a platform in the old run: as the run before the edit played it, or as it waits for it */
-function oldRun(entity: TEntity, base: TSimulationResult, marbleId: string, hit: { id: string; time: number }): TWas | null {
-	const held = entity.components.hitLink?.held;
+function oldRun(entity: TPiece, base: TSimulationResult, marbleId: string, hit: { id: string; time: number }): TWas | null {
+	const held = tieOf(entity)?.held;
 	if (held != null) return { dot: held.dot, arrival: held.velocity, leaving: held.leaves };
 	const played = base.hits.find((item) => item.marbleId === marbleId && item.hitId === hit.id);
 	if (played?.dot == null || played.status !== 'onTime') return null;
@@ -209,16 +206,16 @@ function oldRun(entity: TEntity, base: TSimulationResult, marbleId: string, hit:
  */
 function planSteps(project: TProject, base: TSimulationResult, edit: TMarbleEdit, variant: { skip: number; restore: number }): TStep[] | null {
 	const { marbleId } = edit;
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return null;
-	const stepFor = (entity: TEntity, hitId: string, time: number, aim: TAim, was: TWas): TStep => ({
+	const stepFor = (entity: TPiece, hitId: string, time: number, aim: TAim, was: TWas): TStep => ({
 		entityId: entity.id,
 		hitId,
 		time,
 		aim,
 		before: {
-			angle: entity.components.hitLink?.angle ?? 0,
-			bounce: entity.components.piece?.params['bounce'] ?? 0.65,
+			angle: entity.angle ?? 0,
+			bounce: entity.params['bounce'] ?? 0.65,
 			arrival: was.arrival,
 			leaving: was.leaving?.velocity ?? null
 		}
@@ -270,12 +267,10 @@ function planSteps(project: TProject, base: TSimulationResult, edit: TMarbleEdit
 
 /** Solves one platform's aim by Newton's method on its tilt and bounce, each try simulated only as far as the aim */
 function solveStep(simulator: TSimulator, project: TProject, marbleId: string, step: TStep, count: () => void): TProject {
-	const entity = project.entities.find((item) => item.id === step.entityId);
-	const link = entity?.components.hitLink;
-	const piece = entity?.components.piece;
-	if (link == null || piece == null) return project;
+	const entity = project.track.pieces.find((item) => item.id === step.entityId);
+	if (entity == null || tieOf(entity) == null) return project;
 	const g = gravityOf(project);
-	const spec = getPieceDefinition(piece.type)?.params['bounce'];
+	const spec = getPieceDefinition(entity.type)?.params['bounce'];
 	const until = (step.aim.kind === 'dot' ? step.aim.nextTime : step.time) + (LEAVE_STEPS + 3) * STEP_TIME;
 	const end = Math.min(project.length, until);
 	const run = (candidate: TProject): TSimulationResult => {
@@ -295,8 +290,8 @@ function solveStep(simulator: TSimulator, project: TProject, marbleId: string, s
 		return left != null ? [left.velocity.x - aim.velocity.x, left.velocity.y - aim.velocity.y] : [99, 99];
 	};
 	const size = (error: [number, number]): number => Math.hypot(error[0], error[1]);
-	let angle = link.angle;
-	let bounce = piece.params['bounce'] ?? spec?.default ?? 0.65;
+	let angle = entity.angle;
+	let bounce = entity.params['bounce'] ?? spec?.default ?? 0.65;
 	let current = errorOf(angle, bounce);
 	if (size(current) > SOLVED) {
 		// A start from reflection for a large change, keeping what friction added before the edit
@@ -451,7 +446,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 			}
 		}
 		// A look just past the change, so a drag too shows a break as one hit and no heap
-		const lastStep = Math.max(...edits.map((edit) => after.music.marbles.find((marble) => marble.id === edit.marbleId)?.hits[Math.min(edit.afterIndex + 3, (after.music.marbles.find((marble) => marble.id === edit.marbleId)?.hits.length ?? 1) - 1)]?.time ?? 0));
+		const lastStep = Math.max(...edits.map((edit) => after.marbles.find((marble) => marble.id === edit.marbleId)?.hits[Math.min(edit.afterIndex + 3, (after.marbles.find((marble) => marble.id === edit.marbleId)?.hits.length ?? 1) - 1)]?.time ?? 0));
 		const end = Math.min(after.length, lastStep + QUICK_LOOK);
 		const near = simulator.simulate({ ...project, length: end });
 		const broken = brokenSince(base, near).filter((hit) => hit.targetTime < end - 0.05);
@@ -479,7 +474,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 	const chosen = best != null && (movedEdit != null ? isNearer : score(best) <= score(unsettled)) ? best : unsettled;
 	let settled: typeof chosen & { heldFrom: THitResult[] } = { ...chosen, heldFrom: [] };
 	// A marble freed of one marble may now strike the pieces that wait, so each marble that breaks waits in turn
-	for (let marbles = 0; marbles < after.music.marbles.length; marbles++) {
+	for (let marbles = 0; marbles < after.marbles.length; marbles++) {
 		const waiting = new Set(settled.heldFrom.map((hit) => hit.marbleId));
 		const fresh = settled.broken.filter((hit) => !waiting.has(hit.marbleId));
 		const held = fresh.length > 0 ? holdBreaks(settled.project, after, base, settled.result, fresh) : null;
@@ -493,7 +488,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 function holdBreaks(project: TProject, unsolved: TProject, base: TSimulationResult, result: TSimulationResult, broken: THitResult[]): { project: TProject; from: THitResult[] } | null {
 	let next = project;
 	const from: THitResult[] = [];
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		const first = broken.filter((hit) => hit.marbleId === marble.id).sort((a, b) => a.targetTime - b.targetTime)[0];
 		if (first == null) continue;
 		const count = broken.filter((hit) => hit.marbleId === marble.id).length;
@@ -506,10 +501,10 @@ function holdBreaks(project: TProject, unsolved: TProject, base: TSimulationResu
 		const later = new Set(marble.hits.filter((hit) => hit.time >= first.targetTime - 1e-6).map((hit) => hit.id));
 		next = {
 			...next,
-			entities: next.entities.map((entity) => {
-				const link = entity.components.hitLink;
-				return link?.marbleId === marble.id && later.has(link.hitId) ? (unsolved.entities.find((item) => item.id === entity.id) ?? entity) : entity;
-			})
+			track: { ...next.track, pieces: next.track.pieces.map((entity) => {
+				const link = tieOf(entity);
+				return link?.marbleId === marble.id && later.has(link.hitId) ? (unsolved.track.pieces.find((item) => item.id === entity.id) ?? entity) : entity;
+			}) }
 		};
 		next = holdFrom(next, base, marble.id, first.targetTime);
 		from.push(first);
@@ -520,13 +515,13 @@ function holdBreaks(project: TProject, unsolved: TProject, base: TSimulationResu
 // MARK: - What an edit changed
 
 /** The parts of a piece that decide how the marble leaves it or what it rides */
-function physicsOf(entity: TEntity | undefined): string {
+function physicsOf(entity: TPiece | undefined): string {
 	if (entity == null) return '';
-	const { piece, hitLink, path } = entity.components;
-	const { contactAt: _contactAt, held: _held, leaves: _leaves, ...link } = hitLink ?? { contactAt: 0 };
-	const type = piece?.type ?? '';
-	const params = getPieceDefinition(type)?.musical === true ? { bounce: piece?.params['bounce'] } : piece?.params;
-	return JSON.stringify([type, params, path?.points, link]);
+	const hitLink = tieOf(entity);
+	const { type } = entity;
+	const params = getPieceDefinition(type)?.musical === true ? { bounce: entity.params['bounce'] } : entity.params;
+	const link = hitLink == null ? null : [hitLink.kind, hitLink.marbleId, hitLink.hitId, entity.angle, hitLink.kind === 'follows' ? hitLink.offset : undefined];
+	return JSON.stringify([type, params, entity.path?.points, link]);
 }
 
 /**
@@ -536,13 +531,13 @@ function physicsOf(entity: TEntity | undefined): string {
  */
 export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 	const edits: TMarbleEdit[] = [];
-	const onMarble = (project: TProject, marbleId: string, hitId: string): TEntity[] =>
-		project.entities.filter((entity) => {
-			const link = entity.components.hitLink;
-			return link?.marbleId === marbleId && link.hitId === hitId && entity.components.piece != null;
+	const onMarble = (project: TProject, marbleId: string, hitId: string): TPiece[] =>
+		project.track.pieces.filter((entity) => {
+			const link = tieOf(entity);
+			return link?.marbleId === marbleId && link.hitId === hitId;
 		});
-	for (const marble of after.music.marbles) {
-		const old = before.music.marbles.find((item) => item.id === marble.id);
+	for (const marble of after.marbles) {
+		const old = before.marbles.find((item) => item.id === marble.id);
 		if (old == null) continue;
 		let last = -2;
 		for (const [index, hit] of marble.hits.entries()) {
@@ -551,7 +546,7 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 			const then = onMarble(before, marble.id, hit.id);
 			const isNewAtEnd = was == null || (!then.length && !marble.hits.slice(index + 1).some((later) => onMarble(after, marble.id, later.id).length > 0));
 			if (isNewAtEnd) continue;
-			const isPlatformGone = (entity: TEntity): boolean => getPieceDefinition(entity.components.piece?.type ?? '')?.musical === true;
+			const isPlatformGone = (entity: TPiece): boolean => getPieceDefinition(entity.type ?? '')?.musical === true;
 			const isChanged = was.time !== hit.time || now.some((entity) => physicsOf(entity) !== physicsOf(then.find((item) => item.id === entity.id))) || then.some((entity) => !isPlatformGone(entity) && !now.some((item) => item.id === entity.id));
 			if (isChanged) last = index;
 		}
@@ -578,40 +573,41 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
  * marble leaves alone, so nothing has to take it up, but the rides must hold: the last bits of a number change.
  */
 function hasOtherChange(before: TProject, after: TProject, marbleId: string): boolean {
-	const onMarble = (project: TProject): TEntity[] =>
-		project.entities.filter((entity) => {
-			const { hitLink, marble } = entity.components;
-			return hitLink?.marbleId === marbleId || marble?.marbleId === marbleId;
-		});
+	const onMarble = (project: TProject): TPiece[] =>
+		project.track.pieces.filter((entity) => tieOf(entity)?.marbleId === marbleId);
+	const startOf = (project: TProject): string => JSON.stringify(project.marbles.find((marble) => marble.id === marbleId)?.start);
+	if (startOf(before) !== startOf(after) && before.marbles.some((marble) => marble.id === marbleId)) return true;
 	const was = new Map(onMarble(before).map((entity) => [entity.id, entity]));
-	const lastHit = before.music.marbles.find((marble) => marble.id === marbleId)?.hits.at(-1)?.id;
+	const lastHit = before.marbles.find((marble) => marble.id === marbleId)?.hits.at(-1)?.id;
 	return onMarble(after).some((entity) => {
 		const old = was.get(entity.id);
 		if (old === entity) return false;
 		if (old == null) return false;
-		const { held: _a, leaves: _b, ...link } = entity.components.hitLink ?? { held: null, leaves: null };
-		const { held: _c, leaves: _d, ...oldLink } = old.components.hitLink ?? { held: null, leaves: null };
 		// Past the marble's last hit nothing follows, so nothing needs to hold
-		if (entity.components.hitLink?.hitId === lastHit && entity.components.hitLink != null) return false;
-		return JSON.stringify([link, entity.components.piece, entity.components.path, entity.components.release]) !== JSON.stringify([oldLink, old.components.piece, old.components.path, old.components.release]);
+		if (tieOf(entity)?.hitId === lastHit && tieOf(entity) != null) return false;
+		const shapeOf = (piece: TPiece): string => {
+			const { held: _held, leaves: _leaves, ...link } = { held: null, leaves: null, ...tieOf(piece) };
+			return JSON.stringify([link, tieOf(piece)?.contactAt ?? 0.5, piece.angle, piece.type, piece.layout, piece.params, piece.path]);
+		};
+		return shapeOf(entity) !== shapeOf(old);
 	});
 }
 
 /** `project` as commands on `from`: each component that differs */
-export function changedEntities(from: TProject, project: TProject): TEntity[] {
-	const was = new Map(from.entities.map((entity) => [entity.id, entity]));
-	return project.entities.filter((entity) => was.get(entity.id) !== entity && JSON.stringify(was.get(entity.id)) !== JSON.stringify(entity));
+export function changedEntities(from: TProject, project: TProject): TPiece[] {
+	const was = new Map(from.track.pieces.map((entity) => [entity.id, entity]));
+	return project.track.pieces.filter((entity) => was.get(entity.id) !== entity && JSON.stringify(was.get(entity.id)) !== JSON.stringify(entity));
 }
 
 /** The pieces of `project` as the rides of `ridden` left them, for the edit made on the project before the rides were kept */
 function withSameRides(project: TProject, ridden: TProject): TProject {
-	const rides = new Map(ridden.entities.flatMap((entity) => (entity.components.transit != null ? [[entity.id, entity.components.transit] as const] : [])));
+	const rides = new Map(ridden.track.pieces.flatMap((entity) => (entity.ride != null ? [[entity.id, entity.ride] as const] : [])));
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
 			const transit = rides.get(entity.id);
-			return transit != null && entity.components.transit == null ? { ...entity, components: { ...entity.components, transit } } : entity;
-		})
+			return transit != null && entity.ride == null ? { ...entity, ride: transit } : entity;
+		}) }
 	};
 }
 
@@ -624,7 +620,7 @@ export interface TSettleRequest {
 
 export interface TSettleAnswer {
 	/** Entities the settled project has beyond `after`; none when there is nothing to keep */
-	entities: TEntity[];
+	entities: TPiece[];
 	absorbedBy: string[];
 	/** Hits that broke anyway, in time order, and the hits from which later pieces are held */
 	broken: { marbleId: string; hitId: string; time: number; status: string }[];
@@ -661,36 +657,38 @@ export function settleBase(simulator: TSimulator, before: TProject, known: TSett
 
 /** The earliest time an edit reaches: the first hit whose pieces differ, on any marble. A moved dot starts at the platform before it */
 export function editStart(before: TProject, after: TProject, moved?: { marbleId: string; hitId: string } | null): number {
-	const hitTime = (project: TProject, link: { marbleId: string; hitId: string }): number | undefined => project.music.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time;
-	let start = Infinity;
-	const was = new Map(before.entities.map((entity) => [entity.id, entity]));
+	const hitTime = (project: TProject, link: { marbleId: string; hitId: string }): number | undefined => project.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time;
+	// A marble that starts elsewhere, is new or is gone: nothing says how early it matters, as with a tied-to-nothing piece
+	const startsOf = (project: TProject): string => JSON.stringify(project.marbles.map((marble) => [marble.id, marble.start]));
+	let start = startsOf(before) === startsOf(after) ? Infinity : -Infinity;
+	const was = new Map(before.track.pieces.map((entity) => [entity.id, entity]));
 	const seen = new Set<string>();
-	const reach = (entity: TEntity, project: TProject): void => {
-		const { hitLink, piece } = entity.components;
-		// A marble, a tied-to-nothing piece: nothing says how early it matters, so nothing before it is known to be safe
-		if (hitLink == null || piece == null) start = -Infinity;
+	const reach = (entity: TPiece, project: TProject): void => {
+		const hitLink = tieOf(entity);
+		// A tied-to-nothing piece: nothing says how early it matters, so nothing before it is known to be safe
+		if (hitLink == null) start = -Infinity;
 		else start = Math.min(start, hitTime(project, hitLink) ?? -Infinity);
 	};
-	for (const entity of after.entities) {
+	for (const entity of after.track.pieces) {
 		seen.add(entity.id);
 		const old = was.get(entity.id);
 		if (old === entity) continue;
 		if (old == null) reach(entity, after);
-		else if (physicsOf(old) !== physicsOf(entity) || JSON.stringify(old.components.release) !== JSON.stringify(entity.components.release)) {
+		else if (physicsOf(old) !== physicsOf(entity)) {
 			reach(old, before);
 			reach(entity, after);
 		}
 	}
-	for (const entity of before.entities) if (!seen.has(entity.id)) reach(entity, before);
-	for (const marble of after.music.marbles) {
-		const old = before.music.marbles.find((item) => item.id === marble.id);
+	for (const entity of before.track.pieces) if (!seen.has(entity.id)) reach(entity, before);
+	for (const marble of after.marbles) {
+		const old = before.marbles.find((item) => item.id === marble.id);
 		for (const hit of marble.hits) {
 			const oldHit = old?.hits.find((item) => item.id === hit.id);
 			if (oldHit?.time !== hit.time) start = Math.min(start, hit.time, oldHit?.time ?? Infinity);
 		}
 	}
 	if (moved != null) {
-		const marble = after.music.marbles.find((item) => item.id === moved.marbleId);
+		const marble = after.marbles.find((item) => item.id === moved.marbleId);
 		const index = marble?.hits.findIndex((hit) => hit.id === moved.hitId) ?? -1;
 		start = Math.min(start, marble?.hits[index - 1]?.time ?? -Infinity);
 	}
@@ -703,7 +701,7 @@ export function answerSettle(simulator: TSimulator, request: TSettleRequest, kno
 	const edits = marbleEdits(request.before, request.after);
 	const moved = request.movedDot;
 	if (moved != null) {
-		const marble = after.music.marbles.find((item) => item.id === moved.marbleId);
+		const marble = after.marbles.find((item) => item.id === moved.marbleId);
 		const index = marble?.hits.findIndex((hit) => hit.id === moved.hitId) ?? -1;
 		const others = edits.filter((edit) => edit.marbleId !== moved.marbleId);
 		edits.length = 0;
@@ -725,11 +723,11 @@ export function answerSettle(simulator: TSimulator, request: TSettleRequest, kno
 }
 
 function moveOutcome(project: TProject, moved: { marbleId: string; hitId: string }, asked: number, missed: number): TMoveOutcome {
-	const marble = project.music.marbles.find((item) => item.id === moved.marbleId);
+	const marble = project.marbles.find((item) => item.id === moved.marbleId);
 	const previous = marble?.hits[(marble.hits.findIndex((hit) => hit.id === moved.hitId) ?? 0) - 1];
-	const before = previous != null ? project.entities.filter((entity) => entity.components.hitLink?.marbleId === moved.marbleId && entity.components.hitLink.hitId === previous.id) : [];
+	const before = previous != null ? project.track.pieces.filter((entity) => tieOf(entity)?.marbleId === moved.marbleId && tieOf(entity)?.hitId === previous.id) : [];
 	// A ride after the note decides where the marble comes off, so that piece is the one to name
-	const from = before.find((entity) => hasRide(entity.components.piece?.type ?? '')) ?? before[0];
+	const from = before.find((entity) => hasRide(entity.type ?? '')) ?? before[0];
 	const isFixed = previous == null || linkedPlatform(project, moved.marbleId, previous.id) == null || launchesRide(project, moved.marbleId, previous.id);
 	return { moved: Math.max(0, asked - missed), missed, fromId: from?.id ?? null, isFixed };
 }
@@ -740,11 +738,11 @@ function moveOutcome(project: TProject, moved: { marbleId: string; hitId: string
  * The marble brought back to the pieces waiting for it: the platform before the first broken hit, or the one before
  * that, aims at its spot and the broken hit's platform sends the marble on as it did. Null when no way plays every hit.
  */
-export function reconnect(simulator: TSimulator, project: TProject): { entities: TEntity[] } | null {
+export function reconnect(simulator: TSimulator, project: TProject): { entities: TPiece[] } | null {
 	const run = simulator.simulate(project);
 	let next = project;
-	for (const marble of project.music.marbles) {
-		const waiting = project.entities.some((entity) => entity.components.hitLink?.marbleId === marble.id && entity.components.hitLink.held != null);
+	for (const marble of project.marbles) {
+		const waiting = project.track.pieces.some((entity) => tieOf(entity)?.marbleId === marble.id && tieOf(entity)?.held != null);
 		if (!waiting) continue;
 		const first = run.hits.filter((hit) => hit.marbleId === marble.id && isBroken(hit)).sort((a, b) => a.targetTime - b.targetTime)[0];
 		if (first == null) {
@@ -778,11 +776,11 @@ export function reconnect(simulator: TSimulator, project: TProject): { entities:
 export function release(project: TProject, marbleId?: string): TProject {
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
-			const link = entity.components.hitLink;
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+			const link = tieOf(entity);
 			if (link?.held == null || (marbleId != null && link.marbleId !== marbleId)) return entity;
 			const { held: _, ...kept } = link;
-			return { ...entity, components: { ...entity.components, hitLink: kept } };
-		})
+			return { ...entity, place: kept };
+		}) }
 	};
 }

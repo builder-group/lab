@@ -1,4 +1,4 @@
-import { BACKING_ID, type TProject, type TProjectCommand } from '@/modules/project';
+import { BACKING_ID, type TProject, type TProjectCommand, backingOf, backingSong } from '@/modules/project';
 import { DEFAULT_BACKING_INSTRUMENT } from './synthesize';
 
 /** Backing notes are gray: heard, but no marble plays them */
@@ -31,11 +31,11 @@ export interface TPart {
 
 /** The project has a Song: a song file or Backing notes. Without one a project opens and plays silently. */
 export function hasSong(project: TProject): boolean {
-	return project.music.sources.length > 0 || project.music.backing.length > 0;
+	return project.songs.some((song) => song.path != null || song.backing.length > 0);
 }
 
 export function isAudioSong(project: TProject): boolean {
-	return project.music.sources.some((source) => source.kind === 'audio');
+	return project.songs.some((song) => song.kind === 'audio' && song.path != null);
 }
 
 /** Whether notes are synthesized: a Song without a recording, since a recording already contains the music */
@@ -50,14 +50,14 @@ export function soundsNotes(project: TProject): boolean {
 export function songParts(project: TProject): TPart[] {
 	if (!soundsNotes(project)) return [];
 	const owners = [
-		...project.music.marbles,
-		{ id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument: project.music.backingInstrument ?? DEFAULT_BACKING_INSTRUMENT, hits: project.music.backing }
+		...project.marbles,
+		{ id: BACKING_ID, name: 'Backing', labelColor: BACKING_COLOR, sound: backingSong(project)?.backingSound ?? DEFAULT_BACKING_INSTRUMENT, hits: backingOf(project) }
 	];
 	return owners.flatMap((owner) => {
 		const notes = owner.hits.flatMap((hit) => (hit.pitch == null ? [] : [{ time: hit.time, pitch: hit.pitch }]));
 		if (!notes.length) return [];
 		const first = notes.reduce<(typeof notes)[number] | undefined>((earliest, note) => (earliest == null || note.time < earliest.time ? note : earliest), undefined);
-		return [{ id: owner.id, name: owner.name, color: owner.color, instrument: owner.instrument, noteCount: notes.length, firstPitch: first?.pitch ?? MIDDLE_C }];
+		return [{ id: owner.id, name: owner.name, color: owner.labelColor, instrument: owner.sound, noteCount: notes.length, firstPitch: first?.pitch ?? MIDDLE_C }];
 	});
 }
 
@@ -83,18 +83,14 @@ export function currentMix(project: TProject, mix: TSongMix): TSongMix {
 export function audibleProject(project: TProject, mix: TSongMix): TProject {
 	const current = currentMix(project, mix);
 	if (!current.muted.length && !current.solo.length) return project;
-	const { music } = project;
 	if (isAudioSong(project)) {
 		if (isPartAudible(current, SONG_MIX_ID)) return project;
-		return { ...project, music: { ...music, sources: music.sources.filter((source) => source.kind !== 'audio'), marbles: [], backing: [] } };
+		return { ...project, songs: project.songs.filter((song) => song.kind !== 'audio').map((song) => ({ ...song, backing: [] })), marbles: [] };
 	}
 	return {
 		...project,
-		music: {
-			...music,
-			marbles: music.marbles.filter((marble) => isPartAudible(current, marble.id)),
-			backing: isPartAudible(current, BACKING_ID) ? music.backing : []
-		}
+		marbles: project.marbles.filter((marble) => isPartAudible(current, marble.id)),
+		songs: isPartAudible(current, BACKING_ID) ? project.songs : project.songs.map((song) => ({ ...song, backing: [] }))
 	};
 }
 
@@ -131,9 +127,11 @@ export function mixLabel(project: TProject, mix: TSongMix): string | null {
 
 /** The edit that gives a Part another Sound */
 export function setPartSoundCommands(project: TProject, partId: string, instrument: number): TProjectCommand[] {
-	if (partId === BACKING_ID) return [{ type: 'setBackingInstrument', instrument }];
-	const marble = project.music.marbles.find((item) => item.id === partId);
-	return marble == null ? [] : [{ type: 'upsertLane', marble: { ...marble, instrument } }];
+	if (partId === BACKING_ID) {
+		const song = backingSong(project);
+		return song == null ? [] : [{ type: 'updateSong', songId: song.id, patch: { backingSound: instrument } }];
+	}
+	return project.marbles.some((marble) => marble.id === partId) ? [{ type: 'updateMarble', marbleId: partId, patch: { sound: instrument } }] : [];
 }
 
 function joinNames(names: string[]): string {

@@ -71,7 +71,7 @@ describe('createAssistPool function', () => {
 
 	it('should place the same platforms as a single worker whatever the pool size and timing', async () => {
 		// Prepare: platforms early, mid-song and late
-		const marble = project.music.marbles[0];
+		const marble = project.marbles[0];
 		if (marble == null) throw new Error('The fixture has a marble');
 		const owners = hitOwners(project, marble.id);
 		const hits = [3, 8, 13].map((index) => marble.hits[index]).filter((hit): hit is NonNullable<typeof hit> => hit != null && owners.has(hit.id));
@@ -107,7 +107,7 @@ describe('createAssistPool function', () => {
 		// Prepare
 		const simulate = (next: TProject): ReturnType<TSimulator['simulate']> => simulator.simulate(next);
 		const project = loadFixture('long-gap');
-		const gaps = project.music.marbles.flatMap((marble) => findLongGaps(project, marble.id)).slice(0, 1);
+		const gaps = project.marbles.flatMap((marble) => findLongGaps(project, marble.id)).slice(0, 1);
 		expect(gaps.length).toBeGreaterThan(0);
 		const { createWorker } = createFakeWorkers(3);
 		const pool = createAssistPool({ size: 3, createWorker });
@@ -133,7 +133,7 @@ describe('createAssistPool function', () => {
 
 	it('should stop a search between stages and keep answering later requests', async () => {
 		// Prepare
-		const marble = project.music.marbles[0];
+		const marble = project.marbles[0];
 		const hit = marble?.hits[8];
 		if (marble == null || hit == null) throw new Error('The fixture has a marble');
 		const entityId = hitOwners(project, marble.id).get(hit.id)?.id ?? 'piece';

@@ -1,5 +1,5 @@
 {
-	"$schema": "marble-project@5",
+	"$schema": "marble-project@6",
 	"id": "reference-20",
 	"title": "Reference 20",
 	"revision": 0,
@@ -9,844 +9,764 @@
 	},
 	"length": 20.75,
 	"gravity": 0.5,
-	"music": {
-		"sources": [],
-		"marbles": [
-			{
-				"id": "lane-1",
-				"name": "Marble 1",
-				"color": "#3478f6",
-				"instrument": 9,
-				"hits": [
-					{
-						"id": "hit-1-1",
-						"time": 0.15
-					},
-					{
-						"id": "hit-1-2",
-						"time": 0.55
-					},
-					{
-						"id": "hit-1-3",
-						"time": 0.95
-					},
-					{
-						"id": "hit-1-4",
-						"time": 1.35
-					},
-					{
-						"id": "hit-1-5",
-						"time": 1.75
-					},
-					{
-						"id": "hit-1-6",
-						"time": 2.15
-					},
-					{
-						"id": "hit-1-7",
-						"time": 2.55
-					},
-					{
-						"id": "hit-1-8",
-						"time": 2.95
-					},
-					{
-						"id": "hit-1-9",
-						"time": 3.35
-					},
-					{
-						"id": "hit-1-10",
-						"time": 3.75
-					},
-					{
-						"id": "hit-1-11",
-						"time": 4.15
-					},
-					{
-						"id": "hit-1-12",
-						"time": 4.55
-					},
-					{
-						"id": "hit-1-13",
-						"time": 4.95
-					},
-					{
-						"id": "hit-1-14",
-						"time": 5.35
-					},
-					{
-						"id": "hit-1-15",
-						"time": 5.75
-					},
-					{
-						"id": "hit-1-16",
-						"time": 6.15
-					},
-					{
-						"id": "hit-1-17",
-						"time": 6.55
-					},
-					{
-						"id": "hit-1-18",
-						"time": 6.95
-					},
-					{
-						"id": "hit-1-19",
-						"time": 7.35
-					},
-					{
-						"id": "hit-1-20",
-						"time": 7.75
-					},
-					{
-						"id": "hit-1-21",
-						"time": 8.15
-					},
-					{
-						"id": "hit-1-22",
-						"time": 8.55
-					},
-					{
-						"id": "hit-1-23",
-						"time": 8.95
-					},
-					{
-						"id": "hit-1-24",
-						"time": 9.35
-					},
-					{
-						"id": "hit-1-25",
-						"time": 10.05
-					},
-					{
-						"id": "hit-1-26",
-						"time": 10.45
-					},
-					{
-						"id": "hit-1-27",
-						"time": 10.85
-					},
-					{
-						"id": "hit-1-28",
-						"time": 11.25
-					},
-					{
-						"id": "hit-1-29",
-						"time": 11.65
-					},
-					{
-						"id": "hit-1-30",
-						"time": 12.05
-					},
-					{
-						"id": "hit-1-31",
-						"time": 12.45
-					},
-					{
-						"id": "hit-1-32",
-						"time": 12.85
-					},
-					{
-						"id": "hit-1-33",
-						"time": 13.25
-					},
-					{
-						"id": "hit-1-34",
-						"time": 13.65
-					},
-					{
-						"id": "hit-1-35",
-						"time": 14.05
-					},
-					{
-						"id": "hit-1-36",
-						"time": 14.45
-					},
-					{
-						"id": "hit-1-37",
-						"time": 14.85
-					},
-					{
-						"id": "hit-1-38",
-						"time": 15.25
-					},
-					{
-						"id": "hit-1-39",
-						"time": 15.65
-					},
-					{
-						"id": "hit-1-40",
-						"time": 16.05
-					},
-					{
-						"id": "hit-1-41",
-						"time": 16.45
-					},
-					{
-						"id": "hit-1-42",
-						"time": 16.85
-					},
-					{
-						"id": "hit-1-43",
-						"time": 17.25
-					},
-					{
-						"id": "hit-1-44",
-						"time": 17.65
-					},
-					{
-						"id": "hit-1-45",
-						"time": 18.05
-					},
-					{
-						"id": "hit-1-46",
-						"time": 18.45
-					},
-					{
-						"id": "hit-1-47",
-						"time": 18.85
-					},
-					{
-						"id": "hit-1-48",
-						"time": 19.25
-					}
-				]
-			}
-		],
-		"backing": []
-	},
-	"entities": [
+	"songs": [],
+	"marbles": [
 		{
 			"id": "marble-1",
 			"name": "Marble 1",
-			"components": {
-				"marble": {
-					"marbleId": "lane-1",
-					"radius": 0.012
+			"labelColor": "#3478f6",
+			"sound": 9,
+			"radius": 0.012,
+			"start": {
+				"position": {
+					"x": 0,
+					"y": 0.6
 				},
-				"release": {
-					"position": {
-						"x": 0,
-						"y": 0.6
-					},
-					"time": 0
+				"time": 0
+			},
+			"skin": {
+				"color": "#3478f6"
+			},
+			"hits": [
+				{
+					"id": "hit-1-1",
+					"time": 0.15
 				},
-				"skin": {
-					"color": "#3478f6"
+				{
+					"id": "hit-1-2",
+					"time": 0.55
+				},
+				{
+					"id": "hit-1-3",
+					"time": 0.95
+				},
+				{
+					"id": "hit-1-4",
+					"time": 1.35
+				},
+				{
+					"id": "hit-1-5",
+					"time": 1.75
+				},
+				{
+					"id": "hit-1-6",
+					"time": 2.15
+				},
+				{
+					"id": "hit-1-7",
+					"time": 2.55
+				},
+				{
+					"id": "hit-1-8",
+					"time": 2.95
+				},
+				{
+					"id": "hit-1-9",
+					"time": 3.35
+				},
+				{
+					"id": "hit-1-10",
+					"time": 3.75
+				},
+				{
+					"id": "hit-1-11",
+					"time": 4.15
+				},
+				{
+					"id": "hit-1-12",
+					"time": 4.55
+				},
+				{
+					"id": "hit-1-13",
+					"time": 4.95
+				},
+				{
+					"id": "hit-1-14",
+					"time": 5.35
+				},
+				{
+					"id": "hit-1-15",
+					"time": 5.75
+				},
+				{
+					"id": "hit-1-16",
+					"time": 6.15
+				},
+				{
+					"id": "hit-1-17",
+					"time": 6.55
+				},
+				{
+					"id": "hit-1-18",
+					"time": 6.95
+				},
+				{
+					"id": "hit-1-19",
+					"time": 7.35
+				},
+				{
+					"id": "hit-1-20",
+					"time": 7.75
+				},
+				{
+					"id": "hit-1-21",
+					"time": 8.15
+				},
+				{
+					"id": "hit-1-22",
+					"time": 8.55
+				},
+				{
+					"id": "hit-1-23",
+					"time": 8.95
+				},
+				{
+					"id": "hit-1-24",
+					"time": 9.35
+				},
+				{
+					"id": "hit-1-25",
+					"time": 10.05
+				},
+				{
+					"id": "hit-1-26",
+					"time": 10.45
+				},
+				{
+					"id": "hit-1-27",
+					"time": 10.85
+				},
+				{
+					"id": "hit-1-28",
+					"time": 11.25
+				},
+				{
+					"id": "hit-1-29",
+					"time": 11.65
+				},
+				{
+					"id": "hit-1-30",
+					"time": 12.05
+				},
+				{
+					"id": "hit-1-31",
+					"time": 12.45
+				},
+				{
+					"id": "hit-1-32",
+					"time": 12.85
+				},
+				{
+					"id": "hit-1-33",
+					"time": 13.25
+				},
+				{
+					"id": "hit-1-34",
+					"time": 13.65
+				},
+				{
+					"id": "hit-1-35",
+					"time": 14.05
+				},
+				{
+					"id": "hit-1-36",
+					"time": 14.45
+				},
+				{
+					"id": "hit-1-37",
+					"time": 14.85
+				},
+				{
+					"id": "hit-1-38",
+					"time": 15.25
+				},
+				{
+					"id": "hit-1-39",
+					"time": 15.65
+				},
+				{
+					"id": "hit-1-40",
+					"time": 16.05
+				},
+				{
+					"id": "hit-1-41",
+					"time": 16.45
+				},
+				{
+					"id": "hit-1-42",
+					"time": 16.85
+				},
+				{
+					"id": "hit-1-43",
+					"time": 17.25
+				},
+				{
+					"id": "hit-1-44",
+					"time": 17.65
+				},
+				{
+					"id": "hit-1-45",
+					"time": 18.05
+				},
+				{
+					"id": "hit-1-46",
+					"time": 18.45
+				},
+				{
+					"id": "hit-1-47",
+					"time": 18.85
+				},
+				{
+					"id": "hit-1-48",
+					"time": 19.25
 				}
-			}
-		},
-		{
-			"id": "piece-1-1",
-			"name": "Platform 1",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.95,
-						"entryDelay": 0
-					}
+			]
+		}
+	],
+	"track": {
+		"pieces": [
+			{
+				"id": "piece-1-1",
+				"name": "Platform 1",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.95,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.22689280275926285,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-1",
-					"angle": 0.22689280275926285,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-2",
-			"name": "Platform 2",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-2",
+				"name": "Platform 2",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-2",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-3",
-			"name": "Platform 3",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-3",
+				"name": "Platform 3",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-3",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-4",
-			"name": "Platform 4",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-4",
+				"name": "Platform 4",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-4",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-5",
-			"name": "Platform 5",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-5",
+				"name": "Platform 5",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-5",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-6",
-			"name": "Platform 6",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-6",
+				"name": "Platform 6",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-6",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-7",
-			"name": "Platform 7",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-7",
+				"name": "Platform 7",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-7",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-8",
-			"name": "Platform 8",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-8",
+				"name": "Platform 8",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-8",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-9",
-			"name": "Platform 9",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-9",
+				"name": "Platform 9",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-9",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-10",
-			"name": "Platform 10",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-10",
+				"name": "Platform 10",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-10",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-11",
-			"name": "Platform 11",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-11",
+				"name": "Platform 11",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-11",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-12",
-			"name": "Platform 12",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-12",
+				"name": "Platform 12",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-12",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-13",
-			"name": "Platform 13",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-13",
+				"name": "Platform 13",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-13",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-14",
-			"name": "Platform 14",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-14",
+				"name": "Platform 14",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-14",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-15",
-			"name": "Platform 15",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-15",
+				"name": "Platform 15",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-15",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-16",
-			"name": "Platform 16",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-16",
+				"name": "Platform 16",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-16",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-17",
-			"name": "Platform 17",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-17",
+				"name": "Platform 17",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-17",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-18",
-			"name": "Platform 18",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-18",
+				"name": "Platform 18",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-18",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-19",
-			"name": "Platform 19",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-19",
+				"name": "Platform 19",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-19",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-20",
-			"name": "Platform 20",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-20",
+				"name": "Platform 20",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-20",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-21",
-			"name": "Platform 21",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.6,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-21",
+				"name": "Platform 21",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.6,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-21",
-					"angle": 0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-22",
-			"name": "Platform 22",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.59,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-22",
+				"name": "Platform 22",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.59,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4014257279586958,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-22",
-					"angle": -0.4014257279586958,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "piece-1-23",
-			"name": "Platform 23",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.61,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-23",
+				"name": "Platform 23",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.61,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.03490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-23",
-					"angle": 0.03490658503988659,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:device"
 				}
-			}
-		},
-		{
-			"id": "piece-1-24",
-			"name": "Platform 24",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.73,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-24",
+				"name": "Platform 24",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.73,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-24",
-					"angle": 0,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:gold"
 				}
-			}
-		},
-		{
-			"id": "rail-1",
-			"name": "Rail 1",
-			"components": {
-				"piece": {
-					"type": "rail",
-					"params": {
-						"radius": 0.00375,
-						"gap": 0.015,
-						"entryDelay": 0.242
-					}
+			},
+			{
+				"id": "rail-1",
+				"name": "Rail 1",
+				"type": "rail",
+				"params": {
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.242
+				},
+				"angle": -0.03490658503988659,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-24"
 				},
 				"path": {
 					"points": [
@@ -863,682 +783,556 @@
 							"y": 0
 						}
 					]
-				},
-				"hitLink": {
-					"marbleId": "lane-1",
-					"hitId": "hit-1-24",
-					"angle": -0.03490658503988659,
-					"contactAt": 0.5
 				}
-			}
-		},
-		{
-			"id": "piece-1-25",
-			"name": "Platform 25",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.95,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-25",
+				"name": "Platform 25",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.95,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.9599310885968813,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-25",
-					"angle": 0.9599310885968813,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-26",
-			"name": "Platform 26",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.43,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-26",
+				"name": "Platform 26",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.43,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.10471975511965978,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-26",
-					"angle": -0.10471975511965978,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-27",
-			"name": "Platform 27",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.69,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-27",
+				"name": "Platform 27",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.69,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-27",
-					"angle": 0,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-28",
-			"name": "Platform 28",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.66,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-28",
+				"name": "Platform 28",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.66,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.6108652381980153,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-28",
-					"angle": -0.6108652381980153,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-29",
-			"name": "Platform 29",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.53,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-29",
+				"name": "Platform 29",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.53,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.4363323129985824,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-29",
-					"angle": 0.4363323129985824,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-30",
-			"name": "Platform 30",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.66,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-30",
+				"name": "Platform 30",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.66,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.6806784082777885,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-30",
-					"angle": -0.6806784082777885,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-31",
-			"name": "Platform 31",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.49,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-31",
+				"name": "Platform 31",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.49,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-31",
-					"angle": 0.6981317007977318,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-32",
-			"name": "Platform 32",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.54,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-32",
+				"name": "Platform 32",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.54,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4363323129985824,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-32",
-					"angle": -0.4363323129985824,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-33",
-			"name": "Platform 33",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.69,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-33",
+				"name": "Platform 33",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.69,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-33",
-					"angle": 0,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-34",
-			"name": "Platform 34",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.66,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-34",
+				"name": "Platform 34",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.66,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.5759586531581288,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-34",
-					"angle": 0.5759586531581288,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-35",
-			"name": "Platform 35",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.52,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-35",
+				"name": "Platform 35",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.52,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4886921905584123,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-35",
-					"angle": -0.4886921905584123,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-36",
-			"name": "Platform 36",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.65,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-36",
+				"name": "Platform 36",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.65,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.3490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-36",
-					"angle": 0.3490658503988659,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-37",
-			"name": "Platform 37",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.65,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-37",
+				"name": "Platform 37",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.65,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.5934119456780721,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-37",
-					"angle": -0.5934119456780721,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-38",
-			"name": "Platform 38",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.53,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-38",
+				"name": "Platform 38",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.53,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.6806784082777885,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-38",
-					"angle": 0.6806784082777885,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-39",
-			"name": "Platform 39",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.55,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-39",
+				"name": "Platform 39",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.55,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.4537856055185257,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-39",
-					"angle": -0.4537856055185257,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-40",
-			"name": "Platform 40",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.68,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-40",
+				"name": "Platform 40",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.68,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.2617993877991494,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-40",
-					"angle": 0.2617993877991494,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-41",
-			"name": "Platform 41",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.66,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-41",
+				"name": "Platform 41",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.66,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.03490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-41",
-					"angle": 0.03490658503988659,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-42",
-			"name": "Platform 42",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.65,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-42",
+				"name": "Platform 42",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.65,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.5235987755982988,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-42",
-					"angle": -0.5235987755982988,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-43",
-			"name": "Platform 43",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.55,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-43",
+				"name": "Platform 43",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.55,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.5061454830783556,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-43",
-					"angle": 0.5061454830783556,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-44",
-			"name": "Platform 44",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.63,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-44",
+				"name": "Platform 44",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.63,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.3839724354387525,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-44",
-					"angle": -0.3839724354387525,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-45",
-			"name": "Platform 45",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.65,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-45",
+				"name": "Platform 45",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.65,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.6108652381980153,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-45",
-					"angle": 0.6108652381980153,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-46",
-			"name": "Platform 46",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.52,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-46",
+				"name": "Platform 46",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.52,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-46",
-					"angle": -0.6981317007977318,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "piece-1-47",
-			"name": "Platform 47",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.53,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-47",
+				"name": "Platform 47",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.53,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": 0.47123889803846897,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-47",
-					"angle": 0.47123889803846897,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:knob"
 				}
-			}
-		},
-		{
-			"id": "piece-1-48",
-			"name": "Platform 48",
-			"components": {
-				"piece": {
-					"type": "platform",
-					"params": {
-						"length": 0.09,
-						"thickness": 0.012,
-						"depth": 0.09,
-						"bounce": 0.65,
-						"entryDelay": 0
-					}
+			},
+			{
+				"id": "piece-1-48",
+				"name": "Platform 48",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.09,
+					"bounce": 0.65,
+					"entryDelay": 0
 				},
-				"hitLink": {
-					"marbleId": "lane-1",
+				"angle": -0.03490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
 					"hitId": "hit-1-48",
-					"angle": -0.03490658503988659,
 					"contactAt": 0.5
 				},
 				"skin": {
 					"assetId": "platform:key"
 				}
-			}
-		},
-		{
-			"id": "title-1",
-			"name": "Title 1",
-			"components": {
-				"transform": {
-					"position": {
-						"x": -0.2444,
-						"y": 0.5269
-					},
-					"angle": 0.8727
+			},
+			{
+				"id": "bowl-lane-1",
+				"name": "Bowl 1",
+				"type": "bowl",
+				"params": {
+					"mirror": 1,
+					"size": 0.06,
+					"radius": 0.00375,
+					"entryDelay": 0.3917
 				},
-				"wallText": {
-					"text": "Brass Steps",
-					"font": "Bfont Regular",
-					"size": 0.045,
-					"color": "#ffffff",
-					"style": "caption",
-					"in": 0,
-					"out": 3.15
+				"angle": 0,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-48"
 				}
 			}
-		},
-		{
-			"id": "title-2",
-			"name": "Title 2",
-			"components": {
-				"transform": {
-					"position": {
-						"x": 0.5367,
-						"y": -2.1226
-					},
-					"angle": 0.0698
-				},
-				"wallText": {
-					"text": "Night Keys",
-					"font": "Bfont Regular",
-					"size": 0.045,
-					"color": "#ffffff",
-					"style": "caption",
-					"in": 9.9,
-					"out": 13.05
-				}
-			}
-		},
-		{
-			"id": "bowl-lane-1",
-			"name": "Bowl 1",
-			"components": {
-				"piece": {
-					"type": "bowl",
-					"params": {
-						"mirror": 1,
-						"size": 0.06,
-						"radius": 0.00375,
-						"entryDelay": 0.3917
-					}
-				},
-				"hitLink": {
-					"marbleId": "lane-1",
-					"hitId": "hit-1-48",
-					"angle": 0,
-					"contactAt": 0.5,
-					"anchored": true
-				}
-			}
-		}
-	],
+		],
+		"groups": []
+	},
 	"film": {
 		"theme": "brass",
 		"themes": [],
@@ -1548,6 +1342,40 @@
 		},
 		"decor": [],
 		"madeInBlender": [],
+		"titles": [
+			{
+				"id": "title-1",
+				"name": "Title 1",
+				"text": "Brass Steps",
+				"font": "Bfont Regular",
+				"size": 0.045,
+				"color": "#ffffff",
+				"style": "caption",
+				"in": 0,
+				"out": 3.15,
+				"position": {
+					"x": -0.2444,
+					"y": 0.5269
+				},
+				"angle": 0.8727
+			},
+			{
+				"id": "title-2",
+				"name": "Title 2",
+				"text": "Night Keys",
+				"font": "Bfont Regular",
+				"size": 0.045,
+				"color": "#ffffff",
+				"style": "caption",
+				"in": 9.9,
+				"out": 13.05,
+				"position": {
+					"x": 0.5367,
+					"y": -2.1226
+				},
+				"angle": 0.0698
+			}
+		],
 		"quality": "final",
 		"camera": {
 			"auto": true,

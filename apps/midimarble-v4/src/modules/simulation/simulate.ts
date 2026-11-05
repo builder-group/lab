@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import { DEFAULT_MARBLE_RADIUS, type TProject, type TTransit, type TVec2 } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TProject, type TRide, type TVec2, tieOf, freePosition } from '@/modules/project';
 import { ballistic, gravityOf } from './geometry';
 import { layoutAtMarble, layoutFree, type TLayoutInput, type TPieceLayout, type TRotorLayout } from './piece-layout';
 import { getPieceDefinition, soundsHit, pieceRestitution, resolvePieceParams, resolvePiecePath, type TRailLayout } from './pieces';
@@ -308,7 +308,7 @@ interface TPlanEvent {
 	/** Pose origin relative to the marble at the event, for anchors that keep their pose */
 	offset: TVec2 | null;
 	/** The ride this piece gives while the marble enters at about the same speed */
-	transit: TTransit | null;
+	transit: TRide | null;
 	/** How the marble leaves this platform while it comes out near that */
 	leaves: { velocity: TVec2; spin: number } | null;
 	/** Where the piece waits instead of following the marble */
@@ -319,40 +319,34 @@ function createPlan(project: TProject): TPlan {
 	const hitTimes = new Map<string, number>();
 	const hitOrder = new Map<string, number>();
 	let nextHitOrder = 0;
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		for (const hit of marble.hits) {
 			hitTimes.set(`${marble.id}/${hit.id}`, hit.time);
 			hitOrder.set(`${marble.id}/${hit.id}`, nextHitOrder++);
 		}
 	}
 
-	const marbles: TPlanMarble[] = [];
-	for (const entity of project.entities) {
-		const { marble, release } = entity.components;
-		if (marble == null || release == null) continue;
-		marbles.push({
-			entityId: entity.id,
-			marbleId: marble.marbleId,
-			radius: marble.radius,
-			release: release.position,
-			releaseVelocity: release.velocity ?? { x: 0, y: 0 },
-			releaseSpin: release.spin ?? 0,
-			releaseTime: release.time,
-			releaseStep: Math.ceil(release.time * PHYSICS_HZ - STEP_EPSILON)
-		});
-	}
+	const marbles: TPlanMarble[] = project.marbles.map((marble) => ({
+		entityId: marble.id,
+		marbleId: marble.id,
+		radius: marble.radius,
+		release: marble.start.position,
+		releaseVelocity: marble.start.velocity ?? { x: 0, y: 0 },
+		releaseSpin: marble.start.spin ?? 0,
+		releaseTime: marble.start.time,
+		releaseStep: Math.ceil(marble.start.time * PHYSICS_HZ - STEP_EPSILON)
+	}));
 
 	const staticPieces: TStaticPiece[] = [];
 	const events: TPlanEvent[] = [];
 	const linkedHitTimes = new Map<string, number | null>();
 	const defaultRadius = marbles[0]?.radius ?? DEFAULT_MARBLE_RADIUS;
-	for (const entity of project.entities) {
-		const { piece, hitLink, transform } = entity.components;
-		if (piece == null) continue;
-		const definition = getPieceDefinition(piece.type);
+	for (const entity of project.track.pieces) {
+		const hitLink = tieOf(entity);
+		const definition = getPieceDefinition(entity.type);
 		if (definition == null) continue;
-		const params = resolvePieceParams(piece.type, piece.params);
-		const path = resolvePiecePath(piece.type, entity.components.path?.points);
+		const params = resolvePieceParams(entity.type, entity.params);
+		const path = resolvePiecePath(entity.type, entity.path?.points);
 
 		if (hitLink != null) {
 			const time = hitTimes.get(`${hitLink.marbleId}/${hitLink.hitId}`) ?? null;
@@ -360,47 +354,47 @@ function createPlan(project: TProject): TPlan {
 			const marbleIndex = marbles.findIndex((marble) => marble.marbleId === hitLink.marbleId);
 			if (time == null) continue;
 			// Anchored pieces and scenery follow the trajectory at their hit time plus their entry delay
-			const isAnchor = !soundsHit(piece.type, hitLink);
+			const isAnchor = !soundsHit(entity.type, hitLink);
 			const eventTime = time + (isAnchor ? (params['entryDelay'] ?? 0) : 0);
 			events.push({
 				entityId: entity.id,
 				definition,
 				params,
 				path,
-				extraPaths: entity.components.path?.paths,
-				railLayout: piece.layout,
-				angle: hitLink.angle,
-				contactAt: hitLink.contactAt,
+				extraPaths: entity.path?.paths,
+				railLayout: entity.layout,
+				angle: entity.angle,
+				contactAt: hitLink.contactAt ?? 0.5,
 				time: eventTime,
 				hitTime: time,
 				hitOrder: hitOrder.get(`${hitLink.marbleId}/${hitLink.hitId}`) ?? 0,
 				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
 				marbleIndex,
 				isAnchor,
-				offset: hitLink.offset ?? null,
-				transit: entity.components.transit != null && hasRide(piece.type) && entity.components.transit.key === rideKey(entity) ? entity.components.transit : null,
+				offset: hitLink.kind === 'follows' ? (hitLink.offset ?? null) : null,
+				transit: entity.ride != null && hasRide(entity.type) && entity.ride.key === rideKey(entity) ? entity.ride : null,
 				held: hitLink.held ?? null,
-				leaves: hitLink.leaves != null && hitLink.leaves.angle === hitLink.angle && hitLink.leaves.bounce === params['bounce'] ? { velocity: hitLink.leaves.velocity, spin: hitLink.leaves.spin } : null
+				leaves: hitLink.kind === 'plays' && hitLink.leaves != null && hitLink.leaves.angle === entity.angle && hitLink.leaves.bounce === params['bounce'] ? { velocity: hitLink.leaves.velocity, spin: hitLink.leaves.spin } : null
 			});
 			continue;
 		}
 
-		if (transform == null) continue;
+		const freeAt = freePosition(entity) ?? { x: 0, y: 0 };
 		const layout = layoutFree(
 			{
-				type: piece.type,
+				type: entity.type,
 				params,
 				path,
-				extraPaths: entity.components.path?.paths,
-				layout: piece.layout,
-				angle: transform.angle,
+				extraPaths: entity.path?.paths,
+				layout: entity.layout,
+				angle: entity.angle,
 				contactAt: 0.5,
 				marbleRadius: defaultRadius
 			},
-			transform.position
+			freeAt
 		);
-		const resolved = resolvedFromLayout(entity.id, piece.type, params, layout, null, 'free', piece.layout);
-		resolved.position = transform.position;
+		const resolved = resolvedFromLayout(entity.id, entity.type, params, layout, null, 'free', entity.layout);
+		resolved.position = freeAt;
 		staticPieces.push({ entityId: entity.id, definition, params, layout, resolved, key: '' });
 	}
 	// Equal times go by marble, then hit: IDs are random, so ordering by them gives one song different tracks
@@ -520,7 +514,7 @@ interface TRunState {
 	/** Per marble bounds of complete sample chunks, derived from samples and never snapshotted */
 	chunkBounds: number[][];
 	/** Per marble the ride it is taking, null while physics moves it */
-	rides: (TRide | null)[];
+	rides: (TActiveRide | null)[];
 	/** Per marble the platform that says how it leaves, until `LEAVE_STEPS` after its hit */
 	leaving: (TLeaving | null)[];
 }
@@ -533,9 +527,9 @@ interface TLeaving {
 }
 
 /** A marble following a stored ride */
-interface TRide {
+interface TActiveRide {
 	entityId: string;
-	transit: TTransit;
+	transit: TRide;
 	startStep: number;
 	origin: TVec2;
 	angle: number;
@@ -595,7 +589,7 @@ interface TSnapshot {
 	touching: Map<string, number>;
 	meeting: Map<string, [number, number]>;
 	staticLowY: number;
-	rides: (TRide | null)[];
+	rides: (TActiveRide | null)[];
 	leaving: (TLeaving | null)[];
 }
 
@@ -1859,9 +1853,9 @@ function findFirstRoot(gap: (t: number) => number, span: number): number | null 
 function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulationResult {
 	const staticById = new Map(plan.staticPieces.map((piece) => [piece.entityId, piece.resolved]));
 	const pieces: TResolvedPiece[] = [];
-	for (const entity of project.entities) {
-		const { piece } = entity.components;
-		if (piece == null || getPieceDefinition(piece.type) == null) continue;
+	for (const entity of project.track.pieces) {
+		
+		if (entity == null || getPieceDefinition(entity.type) == null) continue;
 		const resolved = staticById.get(entity.id) ?? state.placements.get(entity.id)?.piece;
 		if (resolved != null) {
 			const rotor = state.rotors.find((r) => r.entityId === entity.id);
@@ -1869,14 +1863,14 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 			continue;
 		}
 		// Linked pieces that were never processed: missing hit, hit after the end or before the start
-		const marble = plan.marbles.find((m) => m.marbleId === entity.components.hitLink?.marbleId);
+		const marble = plan.marbles.find((m) => m.marbleId === tieOf(entity)?.marbleId);
 		pieces.push({
 			entityId: entity.id,
-			type: piece.type,
-			...(piece.layout != null ? { layout: piece.layout } : {}),
+			type: entity.type,
+			...(entity.layout != null ? { layout: entity.layout } : {}),
 			position: marble?.release ?? { x: 0, y: 0 },
-			angle: entity.components.hitLink?.angle ?? 0,
-			params: resolvePieceParams(piece.type, piece.params),
+			angle: entity.angle ?? 0,
+			params: resolvePieceParams(entity.type, entity.params),
 			contactPoint: null,
 			contactNormal: null,
 			hitTime: plan.linkedHitTimes.get(entity.id) ?? null,
@@ -1888,8 +1882,8 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	const contacts = state.contacts.slice().sort((a, b) => a.time - b.time);
 
 	const linkByHit = new Map<string, string>();
-	for (const entity of project.entities) {
-		const { hitLink } = entity.components;
+	for (const entity of project.track.pieces) {
+		const hitLink = tieOf(entity);
 		const piece = pieceById.get(entity.id);
 		// Scenery never sounds its hit
 		if (hitLink == null || piece == null || !soundsHit(piece.type, hitLink)) continue;
@@ -1900,7 +1894,7 @@ function buildResult(project: TProject, plan: TPlan, state: TRunState): TSimulat
 	const hits: THitResult[] = [];
 	// Speeds scale with gravity, so the strike threshold does too
 	const impactSpeed = IMPACT_SPEED * (plan.gravity / gravityOf({}));
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		const band = frameBand(project);
 		const marbleIndex = plan.marbles.findIndex((item) => item.marbleId === marble.id);
 		const marbleEntity = plan.marbles[marbleIndex];

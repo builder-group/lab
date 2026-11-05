@@ -29,7 +29,7 @@ describe('bowlExit', () => {
 		async () => {
 			const simulator = await createSimulator();
 			const zigzag = loadFixture('zigzag');
-			const last = Math.max(...zigzag.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time)));
+			const last = Math.max(...zigzag.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time)));
 			expect(await fittedSongEnd(zigzag, (project) => simulator.simulate(project))).toBeCloseTo(last + SONG_TAIL, 6);
 			simulator.dispose();
 		},

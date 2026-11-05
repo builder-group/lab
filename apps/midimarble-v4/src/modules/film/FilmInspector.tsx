@@ -2,12 +2,12 @@ import { useFeatureState } from 'feature-react/state';
 import { Bookmark, RotateCcw, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, Panel, ScrubField, SelectField, StateRow, TextField } from '@/components';
-import { shotHold, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, shotKindLabel, shotKinds, updateShotCommands, type TShotKind, songDisplayName, titleSpan, withTitleTime } from '@/modules/scene';
+import { shotHold, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, shotKindLabel, shotKinds, updateShotCommands, type TShotKind, songDisplayName, titleSpan, withTitleTime, type TSkinned } from '@/modules/scene';
 import { PieceIcon, cameraAngles, MAX_TILT_DEGREES } from '@/modules/canvas';
-import type { TFilm, TEntity, TProject, TShot } from '@/modules/project';
+import type { TFilm, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { formatTime, parseTime } from '@/modules/project';
+import { formatTime, parseTime, type TTitle } from '@/modules/project';
 import { cameraCommands } from '@/modules/camera';
 import { builtInSkinCommands, commonPieceType, frameHeightOnWall, isScreenTitle, pieceCountLabel, titleStyles, withTitleStyle, type TTitleStyle } from './film-commands';
 import type { TFilmLink } from './FilmCx';
@@ -210,67 +210,64 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 
 // MARK: - Title
 
-export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity }> = (props) => {
-	const { cx, project, entity } = props;
-	const text = entity.components.wallText;
-	const transform = entity.components.transform;
+export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; entity: TTitle }> = (props) => {
+	const { cx, project, entity: text } = props;
 	const filmEnd = project.length;
 	const editingTitle = useFeatureState(cx.film.$editingTitle);
 	const [timingKey, setTimingKey] = React.useState(0);
 
 	// A title just placed starts in its Text field with the text selected, like Figma's text tool
 	React.useEffect(() => {
-		if (editingTitle !== entity.id) return;
+		if (editingTitle !== text.id) return;
 		cx.film.$editingTitle.set(null);
 		const field = document.getElementById('text-content');
 		if (field instanceof HTMLInputElement) {
 			field.focus();
 			field.select();
 		}
-	}, [cx, editingTitle, entity.id]);
+	}, [cx, editingTitle, text.id]);
 
-	if (text == null) return null;
 	const span = titleSpan(text, filmEnd);
 	const style: TTitleStyle = text.style ?? 'wall';
 	const isScreen = isScreenTitle(style);
 
-	function setText(patch: Partial<NonNullable<TEntity['components']['wallText']>>): void {
-		if (text == null) return;
+	function write(value: TTitle): void {
+		cx.execute([{ type: 'updateFilm', film: { titles: project.film.titles.map((item) => (item.id === value.id ? value : item)) } }]);
+	}
+
+	function setText(patch: Partial<TTitle>): void {
 		const value = { ...text, ...patch };
-		// The entity name follows the text so lists and the outliner read the same
-		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
+		// The name follows the text so lists and the outliner read the same
+		write({ ...value, name: value.text });
 	}
 
 	/** The title reads in the color that stands apart from the wall, whatever the wall becomes */
 	function clearColor(): void {
-		if (text == null) return;
 		const { color: _color, ...value } = text;
-		cx.execute([{ type: 'upsertEntity', entity: { ...entity, components: { ...entity.components, wallText: value } } }]);
+		write(value);
 	}
 
 	function setStyle(next: TTitleStyle): void {
-		if (text == null || next === style) return;
+		if (next === style) return;
 		const playhead = cx.$playhead.get();
 		const songName = songDisplayName(project);
 		const frameHeight = frameHeightOnWall(project, cx.simulation.$result.get(), playhead);
 		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName, aspect: project.format.width / project.format.height });
-		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
+		write({ ...value, name: value.text });
 	}
 
 	function setTime(field: 'in' | 'out', typed: string): void {
-		if (text == null) return;
 		const value = withTitleTime(text, field, typed, filmEnd);
 		if (value == null) {
 			// Not a time, or the title would end before it starts: the field shows the time it had
 			setTimingKey((key) => key + 1);
 			return;
 		}
-		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'wallText', value } }]);
+		write(value);
 	}
 
 	function setPosition(axis: 'x' | 'y', value: number): void {
-		const current = transform ?? { position: { x: 0, y: 0 }, angle: 0 };
-		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'transform', value: { ...current, position: { ...current.position, [axis]: value } } } }]);
+		write({ ...text, position: { ...text.position, [axis]: value } });
 	}
 
 	return (
@@ -278,8 +275,8 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 			<InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={text.text || 'Title'} subtitle={titleStyles.find((item) => item.style === style)?.label ?? 'Title'} />
 			{!isScreen ? (
 				<Panel id="film.wallText.position" title="Position">
-					<ScrubField id="text-x" label="X" name="X" value={(transform?.position.x ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
-					<ScrubField id="text-y" label="Y" name="Y" value={(transform?.position.y ?? 0) * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
+					<ScrubField id="text-x" label="X" name="X" value={text.position.x * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('x', value / 100)} />
+					<ScrubField id="text-y" label="Y" name="Y" value={text.position.y * 100} unit="cm" step={0.1} precision={1} onCommit={(value) => setPosition('y', value / 100)} />
 				</Panel>
 			) : null}
 			<Panel
@@ -340,21 +337,21 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 
 // MARK: - Piece skin
 
-export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEntity[] }> = (props) => {
+export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSkinned[] }> = (props) => {
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
 	const links = useFeatureState(cx.film.$links);
 
-	const first = pieces[0] as TEntity;
+	const first = pieces[0] as TSkinned;
 	// Skins fit one piece type: with several types selected they go on the most common one
-	const type = commonPieceType(pieces) ?? first.components.piece?.type ?? 'platform';
+	const type = commonPieceType(pieces) ?? ('type' in first ? first.type : 'platform');
 	const typeLabel = getPieceDefinition(type)?.label ?? type;
 	const ids = pieces.map((entity) => entity.id);
-	const skinned = pieces.filter((entity) => entity.components.piece?.type === type);
+	const skinned = pieces.filter((entity) => 'type' in entity && entity.type === type);
 	const isMixedTypes = skinned.length < pieces.length;
 	const isSingle = pieces.length === 1;
-	const skinIds = [...new Set(skinned.map((entity) => entity.components.skin?.assetId ?? ''))];
+	const skinIds = [...new Set(skinned.map((entity) => entity.skin?.assetId ?? ''))];
 	const ownSkin = skinIds.length === 1 && skinIds[0] !== '' ? (skinIds[0] as string) : null;
 	const link = mergedLink(ids.map((id) => links[id]));
 	const unlinked = ids.filter((id) => links[id]?.link === 'unlinked');
@@ -372,7 +369,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 				icon={<PieceIcon type={type} size={16} />}
 				title={name}
 				subtitle={isSingle ? typeLabel : isMixedTypes ? 'Track Pieces' : `${typeLabel}s`}
-				onRename={isSingle ? (value) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name: value } }]) : undefined}
+				onRename={isSingle ? (value) => cx.execute(['type' in first ? { type: 'updatePiece', pieceId: first.id, patch: { name: value } } : { type: 'updateMarble', marbleId: first.id, patch: { name: value } }]) : undefined}
 			/>
 			<Panel
 				id="film.skin"

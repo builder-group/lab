@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { builtRunCommands } from './group-commands';
-import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey } from '@/modules/project';
+import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedEntities, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { preflightExport, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
@@ -117,7 +117,7 @@ export class AssistCx {
 		}
 		const target = findStepTarget(project, result, this.studio.$selection.get());
 		// A long gap after the last piece comes first: across it the marble may fall too far to leave a dot
-		const gap = project.music.marbles
+		const gap = project.marbles
 			.flatMap((marble) => openLongGaps(project, marble.id))
 			.filter((item) => target == null || item.marbleId === target.marbleId || item.to <= target.targetTime)
 			.sort((a, b) => a.to - b.to)[0];
@@ -164,7 +164,7 @@ export class AssistCx {
 	/** N's message for an unreachable hit, with the fixes as actions: Move Release Earlier or Later and Make Backing */
 	explainUnreachable(project: TProject, result: TSimulationResult, hit: THitResult): void {
 		const reach = hitReach(project, result, hit);
-		const marble = project.music.marbles.find((item) => item.id === hit.marbleId);
+		const marble = project.marbles.find((item) => item.id === hit.marbleId);
 		const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 		const fix = releaseFixFor(project, hit, reach);
 		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble?.name ?? 'The marble' }, fix, canMakeBacking(project));
@@ -188,7 +188,7 @@ export class AssistCx {
 			const step = await buildOneStep(project, deps);
 			if (this.studio.project?.revision !== project.revision) return;
 			if (step != null && step.commands.length > 0 && this.studio.execute(step.commands)) {
-				const placed = step.project.entities.find((entity) => entity.components.hitLink?.hitId === step.target.hitId);
+				const placed = step.project.track.pieces.find((entity) => tieOf(entity)?.hitId === step.target.hitId);
 				if (placed != null) this.studio.$selection.set([placed.id]);
 				if (!this.studio.$playing.get()) this.studio.$playhead.set(step.target.targetTime);
 				this.studio.notifyEdit(`${message} Next found another way past it.`);
@@ -310,13 +310,13 @@ export class AssistCx {
 		this.previewKey = key;
 		this.studio.$selection.set([key]);
 		const id = createId('piece');
-		const radius = project.entities.find((entity) => entity.components.marble?.marbleId === hit.marbleId)?.components.marble?.radius ?? DEFAULT_MARBLE_RADIUS;
-		const show = (entity: TEntity, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
+		const radius = project.marbles.find((item) => item.id === hit.marbleId)?.radius ?? DEFAULT_MARBLE_RADIUS;
+		const show = (entity: TPiece, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
 			const piece = displayPiece(entity, { pose: { position: dot, angle }, dot, velocity }, radius);
 			this.dispatch({ type: 'preview', answer: { revision: project.revision, marbleId: hit.marbleId, hit, type, entity, piece, nextDot, isSolved, isOk } });
 		};
 		const guess = pieceForHit(project, hit, type, 'default', id);
-		const guessAngle = guess.components.hitLink?.angle ?? 0;
+		const guessAngle = guess.angle ?? 0;
 		const layout = layoutOf(type);
 		if (client == null || layout === 'path' || layout === 'tube') {
 			show(guess, guessAngle, null, true, true);
@@ -378,7 +378,7 @@ export class AssistCx {
 		this.dispatch({ type: 'accepted' });
 		if (ghost.kind === 'continue') {
 			const last = ghost.answer.suggestions.filter((suggestion) => suggestion.isOk).at(-1);
-			const time = project.music.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
+			const time = project.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
 			if (last != null) this.studio.$selection.set([last.entity.id]);
 			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
 			this.studio.notifyEdit(`Added ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'platform' : 'platforms'}`);
@@ -462,7 +462,7 @@ export class AssistCx {
 	get hasOpenHits(): boolean {
 		const project = this.studio.project;
 		if (project == null) return false;
-		return project.music.marbles.some((marble) => {
+		return project.marbles.some((marble) => {
 			const owners = hitOwners(project, marble.id);
 			return marble.hits.some((hit) => !owners.has(hit.id));
 		});
@@ -500,7 +500,7 @@ export class AssistCx {
 	async buildTrack(from?: { marbleId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
 		const project = this.studio.project;
 		if (project == null || this.buildRun != null || this.fixRun != null) return null;
-		if (!project.music.marbles.some((marble) => marble.hits.length > 0)) {
+		if (!project.marbles.some((marble) => marble.hits.length > 0)) {
 			this.studio.notify('Build Track needs notes. Import a song, or press T and tap along.');
 			return null;
 		}
@@ -532,7 +532,7 @@ export class AssistCx {
 			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done - kept, progress.total - kept);
 			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
 		};
-		const total = project.music.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
+		const total = project.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
 		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
 		this.$building.set(firstProgress);
 		const progressId = this.studio.notify(progressText(firstProgress), 'info', { progress: 0, actions: [stop] });
@@ -593,7 +593,7 @@ export class AssistCx {
 				this.studio.$playhead.set(0);
 				this.studio.$trackCx.get()?.fitOnceSimulated();
 			} else {
-				const at = project.music.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+				const at = project.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
 				if (at != null) this.studio.$playhead.set(at);
 				this.studio.$reveal.set({ ids: [toHitKey(from.marbleId, from.hitId)], isZoomKept: true });
 			}
@@ -608,7 +608,7 @@ export class AssistCx {
 		if (project == null || key == null) return null;
 		const hit = parseHitKey(key);
 		if (hit != null) return hit;
-		const link = project.entities.find((entity) => entity.id === key)?.components.hitLink;
+		const link = tieOf(project.track.pieces.find((entity) => entity.id === key));
 		return link != null ? { marbleId: link.marbleId, hitId: link.hitId } : null;
 	}
 
@@ -661,7 +661,7 @@ export class AssistCx {
 	private rememberGood(project: TProject, result: TSimulationResult): void {
 		if (this.lastGoodProjectId !== project.id) this.lastGood.clear();
 		this.lastGoodProjectId = project.id;
-		for (const marble of project.music.marbles) {
+		for (const marble of project.marbles) {
 			const hits = result.hits.filter((hit) => hit.marbleId === marble.id);
 			if (hits.some((hit) => hit.pieceEntityId != null) && !brokenHits(hits).length) this.lastGood.set(marble.id, hits);
 		}
@@ -684,7 +684,7 @@ export class AssistCx {
 		return {
 			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
-			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, options)).entity,
+			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: entity.type ?? 'platform', entityId: entity.id }, options)).entity,
 			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity,
 			settle: async (before, after) => (await client.settle({ before, after })).entities
 		};
@@ -713,7 +713,7 @@ export class AssistCx {
 			this.studio.notify('The run is still being checked. Press Fix again in a moment.');
 			return;
 		}
-		if (project.entities.some((entity) => entity.components.hitLink?.held != null)) await this.fixHeld(project, result);
+		if (project.track.pieces.some((entity) => tieOf(entity)?.held != null)) await this.fixHeld(project, result);
 		else if (entityId != null) await this.fixOnePiece(project, result, entityId);
 		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
 		else this.studio.notify(this.nothingToFixWords(project, result));
@@ -833,7 +833,7 @@ export class AssistCx {
 		const firstHeld = heldHit(project);
 		if (open?.dot != null && firstHeld != null && open.targetTime <= firstHeld.time) {
 			await this.place(open, this.studio.$trackCx.get()?.placementType() ?? 'platform');
-			const marble = project.music.marbles.find((item) => item.id === open.marbleId);
+			const marble = project.marbles.find((item) => item.id === open.marbleId);
 			const number = (marble?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
 			if (this.studio.project?.revision !== project.revision) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
 			return;
@@ -894,7 +894,12 @@ export class AssistCx {
 			return;
 		}
 		const changed = changedEntities(project, fixed);
-		this.studio.simulation.landSettled(changed, false);
+		// Fix may move a release too
+		const released = fixed.marbles.flatMap((marble): TProjectCommand[] => {
+			const was = project.marbles.find((item) => item.id === marble.id);
+			return was != null && JSON.stringify(was.start) !== JSON.stringify(marble.start) ? [{ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start } }] : [];
+		});
+		this.studio.simulation.landWorkedOut([...changed.map((piece): TProjectCommand => ({ type: 'addPiece', piece })), ...released], { amend: false });
 		this.studio.notifyEdit(`${tiltChange(project, changed)}The marble is back on its run · ${verdict.label}`);
 	}
 
@@ -983,26 +988,27 @@ export class AssistCx {
 
 /** The earliest hit whose piece waits behind a break */
 function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {
-	const held = project.entities.flatMap((entity) => {
-		const link = entity.components.hitLink;
-		const time = link?.held != null ? project.music.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
+	const held = project.track.pieces.flatMap((entity) => {
+		const link = tieOf(entity);
+		const time = link?.held != null ? project.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
 		return link != null && time != null ? [{ marbleId: link.marbleId, hitId: link.hitId, time }] : [];
 	});
 	return held.sort((a, b) => a.time - b.time)[0] ?? null;
 }
 
 /** `project` with these entities in place of the ones of the same id */
-function withSettled(project: TProject, entities: TEntity[]): TProject {
+function withSettled(project: TProject, entities: TPiece[]): TProject {
 	const changed = new Map(entities.map((entity) => [entity.id, entity]));
-	return { ...project, entities: project.entities.map((entity) => changed.get(entity.id) ?? entity) };
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } };
 }
 
 /** What a fix did to a person's tilts, so it never rewrites an edit quietly: "Platform 8 went from 22.9° to 40°. " */
-function tiltChange(project: TProject, changed: TEntity[]): string {
+function tiltChange(project: TProject, changed: TPiece[]): string {
 	const tilts = changed.flatMap((entity) => {
-		const before = project.entities.find((item) => item.id === entity.id)?.components.hitLink?.angle;
-		const after = entity.components.hitLink?.angle;
-		return before != null && after != null && Math.abs(after - before) > DEGREE / 10 && entity.components.piece?.type === 'platform' ? [{ name: entity.name ?? 'A platform', before, after }] : [];
+		const was = project.track.pieces.find((item) => item.id === entity.id);
+		const before = tieOf(was) != null ? was?.angle : undefined;
+		const after = tieOf(entity) != null ? entity.angle : undefined;
+		return before != null && after != null && Math.abs(after - before) > DEGREE / 10 && entity.type === 'platform' ? [{ name: entity.name ?? 'A platform', before, after }] : [];
 	});
 	const degrees = (angle: number): string => `${Math.round((angle / DEGREE) * 10) / 10}°`;
 	const [first] = tilts;
@@ -1013,7 +1019,7 @@ function tiltChange(project: TProject, changed: TEntity[]): string {
 
 /** The piece that plays this hit, if any */
 function pieceForHitKey(project: TProject, hit: { marbleId: string; hitId: string }): string | undefined {
-	return project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === hit.marbleId && entity.components.hitLink.hitId === hit.hitId)?.id;
+	return project.track.pieces.find((entity) => tieOf(entity)?.marbleId === hit.marbleId && tieOf(entity)?.hitId === hit.hitId)?.id;
 }
 
 function wait(ms: number): Promise<void> {
@@ -1033,18 +1039,18 @@ function gapFailure(type: TGapPieceType, message: string): string {
 /** Next's message when it has nothing left to place, naming the marble in focus */
 function everyNotePlacedMessage(project: TProject, selection: string[]): string {
 	const marbleId = focusedMarbleId(project, selection);
-	const marble = marbleId != null ? project.music.marbles.find((marble) => marble.id === marbleId)?.name : undefined;
+	const marble = marbleId != null ? project.marbles.find((marble) => marble.id === marbleId)?.name : undefined;
 	if (marble != null) return `Every note ${marble} reaches already has a platform`;
-	return project.music.marbles.length === 1 ? `Every note ${project.music.marbles[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
+	return project.marbles.length === 1 ? `Every note ${project.marbles[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
 }
 
 /** The marble of the selected hit or piece, if any */
 function focusedMarbleId(project: TProject, selection: string[]): string | null {
 	for (const key of selection) {
-		const entity = project.entities.find((item) => item.id === key);
-		const marbleId = entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId;
+		if (project.marbles.some((item) => item.id === key)) return key;
+		const marbleId = tieOf(project.track.pieces.find((item) => item.id === key))?.marbleId;
 		if (marbleId != null) return marbleId;
-		const marble = project.music.marbles.find((item) => key.startsWith(`hit:${item.id}:`));
+		const marble = project.marbles.find((item) => key.startsWith(`hit:${item.id}:`));
 		if (marble != null) return marble.id;
 	}
 	return null;
@@ -1067,14 +1073,14 @@ export interface TBuildReport {
 }
 
 function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number, from?: { marbleId: string; hitId: string }): TBuildReport {
-	const nameOf = (marbleId: string): string => project.music.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
+	const nameOf = (marbleId: string): string => project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
 	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.marbleId), marbleId: hit.marbleId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
 	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
 	const named = attention.slice(0, 3).map((hit) => `${hit.marble} hit ${hit.hit}`);
 	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 hit needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
 	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
 	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
-	const fromMarble = from != null ? project.music.marbles.find((marble) => marble.id === from.marbleId) : undefined;
+	const fromMarble = from != null ? project.marbles.find((marble) => marble.id === from.marbleId) : undefined;
 	const rebuilt = from != null ? `Rebuilt after Hit ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');

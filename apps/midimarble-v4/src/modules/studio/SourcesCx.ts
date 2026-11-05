@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
 import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
-import { createId, type TProject, type TSource, SONG_KEY } from '@/modules/project';
+import { createId, type TProject, type TSong, SONG_KEY } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion, hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
@@ -65,28 +65,29 @@ export class SourcesCx {
 			this.studio.notify(`${pending.file.name} could not be copied: ${importedErr.message}`, 'error');
 			return;
 		}
-		const source: TSource = {
+		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
+		const replaced = project.songs.filter((item) => item.kind === 'midi');
+		const source: TSong = {
 			id: createId('source'),
 			kind: 'midi',
 			path: relativePath,
 			name: pending.file.name,
-			offset: preview.offset
+			start: preview.offset,
+			...carriedOver(replaced),
+			backingSound: backingSound(pending.midi),
+			// The time signature is not parsed; most MIDI files are in four
+			...(pending.midi.tempo != null ? { tempo: { bpm: pending.midi.tempo, beatsPerBar: 4 } } : {})
 		};
 		const firstTrack = pending.midi.tracks.find((track) => pending.trackIds.includes(track.id));
-		// A film has one song, so a new MIDI file replaces the previous one, as a new recording does
-		const replaced = project.music.sources.filter((item) => item.kind === 'midi');
 		const applied = this.studio.execute([
-			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
+			...replaced.map((item) => ({ type: 'removeSong' as const, songId: item.id })),
 			...createImportCommands(project, {
 				marbles: preview.marbles,
 				names: preview.names,
 				backing: preview.backing,
-				backingInstrument: backingInstrument(pending.midi),
 				source,
 				instrument: firstTrack == null ? undefined : suggestInstrument(firstTrack.program)
-			}),
-			// The time signature is not parsed; most MIDI files are in four
-			...(pending.midi.tempo != null ? [{ type: 'setTempo' as const, tempo: { bpm: pending.midi.tempo, beatsPerBar: 4 } }] : [])
+			})
 		]);
 		if (!applied) return;
 		this.$midiImport.set(null);
@@ -112,20 +113,21 @@ export class SourcesCx {
 			this.studio.notify(`${file.name} could not be copied: ${importedErr.message}`, 'error');
 			return;
 		}
-		const source: TSource = {
+		const replaced = project.songs.filter((item) => item.kind === 'audio');
+		const source: TSong = {
 			id: createId('source'),
 			kind: 'audio',
 			path: relativePath,
 			name: file.name,
-			offset: IMPORT_START
+			start: IMPORT_START,
+			...carriedOver(replaced)
 		};
 		const analysis = await this.analyze(source);
 		if (analysis == null) return;
-		const replaced = project.music.sources.filter((item) => item.kind === 'audio');
 		this.studio.execute([
-			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
-			{ type: 'upsertSource', source },
-			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.offset + analysis.duration)) } }
+			...replaced.map((item) => ({ type: 'removeSong' as const, songId: item.id })),
+			{ type: 'addSong', song: source },
+			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
 		]);
 		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.`);
 	}
@@ -160,16 +162,16 @@ export class SourcesCx {
 
 	/** Loads waveform and onsets for audio sources of a reopened project */
 	ensureAnalysis(project: TProject): void {
-		for (const source of project.music.sources) {
-			if (source.kind !== 'audio') continue;
+		for (const source of project.songs) {
+			if (source.kind !== 'audio' || source.path == null) continue;
 			if (this.$analysis.get()[source.id] != null || this.loading.has(source.id)) continue;
 			void this.analyze(source);
 		}
 	}
 
-	private async analyze(source: TSource): Promise<TSourceAnalysis | null> {
+	private async analyze(source: TSong): Promise<TSourceAnalysis | null> {
 		const packagePath = this.studio.$path.get();
-		if (packagePath == null) return null;
+		if (packagePath == null || source.path == null) return null;
 		const url = host.sourceUrl(packagePath, source.path);
 		if (url == null) return null;
 		this.loading.add(source.id);
@@ -213,10 +215,17 @@ export interface TSourceAnalysis {
 	onsets: number[];
 }
 
-/** The project's song: the recording when there is one, since it is what plays, otherwise the MIDI file */
-export function songSource(project: TProject): TSource | undefined {
-	const sources = project.music.sources;
-	return sources.find((source) => source.kind === 'audio') ?? sources[0];
+/** The project's song with a file: the recording when there is one, since it is what plays, otherwise the first with a file */
+export function songSource(project: TProject): TSong | undefined {
+	const files = project.songs.filter((song) => song.path != null);
+	return files.find((song) => song.kind === 'audio') ?? files[0];
+}
+
+/** What a new file takes over from the songs it replaces, which outlives their files: Backing, its sound and the tempo */
+function carriedOver(replaced: readonly TSong[]): Pick<TSong, 'backing' | 'backingSound' | 'tempo'> {
+	const backingSound = replaced.find((song) => song.backingSound != null)?.backingSound;
+	const tempo = replaced.find((song) => song.tempo != null)?.tempo;
+	return { backing: replaced.flatMap((song) => song.backing), ...(backingSound != null ? { backingSound } : {}), ...(tempo != null ? { tempo } : {}) };
 }
 
 /**
@@ -247,7 +256,7 @@ export interface TMidiImportPreview {
 }
 
 /** The song's first melodic MIDI program when the instrument bank has it, otherwise piano */
-function backingInstrument(midi: TMidiFile): number {
+function backingSound(midi: TMidiFile): number {
 	const program = midi.tracks.find((track) => !track.isDrums)?.program;
 	return instruments.some((instrument) => instrument.program === program) && program != null ? program : 0;
 }

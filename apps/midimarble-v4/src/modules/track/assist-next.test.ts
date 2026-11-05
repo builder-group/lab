@@ -1,13 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createHistory, createLane, createMarble, createProject, type TEntity, type TProject } from '@/modules/project';
+import { createHistory, createMarble, createProject, type TPiece, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TAutoPlaceAnswer, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { AssistCx, AUTO_PLACE_WAIT_MS } from './AssistCx';
 
 function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TProject; hit: THitResult } {
 	const created = createProject({ title: 'Song' });
-	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
-	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 })] };
+	const marble = { ...createMarble(0, { x: 0, y: 0 }), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
+	const project: TProject = { ...created, marbles: [marble] };
 	const hit = { marbleId: marble.id, hitId: 'hit1', targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' } as unknown as THitResult;
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
@@ -17,8 +17,8 @@ function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TPro
 }
 
 function solved(marbleId: string, hitId: string, entityId: string): TAutoPlaceAnswer {
-	const entity: TEntity = createLinkedPiece('platform', marbleId, hitId, 0.31, { id: entityId });
-	if (entity.components.piece != null) entity.components.piece.params = { ...entity.components.piece.params, bounce: 0.42 };
+	const entity: TPiece = createLinkedPiece('platform', marbleId, hitId, 0.31, { id: entityId });
+	entity.params = { ...entity.params, bounce: 0.42 };
 	return { entity, angle: 0.31, nextDot: null, computeMs: 1 };
 }
 
@@ -30,8 +30,8 @@ describe('AssistCx place function', () => {
 			const { cx, hit } = studio({ autoPlace });
 			const assist = new AssistCx(cx);
 			await assist.place(hit, 'platform');
-			const placed = cx.project?.entities.find((entity) => entity.components.piece != null);
-			pieces.push({ angle: placed?.components.hitLink?.angle, bounce: placed?.components.piece?.params['bounce'] });
+			const placed = cx.project?.track.pieces[0];
+			pieces.push({ angle: placed?.angle, bounce: placed?.params['bounce'] });
 			expect(cx.$history.get()?.past).toHaveLength(1);
 		}
 		expect(pieces[1]).toEqual(pieces[0]);
@@ -43,12 +43,12 @@ describe('AssistCx place function', () => {
 		const { cx, hit } = studio({ autoPlace: () => new Promise((resolve) => (answer = resolve)) });
 		const assist = new AssistCx(cx);
 		const placing = assist.place(hit, 'platform');
-		await vi.waitFor(() => expect(cx.project?.entities.some((entity) => entity.components.piece != null)).toBe(true));
+		await vi.waitFor(() => expect(cx.project?.track.pieces.length).toBeGreaterThan(0));
 		expect(assist.isAnswering).toBe(true);
-		const placed = cx.project?.entities.find((entity) => entity.components.piece != null);
+		const placed = cx.project?.track.pieces[0];
 		answer(solved(hit.marbleId, hit.hitId, placed?.id ?? ''));
 		await placing;
 		expect(assist.isAnswering).toBe(false);
-		expect(cx.project?.entities.find((entity) => entity.id === placed?.id)?.components.piece?.params['bounce']).toBe(0.42);
+		expect(cx.project?.track.pieces.find((entity) => entity.id === placed?.id)?.params['bounce']).toBe(0.42);
 	});
 });

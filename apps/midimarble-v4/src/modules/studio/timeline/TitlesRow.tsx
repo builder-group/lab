@@ -1,14 +1,13 @@
 import { Type } from 'lucide-react';
 import React from 'react';
 import { titleClips } from '@/modules/scene';
-import type { TComponents, TProject } from '@/modules/project';
+import type { TProject, TTitle } from '@/modules/project';
 import { formatTime } from '@/modules/project';
 import { TITLES_KEY } from '../outline';
 import type { StudioCx } from '../StudioCx';
 import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
-type TWallText = NonNullable<TComponents['wallText']>;
 type TClipDrag = { entityId: string; edge: 'move' | 'in' | 'out'; originX: number; grab: number; start: number; end: number; moved: boolean };
 
 /** Shortest title clip the trim handles leave, in seconds */
@@ -27,14 +26,13 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 	const isSelected = clips.some((clip) => selection.includes(clip.entityId));
 
 	function commit(next: TClipDrag): void {
-		const entity = project.entities.find((item) => item.id === next.entityId);
-		const text = entity?.components.wallText;
-		if (entity == null || text == null) return;
-		const { in: _in, out: _out, ...rest } = text;
-		const value: TWallText = { ...rest };
+		const title = project.film.titles.find((item) => item.id === next.entityId);
+		if (title == null) return;
+		const { in: _in, out: _out, ...rest } = title;
+		const value: TTitle = { ...rest };
 		if (next.start > 0) value.in = round(next.start);
 		if (next.end < project.length) value.out = round(next.end);
-		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'wallText', value } }]);
+		cx.execute([{ type: 'updateFilm', film: { titles: project.film.titles.map((item) => (item.id === title.id ? value : item)) } }]);
 	}
 
 	function dragTo(current: TClipDrag, clientX: number): TClipDrag {

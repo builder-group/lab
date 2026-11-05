@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseProject, type TProject } from '@/modules/project';
+import { parseProject, type TProject, tieOf } from '@/modules/project';
 import { createPerfProject, createStaircaseProject } from './fixture-projects';
 import { createSimulator } from './simulate';
 
 function setAngle(project: TProject, entityId: string, angle: number): void {
-	const hitLink = project.entities.find((entity) => entity.id === entityId)?.components.hitLink;
-	if (hitLink == null) throw new Error(`Missing linked piece ${entityId}`);
-	hitLink.angle = angle;
+	const piece = project.track.pieces.find((entity) => entity.id === entityId);
+	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${entityId}`);
+	piece.angle = angle;
 }
 
 describe('simulation performance', () => {
@@ -46,7 +46,7 @@ describe('simulation performance', () => {
 			expect(result.stats.reusedUntil).toBeCloseTo(10.2, 6);
 			timings.push(result.stats.computeMs);
 		}
-		const pieces = project.entities.filter((entity) => entity.components.piece != null).length;
+		const pieces = project.track.pieces.length;
 		console.log(
 			`60 s, 4 marbles, ${pieces} platforms: full ${full.stats.computeMs.toFixed(1)} ms, reflow from 10.2 s ${timings.map((t) => t.toFixed(1)).join(', ')} ms`
 		);

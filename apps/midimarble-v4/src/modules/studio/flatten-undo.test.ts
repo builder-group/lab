@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { PatternsCx, groupSelection } from '@/modules/track';
-import { createHistory, createLane, createMarble, createProject, type TPatternGroup, type TProject } from '@/modules/project';
+import { createHistory, createMarble, createProject, type TPatternGroup, type TProject } from '@/modules/project';
 import { createLinkedPiece } from '@/modules/simulation';
 import { StudioCx } from './StudioCx';
 
 function studio(): { cx: StudioCx; patterns: PatternsCx; group: TPatternGroup } {
 	const created = createProject({ title: 'Song' });
-	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
+	const marble = { ...createMarble(0, { x: 0, y: 0 }), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
 	const pieces = marble.hits.map((hit, index) => createLinkedPiece('platform', marble.id, hit.id, 0.3, { id: `piece-${index}` }));
-	const group: TPatternGroup = { id: 'group-1', name: 'Zigzag', kind: 'zigzag', marbleId: marble.id, from: 1, to: 2, width: 0.14, bounce: 0.5, pieceIds: pieces.map((piece) => piece.id) };
-	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, groups: [group], entities: [createMarble(marble, { x: 0, y: 0 }), ...pieces] };
+	const group: TPatternGroup = { id: 'group-1', name: 'Zigzag', marbleId: marble.id, pieceIds: pieces.map((piece) => piece.id), pattern: { kind: 'zigzag', hitIds: ['hit1', 'hit2'], width: 0.14, bounce: 0.5 } };
+	const project: TProject = { ...created, marbles: [marble], track: { ...created.track, pieces, groups: [group] } };
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	cx.$selection.set(groupSelection(group));
@@ -24,12 +24,12 @@ describe('Flatten and Undo', () => {
 
 		// Act
 		patterns.flatten(group);
-		expect(cx.project?.groups).toEqual([{ id: group.id, name: group.name, marbleId: group.marbleId, pieceIds: group.pieceIds }]);
+		expect(cx.project?.track.groups).toEqual([{ id: group.id, name: group.name, marbleId: group.marbleId, pieceIds: group.pieceIds }]);
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);
 		cx.undo();
 
 		// Assert
-		expect(cx.project?.groups?.map((item) => item.id)).toEqual([group.id]);
+		expect(cx.project?.track.groups.map((item) => item.id)).toEqual([group.id]);
 		expect(cx.$selection.get()).toEqual(expect.arrayContaining(groupSelection(group)));
 	});
 
@@ -50,6 +50,6 @@ describe('Flatten and Undo', () => {
 
 		cx.redo();
 
-		expect(cx.project?.groups).toEqual([{ id: group.id, name: group.name, marbleId: group.marbleId, pieceIds: group.pieceIds }]);
+		expect(cx.project?.track.groups).toEqual([{ id: group.id, name: group.name, marbleId: group.marbleId, pieceIds: group.pieceIds }]);
 	});
 });

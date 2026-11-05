@@ -1,29 +1,24 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BACKING_ID, createProject, type THit, type TProject, type TSource } from '@/modules/project';
+import { BACKING_ID, createMarble, createProject, type THit, type TProject, type TSong, backingOf } from '@/modules/project';
 import { createAudioSignature, renderProjectAudio } from './audio-engine';
 import { audibleProject, currentMix, EMPTY_MIX, hasSong, isPartAudible, mixLabel, mutedSoundtrackNote, SONG_MIX_ID, setPartSoundCommands, songParts, soundtrackProject } from './parts';
 
 const SAMPLE_RATE = 22050;
-const MIDI: TSource = { id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song.mid', offset: 0 };
-const AUDIO: TSource = { id: 'audio', kind: 'audio', path: 'audio/song.wav', name: 'Song.wav', offset: 0 };
-const resolve = (source: { path: string }): string => `asset://${source.path}`;
+const MIDI: TSong = { id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song.mid', start: 0, backing: [] };
+const AUDIO: TSong = { id: 'audio', kind: 'audio', path: 'audio/song.wav', name: 'Song.wav', start: 0, backing: [] };
+const resolve = (source: TSong): string => `asset://${source.path ?? ''}`;
 
-function project(sources: TSource[], melody: THit[], bass: THit[], backing: THit[] = []): TProject {
+function project(songs: TSong[], melody: THit[], bass: THit[], backing: THit[] = []): TProject {
 	const base = createProject({ title: 'Parts' });
 	return {
 		...base,
 		length: 2,
-		music: {
-			...base.music,
-			sources,
-			backing,
-			backingInstrument: 12,
-			marbles: [
-				{ id: 'melody', name: 'Melody', color: '#3478f6', instrument: 9, hits: melody },
-				{ id: 'bass', name: 'Bass', color: '#ff9f0a', instrument: 12, hits: bass }
-			]
-		}
+		songs: songs.map((song) => ({ ...song, backing, backingSound: 12 })),
+		marbles: [
+			{ ...createMarble(0, { x: 0, y: 0 }, 'melody'), name: 'Melody', labelColor: '#3478f6', sound: 9, hits: melody },
+			{ ...createMarble(1, { x: 0.26, y: 0 }, 'bass'), name: 'Bass', labelColor: '#ff9f0a', sound: 12, hits: bass }
+		]
 	};
 }
 
@@ -67,11 +62,11 @@ describe('songParts function', () => {
 });
 
 describe('setPartSoundCommands function', () => {
-	it('should set the marble instrument of a marble and the Backing instrument of Backing', () => {
+	it('should set the sound of a marble and the sound of Backing', () => {
 		const song = project([MIDI], [note('a', 1)], []);
 
-		expect(setPartSoundCommands(song, BACKING_ID, 8)).toEqual([{ type: 'setBackingInstrument', instrument: 8 }]);
-		expect(setPartSoundCommands(song, 'melody', 8)).toEqual([{ type: 'upsertLane', marble: { ...song.music.marbles[0], instrument: 8 } }]);
+		expect(setPartSoundCommands(song, BACKING_ID, 8)).toEqual([{ type: 'updateSong', songId: 'midi', patch: { backingSound: 8 } }]);
+		expect(setPartSoundCommands(song, 'melody', 8)).toEqual([{ type: 'updateMarble', marbleId: 'melody', patch: { sound: 8 } }]);
 	});
 });
 
@@ -91,15 +86,15 @@ describe('audibleProject function', () => {
 	it('should leave only the slice of a soloed marble', () => {
 		const solo = audibleProject(song, { muted: [], solo: ['bass'] });
 
-		expect(solo.music.marbles.map((marble) => marble.id)).toEqual(['bass']);
-		expect(solo.music.backing).toEqual([]);
+		expect(solo.marbles.map((marble) => marble.id)).toEqual(['bass']);
+		expect(backingOf(solo)).toEqual([]);
 	});
 
 	it('should mute and solo Backing like a marble', () => {
-		expect(audibleProject(song, { muted: [BACKING_ID], solo: [] }).music.backing).toEqual([]);
+		expect(backingOf(audibleProject(song, { muted: [BACKING_ID], solo: [] }))).toEqual([]);
 		const solo = audibleProject(song, { muted: [], solo: [BACKING_ID] });
-		expect(solo.music.marbles).toEqual([]);
-		expect(solo.music.backing).toHaveLength(1);
+		expect(solo.marbles).toEqual([]);
+		expect(backingOf(solo)).toHaveLength(1);
 	});
 
 	it('should ignore a solo of a Part that has no notes left, so the Song stays audible', () => {
@@ -129,7 +124,7 @@ describe('soundtrackProject function', () => {
 	const song = project([MIDI], [note('a', 0.5)], [note('b', 1)]);
 
 	it('should keep muted Parts out and ignore solo', () => {
-		expect(soundtrackProject(song, { muted: ['melody'], solo: [] }).music.marbles.map((marble) => marble.id)).toEqual(['bass']);
+		expect(soundtrackProject(song, { muted: ['melody'], solo: [] }).marbles.map((marble) => marble.id)).toEqual(['bass']);
 		expect(soundtrackProject(song, { muted: [], solo: ['melody'] })).toBe(song);
 	});
 

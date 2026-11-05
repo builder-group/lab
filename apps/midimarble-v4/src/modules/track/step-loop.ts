@@ -1,7 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
+import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { bowlOfMarble, createLinkedPiece, defaultPlatformAngle, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { parseHitKey } from '@/modules/project';
+import { parseHitKey, tieOf } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { openHits } from '@/modules/building';
 
@@ -15,7 +15,7 @@ export function nextOpenHitPerMarble(result: TSimulationResult): Map<string, THi
 }
 
 export interface TLinkedPiece {
-	entity: TEntity;
+	entity: TPiece;
 	marbleId: string;
 	hitId: string;
 	angle: number;
@@ -25,14 +25,14 @@ export interface TLinkedPiece {
 /** Hit-linked pieces with their hit time, in time order */
 export function linkedPieces(project: TProject, marbleId?: string): TLinkedPiece[] {
 	const times = new Map<string, number>();
-	for (const marble of project.music.marbles) for (const hit of marble.hits) times.set(`${marble.id}/${hit.id}`, hit.time);
+	for (const marble of project.marbles) for (const hit of marble.hits) times.set(`${marble.id}/${hit.id}`, hit.time);
 	const pieces: TLinkedPiece[] = [];
-	for (const entity of project.entities) {
-		const link = entity.components.hitLink;
-		if (link == null || entity.components.piece == null || (marbleId != null && link.marbleId !== marbleId)) continue;
+	for (const entity of project.track.pieces) {
+		const link = tieOf(entity);
+		if (link == null || (marbleId != null && link.marbleId !== marbleId)) continue;
 		const time = times.get(`${link.marbleId}/${link.hitId}`);
 		if (time == null) continue;
-		pieces.push({ entity, marbleId: link.marbleId, hitId: link.hitId, angle: link.angle, time });
+		pieces.push({ entity, marbleId: link.marbleId, hitId: link.hitId, angle: entity.angle, time });
 	}
 	return pieces.sort((a, b) => a.time - b.time);
 }
@@ -81,13 +81,13 @@ export function stepAngle(project: TProject, hit: THitResult, mode: TStepMode): 
  * The piece a click or step puts at an open hit. Platforms and windmills take the step angle; rails and
  * tunnels start under the marble and run with its travel, turned back when that would leave the frame.
  */
-export function pieceForHit(project: TProject, hit: THitResult, type: string, mode: TStepMode = 'default', id?: string): TEntity {
+export function pieceForHit(project: TProject, hit: THitResult, type: string, mode: TStepMode = 'default', id?: string): TPiece {
 	const kind = layoutOf(type);
 	if (kind === 'path' || kind === 'tube') {
-		const entity = createLinkedPiece(type, hit.marbleId, hit.hitId, 0, { entities: project.entities, id });
+		const entity = createLinkedPiece(type, hit.marbleId, hit.hitId, 0, { entities: project.track.pieces, id });
 		return withRunDirection(project, entity, hit.dot, hit.velocity);
 	}
-	return createLinkedPiece(type, hit.marbleId, hit.hitId, stepAngle(project, hit, mode), { entities: project.entities, id });
+	return createLinkedPiece(type, hit.marbleId, hit.hitId, stepAngle(project, hit, mode), { entities: project.track.pieces, id });
 }
 
 /**
@@ -102,16 +102,15 @@ export function followerAt(
 	time: number,
 	position: TVec2,
 	velocity: TVec2 | null
-): TResult<TEntity, Error> {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+): TResult<TPiece, Error> {
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = [...(marble?.hits ?? [])].reverse().find((item) => item.time < time - 0.005);
 	if (hit == null) return Err(new Error("A piece can follow this marble only after its first hit. Drop it lower on the marble's fall."));
 	const delay = Math.round((time - hit.time) * 1000) / 1000;
 	const maxDelay = getPieceDefinition(type)?.params['entryDelay']?.max ?? 2;
 	if (delay > maxDelay) return Err(new Error(`This spot is ${delay.toFixed(1)} s after the last hit. Drop the piece within ${maxDelay} s of a hit.`));
-	const entity = createLinkedPiece(type, marbleId, hit.id, 0, { entities: project.entities });
-	const piece = entity.components.piece;
-	if (piece != null) piece.params = { ...piece.params, entryDelay: delay };
+	const entity = createLinkedPiece(type, marbleId, hit.id, 0, { entities: project.track.pieces });
+	entity.params = { ...entity.params, entryDelay: delay };
 	const kind = layoutOf(type);
 	if (kind === 'catcher') return Ok(asMarbleBowl(project, entity, velocity));
 	return Ok(kind === 'path' || kind === 'tube' ? withRunDirection(project, entity, position, velocity) : entity);
@@ -121,51 +120,42 @@ export function followerAt(
  * A Bowl for the marble of its anchor: its center on the side the marble moves toward, and the marble's own Bowl
  * kept, moved to the new spot, since a marble has at most one
  */
-export function asMarbleBowl(project: TProject, entity: TEntity, velocity: TVec2 | null): TEntity {
-	const marbleId = entity.components.hitLink?.marbleId;
-	const existing = marbleId != null ? bowlOfMarble(project, marbleId) : undefined;
-	const piece = entity.components.piece;
-	const params: Record<string, number> = { ...(existing?.components.piece?.params ?? {}), ...piece?.params, mirror: (velocity?.x ?? 0) < 0 ? 1 : 0 };
-	const style = existing?.components.piece?.params['style'];
+export function asMarbleBowl(project: TProject, entity: TPiece, velocity: TVec2 | null): TPiece {
+	const link = tieOf(entity);
+	const existing = link != null ? bowlOfMarble(project, link.marbleId) : undefined;
+	const params: Record<string, number> = { ...(existing?.params ?? {}), ...entity.params, mirror: (velocity?.x ?? 0) < 0 ? 1 : 0 };
+	const style = existing?.params['style'];
 	if (style != null) params['style'] = style;
-	const link = entity.components.hitLink;
-	const { transform: _, ...kept } = existing?.components ?? {};
 	return {
+		...(existing?.path != null ? { path: existing.path } : {}),
+		...(existing?.skin != null ? { skin: existing.skin } : {}),
+		...(existing?.ride != null ? { ride: existing.ride } : {}),
 		...entity,
 		id: existing?.id ?? entity.id,
 		...(existing?.name != null ? { name: existing.name } : {}),
-		components: {
-			...kept,
-			...entity.components,
-			piece: { type: piece?.type ?? 'bowl', params },
-			...(link != null ? { hitLink: { ...link, anchored: true } } : {})
-		}
+		params,
+		...(link?.kind === 'plays' ? { place: { kind: 'follows' as const, marbleId: link.marbleId, hitId: link.hitId, contactAt: link.contactAt } } : {})
 	};
 }
 
 /** Points the run of a new rail or tunnel along the horizontal travel, or back when it would leave the frame */
-function withRunDirection(project: TProject, entity: TEntity, position: TVec2 | null, velocity: TVec2 | null): TEntity {
-	const piece = entity.components.piece;
-	if (piece == null) return entity;
-	const points = resolvePiecePath(piece.type, undefined);
+function withRunDirection(project: TProject, entity: TPiece, position: TVec2 | null, velocity: TVec2 | null): TPiece {
+	const points = resolvePiecePath(entity.type, undefined);
 	const reach = Math.max(...points.map((point) => point.x));
 	const band = frameBand(project);
 	const x = position?.x ?? band.centerX;
 	let direction = Math.abs(velocity?.x ?? 0) > 0.05 ? Math.sign(velocity?.x ?? 1) : x <= band.centerX ? 1 : -1;
 	if (Math.abs(x + direction * reach - band.centerX) > band.halfWidth) direction = -direction;
-	return {
-		...entity,
-		components: { ...entity.components, path: { points: points.map((point) => ({ x: point.x * direction, y: point.y })) } }
-	};
+	return { ...entity, path: { points: points.map((point) => ({ x: point.x * direction, y: point.y })) } };
 }
 
 /** Adds a piece made for an open hit, selects it, moves the playhead there and plays the note */
-export function commitAtHit(cx: StudioCx, hit: THitResult, entity: TEntity): boolean {
+export function commitAtHit(cx: StudioCx, hit: THitResult, entity: TPiece): boolean {
 	const project = cx.project;
-	if (project == null || !cx.execute([{ type: 'upsertEntity', entity }])) return false;
+	if (project == null || !cx.execute([{ type: 'addPiece', piece: entity }])) return false;
 	cx.$selection.set([entity.id]);
 	if (!cx.$playing.get()) cx.$playhead.set(hit.targetTime);
-	const pitch = project.music.marbles.find((marble) => marble.id === hit.marbleId)?.hits.find((item) => item.id === hit.hitId)?.pitch;
+	const pitch = project.marbles.find((marble) => marble.id === hit.marbleId)?.hits.find((item) => item.id === hit.hitId)?.pitch;
 	cx.audition(hit.marbleId, pitch);
 	return true;
 }
@@ -180,41 +170,31 @@ export function placeAtHit(cx: StudioCx, hit: THitResult, type: string): string 
 
 // MARK: - Piece edits
 
-/** Project with new angles for some pieces, for previews that should not enter history. Free pieces turn their transform. */
+/** Project with new angles for some pieces, for previews that should not enter history */
 export function withPieceAngles(project: TProject, angles: Map<string, number>): TProject {
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
 			const angle = angles.get(entity.id);
-			const { hitLink: link, transform } = entity.components;
-			if (angle == null) return entity;
-			if (link != null) return { ...entity, components: { ...entity.components, hitLink: { ...link, angle } } };
-			if (transform != null) return { ...entity, components: { ...entity.components, transform: { ...transform, angle } } };
-			return entity;
-		})
+			return angle == null ? entity : { ...entity, angle };
+		}) }
 	};
 }
 
 export function pieceAngleCommands(project: TProject, angles: Map<string, number>): TProjectCommand[] {
 	const commands: TProjectCommand[] = [];
-	for (const entity of project.entities) {
+	for (const entity of project.track.pieces) {
 		const angle = angles.get(entity.id);
-		const { hitLink: link, transform } = entity.components;
-		if (angle == null) continue;
-		if (link != null && link.angle !== angle) {
-			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: { ...link, angle } } });
-		} else if (link == null && transform != null && transform.angle !== angle) {
-			commands.push({ type: 'setComponent', entityId: entity.id, component: { name: 'transform', value: { ...transform, angle } } });
-		}
+		if (angle != null && entity.angle !== angle) commands.push({ type: 'updatePiece', pieceId: entity.id, patch: { angle } });
 	}
 	return commands;
 }
 
-/** Surface angle of a piece as edited: its link's angle, or its free transform's */
-export function pieceAngle(entity: TEntity): number | null {
-	return entity.components.hitLink?.angle ?? entity.components.transform?.angle ?? null;
+/** Surface angle of a piece as edited */
+export function pieceAngle(entity: TPiece): number {
+	return entity.angle;
 }
 
 export function selectedPieceIds(project: TProject, selection: string[]): string[] {
-	return selection.filter((id) => project.entities.some((entity) => entity.id === id && entity.components.piece != null));
+	return selection.filter((id) => project.track.pieces.some((entity) => entity.id === id));
 }

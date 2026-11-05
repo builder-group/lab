@@ -18,7 +18,7 @@ export function parseProject(json: string): TResult<TProject, Error> {
 		return Err(new Error(`The project file is not valid JSON: ${(error as Error).message}`));
 	}
 	const version = typeof value === 'object' && value != null ? (value as Record<string, unknown>)['$schema'] : null;
-	if (version !== 'marble-project@5') return Err(new Error(OTHER_VERSION_WORDS));
+	if (version !== 'marble-project@6') return Err(new Error(OTHER_VERSION_WORDS));
 	const [isProjectOk, projectErr, project] = prepareSchemaValue(projectDefinition, value);
 	if (!isProjectOk) return Err(new Error(OTHER_VERSION_WORDS, { cause: projectErr }));
 	return Ok(project);

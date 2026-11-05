@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHistory, createLane, createMarble, createProject, type TProject } from '@/modules/project';
+import { createHistory, createMarble, createProject, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { createFreePiece, displayPiece } from '@/modules/building';
@@ -33,16 +33,15 @@ function runFrames(): void {
 
 function mounted(): { cx: StudioCx; trackCx: TrackCx; renderer: TrackRenderer; windmillId: string; unmount: () => void } {
 	const created = createProject({ title: 'Song' });
-	const marble = createLane(0);
-	const marbleEntity = createMarble(marble, { x: 0, y: 0 });
+	const marble = createMarble(0, { x: 0, y: 0 });
 	const pose = { position: { x: 0.2, y: -0.2 }, angle: 0 };
-	const windmill = createFreePiece('windmill', pose, [marbleEntity]);
-	const project: TProject = { ...created, music: { ...created.music, marbles: [marble] }, entities: [marbleEntity, windmill] };
+	const windmill = createFreePiece('windmill', pose, []);
+	const project: TProject = { ...created, marbles: [marble], track: { ...created.track, pieces: [windmill] } };
 	const samples = Array.from({ length: 600 }, (_, index) => ({ time: index / 60, position: { x: index * 0.02, y: -index * 0.02 }, velocity: { x: 1.2, y: -1.2 } }));
 	const result = {
 		revision: project.revision,
 		duration: project.length,
-		marbles: [{ entityId: marbleEntity.id, marbleId: marble.id, samples }],
+		marbles: [{ entityId: marble.id, marbleId: marble.id, samples }],
 		pieces: [{ ...displayPiece(windmill, { pose }), motion: [{ time: 0, angle: 0 }, { time: 10, angle: 10 }] }],
 		contacts: [],
 		hits: [],

@@ -11,7 +11,7 @@ export function dotMenu(trackCx: TrackCx, marbleId: string, hitId: string): TMen
 	const project = trackCx.project;
 	const hit = trackCx.result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId && item.status === 'open');
 	if (project == null || hit == null) return [];
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const index = marble?.hits.findIndex((item) => item.id === hitId) ?? -1;
 	const pitch = marble?.hits[index]?.pitch;
 	const gap = trackCx.longGapKeys(project).get(`${marbleId}:${hitId}`);

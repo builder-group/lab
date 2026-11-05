@@ -1,4 +1,4 @@
-import type { TEntity, TLane, TProject } from './schema';
+import type { TMarble, TProject } from './schema';
 
 /**
  * Marble radius of new projects. The kit is 1.5 times the Marble Race Kit scale (16 mm marbles), which reads at
@@ -28,17 +28,17 @@ export function createId(prefix: string): string {
 
 export function createProject(options: TCreateProjectOptions = {}): TProject {
 	const { title = 'Untitled', id = createId('project') } = options;
-	const marble = createLane(0);
 	return {
-		$schema: 'marble-project@5',
+		$schema: 'marble-project@6',
 		id,
 		title,
 		revision: 0,
 		format: { width: 9, height: 16 },
 		length: 12,
 		gravity: DEFAULT_GRAVITY,
-		music: { sources: [], marbles: [marble], backing: [] },
-		entities: [createMarble(marble, { x: 0, y: 0.6 })],
+		songs: [],
+		marbles: [createMarble(0, { x: 0, y: 0.6 })],
+		track: { pieces: [], groups: [] },
 		film: {
 			theme: 'pegboard',
 			themes: [],
@@ -46,6 +46,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
+			titles: [],
 			quality: 'final',
 			camera: {
 				auto: true,
@@ -67,33 +68,24 @@ export const marbleColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375
 
 /**
  * The color a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
- * reads the marble's `color`, which is only a label for organizing.
+ * reads the marble's `labelColor`, which is only for organizing.
  */
-export function marbleFilmColor(project: Pick<TProject, 'music' | 'entities'>, marbleId: string): string {
-	const own = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.skin?.color;
+export function marbleFilmColor(project: Pick<TProject, 'marbles'>, marbleId: string): string {
+	const own = project.marbles.find((marble) => marble.id === marbleId)?.skin?.color;
 	if (own != null) return own;
-	const index = Math.max(0, project.music.marbles.findIndex((marble) => marble.id === marbleId));
+	const index = Math.max(0, project.marbles.findIndex((marble) => marble.id === marbleId));
 	return marbleColors[index % marbleColors.length] ?? '#3478f6';
 }
 
-export function createLane(index: number, id = createId('lane')): TLane {
+export function createMarble(index: number, position: { x: number; y: number }, id = createId('marble')): TMarble {
 	return {
 		id,
 		name: `Marble ${index + 1}`,
-		color: marbleColors[index % marbleColors.length] ?? '#3478f6',
+		labelColor: marbleColors[index % marbleColors.length] ?? '#3478f6',
 		// General MIDI 9 is Glockenspiel, a clear default for marble strikes
-		instrument: 9,
+		sound: 9,
+		radius: DEFAULT_MARBLE_RADIUS,
+		start: { position, time: 0 },
 		hits: []
-	};
-}
-
-export function createMarble(marble: TLane, position: { x: number; y: number }): TEntity {
-	return {
-		id: createId('marble'),
-		name: marble.name,
-		components: {
-			marble: { marbleId: marble.id, radius: DEFAULT_MARBLE_RADIUS },
-			release: { position, time: 0 }
-		}
 	};
 }

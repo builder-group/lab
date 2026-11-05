@@ -6,7 +6,7 @@ import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
 import type { TrackCx } from '@/modules/track';
-import { BACKING_ID, type TLane, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey } from '@/modules/project';
+import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf } from '@/modules/project';
 import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { deleteThemeCommands, resolveTheme, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
 import { openScatterPanel } from '@/modules/film';
@@ -161,7 +161,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		isDuplicating = false;
 	}
 	if (cx.project !== project) return;
-	const original = project.entities.find((entity) => entity.id === ids[0]);
+	const original = project.track.pieces.find((entity) => entity.id === ids[0]);
 	if (placed.spot === 'refused') {
 		cx.notify(refusedWords(original?.name ?? 'this piece', placed.breaks));
 		return;
@@ -171,9 +171,9 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		return;
 	}
 	if (!cx.execute(placed.commands, { label: 'Duplicate' })) return;
-	const named = cx.project?.entities.filter((entity) => placed.copies.some((copy) => copy.id === entity.id)) ?? placed.copies;
+	const named = cx.project?.track.pieces.filter((entity) => placed.copies.some((copy) => copy.id === entity.id)) ?? placed.copies;
 	cx.$selection.set(named.map((entity) => entity.id));
-	const tied = ids.some((id) => project.entities.find((entity) => entity.id === id)?.components.hitLink != null);
+	const tied = ids.some((id) => tieOf(project.track.pieces.find((entity) => entity.id === id)) != null);
 	const what = named.length === 1 ? `${original?.name ?? 'The piece'} duplicated as ${named[0]?.name ?? 'a copy'}` : `${named.length} pieces duplicated`;
 	const where = placed.spot === 'beside the run' ? ', beside the run: no free spot near it' : '';
 	cx.notifyEdit(`${what}${tied ? ', tied to nothing' : ''}${where}`);
@@ -190,7 +190,7 @@ function copySelection(cx: StudioCx): void {
 	if (trackCx(cx) == null) {
 		const decorIds = selectedDecorIds(cx.$selection.get());
 		const titleIds = selectedTitleIds(cx);
-		cx.$clipboard.set({ pieces: cx.$clipboard.get()?.pieces ?? [], decor: project.film.decor.filter((item) => decorIds.includes(item.id)), titles: project.entities.filter((entity) => titleIds.includes(entity.id)) });
+		cx.$clipboard.set({ pieces: cx.$clipboard.get()?.pieces ?? [], decor: project.film.decor.filter((item) => decorIds.includes(item.id)), titles: project.film.titles.filter((title) => titleIds.includes(title.id)) });
 		return;
 	}
 	const pieces = freePieces(project, cx.simulation.$result.get(), selectedPieceIds(project, cx.$selection.get()));
@@ -254,9 +254,9 @@ function backingKeys(cx: StudioCx): string[] {
 		const parsed = parseHitKey(key);
 		return parsed != null && parsed.marbleId !== BACKING_ID;
 	});
-	const played = project.entities.flatMap((entity) => {
-		const link = entity.components.hitLink;
-		return selection.includes(entity.id) && link != null && soundsHit(entity.components.piece?.type ?? '', link) ? [toHitKey(link.marbleId, link.hitId)] : [];
+	const played = project.track.pieces.flatMap((entity) => {
+		const link = tieOf(entity);
+		return selection.includes(entity.id) && link != null && soundsHit(entity.type, link) ? [toHitKey(link.marbleId, link.hitId)] : [];
 	});
 	return [...new Set([...hits, ...played])];
 }
@@ -277,21 +277,20 @@ function bowlMarble(cx: StudioCx): string | null {
 	const project = cx.project;
 	if (project == null) return null;
 	const selected = cx.$selection.get().flatMap((id) => {
-		const entity = project.entities.find((item) => item.id === id);
-		const marbleId = entity?.components.marble?.marbleId ?? entity?.components.hitLink?.marbleId;
+		const marbleId = project.marbles.some((item) => item.id === id) ? id : tieOf(project.track.pieces.find((item) => item.id === id))?.marbleId;
 		return marbleId != null ? [marbleId] : [];
 	});
 	const marble = selected[0];
-	if (marble != null && project.music.marbles.some((item) => item.id === marble && item.hits.length > 0)) return marble;
+	if (marble != null && project.marbles.some((item) => item.id === marble && item.hits.length > 0)) return marble;
 	return marblesWithoutBowl(project)[0] ?? null;
 }
 
 /** The marble Add Suggested Hits works on: the selected one, else the first without hits, else the first */
-function suggestionMarble(cx: StudioCx): TLane | null {
+function suggestionMarble(cx: StudioCx): TMarble | null {
 	const project = cx.project;
 	if (project == null) return null;
-	const selected = project.entities.find((entity) => entity.id === cx.$selection.get()[0])?.components.marble?.marbleId;
-	const marbles = project.music.marbles;
+	const selected = cx.$selection.get()[0];
+	const marbles = project.marbles;
 	return marbles.find((marble) => marble.id === selected) ?? marbles.find((marble) => !marble.hits.length) ?? marbles[0] ?? null;
 }
 
@@ -370,7 +369,7 @@ export const commands: readonly TCommand[] = [
 		section: 'Edit',
 		shortcut: '⌘A',
 		isEnabled: (cx) => trackCx(cx) != null,
-		run: (cx) => cx.$selection.set(cx.project?.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id) ?? [])
+		run: (cx) => cx.$selection.set(cx.project?.track.pieces.map((entity) => entity.id) ?? [])
 	},
 	{ id: 'edit.deselect', title: 'Deselect', section: 'Edit', keywords: 'select scene none project length speed theme', isEnabled: (cx) => cx.$selection.get().length > 0, run: (cx) => cx.$selection.set([]) },
 	{
@@ -943,7 +942,7 @@ export function commandItem(cx: StudioCx, id: TCommandId): TMenuItem {
 /** Deletes the selected hits, or in Film the selected shots */
 function selectedTitleIds(cx: StudioCx): string[] {
 	const selection = cx.$selection.get();
-	return cx.project?.entities.filter((entity) => entity.components.wallText != null && selection.includes(entity.id)).map((entity) => entity.id) ?? [];
+	return cx.project?.film.titles.filter((title) => selection.includes(title.id)).map((title) => title.id) ?? [];
 }
 
 /** One piece selected that plays on time and has no problem: Fix has nothing to do for it */
@@ -979,7 +978,7 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 	}
 	const titleIds = selectedTitleIds(cx);
 	if (inFilm(cx) && titleIds.length > 0) {
-		const applied = cx.execute([{ type: 'removeEntities', entityIds: titleIds }]);
+		const applied = cx.execute([{ type: 'updateFilm', film: { titles: project.film.titles.filter((title) => !titleIds.includes(title.id)) } }]);
 		if (applied) cx.$selection.set([]);
 		return applied;
 	}

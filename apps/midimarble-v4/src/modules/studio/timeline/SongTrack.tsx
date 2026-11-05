@@ -3,7 +3,7 @@ import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { mixLabel, SONG_MIX_ID, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type TProject, type TSource, SONG_KEY, toHitKey, formatTime } from '@/modules/project';
+import { BACKING_ID, type TProject, type TSong, SONG_KEY, toHitKey, formatTime, tempoOf, backingOf } from '@/modules/project';
 import { songMenu } from '../menus';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
@@ -29,8 +29,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const isAudio = song?.kind === 'audio';
 	const mix = useFeatureState(cx.$mix);
 	const mixState = mixLabel(project, mix);
-	const tempo = project.music.tempo;
-	const backingCount = project.music.backing.length;
+	const tempo = tempoOf(project);
+	const backingCount = backingOf(project).length;
 	const details =
 		song == null
 			? ['Backing', backingCount === 1 ? '1 note' : `${backingCount} notes`]
@@ -50,8 +50,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const [offset, setOffset] = React.useState<number | null>(null);
 	// Opens on the song's first notes, their top row just below the ruler
 	const opening = React.useMemo(
-		() => (range == null || !isExpanded ? 0 : openingRollOffset([...project.music.marbles.flatMap((marble) => marble.hits), ...project.music.backing], range, NOTE_ROW_HEIGHT, height)),
-		[project.music, range, isExpanded, height]
+		() => (range == null || !isExpanded ? 0 : openingRollOffset([...project.marbles.flatMap((marble) => marble.hits), ...backingOf(project)], range, NOTE_ROW_HEIGHT, height)),
+		[project.marbles, project.songs, range, isExpanded, height]
 	);
 	const shown = Math.min(maxOffset, Math.max(0, offset ?? opening));
 	// Opening again starts on the first notes, like a freshly opened editor
@@ -130,9 +130,9 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 			<div className="mm-song-row relative flex-1 overflow-hidden border-b border-[var(--separator)]" style={{ minWidth: width }} onClick={(event) => { if (!event.shiftKey) cx.$selection.set([]); }} onContextMenu={openMenu} aria-label={`Song ${name}`}>
 				{song != null && isAudio && analysis != null ? (
 					<>
-						<Waveform analysis={analysis} offset={song.offset} zoom={zoom} height={SONG_ROW_HEIGHT - 1} />
+						<Waveform analysis={analysis} offset={song.start} zoom={zoom} height={SONG_ROW_HEIGHT - 1} />
 						{analysis.onsets.map((onset) => (
-							<span key={onset} className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-[var(--text-tertiary)]" style={{ left: (onset + song.offset) * zoom }} />
+							<span key={onset} className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-[var(--text-tertiary)]" style={{ left: (onset + song.start) * zoom }} />
 						))}
 					</>
 				) : null}
@@ -148,7 +148,7 @@ interface TSongTrackProps {
 	cx: StudioCx;
 	project: TProject;
 	/** Undefined while the Song layer holds only Backing notes */
-	song: TSource | undefined;
+	song: TSong | undefined;
 	name: string;
 	analysis: TSourceAnalysis | undefined;
 	zoom: number;
@@ -167,8 +167,8 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 	const { project, zoom, width, height, drag } = props;
 	return (
 		<svg className="pointer-events-none absolute top-0 left-0" width={width} height={height} aria-hidden>
-			{project.music.marbles.map((marble) => (
-				<g key={marble.id} fill={marble.color}>
+			{project.marbles.map((marble) => (
+				<g key={marble.id} fill={marble.labelColor}>
 					{marble.hits.map((hit) => {
 						const delta = drag?.keys.includes(toHitKey(marble.id, hit.id)) === true ? drag.delta : 0;
 						return <rect key={hit.id} x={Math.max(0, hit.time + delta) * zoom - 0.75} y={4} width={1.5} height={height - 8} rx={0.75} />;
@@ -182,7 +182,7 @@ const HitTicks: React.FC<{ project: TProject; zoom: number; width: number; heigh
 /** Every note in one strip, higher notes higher, in the marble colors and Backing in gray; `only` limits it to one Part */
 export const NoteOverview: React.FC<{ project: TProject; only?: string; zoom: number; width: number; height: number }> = (props) => {
 	const { project, only, zoom, width, height } = props;
-	const marbles = [...project.music.marbles, { id: BACKING_ID, color: BACKING_COLOR, hits: project.music.backing }].filter((marble) => only == null || marble.id === only);
+	const marbles = [...project.marbles, { id: BACKING_ID, labelColor: BACKING_COLOR, hits: backingOf(project) }].filter((marble) => only == null || marble.id === only);
 	const pitches = marbles.flatMap((marble) => marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [hit.pitch])));
 	const low = pitches.length ? Math.min(...pitches) : 60;
 	const high = pitches.length ? Math.max(...pitches) : 72;
@@ -196,7 +196,7 @@ export const NoteOverview: React.FC<{ project: TProject; only?: string; zoom: nu
 	return (
 		<svg className="pointer-events-none absolute top-0 left-0" width={width} height={height} aria-hidden>
 			{marbles.map((marble) => (
-				<g key={marble.id} fill={marble.color}>
+				<g key={marble.id} fill={marble.labelColor}>
 					{marble.hits.map((hit) => (
 						<rect key={hit.id} x={hit.time * zoom} y={y(hit.pitch)} width={Math.max(3, Math.min(8, zoom * 0.06))} height={2} rx={1} />
 					))}

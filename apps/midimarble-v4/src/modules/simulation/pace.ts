@@ -51,7 +51,7 @@ export const COLUMN_CLEARANCE = 0.065;
  */
 export function paceRate(project: TProject): number {
 	const intervals: number[] = [];
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		for (let i = 1; i < marble.hits.length; i++) {
 			const interval = (marble.hits[i]?.time ?? 0) - (marble.hits[i - 1]?.time ?? 0);
 			if (interval > 0.05 && interval <= RHYTHM_INTERVAL) intervals.push(interval);
@@ -66,7 +66,7 @@ export function paceRate(project: TProject): number {
 		: DEFAULT_INTERVAL;
 	const bounce = platformDefinition.params['bounce']?.default ?? 0.65;
 	const g = -gravityOf(project);
-	const marbles = project.entities.filter((entity) => entity.components.marble != null).length;
+	const marbles = project.marbles.length;
 	const rate = Math.max(
 		(((1 - bounce) / (1 + bounce)) * g * median) / 2,
 		marbles > 1 ? columnRate(median, g) : 0

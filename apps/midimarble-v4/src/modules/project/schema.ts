@@ -6,90 +6,86 @@ const SVec2 = z.strictObject({ x: z.number(), y: z.number() });
 
 const SId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
-// A note of the song. `duration` is the length of an imported MIDI note; Backing plays it, a marble strikes it.
+// A note of the song. `duration` is the length of an imported MIDI note; Backing plays it, a marble strikes it. `songId` ties
+// a hit imported from a song to it. A hit's time is absolute, so physics and audio never need to know about songs to place it.
 export const SHit = z.strictObject({
 	id: SId,
 	time: z.number().nonnegative(),
 	pitch: z.number().int().min(0).max(127).optional(),
 	velocity: z.number().min(0).max(1).optional(),
-	duration: z.number().nonnegative().optional()
+	duration: z.number().nonnegative().optional(),
+	songId: SId.optional()
 });
 
-export const SLane = z.strictObject({
-	id: SId,
-	name: z.string(),
-	color: z.string(),
-	// General MIDI program used for MIDI playback and the rendered soundtrack
-	instrument: z.number().int().min(0).max(127),
-	hits: z.array(SHit)
-});
-
-export const SSource = z.strictObject({
-	id: SId,
-	kind: z.enum(['midi', 'audio']),
-	// Package-relative path, such as `audio/song.wav`
-	path: z.string(),
-	name: z.string(),
-	// Timeline time at which the source starts playing
-	offset: z.number()
-});
-
-// Musical meter of the project, known from an imported MIDI file
+// Musical meter of a song, known from an imported MIDI file
 export const STempo = z.strictObject({
 	bpm: z.number().positive(),
 	beatsPerBar: z.number().int().positive()
 });
 
-const SMarbleComponent = z.strictObject({
-	marbleId: SId,
-	radius: z.number().positive()
+export const SSong = z.strictObject({
+	id: SId,
+	name: z.string(),
+	kind: z.enum(['midi', 'audio']),
+	// Package-relative path, such as `audio/song.wav`. Absent is a song without a file: the notes no marble plays, kept after
+	// the file went
+	path: z.string().optional(),
+	// Timeline time at which the file starts playing
+	start: z.number(),
+	tempo: STempo.optional(),
+	// Every note no marble plays, heard in the film without a piece
+	backing: z.array(SHit),
+	// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano
+	backingSound: z.number().int().min(0).max(127).optional()
 });
 
-const SReleaseComponent = z.strictObject({
+// Where and when a marble is released. `spin` is radians per second around the wall normal: Fix's release carries on a run
+// that was already rolling
+const SMarbleStart = z.strictObject({
 	position: SVec2,
 	time: z.number(),
 	velocity: SVec2.optional(),
-	// Radians per second around the wall normal: Fix's release carries on a run that was already rolling
 	spin: z.number().optional()
 });
 
-const SPieceComponent = z.strictObject({
-	type: z.string(),
-	// How a Rail gets its paths; absent is one it holds itself, drawn or tapped in `path`
-	layout: z.enum(['path', 'curve', 'c', 'chain', 'switchback']).optional(),
-	params: z.record(z.string(), z.number())
+// Where a piece waits while an edit it could not take up keeps the marble from it: it stays where the marble was at its
+// moment before that edit, and how the marble left it then is kept, so a fix can bring the marble back
+const SHeld = z.strictObject({
+	dot: SVec2,
+	velocity: SVec2.nullable(),
+	leaves: z.strictObject({ velocity: SVec2, spin: z.number() }).nullable()
 });
 
-const STransformComponent = z.strictObject({
-	position: SVec2,
-	angle: z.number()
-});
+const SContactAt = z.number().min(0).max(1);
 
-const SHitLinkComponent = z.strictObject({
+const SFree = z.strictObject({ kind: z.literal('free'), position: SVec2 });
+
+// A piece that sounds a hit. Reflow moves it along the run and keeps its angle.
+const SPlays = z.strictObject({
+	kind: z.literal('plays'),
 	marbleId: SId,
 	hitId: SId,
-	// Absolute surface angle in radians. Reflow moves the piece along the trajectory and keeps this angle.
-	angle: z.number(),
 	// Where along the contact surface the marble lands, from 0 to 1
-	contactAt: z.number().min(0).max(1),
-	// Where the piece waits while an edit it could not take up keeps the marble from it: it stays where the marble was at
-	// its moment before that edit, and how the marble left it then is kept, so a fix can bring the marble back
-	held: z
-		.strictObject({
-			dot: SVec2,
-			velocity: SVec2.nullable(),
-			leaves: z.strictObject({ velocity: SVec2, spin: z.number() }).nullable()
-		})
-		.optional(),
-	// An anchored piece follows the trajectory at the hit time plus its `entryDelay` and never sounds the hit.
-	// Scenery pieces are always anchored.
-	anchored: z.boolean().optional(),
-	// Pose origin relative to the marble at the anchor moment; without it the piece is placed touching the marble
-	offset: SVec2.optional(),
+	contactAt: SContactAt,
+	held: SHeld.optional(),
 	// How the marble leaves this platform, kept so everything after it stays as it was: the velocity and spin a few physics
 	// steps after the hit. It counts only for this angle and bounce, while the bounce comes out near it.
 	leaves: z.strictObject({ velocity: SVec2, spin: z.number(), angle: z.number(), bounce: z.number() }).optional()
 });
+
+// A piece that follows a marble's run at the hit's time plus its `entryDelay` param and never sounds the hit
+const SFollows = z.strictObject({
+	kind: z.literal('follows'),
+	marbleId: SId,
+	hitId: SId,
+	// Where the marble enters along the piece; absent is its middle
+	contactAt: SContactAt.optional(),
+	// Pose origin relative to the marble at that moment; without it the piece is placed touching the marble
+	offset: SVec2.optional(),
+	held: SHeld.optional()
+});
+
+export const SPlace = z.discriminatedUnion('kind', [SFree, SPlays, SFollows]);
 
 // Bézier anchor of a rail drawn with the path tool; handles are offsets from the point
 const SPathNode = z.strictObject({
@@ -98,7 +94,7 @@ const SPathNode = z.strictObject({
 	out: SVec2.optional()
 });
 
-const SPathComponent = z.strictObject({
+const SPath = z.strictObject({
 	points: z.array(SVec2).min(2),
 	// The editable curve the points were sampled from, set for rails drawn with the path tool. The engine
 	// only reads `points`; files without nodes stay valid.
@@ -122,7 +118,7 @@ const skinPropertyShape = {
 	variant: z.string().optional()
 };
 
-const SSkinComponent = z.strictObject({
+const SSkin = z.strictObject({
 	// A built-in skin such as `platform:copper`, or a library item's ID. Absent shows the theme's skin with the overrides
 	// below
 	assetId: z.string().optional(),
@@ -149,7 +145,14 @@ const SThemeParts = z.strictObject({
 	marble: SThemePart.optional()
 });
 
-const SWallTextComponent = z.strictObject({
+const STitle = z.strictObject({
+	id: SId,
+	name: z.string().optional(),
+	// Organizes Layers; the film never reads it
+	labelColor: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.optional(),
 	text: z.string(),
 	font: z.string(),
 	size: z.number().positive(),
@@ -162,14 +165,16 @@ const SWallTextComponent = z.strictObject({
 	// letter height as a fraction of the frame height
 	style: z.enum(['wall', 'caption', 'songName', 'endCard']).optional(),
 	// A screen title's soft dark plate and shadow behind plain text; absent is plain text
-	plate: z.boolean().optional()
+	plate: z.boolean().optional(),
+	position: SVec2,
+	angle: z.number()
 });
 
 /**
  * The ride a marble took along a rail, relative to where it entered: the frames are x, y (micrometers)
  * and rolled angle (1e-4 rad) per physics step after the entry. `key` says which shape of the piece it was made on.
  */
-const STransitComponent = z.strictObject({
+const SRide = z.strictObject({
 	key: z.string(),
 	entry: SVec2,
 	exit: z.strictObject({ position: SVec2, velocity: SVec2, angle: z.number(), spin: z.number() }),
@@ -178,27 +183,39 @@ const STransitComponent = z.strictObject({
 	frames: z.array(z.number())
 });
 
-export const SComponents = z.strictObject({
-	marble: SMarbleComponent.optional(),
-	release: SReleaseComponent.optional(),
-	piece: SPieceComponent.optional(),
-	transform: STransformComponent.optional(),
-	hitLink: SHitLinkComponent.optional(),
-	path: SPathComponent.optional(),
-	skin: SSkinComponent.optional(),
-	wallText: SWallTextComponent.optional(),
-	transit: STransitComponent.optional()
+// One marble: a name and color that organize it, what it sounds like, its body, where it starts, and the hits it plays
+export const SMarble = z.strictObject({
+	id: SId,
+	name: z.string(),
+	// Organizes Layers and colors its pieces in Track; in the film only the skin None wears it
+	labelColor: z.string(),
+	// General MIDI program used for MIDI playback and the rendered soundtrack
+	sound: z.number().int().min(0).max(127),
+	radius: z.number().positive(),
+	start: SMarbleStart,
+	skin: SSkin.optional(),
+	hits: z.array(SHit)
 });
 
-export const SEntity = z.strictObject({
+export const SPiece = z.strictObject({
 	id: SId,
 	name: z.string().optional(),
-	// Organizes Layers and colors the piece in Track; in the film only the skin None wears it. A marble's is its marble's `color`
+	// Organizes Layers and colors the piece in Track; in the film only the skin None wears it
 	labelColor: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
 		.optional(),
-	components: SComponents
+	type: z.string(),
+	// How a Rail gets its paths; absent is one it holds itself, drawn or tapped in `path`
+	layout: z.enum(['path', 'curve', 'c', 'chain', 'switchback']).optional(),
+	params: z.record(z.string(), z.number()),
+	// Absolute surface angle in radians
+	angle: z.number(),
+	// Exactly one of free, plays, follows
+	place: SPlace,
+	path: SPath.optional(),
+	skin: SSkin.optional(),
+	ride: SRide.optional()
 });
 
 const SShot = z.strictObject({
@@ -344,6 +361,8 @@ export const SFilm = z.strictObject({
 	// The Decor layers
 	decor: z.array(SDecor),
 	madeInBlender: z.array(SMadeInBlender),
+	// The titles, in Layers order
+	titles: z.array(STitle),
 	quality: z.enum(['draft', 'final']),
 	camera: z.strictObject({
 		// Follow Marbles: on, the app moves the camera; off, it's moved in Blender
@@ -368,37 +387,33 @@ export const SFilm = z.strictObject({
 export const BACKING_ID = 'backing';
 
 /**
- * What a Pattern made (prototype): an ordinary list of ordinary pieces, one Undo step, named after the Pattern. The
- * range and settings let it run again; hand edits to its pieces stay until it does. `from` and `to` are song seconds.
+ * What a Pattern made (prototype): an ordinary list of ordinary pieces, one Undo step, named after the Pattern. `hitIds` are
+ * the hits it plays, in time order; a Long Rail's are the notes around its silence, or the one note it opens the track for.
+ * Its settings let it run again; hand edits to its pieces stay until it does.
  */
-const SPatternGroup = z.strictObject({
-	id: SId,
-	name: z.string(),
-	marbleId: SId,
-	from: z.number(),
-	to: z.number(),
+const SPattern = z.strictObject({
 	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	hitIds: z.array(SId),
 	width: z.number().positive(),
 	bounce: z.number().min(0).max(1),
-	pieceIds: z.array(SId),
 	// The steepest a bar may tilt, in degrees, when asked for; absent is the usual limit
 	maxTilt: z.number().positive().optional(),
 	// What the last run couldn't do, shown beside the tiles
 	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
 });
 
-// A Group with no Pattern, made by hand or left by a Flatten. `marbleId` while its pieces are one marble's
-const SPlainGroup = z.strictObject({
+// Pieces kept together. `marbleId` while they are one marble's. Without a Pattern it's a plain Group, by hand or left by a
+// Flatten.
+export const SGroup = z.strictObject({
 	id: SId,
 	name: z.string(),
 	marbleId: SId.optional(),
-	pieceIds: z.array(SId)
+	pieceIds: z.array(SId),
+	pattern: SPattern.optional()
 });
 
-export const SGroup = z.union([SPatternGroup, SPlainGroup]);
-
 export const SProject = z.strictObject({
-	$schema: z.literal('marble-project@5'),
+	$schema: z.literal('marble-project@6'),
 	id: SId,
 	title: z.string(),
 	revision: z.number().int().nonnegative(),
@@ -408,40 +423,34 @@ export const SProject = z.strictObject({
 	// Multiplies Earth's 9.81 m/s² for every marble, so a run plays slower and hops lower at the same rhythm; hits stay on
 	// time because pieces are placed where the marble is
 	gravity: z.number().min(0.05).max(2),
-	music: z.strictObject({
-		sources: z.array(SSource),
-		marbles: z.array(SLane),
-		// Every note no marble plays, heard in the film without a piece
-		backing: z.array(SHit),
-		// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano
-		backingInstrument: z.number().int().min(0).max(127).optional(),
-		tempo: STempo.optional()
-	}),
-	entities: z.array(SEntity),
-	// Absent until a Pattern makes one
-	groups: z.array(SGroup).optional(),
+	songs: z.array(SSong),
+	marbles: z.array(SMarble),
+	track: z.strictObject({ pieces: z.array(SPiece), groups: z.array(SGroup) }),
+	// Nothing in here can change how a marble runs
 	film: SFilm
 });
 
 export const projectDefinition = defineSchema({
 	family: 'marble-project',
-	version: 5,
+	version: 6,
 	schema: SProject
 });
 
 export type TProject = TSchemaValue<typeof projectDefinition>;
 export type TVec2 = z.infer<typeof SVec2>;
 export type THit = z.infer<typeof SHit>;
-export type TLane = z.infer<typeof SLane>;
-export type TSource = z.infer<typeof SSource>;
-export type TEntity = z.infer<typeof SEntity>;
-export type TComponents = z.infer<typeof SComponents>;
-export type TTransit = z.infer<typeof STransitComponent>;
-export type TComponentName = keyof TComponents;
+export type TSong = z.infer<typeof SSong>;
+export type TMarble = z.infer<typeof SMarble>;
+export type TPiece = z.infer<typeof SPiece>;
+export type TPlace = z.infer<typeof SPlace>;
+export type TPlays = z.infer<typeof SPlays>;
+export type TFollows = z.infer<typeof SFollows>;
+export type TRide = z.infer<typeof SRide>;
+export type TTitle = z.infer<typeof STitle>;
 export type TFilm = z.infer<typeof SFilm>;
 export type TProjectTheme = z.infer<typeof SProjectTheme>;
 export type TPackOrigin = z.infer<typeof SPackOrigin>;
-export type TSkinComponent = z.infer<typeof SSkinComponent>;
+export type TSkin = z.infer<typeof SSkin>;
 export type TThemePart = z.infer<typeof SThemePart>;
 export type TThemeParts = z.infer<typeof SThemeParts>;
 export type TThemeOverrides = z.infer<typeof SThemeOverrides>;
@@ -455,11 +464,20 @@ export type TMadeInBlender = z.infer<typeof SMadeInBlender>;
 export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;
 export type TGroup = z.infer<typeof SGroup>;
-export type TPatternGroup = z.infer<typeof SPatternGroup>;
-export type TPlainGroup = z.infer<typeof SPlainGroup>;
-
-export function isPatternGroup(group: TGroup): group is TPatternGroup {
-	return 'kind' in group;
-}
+export type TPatternGroup = TGroup & { marbleId: string; pattern: z.infer<typeof SPattern> };
 export type TTempo = z.infer<typeof STempo>;
 export type TPathNode = z.infer<typeof SPathNode>;
+
+export function isPatternGroup(group: TGroup): group is TPatternGroup {
+	return group.pattern != null;
+}
+
+/** The hit a piece plays or follows, or null when it's free */
+export function tieOf(piece: Pick<TPiece, 'place'> | null | undefined): TPlays | TFollows | null {
+	return piece == null || piece.place.kind === 'free' ? null : piece.place;
+}
+
+/** Where a free piece stands; a tied piece's place comes from the run */
+export function freePosition(piece: Pick<TPiece, 'place'> | null | undefined): TVec2 | undefined {
+	return piece?.place.kind === 'free' ? piece.place.position : undefined;
+}

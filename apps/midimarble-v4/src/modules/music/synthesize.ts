@@ -4,7 +4,7 @@ import {
 	SpessaSynthProcessor,
 	type BasicSoundBank
 } from 'spessasynth_core';
-import type { THit, TLane, TProject } from '@/modules/project';
+import { backingSong, type THit, type TMarble, type TProject } from '@/modules/project';
 
 export const DEFAULT_HIT_VELOCITY = 0.8;
 export const MAX_NOTE_LENGTH = 0.6;
@@ -17,7 +17,7 @@ export const DEFAULT_BACKING_INSTRUMENT = 0;
  * Renders marble marbles as short strikes, one channel each, and Backing on its own channel with the notes' own
  * lengths
  */
-export function renderMarbles(marbles: TLane[], options: TRenderMarblesOptions): TStereoAudio {
+export function renderMarbles(marbles: TMarble[], options: TRenderMarblesOptions): TStereoAudio {
 	const { sampleRate, duration, bank, backing } = options;
 	const length = Math.max(1, Math.ceil(duration * sampleRate));
 	const left = new Float32Array(length);
@@ -36,7 +36,7 @@ export function renderMarbles(marbles: TLane[], options: TRenderMarblesOptions):
 		const channel = marbleChannel(index);
 		while (synth.midiChannels.length <= channel) synth.createMIDIChannel();
 		synth.midiChannels[channel]?.setDrums(false);
-		synth.programChange(channel, marble.instrument);
+		synth.programChange(channel, marble.sound);
 	}
 	if (backing != null && backing.hits.length > 0) {
 		while (synth.midiChannels.length <= backingChannel) synth.createMIDIChannel();
@@ -79,9 +79,9 @@ export interface TBackingVoice {
 
 /** Backing of a project for rendering, or undefined when it has no notes */
 export function backingVoice(project: TProject): TBackingVoice | undefined {
-	const { backing, backingInstrument } = project.music;
-	if (!backing.length) return undefined;
-	return { instrument: backingInstrument ?? DEFAULT_BACKING_INSTRUMENT, hits: backing };
+	const song = backingSong(project);
+	if (song == null || !song.backing.length) return undefined;
+	return { instrument: song.backingSound ?? DEFAULT_BACKING_INSTRUMENT, hits: song.backing };
 }
 
 export interface TStereoAudio {
@@ -94,7 +94,7 @@ export interface TStereoAudio {
  * Note events sorted by sample; at equal samples note-offs come first so a repeated pitch retriggers. Only hits
  * from a MIDI note sound: a tapped hit has no pitch and plays nothing, and does not shorten the note before it.
  */
-export function createMarbleEvents(marbles: TLane[], sampleRate: number): TMarbleEvent[] {
+export function createMarbleEvents(marbles: TMarble[], sampleRate: number): TMarbleEvent[] {
 	const events: TMarbleEvent[] = [];
 	for (const [index, marble] of marbles.entries()) {
 		const channel = marbleChannel(index);

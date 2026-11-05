@@ -70,10 +70,11 @@ export async function loadExample(example: TExample): Promise<TResult<TLoadedExa
 	const [isProjectOk, projectErr, project] = parseProject(JSON.stringify(await load()));
 	if (!isProjectOk) return Err(projectErr);
 	const files: TExampleFile[] = [];
-	for (const source of project.music.sources) {
-		const loadUrl = companions[`../../../fixtures/${source.path.split('/').pop() ?? ''}`];
-		if (loadUrl == null) return Err(new Error(`${example.title} is missing its song, ${source.name}. Choose another example.`));
-		files.push({ path: source.path, url: await loadUrl() });
+	for (const song of project.songs) {
+		if (song.path == null) continue;
+		const loadUrl = companions[`../../../fixtures/${song.path.split('/').pop() ?? ''}`];
+		if (loadUrl == null) return Err(new Error(`${example.title} is missing its song, ${song.name}. Choose another example.`));
+		files.push({ path: song.path, url: await loadUrl() });
 	}
 	return Ok({ project: { ...project, id: createId('project'), title: example.title, revision: 0 }, files });
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildSceneDescription } from './scene-builder';
-import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createHistory, createProject, pushHistory, undoHistory, type TPiece, type TProject, type TProjectCommand } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { draftPieceColors, draftWall } from './draft-look';
 import { baseThemeOf, currentLookThemeCommands, sceneThemeParts, copyName, deleteThemeCommands, duplicateThemeCommands, renameThemeCommands, resolveTheme, sceneThemeOverrides, themeCommands, themeDefaultColor, themeOrigin, themeOverrideCommands } from './project-themes';
@@ -96,12 +96,12 @@ describe('project theme commands', () => {
 	it("should recolor titles still in the old wall's title color", () => {
 		const light = { id: 'theme-light', name: 'Light', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
 		const project = withTheme('pegboard');
-		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#ffffff' } } };
-		const withTitle = { ...project, film: { ...project.film, themes: [light] }, entities: [...project.entities, title] };
+		const title = { id: 'text-1', text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#ffffff', position: { x: 0, y: 0 }, angle: 0 };
+		const withTitle = { ...project, film: { ...project.film, themes: [light], titles: [title] } };
 		const onLight = apply(withTitle, themeCommands(withTitle, 'theme-light'));
-		expect(onLight.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#1f3a5f');
+		expect(onLight.film.titles.find((item) => item.id === 'text-1')?.color).toBe('#1f3a5f');
 		const back = apply(onLight, themeCommands(onLight, 'pegboard'));
-		expect(back.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#ffffff');
+		expect(back.film.titles.find((item) => item.id === 'text-1')?.color).toBe('#ffffff');
 	});
 });
 
@@ -151,11 +151,8 @@ describe('Theme manifests and parts', () => {
 
 	it('should keep the current look as a theme: the look most of a type wear becomes its part, exceptions stay', () => {
 		const base = createProject();
-		const platform = (id: string, assetId?: string) => ({
-			id,
-			components: { piece: { type: 'platform', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 }, ...(assetId != null ? { skin: { assetId } } : {}) }
-		});
-		const project = { ...base, film: { ...base.film, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
+		const platform = (id: string, assetId?: string): TPiece => ({ id, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } }, ...(assetId != null ? { skin: { assetId } } : {}) });
+		const project = { ...base, film: { ...base.film, theme: 'brass' }, track: { ...base.track, pieces: [...base.track.pieces, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] } };
 		const { commands, themeId } = currentLookThemeCommands(project);
 		const [isOk, error, next] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
@@ -163,7 +160,7 @@ describe('Theme manifests and parts', () => {
 		expect(next.film.theme).toBe(themeId);
 		expect(theme.name).toBe('Brass Copy');
 		expect(theme.parts.platform.skin).toBe('platform:copper');
-		const skinOf = (id: string) => next.entities.find((entity) => entity.id === id)?.components.skin;
+		const skinOf = (id: string) => next.track.pieces.find((entity) => entity.id === id)?.skin;
 		expect(skinOf('a')).toBeUndefined();
 		expect(skinOf('c')?.assetId).toBe('platform:key');
 		expect(skinOf('d')?.assetId).toBe('library-skin');

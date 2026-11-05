@@ -88,7 +88,7 @@ describe('draft look', () => {
 		expect(draftGlows('pegboard')).toBe(false);
 	});
 
-	it('should keep every marble marble 3:1 apart from its wall and its own pieces in every theme', () => {
+	it('should keep every marble 3:1 apart from its wall and its own pieces in every theme', () => {
 		for (const theme of ['pegboard', 'brass', 'neon']) {
 			for (const color of [...marbleColors, '#808080']) {
 				const marble = draftMarble(theme, color);

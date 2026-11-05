@@ -1,8 +1,8 @@
 import type { TBlenderObject } from '@/modules/scene';
 import { preflightExport, problemSummary } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
-import type { TEntity, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/project';
+import type { TPiece, TProject } from '@/modules/project';
+import { DEFAULT_GRAVITY, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSong } from '@/modules/music';
 
@@ -47,7 +47,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 	const wall = wallLayer(film);
 	const light = keyLightLayer(film);
 	const resolved = new Map(result?.pieces.map((piece) => [piece.entityId, piece]) ?? []);
-	const pieces = project.entities.filter((entity) => entity.components.piece != null);
+	const pieces = project.track.pieces;
 	const countBy = (values: string[]): Record<string, number> => {
 		const counts: Record<string, number> = {};
 		for (const value of values) counts[value] = (counts[value] ?? 0) + 1;
@@ -66,19 +66,17 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		playhead: round(view.playhead),
 		isPlaying: view.isPlaying,
 		selection: view.selection,
-		song: hasSong(project) ? { sources: project.music.sources.map((source) => ({ name: source.name, kind: source.kind, offset: source.offset })), backingNotes: project.music.backing.length, tempo: project.music.tempo ?? null } : null,
-		marbles: project.music.marbles.map((marble) => {
-			const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marble.id);
+		song: hasSong(project) ? { songs: project.songs.filter((song) => song.path != null).map((song) => ({ id: song.id, name: song.name, kind: song.kind, start: song.start })), backingNotes: backingOf(project).length, tempo: tempoOf(project) ?? null } : null,
+		marbles: project.marbles.map((marble) => {
 			const own = hits.filter((hit) => hit.marbleId === marble.id);
 			return {
 				marbleId: marble.id,
-				entityId: marbleEntity?.id ?? null,
-				name: marbleEntity?.name ?? marble.name,
-				labelColor: marble.color,
+				name: marble.name,
+				labelColor: marble.labelColor,
 				filmColor: marbleFilmColor(project, marble.id),
-				radius: marbleEntity?.components.marble?.radius ?? null,
-				skin: marbleEntity != null ? (marbleEntity.components.skin?.assetId ?? resolveElementLook(film, 'marble', marbleEntity.components.skin).skin) : null,
-				release: marbleEntity?.components.release?.position ?? null,
+				radius: marble.radius,
+				skin: marble.skin?.assetId ?? resolveElementLook(film, 'marble', marble.skin).skin,
+				start: marble.start.position,
 				hits: marble.hits.length,
 				onTime: own.filter((hit) => hit.status === 'onTime').length,
 				nextOpen: own.filter((hit) => hit.status === 'open').slice(0, 3).map((hit) => ({ hitId: hit.hitId, time: round(hit.targetTime), hasDot: hit.dot != null })),
@@ -91,24 +89,22 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		}),
 		...hitReport(project, result, view.blenderObjects),
 		layers: {
-			pieceCounts: countBy(pieces.map((entity) => entity.components.piece?.type ?? 'piece')),
+			pieceCounts: countBy(pieces.map((entity) => entity.type ?? 'piece')),
 			pieces: pieces.slice(0, MAX_PIECES).map((entity) => {
 				const pose = resolved.get(entity.id);
 				return {
 					id: entity.id,
 					name: entity.name,
-					type: entity.components.piece?.type,
+					type: entity.type,
 					...(pose != null ? { x: round(pose.position.x), y: round(pose.position.y) } : {}),
-					...(entity.components.hitLink != null ? { hitId: entity.components.hitLink.hitId, angle: round(entity.components.hitLink.angle) } : entity.components.transform != null ? { angle: round(entity.components.transform.angle) } : {}),
-					params: entity.components.piece?.params ?? {}
+					...(tieOf(entity) != null ? { hitId: tieOf(entity)?.hitId } : {}),
+					angle: round(entity.angle),
+					params: entity.params ?? {}
 				};
 			}),
 			...(pieces.length > MAX_PIECES ? { piecesLeftOut: pieces.length - MAX_PIECES } : {}),
 			lights: film.lights.added.length,
-			titles: project.entities.flatMap((entity) => {
-				const text = entity.components.wallText;
-				return text != null ? [{ id: entity.id, text: text.text, style: text.style ?? 'wall', ...(text.in != null ? { in: text.in } : {}), ...(text.out != null ? { out: text.out } : {}) }] : [];
-			})
+			titles: film.titles.map((title) => ({ id: title.id, text: title.text, style: title.style ?? 'wall', ...(title.in != null ? { in: title.in } : {}), ...(title.out != null ? { out: title.out } : {}) }))
 		},
 		camera: film.camera,
 		// What the film uses, and in `own` what this project changed on top of its theme
@@ -130,19 +126,21 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 	return selection.map((key) => {
 		const hit = parseHitKey(key);
 		if (hit != null) return resolveHit(project, result, key, hit.marbleId, hit.hitId);
-		const entity = project.entities.find((item) => item.id === key);
-		if (entity?.components.piece != null) {
+		const entity = project.track.pieces.find((item) => item.id === key);
+		if (entity != null) {
 			const pose = pieceInForm(result, entity);
-			const link = entity.components.hitLink ?? result?.hits.find((item) => item.pieceEntityId === entity.id);
+			const link = tieOf(entity) ?? result?.hits.find((item) => item.pieceEntityId === entity.id);
 			const played = link != null ? resolveHit(project, result, toHitKey(link.marbleId, link.hitId), link.marbleId, link.hitId) : null;
-			return { kind: 'piece', key, ...pose, params: entity.components.piece.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
+			return { kind: 'piece', key, ...pose, params: entity.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
 		}
-		if (entity?.components.marble != null) {
-			const { marbleId, radius } = entity.components.marble;
+		const marble = project.marbles.find((item) => item.id === key);
+		if (marble != null) {
+			const { id: marbleId, radius } = marble;
 			const hits = result?.hits.filter((item) => item.marbleId === marbleId) ?? [];
-			return { kind: 'marble', key, id: entity.id, marbleId, name: entity.name ?? null, labelColor: project.music.marbles.find((marble) => marble.id === marbleId)?.color ?? null, filmColor: marbleFilmColor(project, marbleId), radius, hits: project.music.marbles.find((marble) => marble.id === marbleId)?.hits.length ?? 0, onTime: hits.filter((item) => item.status === 'onTime').length };
+			return { kind: 'marble', key, id: marbleId, marbleId, name: marble.name, labelColor: marble.labelColor, filmColor: marbleFilmColor(project, marbleId), radius, hits: marble.hits.length, onTime: hits.filter((item) => item.status === 'onTime').length };
 		}
-		if (entity?.components.wallText != null) return { kind: 'title', key, id: entity.id, text: entity.components.wallText.text };
+		const title = project.film.titles.find((item) => item.id === key);
+		if (title != null) return { kind: 'title', key, id: title.id, text: title.text };
 		const lightId = parseLightKey(key);
 		if (lightId != null) return { kind: 'light', key, id: lightId };
 		const decorId = parseDecorKey(key);
@@ -152,41 +150,40 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 		}
 		const shotId = parseShotKey(key);
 		if (shotId != null) return { kind: 'shot', key, id: shotId };
-		return { kind: 'layer', key, ...(entity != null ? { id: entity.id, name: entity.name ?? null } : {}) };
+		return { kind: 'layer', key };
 	});
 }
 
 function resolveHit(project: TProject, result: TSimulationResult | null, key: string, marbleId: string, hitId: string): TSelectedHit {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = marble?.hits.find((item) => item.id === hitId);
 	const run = result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
-	const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
-	const platform = project.entities.find((entity) => entity.id === run?.pieceEntityId || (entity.components.hitLink?.marbleId === marbleId && entity.components.hitLink.hitId === hitId));
+	const platform = project.track.pieces.find((entity) => entity.id === run?.pieceEntityId || (tieOf(entity)?.marbleId === marbleId && tieOf(entity)?.hitId === hitId));
 	return {
 		kind: 'hit',
 		key,
 		marbleId,
 		hitId,
-		marble: marbleEntity?.name ?? marble?.name ?? null,
+		marble: marble?.name ?? null,
 		time: round(hit?.time ?? run?.targetTime ?? 0),
 		note: hit?.pitch != null ? noteName(hit.pitch) : null,
 		status: run?.status ?? 'open',
 		dot: run?.dot != null ? { x: round(run.dot.x), y: round(run.dot.y) } : null,
-		platform: platform?.components.piece != null ? pieceInForm(result, platform) : null
+		platform: platform != null ? pieceInForm(result, platform) : null
 	};
 }
 
 /** A piece's id, name, place, angle in radians and length, each only when it has one */
-function pieceInForm(result: TSimulationResult | null, entity: TEntity): TSelectedPiece {
+function pieceInForm(result: TSimulationResult | null, entity: TPiece): TSelectedPiece {
 	const position = result?.pieces.find((piece) => piece.entityId === entity.id)?.position;
-	const angle = entity.components.hitLink?.angle ?? entity.components.transform?.angle;
-	const length = entity.components.piece?.params?.['length'];
+	const { angle } = entity;
+	const length = entity.params['length'];
 	return {
 		id: entity.id,
 		name: entity.name ?? null,
-		type: entity.components.piece?.type ?? null,
+		type: entity.type,
 		...(position != null ? { x: round(position.x), y: round(position.y) } : {}),
-		...(angle != null ? { angle: round(angle) } : {}),
+		angle: round(angle),
 		...(length != null ? { length: round(length) } : {})
 	};
 }

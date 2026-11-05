@@ -1,43 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import type { TEntity, TProject } from '@/modules/project';
+import type { TPiece, TProject, TTitle } from '@/modules/project';
 import { startRailId } from '@/modules/simulation';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 
-function piece(id: string, hitLink?: { marbleId: string; hitId: string }): TEntity {
-	return { id, components: { piece: { type: 'platform' }, ...(hitLink != null ? { hitLink } : {}) } } as unknown as TEntity;
+function piece(id: string, hitLink?: { marbleId: string; hitId: string }): TPiece {
+	return { id, type: 'platform', params: {}, angle: 0, place: hitLink != null ? { kind: 'plays', ...hitLink, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
 }
 
-function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { id: string; time: number }[] } = {}): TProject {
-	const { hasSong = true, entities = [], shots = [] } = options;
+function project(options: { hasSong?: boolean; pieces?: TPiece[]; titles?: TTitle[]; shots?: { id: string; time: number }[] } = {}): TProject {
+	const { hasSong = true, pieces = [], titles = [], shots = [] } = options;
 	return {
-		music: {
-			sources: hasSong ? [{ id: 'source', kind: 'midi', name: 'Jingle Bells.mid' }] : [],
-			marbles: [
-				{ id: 'lane-1', name: 'Melody', hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2 }] },
-				{ id: 'lane-2', name: 'Bass', hits: [] }
-			],
-			backing: []
-		},
-		entities: [{ id: 'marble-1', components: { marble: { marbleId: 'lane-1' } } }, { id: 'marble-2', components: { marble: { marbleId: 'lane-2' } } }, ...entities],
-		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], camera: { shots } }
+		songs: hasSong ? [{ id: 'source', kind: 'midi', path: 'song.mid', name: 'Jingle Bells.mid', start: 0, backing: [] }] : [],
+		marbles: [
+			{ id: 'marble-1', name: 'Melody', hits: [{ id: 'a', time: 1 }, { id: 'b', time: 2 }] },
+			{ id: 'marble-2', name: 'Bass', hits: [] }
+		],
+		track: { pieces, groups: [] },
+		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles, camera: { shots } }
 	} as unknown as TProject;
 }
 
 describe('buildOutline function', () => {
 	it('should list a marble\'s start rail first under it, not under Track Pieces', () => {
-		const rows = buildOutline(project({ entities: [piece('p-a', { marbleId: 'lane-1', hitId: 'a' }), piece('free-1'), piece(startRailId('lane-1'))] }), { workspace: 'track' });
-		const rail = rows.find((row) => row.id === startRailId('lane-1'));
+		const rows = buildOutline(project({ pieces: [piece('p-a', { marbleId: 'marble-1', hitId: 'a' }), piece('free-1'), piece(startRailId('marble-1'))] }), { workspace: 'track' });
+		const rail = rows.find((row) => row.id === startRailId('marble-1'));
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, CAMERA_KEY, WALL_KEY, 'marble-1', startRailId('lane-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
-		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', marbleId: 'lane-1', depth: 1 });
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, CAMERA_KEY, WALL_KEY, 'marble-1', startRailId('marble-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
+		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', marbleId: 'marble-1', depth: 1 });
 	});
 
 	it('should order Song, Camera with shots, Wall, marbles with their pieces in hit order, Pieces, Lights and Titles, leaving out empty groups', () => {
-		const title = { id: 'title-1', components: { wallText: { text: 'Jingle Bells' } } } as unknown as TEntity;
+		const title = { id: 'title-1', text: 'Jingle Bells' } as TTitle;
 		const rows = buildOutline(
 			project({
-				entities: [piece('p-b', { marbleId: 'lane-1', hitId: 'b' }), piece('p-a', { marbleId: 'lane-1', hitId: 'a' }), piece('free-1'), piece('free-2'), title],
+				pieces: [piece('p-b', { marbleId: 'marble-1', hitId: 'b' }), piece('p-a', { marbleId: 'marble-1', hitId: 'a' }), piece('free-1'), piece('free-2')],
+				titles: [title],
 				shots: [
 					{ id: 'late', time: 5 },
 					{ id: 'early', time: 1 }
@@ -82,7 +80,7 @@ describe('buildOutline function', () => {
 	});
 
 	it('should name the unlinked pieces\' group Pieces with its help', () => {
-		const rows = buildOutline(project({ entities: [piece('free-1')] }), { workspace: 'track' });
+		const rows = buildOutline(project({ pieces: [piece('free-1')] }), { workspace: 'track' });
 		const group = rows.find((row) => row.id === FREE_PIECES_KEY);
 
 		expect(group?.kind === 'group' ? group.label : null).toBe('Track Pieces');
@@ -106,8 +104,8 @@ describe('buildOutline function', () => {
 	});
 
 	it('should leave out the children of collapsed groups', () => {
-		const rows = buildOutline(project({ entities: [piece('p-a', { marbleId: 'lane-1', hitId: 'a' }), piece('free-1')], shots: [{ id: 'shot', time: 1 }] }), {
-			collapsed: ['lane-1', FREE_PIECES_KEY, CAMERA_KEY]
+		const rows = buildOutline(project({ pieces: [piece('p-a', { marbleId: 'marble-1', hitId: 'a' }), piece('free-1')], shots: [{ id: 'shot', time: 1 }] }), {
+			collapsed: ['marble-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 
 		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, CAMERA_KEY, WALL_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, LIGHTS_KEY, KEY_LIGHT_KEY]);
@@ -115,8 +113,8 @@ describe('buildOutline function', () => {
 	});
 
 	it('should mark Lights and titles as Film rows', () => {
-		const title = { id: 'title-1', components: { wallText: { text: 'End' } } } as unknown as TEntity;
-		const rows = buildOutline(project({ entities: [title], shots: [{ id: 'shot', time: 1 }] }));
+		const title = { id: 'title-1', text: 'End' } as TTitle;
+		const rows = buildOutline(project({ titles: [title], shots: [{ id: 'shot', time: 1 }] }));
 
 		expect(rows.filter(isFilmRow).map((row) => row.id)).toEqual([LIGHTS_KEY, KEY_LIGHT_KEY, TITLES_KEY, 'title-1']);
 	});

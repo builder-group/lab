@@ -117,8 +117,8 @@ export function hintFacts(
 	const isCurrent = result != null && result.revision === project.revision;
 	const hits = isCurrent ? result.hits : [];
 	return {
-		hasSong: project.music.sources.length > 0,
-		hasHits: project.music.marbles.some((marble) => marble.hits.length > 0),
+		hasSong: project.songs.some((song) => song.path != null),
+		hasHits: project.marbles.some((marble) => marble.hits.length > 0),
 		workspace: view.workspace,
 		isPlaying: view.isPlaying,
 		editCount,

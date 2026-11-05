@@ -1,4 +1,4 @@
-import type { TEntity, TProject, TProjectCommand } from '@/modules/project';
+import { type TMarble, type TPiece, type TProject, type TProjectCommand, type TTitle, backingOf, freePosition, tieOf } from '@/modules/project';
 import { pieceLabel } from '@/modules/simulation';
 
 /**
@@ -7,37 +7,78 @@ import { pieceLabel } from '@/modules/simulation';
  * `execute`, such as Duplicate or Build Track.
  */
 export function editLabel(before: TProject, after: TProject, commands: readonly TProjectCommand[]): string | null {
-	return entitiesLabel(before, after, commands) ?? commands.reduce<string | null>((label, command) => label ?? commandLabel(before, command), null);
+	return layersLabel(before, after, commands) ?? commands.reduce<string | null>((label, command) => label ?? commandLabel(before, command), null);
 }
 
-function entitiesLabel(before: TProject, after: TProject, commands: readonly TProjectCommand[]): string | null {
-	const had = new Map(before.entities.map((entity) => [entity.id, entity]));
-	const has = new Set(after.entities.map((entity) => entity.id));
-	const removed = before.entities.filter((entity) => !has.has(entity.id));
+/** What a selection key can name and an edit can add, remove or change */
+type TLayer = TMarble | TPiece | TTitle;
+
+function layersOf(project: TProject): TLayer[] {
+	return [...project.marbles, ...project.track.pieces, ...project.film.titles];
+}
+
+function layersLabel(before: TProject, after: TProject, commands: readonly TProjectCommand[]): string | null {
+	const had = new Map(layersOf(before).map((layer) => [layer.id, layer]));
+	const has = new Set(layersOf(after).map((layer) => layer.id));
+	const removed = layersOf(before).filter((layer) => !has.has(layer.id));
 	if (removed.length > 0) return `Delete ${noun(removed)}`;
-	const added = after.entities.filter((entity) => !had.has(entity.id));
+	const added = layersOf(after).filter((layer) => !had.has(layer.id));
 	if (added.length > 0) return `Add ${noun(added)}`;
-	const touched = new Set(commands.flatMap((command) => (command.type === 'upsertEntity' ? [command.entity.id] : command.type === 'setComponent' || command.type === 'removeComponent' ? [command.entityId] : [])));
-	const changed = after.entities.filter((entity) => touched.has(entity.id));
+	const touched = new Set(commands.flatMap((command) => touchedIds(command, had)));
+	const changed = layersOf(after).filter((layer) => touched.has(layer.id));
 	const first = changed[0];
 	const old = first != null ? had.get(first.id) : null;
 	if (first == null || old == null) return null;
 	return changeLabel(old, first, changed);
 }
 
-/** What the first changed entity tells about the edit; a selection edited together changed the same way */
-function changeLabel(old: TEntity, next: TEntity, changed: TEntity[]): string | null {
-	const [from, to] = [old.components, next.components];
+/** The layers a command names; titles change as a whole list, so those that differ */
+function touchedIds(command: TProjectCommand, had: ReadonlyMap<string, TLayer>): string[] {
+	switch (command.type) {
+		case 'addMarble':
+			return [command.marble.id];
+		case 'updateMarble':
+			return [command.marbleId];
+		case 'addPiece':
+			return [command.piece.id];
+		case 'updatePiece':
+			return [command.pieceId];
+		case 'updateFilm':
+			return (command.film.titles ?? []).filter((title) => !isSame(title, had.get(title.id))).map((title) => title.id);
+		default:
+			return [];
+	}
+}
+
+/** What the first changed layer tells about the edit; a selection edited together changed the same way */
+function changeLabel(old: TLayer, next: TLayer, changed: TLayer[]): string | null {
 	if (old.name !== next.name) return `Rename ${noun([next])}`;
 	if (old.labelColor !== next.labelColor) return 'Label Color';
-	if (from.hitLink != null && to.hitLink == null) return 'Detach';
-	if (from.hitLink == null && to.hitLink != null) return `Tie ${noun([next])}`;
-	const isMoved = !isSame(from.transform?.position, to.transform?.position) || from.hitLink?.contactAt !== to.hitLink?.contactAt;
-	if (isMoved) return `Move ${noun(changed)}`;
-	if (from.transform?.angle !== to.transform?.angle || from.hitLink?.angle !== to.hitLink?.angle) return 'Tilt';
-	if (!isSame(from.skin, to.skin)) return 'Change Skin';
-	if (!isSame(from.wallText, to.wallText)) return 'Edit Title';
-	return !isSame(old, next) ? `Change ${noun(changed)}` : null;
+	const [fromTie, toTie] = [tieOfLayer(old), tieOfLayer(next)];
+	if (fromTie != null && toTie == null) return 'Detach';
+	if (fromTie == null && toTie != null) return `Tie ${noun([next])}`;
+	if (!isSame(positionOf(old), positionOf(next)) || fromTie?.contactAt !== toTie?.contactAt) return `Move ${noun(changed)}`;
+	if (angleOf(old) !== angleOf(next)) return 'Tilt';
+	if (!isSame(skinOf(old), skinOf(next))) return 'Change Skin';
+	if (isSame(old, next)) return null;
+	return 'text' in next ? 'Edit Title' : `Change ${noun(changed)}`;
+}
+
+function tieOfLayer(layer: TLayer): ReturnType<typeof tieOf> {
+	return 'place' in layer ? tieOf(layer) : null;
+}
+
+function positionOf(layer: TLayer): unknown {
+	if ('place' in layer) return freePosition(layer);
+	return 'position' in layer ? layer.position : undefined;
+}
+
+function angleOf(layer: TLayer): number | undefined {
+	return 'angle' in layer ? layer.angle : undefined;
+}
+
+function skinOf(layer: TLayer): unknown {
+	return 'skin' in layer ? layer.skin : undefined;
 }
 
 function commandLabel(before: TProject, command: TProjectCommand): string | null {
@@ -47,24 +88,21 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 			if (command.patch.format != null) return 'Change Format';
 			if (command.patch.gravity != null) return 'Change Gravity';
 			return null;
-		case 'setTempo':
-			return 'Change Tempo';
-		case 'setBackingInstrument':
-			return 'Change Backing';
-		case 'upsertSource':
+		case 'updateSong':
+			if (command.patch.tempo !== undefined) return 'Change Tempo';
+			return command.patch.backingSound !== undefined ? 'Change Backing' : null;
+		case 'addSong':
 			return 'Import Song';
-		case 'removeSource':
-			return 'Delete Song';
-		case 'removeLane':
+		case 'removeSong':
+			// Backing without a file is notes alone
+			return before.songs.some((song) => song.path != null) ? 'Delete Song' : `Delete ${counted(backingOf(before).length, 'Hit')}`;
+		case 'removeMarble':
 			return 'Delete Marble';
-		case 'upsertLane': {
-			const marble = before.music.marbles.find((item) => item.id === command.marble.id);
-			if (marble == null) return 'Add Marble';
-			if (marble.name !== command.marble.name) return 'Rename Marble';
-			return marble.color !== command.marble.color ? 'Label Color' : 'Change Marble';
-		}
+		case 'addMarble':
+		case 'updateMarble':
+			return 'Change Marble';
 		case 'upsertHits': {
-			const ids = new Set([...before.music.marbles.flatMap((marble) => marble.hits), ...before.music.backing].map((hit) => hit.id));
+			const ids = new Set([...before.marbles.flatMap((marble) => marble.hits), ...backingOf(before)].map((hit) => hit.id));
 			const isNew = command.hits.some((hit) => !ids.has(hit.id));
 			return `${isNew ? 'Add' : 'Move'} ${counted(command.hits.length, 'Hit')}`;
 		}
@@ -72,9 +110,13 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 			return `Delete ${counted(command.hitIds.length, 'Hit')}`;
 		case 'assignHits':
 			return `Hand Over ${counted(command.hitIds.length, 'Hit')}`;
-		case 'upsertGroup': {
-			const group = before.groups?.find((item) => item.id === command.group.id);
+		case 'addGroup': {
+			const group = before.track.groups.find((item) => item.id === command.group.id);
 			return group != null && group.name !== command.group.name ? 'Rename Group' : 'Change Group';
+		}
+		case 'updateGroup': {
+			const group = before.track.groups.find((item) => item.id === command.groupId);
+			return group != null && command.patch.name != null && group.name !== command.patch.name ? 'Rename Group' : 'Change Group';
 		}
 		case 'removeGroups':
 			return 'Ungroup';
@@ -103,17 +145,15 @@ function listLabel<GItem extends { position?: unknown; id: string }>(before: rea
 }
 
 /** "Platform", "3 Platforms", or "3 Pieces" when they are different kinds */
-function noun(entities: readonly TEntity[]): string {
-	const kinds = new Set(entities.map(kindLabel));
+function noun(layers: readonly TLayer[]): string {
+	const kinds = new Set(layers.map(kindLabel));
 	const [kind = 'Piece'] = kinds;
-	return entities.length === 1 ? kind : `${entities.length} ${kinds.size === 1 ? kind : 'Piece'}s`;
+	return layers.length === 1 ? kind : `${layers.length} ${kinds.size === 1 ? kind : 'Piece'}s`;
 }
 
-function kindLabel(entity: TEntity): string {
-	const type = entity.components.piece?.type;
-	if (type != null) return pieceLabel(type);
-	if (entity.components.wallText != null) return 'Title';
-	return entity.components.marble != null ? 'Marble' : 'Piece';
+function kindLabel(layer: TLayer): string {
+	if ('type' in layer) return pieceLabel(layer.type);
+	return 'text' in layer ? 'Title' : 'Marble';
 }
 
 function counted(count: number, one: string): string {

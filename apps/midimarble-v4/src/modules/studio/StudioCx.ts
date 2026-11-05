@@ -3,7 +3,7 @@ import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
-import { amendHistory, applyProjectCommands, createHistory, createId, createLane, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TLane, type TProject, type TProjectCommand, type TProjectHistory, type TSource, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey } from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, stepHitTarget, toHitKey, tieOf } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
@@ -88,7 +88,7 @@ export class StudioCx {
 	readonly $hitFlash = createState<THitFlash[]>([]);
 	/** The mounted Track canvas, so commands and menus outside it can drive its tools */
 	readonly $trackCx = createState<TrackCx | null>(null);
-	/** Marble entity, marble or piece whose name is being edited in place in the sidebar */
+	/** Layer whose name is being edited in place in the sidebar */
 	readonly $renaming = createState<string | null>(null);
 	/** Pieces hidden from the canvas and locked against canvas edits, like Figma's layer toggles. View state, not saved. */
 	readonly $hidden = createState<string[]>([]);
@@ -140,8 +140,8 @@ export class StudioCx {
 	/** The context menus the canvases open */
 	readonly menus = {
 		piece: () => pieceMenu(this),
-		hit: (marble: TLane, hitId: string) => hitMenu(this, marble, hitId),
-		marble: (marble: TLane) => marbleMenu(this, marble),
+		hit: (marble: TMarble, hitId: string) => hitMenu(this, marble, hitId),
+		marble: (marble: TMarble) => marbleMenu(this, marble),
 		film: () => filmMenu(this),
 		filmObject: (id: string) => filmObjectMenu(this, id)
 	};
@@ -247,9 +247,9 @@ export class StudioCx {
 		return this.audioEngine;
 	}
 
-	resolveSourceUrl = (source: TSource): string | null => {
+	resolveSourceUrl = (source: TSong): string | null => {
 		const path = this.$path.get();
-		return path == null ? null : host.sourceUrl(path, source.path);
+		return path == null || source.path == null ? null : host.sourceUrl(path, source.path);
 	};
 
 	/**
@@ -258,7 +258,7 @@ export class StudioCx {
 	 */
 	audition(marbleId: string, pitch?: number): void {
 		const project = this.project;
-		const marble = project?.music.marbles.find((item) => item.id === marbleId);
+		const marble = project?.marbles.find((item) => item.id === marbleId);
 		if (project == null || marble == null || pitch == null || !soundsNotes(project)) return;
 		void this.audio.audition(marble, pitch);
 	}
@@ -300,7 +300,7 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const time = this.$playhead.get();
 		const point = previewPointToWall(project, result, time, u, v);
-		const { commands, entityId } = addWallTextCommands(point, { color: defaultTitleColor(project.film), frameHeight: frameHeightOnWall(project, result, time) });
+		const { commands, entityId } = addWallTextCommands(project, point, { color: defaultTitleColor(project.film), frameHeight: frameHeightOnWall(project, result, time) });
 		if (!this.execute(commands)) return;
 		this.$selection.set([entityId]);
 		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected
@@ -315,19 +315,14 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const playhead = this.$playhead.get();
 		const frameHeight = frameHeightOnWall(project, result, playhead);
-		const { commands, entityId } = addWallTextCommands(previewPointToWall(project, result, playhead, 0.5, 0.5), { color: defaultTitleColor(project.film), frameHeight });
-		const styled = commands.flatMap((command) => {
-			if (command.type !== 'upsertEntity' || command.entity.components.wallText == null) return [command];
-			const wallText = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.length, songName: songDisplayName(project), aspect: project.format.width / project.format.height });
-			return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
-		});
-		if (!this.execute(styled)) return;
+		const { title } = addWallTextCommands(project, previewPointToWall(project, result, playhead, 0.5, 0.5), { color: defaultTitleColor(project.film), frameHeight });
+		const text = withTitleStyle(title, style, { frameHeight, playhead, end: project.length, songName: songDisplayName(project), aspect: project.format.width / project.format.height });
+		if (!this.execute([{ type: 'updateFilm', film: { titles: [...project.film.titles, { ...text, name: text.text }] } }])) return;
 		// Keep the new title in view: a Song Name opens the film and an End Card closes it, wherever the playhead is
-		const text = styled.flatMap((command) => (command.type === 'upsertEntity' && command.entity.id === entityId ? [command.entity.components.wallText] : []))[0];
-		if (text != null && (playhead < (text.in ?? 0) || playhead >= (text.out ?? project.length))) this.$playhead.set(text.in ?? 0);
+		if (playhead < (text.in ?? 0) || playhead >= (text.out ?? project.length)) this.$playhead.set(text.in ?? 0);
 		this.$workspace.set('film');
-		this.$selection.set([entityId]);
-		this.film.$editingTitle.set(entityId);
+		this.$selection.set([title.id]);
+		this.film.$editingTitle.set(title.id);
 	}
 
 	/** Film opens on the Scene with its theme in view, unless a layer Film is about stays selected */
@@ -339,7 +334,7 @@ export class StudioCx {
 		if (kept.length !== selection.length) this.$selection.set(kept);
 	}
 
-	/** Selects entities and asks the canvas to frame them when they are out of view */
+	/** Selects layers and asks the canvas to frame them when they are out of view */
 	reveal(ids: string[]): void {
 		this.$selection.set(ids);
 		this.$reveal.set({ ids });
@@ -806,17 +801,16 @@ export class StudioCx {
 		return this.$history.get()?.groups.present ?? null;
 	}
 
-	/** Adds a marble with its marble, released at `position` or to the right of the last marble */
+	/** Adds a marble, released at `position` or to the right of the last marble */
 	addMarble(position?: TVec2): string | null {
 		const project = this.project;
 		if (project == null) return null;
-		const marble = createLane(project.music.marbles.length);
-		const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
+		const releases = project.marbles.map((marble) => marble.start.position);
 		const fallback = { x: releases.length ? Math.max(...releases.map((point) => point.x)) + MARBLE_SPACING : 0, y: releases[0]?.y ?? 0.6 };
-		const marbleEntity = createMarble(marble, position ?? fallback);
-		if (!this.execute([{ type: 'upsertLane', marble }, { type: 'upsertEntity', entity: marbleEntity }])) return null;
-		this.$selection.set([marbleEntity.id]);
-		return marbleEntity.id;
+		const marble = createMarble(project.marbles.length, position ?? fallback);
+		if (!this.execute([{ type: 'addMarble', marble }])) return null;
+		this.$selection.set([marble.id]);
+		return marble.id;
 	}
 
 	/** The pieces a marble's eye hid, which its eye shows again; one hidden by its own eye stays hidden, like Blender's Outliner */
@@ -824,9 +818,9 @@ export class StudioCx {
 
 	toggleHidden(id: string): void {
 		const hidden = this.$hidden.get();
-		const marbleId = this.project?.entities.find((entity) => entity.id === id)?.components.marble?.marbleId;
+		const isMarble = this.project?.marbles.some((marble) => marble.id === id) === true;
 		const isHiding = !hidden.includes(id);
-		const pieces = isHiding && marbleId != null ? (this.project?.entities ?? []).filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marbleId && !hidden.includes(entity.id)).map((entity) => entity.id) : (this.hiddenByMarble.get(id) ?? []);
+		const pieces = isHiding && isMarble ? (this.project?.track.pieces ?? []).filter((entity) => tieOf(entity)?.marbleId === id && !hidden.includes(entity.id)).map((entity) => entity.id) : (this.hiddenByMarble.get(id) ?? []);
 		if (isHiding) {
 			this.hiddenByMarble.set(id, pieces);
 			this.$hidden.set([...hidden, id, ...pieces]);
@@ -851,16 +845,16 @@ export class StudioCx {
 		this.$renaming.set(id);
 	}
 
-	/** What Rename… names: the first selected entity, Decor layer, added light, or a plain Group selected as a whole. A Pattern's Group is named after it */
+	/** What Rename… names: the first selected marble, piece, title, Decor layer, added light, or a plain Group selected as a whole. A Pattern's Group is named after it */
 	renameTarget(): string | null {
 		const project = this.project;
 		const id = this.$selection.get()[0];
 		if (project == null || id == null) return null;
-		if (project.entities.some((entity) => entity.id === id) || parseDecorKey(id) != null) return id;
+		if (layerIds(project).includes(id) || parseDecorKey(id) != null) return id;
 		const lightId = parseLightKey(id);
 		if (lightId != null) return lightId !== KEY_LIGHT_ID ? id : null;
 		const groupId = parseGroupKey(id);
-		const group = project.groups?.find((item) => item.id === groupId);
+		const group = project.track.groups.find((item) => item.id === groupId);
 		return group != null && !isPatternGroup(group) ? id : null;
 	}
 
@@ -987,9 +981,9 @@ export class StudioCx {
 
 	private stepHistory(history: TProjectHistory, next: TProjectHistory): void {
 		this.$history.set(next);
-		// A piece the step removed leaves the selection, so the inspector does not keep showing it
-		const kept = new Set(next.present.entities.map((entity) => entity.id));
-		const removed = new Set(history.present.entities.filter((entity) => !kept.has(entity.id)).map((entity) => entity.id));
+		// A layer the step removed leaves the selection, so the inspector does not keep showing it
+		const kept = new Set(layerIds(next.present));
+		const removed = new Set(layerIds(history.present).filter((id) => !kept.has(id)));
 		const selection = this.$selection.get();
 		const left = selection.filter((id) => !removed.has(id));
 		// A live Pattern a step brought back stands for its pieces again, as a click on one does
@@ -1165,6 +1159,11 @@ function projectName(path: string): string {
 	return path.split('/').pop()?.replace(/\.marble$/, '') ?? path;
 }
 
+/** The marbles, pieces and titles, whose IDs are their selection keys */
+function layerIds(project: TProject): string[] {
+	return [...project.marbles, ...project.track.pieces, ...project.film.titles].map((layer) => layer.id);
+}
+
 function toggleItem(items: string[], item: string): string[] {
 	return items.includes(item) ? items.filter((value) => value !== item) : [...items, item];
 }
@@ -1259,15 +1258,13 @@ export interface TNoticeAction {
 }
 
 /** The marble of the selected marble or hit, otherwise the first marble */
-export function focusedMarble(project: TProject, selection: TSelection): TLane | undefined {
+export function focusedMarble(project: TProject, selection: TSelection): TMarble | undefined {
 	for (const key of selection) {
-		const hitMarble = parseHitKey(key)?.marbleId;
-		const entityMarble = project.entities.find((entity) => entity.id === key)?.components.marble?.marbleId;
-		const marbleId = hitMarble ?? entityMarble;
-		const marble = project.music.marbles.find((item) => item.id === marbleId);
+		const marbleId = parseHitKey(key)?.marbleId ?? key;
+		const marble = project.marbles.find((item) => item.id === marbleId);
 		if (marble != null) return marble;
 	}
-	return project.music.marbles[0];
+	return project.marbles[0];
 }
 
 /** Calls back while the person presses, drags, scrolls or types anywhere in the window */

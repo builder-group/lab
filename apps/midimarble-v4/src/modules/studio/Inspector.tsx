@@ -8,7 +8,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStat
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP, addedLights } from '@/modules/scene';
 import { DEFAULT_HIT_VELOCITY, findMarbleConflicts, instruments, MIN_HIT_GAP, SONG_MIX_ID, songParts, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type THit, type TEntity, type TLane, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime } from '@/modules/project';
+import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, tieOf, tempoOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { SONG_LAYER_LABEL } from './song-layer';
@@ -46,7 +46,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 	switch (target.kind) {
 		case 'pieces': {
 			if (!isFilm) return <PieceInspector cx={cx} project={project} ids={target.ids} />;
-			const pieces = project.entities.filter((entity) => target.ids.includes(entity.id));
+			const pieces = project.track.pieces.filter((entity) => target.ids.includes(entity.id));
 			return <PieceSkin cx={cx} project={project} pieces={pieces} />;
 		}
 		case 'hits':
@@ -56,8 +56,8 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 		case 'patternRange':
 			return <PatternRangeInspector cx={cx} project={project} target={target} />;
 		case 'title': {
-			const entity = project.entities.find((item) => item.id === target.id);
-			return entity == null ? null : <WallTextInspector cx={cx} project={project} entity={entity} />;
+			const title = project.film.titles.find((item) => item.id === target.id);
+			return title == null ? null : <WallTextInspector cx={cx} project={project} entity={title} />;
 		}
 		case 'titles':
 			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} Titles`} subtitle="Multiple selection" />;
@@ -66,13 +66,12 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
 		}
 		case 'marble': {
-			const marble = project.music.marbles.find((item) => item.id === target.marbleId);
-			const marbleEntity = project.entities.find((item) => item.id === target.entityId);
-			if (marble == null || marbleEntity == null) return null;
+			const marble = project.marbles.find((item) => item.id === target.marbleId);
+			if (marble == null) return null;
 			return (
 				<>
-					<MarbleInspector cx={cx} project={project} marble={marble} marbleEntity={marbleEntity} isFilm={isFilm} />
-					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marbleEntity} /> : null}
+					<MarbleInspector cx={cx} project={project} marble={marble} isFilm={isFilm} />
+					{isFilm ? <MarbleSkin cx={cx} project={project} marble={marble} /> : null}
 				</>
 			);
 		}
@@ -112,26 +111,17 @@ interface TInspectorProps {
 
 // MARK: - Marble
 
-const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TLane; marbleEntity: TEntity; isFilm: boolean }> = (props) => {
-	const { cx, project, marble, marbleEntity, isFilm } = props;
+const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarble; isFilm: boolean }> = (props) => {
+	const { cx, project, marble, isFilm } = props;
 	const conflicts = findMarbleConflicts(marble).size;
 
-	const release = marbleEntity.components.release;
-	const releaseProject = (patch: Partial<TVec2>): TProject | null =>
-		release == null
-			? null
-			: {
-					...project,
-					entities: project.entities.map((item) =>
-						item.id === marbleEntity.id ? { ...item, components: { ...item.components, release: { ...release, position: { ...release.position, ...patch } } } } : item
-					)
-				};
+	const release = marble.start;
+	const releaseAt = (patch: Partial<TVec2>): TMarble['start'] => ({ ...release, position: { ...release.position, ...patch } });
 	function previewRelease(patch: Partial<TVec2>): void {
-		const next = releaseProject(patch);
-		if (next != null) cx.simulation.startPreview(next);
+		cx.simulation.startPreview({ ...project, marbles: project.marbles.map((item) => (item.id === marble.id ? { ...item, start: releaseAt(patch) } : item)) });
 	}
 	function commitRelease(patch: Partial<TVec2>): void {
-		if (release != null) cx.execute([{ type: 'setComponent', entityId: marbleEntity.id, component: { name: 'release', value: { ...release, position: { ...release.position, ...patch } } } }]);
+		cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { start: releaseAt(patch) } }]);
 		cx.simulation.endPreview();
 	}
 
@@ -139,17 +129,17 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TLane
 	return (
 		<>
 			<InspectorHeader
-				icon={<span className="h-3 w-3 rounded-full" style={{ background: marble.color }} />}
+				icon={<span className="h-3 w-3 rounded-full" style={{ background: marble.labelColor }} />}
 				title={marble.name}
 				subtitle={`Marble · ${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`}
-				onRename={(name) => cx.execute([{ type: 'upsertLane', marble: { ...marble, name } }])}
+				onRename={(name) => cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { name } }])}
 				status={
 					conflicts > 0 ? (
 						<StatusPill tone="bad" label={`${conflicts} Too Close`} detail={`${conflicts === 1 ? 'A hit is' : `${conflicts} hits are`} less than ${MIN_HIT_GAP * 1000} ms from the next one. Drag them apart or move them to another marble.`} />
 					) : null
 				}
 			/>
-			{release != null && !isFilm ? (
+			{!isFilm ? (
 				<Panel id="marble.release" title="Position" accessory={<HelpTip text="Start Position: where the marble is released on the wall." />}>
 					<ScrubField id="release-x" label="Start X" name="Start Position X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 					<ScrubField id="release-y" label="Start Y" name="Start Position Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
@@ -161,14 +151,16 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TLane
 
 // MARK: - Hits
 
+type THitOwner = Pick<TMarble, 'id' | 'name' | 'labelColor' | 'sound' | 'hits'>;
+
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	const trackCx = useFeatureState(cx.$trackCx);
-	// Backing joins the marbles' marbles so a Backing note shows like a hit without a marble
-	const backing: TLane = { id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, instrument: project.music.backingInstrument ?? 0, hits: project.music.backing };
+	// Backing joins the marbles so a Backing note shows like a hit without a marble
+	const backing: THitOwner = { id: BACKING_ID, name: 'Backing', labelColor: BACKING_COLOR, sound: backingSong(project)?.backingSound ?? 0, hits: backingOf(project) };
 	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
-	const owners = canMakeBacking(project) || project.music.backing.length > 0 ? [...project.music.marbles, backing] : project.music.marbles;
+	const owners: THitOwner[] = canMakeBacking(project) || backingOf(project).length > 0 ? [...project.marbles, backing] : project.marbles;
 	const hits = hitKeys.flatMap((key) => {
 		const parsed = parseHitKey(key);
 		const marble = owners.find((item) => item.id === parsed?.marbleId);
@@ -215,15 +207,13 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const { marble, hit } = single;
 	const isBacking = marble.id === BACKING_ID;
 	const index = marble.hits.indexOf(hit);
-	const piece = project.entities.find(
-		(entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id && entity.components.hitLink.hitId === hit.id
-	);
+	const piece = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === marble.id && tieOf(entity)?.hitId === hit.id);
 	const hitResult = result?.hits.find((item) => item.marbleId === marble.id && item.hitId === hit.id);
 	// An open hit no platform can play yet says why (Too Soon, Out of Reach) and offers the fixes in Played By
 	const reach = !isBacking && piece == null && hitResult?.status === 'open' ? hitReach(project, result, hitResult) : null;
 	const unreachable = reach != null && hitResult != null && isUnreachable(reach) ? unreachableStatus(project, result, hitResult) : null;
 	const fixes = unreachable != null && reach != null && hitResult != null ? unreachableActions(cx, hitResult, releaseFixFor(project, hitResult, reach)) : [];
-	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.components.piece?.type ?? '')?.label ?? 'Piece');
+	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.type)?.label ?? 'Piece');
 	const timing =
 		piece == null
 			? unreachable == null
@@ -250,7 +240,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	return (
 		<>
 			<InspectorHeader
-				icon={<HitGlyph color={marble.color} />}
+				icon={<HitGlyph color={marble.labelColor} />}
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
 				subtitle={`${marble.name} · ${formatTime(hit.time)}`}
 				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
@@ -294,7 +284,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			<Panel id="hit.playedBy" title="Played By" accessory={<HelpTip text="Backing is heard in the film, no platform needed. Handing a note to another marble takes its platform along; handing it to Backing removes the platform." />}>
 				{playedBy}
 				{isBacking ? null : piece != null ? (
-					<LinkRow icon={<PieceIcon type={piece.components.piece?.type ?? 'platform'} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
+					<LinkRow icon={<PieceIcon type={piece.type} size={14} />} title={`Select ${pieceLabel}`} onOpen={() => cx.reveal([piece.id])}>
 						{pieceLabel}
 					</LinkRow>
 				) : fixes.length > 0 ? (
@@ -360,7 +350,7 @@ const HitGlyph: React.FC<{ color?: string }> = (props) => {
 const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const song = songSource(project);
-	const tempo = project.music.tempo;
+	const tempo = tempoOf(project);
 	const parts = songParts(project);
 	const kind = song == null ? 'Backing' : song.kind === 'audio' ? 'Recording' : 'MIDI';
 
@@ -372,7 +362,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
 				subtitle={song != null ? `${song.name} · ${kind}` : kind}
 			/>
 			<Panel id="song.file" title="Song">
-				{project.music.sources.map((source) => (
+				{project.songs.filter((item) => item.path != null).map((source) => (
 					<ReadoutField key={source.id} label={source.kind === 'audio' ? 'Recording' : 'MIDI'} name={source.name} span={2}>
 						<span className="flex items-center gap-2">
 							{source.kind === 'audio' ? <AudioLines size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" /> : <FileMusic size={13} strokeWidth={1.7} className="shrink-0 text-[var(--text-secondary)]" />}

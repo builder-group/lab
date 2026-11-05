@@ -1,4 +1,4 @@
-import type { TEntity, TProject, TVec2 } from '@/modules/project';
+import { type TPiece, type TProject, type TVec2, tieOf } from '@/modules/project';
 import { bowlGeometry } from './piece-layout';
 import { projectOnPath } from './shapes';
 import type { TMarbleTrack, TResolvedPiece, TSimulationResult } from './types';
@@ -28,12 +28,12 @@ export interface TBowlCatch {
 }
 
 /** The Bowl of a marble's marble, if it has one: a Bowl anchored to one of the marble's hits */
-export function bowlOfMarble(project: TProject, marbleId: string): TEntity | undefined {
-	return project.entities.find((entity) => entity.components.piece?.type === BOWL_TYPE && entity.components.hitLink?.marbleId === marbleId);
+export function bowlOfMarble(project: TProject, marbleId: string): TPiece | undefined {
+	return project.track.pieces.find((entity) => entity.type === BOWL_TYPE && tieOf(entity)?.marbleId === marbleId);
 }
 
-export function isBowl(entity: TEntity | undefined): boolean {
-	return entity?.components.piece?.type === BOWL_TYPE;
+export function isBowl(entity: TPiece | undefined): boolean {
+	return entity?.type === BOWL_TYPE;
 }
 
 /**

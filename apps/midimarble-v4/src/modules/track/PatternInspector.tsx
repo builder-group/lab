@@ -2,8 +2,8 @@ import { useFeatureState } from 'feature-react/state';
 import { Folder, Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
-import { isPatternGroup, type TEntity, type TPatternGroup, type TProject, type TProjectCommand, formatTime, toGroupKey, toRangeKey } from '@/modules/project';
-import { hitsInRange, MAX_TILT, PATTERN_LABELS, type TPatternKind, type TPatternProblem } from '@/modules/building';
+import { isPatternGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf, toGroupKey, toRangeKey } from '@/modules/project';
+import { hitsInRange, MAX_TILT, PATTERN_LABELS, patternSpan, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import type { TrackCx } from './TrackCx';
@@ -26,7 +26,7 @@ export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (prop
 /** A silence dragged out in the strip */
 export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; target: { marbleId: string; from: number; to: number } }> = (props) => {
 	const { cx, project, target } = props;
-	const marble = project.music.marbles.find((item) => item.id === target.marbleId);
+	const marble = project.marbles.find((item) => item.id === target.marbleId);
 	return (
 		<>
 			<InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={`${(target.to - target.from).toFixed(1)} s`} subtitle={`Silence on ${marble?.name ?? 'a marble'}`} />
@@ -39,33 +39,34 @@ export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; 
 export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId: string }> = (props) => {
 	const { cx, project, groupId } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
-	const group = project.groups?.filter(isPatternGroup).find((item) => item.id === groupId);
-	const marble = project.music.marbles.find((item) => item.id === group?.marbleId);
-	if (group == null || marble == null || trackCx == null) return null;
-	const target: TPatternTarget = { marbleId: group.marbleId, from: group.from, to: group.to, group };
-	const isRail = group.kind === 'longRail';
-	const count = hitsInRange(marble, group.from, group.to).length;
-	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(group.from)} to ${formatTime(group.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${marble.name}, ${formatTime(group.from)} to ${formatTime(group.to)}`;
-	const widthRange = group.kind === 'staircase' ? { min: 0.05, max: 0.16 } : { min: 0.1, max: 0.26 };
+	const group = project.track.groups.filter(isPatternGroup).find((item) => item.id === groupId);
+	const marble = project.marbles.find((item) => item.id === group?.marbleId);
+	const span = group != null && marble != null ? patternSpan(marble, group) : null;
+	if (group == null || marble == null || trackCx == null || span == null) return null;
+	const target: TPatternTarget = { marbleId: group.marbleId, from: span.from, to: span.to, group };
+	const isRail = group.pattern.kind === 'longRail';
+	const count = hitsInRange(marble, span.from, span.to).length;
+	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
+	const widthRange = group.pattern.kind === 'staircase' ? { min: 0.05, max: 0.16 } : { min: 0.1, max: 0.26 };
 	return (
 		<>
 			<InspectorHeader icon={<Folder size={16} strokeWidth={1.7} />} title={group.name} subtitle={subtitle} />
-			<TilesPanel cx={cx} targets={[target]} kinds={isRail ? RAIL_KINDS : BAR_KINDS} applied={group.kind} failureKey={toGroupKey(group.id)} problems={group.problems ?? []}>
+			<TilesPanel cx={cx} targets={[target]} kinds={isRail ? RAIL_KINDS : BAR_KINDS} applied={group.pattern.kind} failureKey={toGroupKey(group.id)} problems={group.pattern.problems ?? []}>
 				{!isRail ? (
 					<div className="mm-insp-grid mm-pattern-fields">
 						<SliderField
 							id="pattern-width"
 							label="Width"
-							value={group.width}
+							value={group.pattern.width}
 							min={widthRange.min}
 							max={widthRange.max}
 							step={0.01}
 							unit="cm"
 							format={(value) => (value * 100).toFixed(0)}
-							onCommit={(width) => void trackCx.studio.patterns.apply(target, group.kind, { width })}
+							onCommit={(width) => void trackCx.studio.patterns.apply(target, group.pattern.kind, { width })}
 						/>
-						<SliderField id="pattern-bounce" label="Bounce" value={group.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.studio.patterns.apply(target, group.kind, { bounce })} />
-						<SliderField id="pattern-tilt" label="Tilt limit" value={group.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.studio.patterns.apply(target, group.kind, { maxTilt })} />
+						<SliderField id="pattern-bounce" label="Bounce" value={group.pattern.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.studio.patterns.apply(target, group.pattern.kind, { bounce })} />
+						<SliderField id="pattern-tilt" label="Tilt limit" value={group.pattern.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.studio.patterns.apply(target, group.pattern.kind, { maxTilt })} />
 					</div>
 				) : null}
 				<TiltNote project={project} group={group} />
@@ -82,19 +83,12 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 const BarDepthPanel: React.FC<{ cx: StudioCx; project: TProject; group: TPatternGroup }> = (props) => {
 	const { cx, project, group } = props;
 	const spec = platformDefinition.params['depth'];
-	const bars = project.entities.flatMap((entity) => {
-		const piece = entity.components.piece;
-		return piece?.type === 'platform' && group.pieceIds.includes(entity.id) ? [{ entity, piece }] : [];
-	});
+	const bars = project.track.pieces.filter((entity) => entity.type === 'platform' && group.pieceIds.includes(entity.id));
 	const [first] = bars;
 	if (first == null || spec == null) return null;
-	const depthOf = (bar: { piece: { type: string; params: Record<string, number> } }): number => bar.piece.params['depth'] ?? spec.default;
+	const depthOf = (bar: TPiece): number => bar.params['depth'] ?? spec.default;
 	const isShared = bars.every((bar) => Math.abs(depthOf(bar) - depthOf(first)) < 1e-9);
-	const withDepth = (bar: { entity: TEntity; piece: NonNullable<TEntity['components']['piece']> }, depth: number): TProjectCommand => ({
-		type: 'setComponent',
-		entityId: bar.entity.id,
-		component: { name: 'piece', value: { ...bar.piece, params: { ...bar.piece.params, depth } } }
-	});
+	const withDepth = (bar: TPiece, depth: number): TProjectCommand => ({ type: 'updatePiece', pieceId: bar.id, patch: { params: { ...bar.params, depth } } });
 	return (
 		<Panel id="pattern.shape" title="Shape" isDense>
 			<ScrubField
@@ -168,7 +162,7 @@ const PatternProblems: React.FC<{ trackCx: TrackCx; failureKey: string; problems
 
 const TiltNote: React.FC<{ project: TProject; group: TPatternGroup }> = (props) => {
 	const { project, group } = props;
-	const tilts = project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.piece?.type === 'platform').map((entity) => Math.abs(entity.components.hitLink?.angle ?? 0) * (180 / Math.PI));
+	const tilts = project.track.pieces.filter((entity) => group.pieceIds.includes(entity.id) && entity.type === 'platform').map((entity) => Math.abs(tieOf(entity) != null ? entity.angle : 0) * (180 / Math.PI));
 	if (!tilts.length) return null;
 	const steepest = Math.max(...tilts);
 	if (steepest <= MAX_TILT + 0.5) return null;

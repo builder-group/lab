@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { amendHistory, applyProjectCommands, createHistory, pushHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory } from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, pushHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, createSimulator, type TSettleBase, type TSettleRequest, type TSimulationResult } from '@/modules/simulation';
 import { SimulationCx } from './SimulationCx';
@@ -70,10 +70,15 @@ async function setup(): Promise<{ cx: SimulationCx; studio: StudioCx; simulated:
 }
 
 function turn(project: TProject, id: string, by: number): TProjectCommand[] {
-	const entity = project.entities.find((item) => item.id === id);
-	const link = entity?.components.hitLink;
+	const entity = project.track.pieces.find((item) => item.id === id);
+	const link = tieOf(entity);
 	if (entity == null || link == null) throw new Error('Missing platform');
-	return [{ type: 'setComponent', entityId: id, component: { name: 'hitLink', value: { ...link, angle: link.angle + by } } }];
+	return [{ type: 'updatePiece', pieceId: id, patch: { angle: entity.angle + by } }];
+}
+
+function leavesOf(project: TProject, id: string): unknown {
+	const place = project.track.pieces.find((entity) => entity.id === id)?.place;
+	return place?.kind === 'plays' ? place.leaves : undefined;
 }
 
 describe('SimulationCx class', () => {
@@ -98,7 +103,7 @@ describe('SimulationCx class', () => {
 			expect(history.past).toHaveLength(1);
 			expect(asked).toHaveLength(1);
 			expect(cx.isSettling).toBe(false);
-			expect(simulated.every((item) => item.entities.find((entity) => entity.id === 'piece-1-7')?.components.hitLink?.leaves != null)).toBe(true);
+			expect(simulated.every((item) => leavesOf(item, 'piece-1-7') != null)).toBe(true);
 			expect(cx.$result.get()?.hits.every((hit) => hit.status === 'onTime')).toBe(true);
 		});
 
@@ -135,7 +140,7 @@ describe('SimulationCx class', () => {
 			await flush();
 
 			// Assert
-			expect(simulated.at(-1)?.entities.find((entity) => entity.id === 'piece-1-7')?.components.hitLink?.leaves).toBeDefined();
+			expect(leavesOf(simulated.at(-1) as TProject, 'piece-1-7')).toBeDefined();
 			expect(studio.project).toBe(project);
 		});
 	});

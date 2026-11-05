@@ -4,7 +4,7 @@ import { timingStatus } from './timing-status';
 
 function hitResult(patch: Partial<THitResult>): THitResult {
 	return {
-		marbleId: 'lane-1',
+		marbleId: 'marble-1',
 		hitId: 'hit-1',
 		targetTime: 1,
 		pieceEntityId: 'piece-1',

@@ -1,7 +1,7 @@
 import type { TSceneThemeOverrides } from './scene-description';
-import { createId, type TFilm, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
+import { createId, type TFilm, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkin, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
 import { STARTER_ORIGIN } from './pack-data';
-import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
+import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, skinCommand, skinnedOf, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
 // changes a few colors on top (`TThemeOverrides`). `film.theme` names a built-in id or a project theme's id; the
@@ -78,7 +78,7 @@ function resolveParts(base: string, parts: TThemeParts | null | undefined): Reco
 }
 
 /** What an element wears under the applied theme, with its own skin component's overrides */
-export function resolveElementLook(film: Pick<TFilm, 'theme' | 'themes'>, element: TSkinElement, component?: TSkinComponent | null): TSkinLook {
+export function resolveElementLook(film: Pick<TFilm, 'theme' | 'themes'>, element: TSkinElement, component?: TSkin | null): TSkinLook {
 	const theme = resolveTheme(film);
 	return resolveSkinLook(theme.base, theme.projectTheme?.parts, element, component);
 }
@@ -180,15 +180,9 @@ export function themeCommands(project: TProject, themeId: string): TProjectComma
 	if (project.film.theme === themeId) return [];
 	const oldColor = defaultTitleColor(project.film);
 	const newColor = defaultTitleColor({ ...project.film, theme: themeId });
-	const titles =
-		oldColor === newColor
-			? []
-			: project.entities.flatMap((entity: TEntity) => {
-					const text = entity.components.wallText;
-					if (text?.color == null || text.color.toLowerCase() !== oldColor) return [];
-					return [{ type: 'setComponent' as const, entityId: entity.id, component: { name: 'wallText' as const, value: { ...text, color: newColor } } }];
-				});
-	return [{ type: 'updateFilm', film: { theme: themeId } }, ...titles];
+	const isRecolored = oldColor !== newColor && project.film.titles.some((title) => title.color?.toLowerCase() === oldColor);
+	const titles = isRecolored ? { titles: project.film.titles.map((title) => (title.color?.toLowerCase() === oldColor ? { ...title, color: newColor } : title)) } : {};
+	return [{ type: 'updateFilm', film: { theme: themeId, ...titles } }];
 }
 
 /**
@@ -247,14 +241,13 @@ function withoutColor(key: TFilm['lights']['key']): TKeyLightPose {
 export function currentLookThemeCommands(project: TProject, name?: string): { commands: TProjectCommand[]; themeId: string } {
 	const { commands, themeId } = duplicateThemeCommands(project, project.film.theme);
 	const parts = currentThemeParts(project);
-	const clear = project.entities.flatMap((entity): TProjectCommand[] => {
-		const element = entitySkinElement(entity);
-		const skin = entity.components.skin;
-		const part = element != null ? parts[element] : undefined;
+	const clear = skinnedOf(project).flatMap((entity): TProjectCommand[] => {
+		const skin = entity.skin;
+		const part = parts[entitySkinElement(entity)];
 		if (skin == null || part == null) return [];
 		const rest = withoutPart(skin, part);
 		if (rest === skin) return [];
-		return [rest != null ? { type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: rest } } : { type: 'removeComponent', entityId: entity.id, name: 'skin' }];
+		return [skinCommand(entity, rest)];
 	});
 	const withCopy = commands.flatMap((command) => {
 		if (command.type !== 'updateFilm' || command.film.themes == null) return [command];
@@ -265,10 +258,9 @@ export function currentLookThemeCommands(project: TProject, name?: string): { co
 
 function currentThemeParts(project: TProject): TThemeParts {
 	const counts = new Map<TSkinElement, Map<string, { part: TThemePart; count: number }>>();
-	for (const entity of project.entities) {
+	for (const entity of skinnedOf(project)) {
 		const element = entitySkinElement(entity);
-		if (element == null) continue;
-		const part = partOf(entity.components.skin);
+		const part = partOf(entity.skin);
 		if (part == null) continue;
 		const looks = counts.get(element) ?? new Map<string, { part: TThemePart; count: number }>();
 		const key = JSON.stringify(part);
@@ -278,7 +270,7 @@ function currentThemeParts(project: TProject): TThemeParts {
 	const parts: TThemeParts = {};
 	for (const element of SKIN_ELEMENTS) {
 		const looks = [...(counts.get(element)?.values() ?? [])];
-		const total = project.entities.filter((entity) => entitySkinElement(entity) === element).length;
+		const total = skinnedOf(project).filter((entity) => entitySkinElement(entity) === element).length;
 		const best = looks.sort((a, b) => b.count - a.count)[0];
 		// Only what most of the type wear becomes its default; a few skinned pieces stay exceptions
 		if (best != null && best.count * 2 >= total) parts[element] = best.part;
@@ -287,7 +279,7 @@ function currentThemeParts(project: TProject): TThemeParts {
 }
 
 /** The part a skin component's choices make; null for a library skin or no choices */
-function partOf(skin: TSkinComponent | undefined): TThemePart | null {
+function partOf(skin: TSkin | undefined): TThemePart | null {
 	if (skin == null) return null;
 	const { assetId, colorSource, onHit, glowColor, variant } = skin;
 	if (assetId != null && catalogSkin(assetId) == null) return null;
@@ -302,7 +294,7 @@ function partOf(skin: TSkinComponent | undefined): TThemePart | null {
 }
 
 /** The skin component without what the part now says; null when nothing is left, the same object when nothing changed */
-function withoutPart(skin: TSkinComponent, part: TThemePart): TSkinComponent | null {
+function withoutPart(skin: TSkin, part: TThemePart): TSkin | null {
 	const own = partOf(skin);
 	if (own == null || JSON.stringify(own) !== JSON.stringify(part) || skin.properties != null) return skin;
 	return null;

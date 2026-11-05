@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { type TProject, type TVec2 } from '@/modules/project';
+import { type TProject, type TVec2, tieOf, tempoOf } from '@/modules/project';
 import { NO_BLENDER_OBJECTS, preflightExport } from '@/modules/building';
 import { findLongGaps } from './assists';
 import { bowlCatch, bowlOfMarble } from './bowl';
@@ -30,17 +30,14 @@ function withFreeWindmill(project: TProject, position: TVec2, motorSpeed: number
 	return {
 		...project,
 		revision: project.revision + 1,
-		entities: [
-			...project.entities,
+		track: { ...project.track, pieces: [
+			...project.track.pieces,
 			{
 				id: 'windmill-far',
 				name: 'Windmill',
-				components: {
-					piece: { type: 'windmill', params: { motorSpeed } },
-					transform: { position, angle: 0.3 }
-				}
+				type: 'windmill', params: { motorSpeed }, angle: 0.3, place: { kind: 'free', position: position }
 			}
-		]
+		] }
 	};
 }
 
@@ -61,8 +58,8 @@ describe('fixtures', () => {
 		};
 		for (const name of ['zigzag', 'staircase', 'long-gap', 'windmill', 'two-marbles', 'tap-along', 'reference-20', 'jingle-bells']) {
 			const project = loadFixture(name);
-			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', offset: 0 };
-			const withSong = { ...project, music: { ...project.music, sources: project.music.sources.length > 0 ? project.music.sources : [song] } };
+			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', start: 0, backing: [] };
+			const withSong = { ...project, songs: project.songs.length > 0 ? project.songs : [song] };
 			expect(preflightExport(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
 		}
 	}, 20_000);
@@ -72,8 +69,8 @@ describe('fixtures', () => {
 		const result = simulator.simulate(project);
 		expectAllOnTime(result, 16);
 		expectDotsInFrame(project, result);
-		const angles = project.entities
-			.map((entity) => entity.components.hitLink?.angle)
+		const angles = project.track.pieces
+			.map((entity) => entity.angle)
 			.filter((angle): angle is number => angle != null);
 		expect(angles).toHaveLength(16);
 		// Mirrored, with Continue's small turns where the plain copy would strike twice
@@ -88,7 +85,7 @@ describe('fixtures', () => {
 		const result = simulator.simulate(project);
 		expectAllOnTime(result, 8);
 		expectDotsInFrame(project, result);
-		const gaps = findLongGaps(project, 'lane-1');
+		const gaps = findLongGaps(project, 'marble-1');
 		expect(gaps.map((gap) => [gap.fromHitId, gap.bridgedBy])).toEqual([
 			['hit-1-3', 'rail-1'],
 			['hit-1-6', 'tunnel-1']
@@ -149,7 +146,7 @@ describe('fixtures', () => {
 	it('reference-20: two zigzag sections joined by a rail, every hit on time and descending', () => {
 		const project = loadFixture('reference-20');
 		const result = simulator.simulate(project);
-		const hitCount = project.music.marbles.reduce((count, marble) => count + marble.hits.length, 0);
+		const hitCount = project.marbles.reduce((count, marble) => count + marble.hits.length, 0);
 		// 24 hits 0.4 s apart per section at the default half gravity, less any hit no angle could serve
 		expect(hitCount).toBeGreaterThanOrEqual(45);
 		expectAllOnTime(result, hitCount);
@@ -169,7 +166,7 @@ describe('fixtures', () => {
 		const marbleContacts = result.contacts.filter((contact) => contact.kind === 'marble');
 		expect(marbleContacts).toHaveLength(2);
 		expect(marbleContacts[0]?.time).toBeCloseTo(0.18, 2);
-		// No piece of one marble touches the other marble's marble
+		// No piece of one marble touches the other marble
 		for (const contact of result.contacts.filter((item) => item.kind === 'piece')) {
 			const marble = contact.marbleEntityId.replace('marble-', '');
 			expect(contact.otherEntityId.startsWith(`piece-${marble}-`) || contact.otherEntityId === `bowl-lane-${marble}`).toBe(true);
@@ -179,11 +176,11 @@ describe('fixtures', () => {
 	it('jingle-bells: melody and bass from the MIDI import, every hit on time without marble contacts', () => {
 		const project = loadFixture('jingle-bells');
 		const result = simulator.simulate(project);
-		const counts = project.music.marbles.map((marble) => marble.hits.length);
+		const counts = project.marbles.map((marble) => marble.hits.length);
 		// The refrain's 51 melody notes and 64 bass notes, none left out by the build
 		expect(counts).toEqual([51, 64]);
 		expectAllOnTime(result, 115);
-		expect(project.music.marbles.map((marble) => marble.instrument)).toEqual([9, 8]);
+		expect(project.marbles.map((marble) => marble.sound)).toEqual([9, 8]);
 		expect(project.film.theme).toBe('theme-christmas');
 		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass' });
 		expect(project.film.decor.length).toBeGreaterThan(80);
@@ -195,12 +192,12 @@ describe('fixtures', () => {
 		// Rails with the Switchback layout hold the melody across its long notes
 		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(10);
 		// While both marbles play, they never touch each other or the other marble's pieces
-		const until = Math.min(...project.music.marbles.map((marble) => marble.hits.at(-1)?.time ?? 0));
+		const until = Math.min(...project.marbles.map((marble) => marble.hits.at(-1)?.time ?? 0));
 		const played = result.contacts.filter((contact) => contact.time <= until);
 		expect(played.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
 		const marbleOf = (id: string): string | undefined => {
-			const entity = project.entities.find((item) => item.id === id);
-			return entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId ?? project.music.marbles.find((marble) => startRailId(marble.id) === id)?.id;
+			const entity = project.track.pieces.find((item) => item.id === id);
+			return tieOf(entity)?.marbleId ?? project.marbles.find((marble) => marble.id === id || startRailId(marble.id) === id)?.id;
 		};
 		for (const contact of played.filter((item) => item.kind === 'piece'))
 			expect(marbleOf(contact.otherEntityId), contact.otherEntityId).toBe(marbleOf(contact.marbleEntityId));
@@ -220,11 +217,11 @@ describe('fixtures', () => {
 		}
 		expect(spread).toBeLessThan(1);
 		// Half gravity stacks each column's pieces about 0.3 m apart, against 0.52 m at full gravity
-		const melodyMarble = project.music.marbles[0]?.id;
+		const melodyMarble = project.marbles[0]?.id;
 		const platforms = result.pieces.filter(
 			(piece) =>
 				piece.type === 'platform' &&
-				project.entities.find((entity) => entity.id === piece.entityId)?.components.hitLink?.marbleId === melodyMarble
+				tieOf(project.track.pieces.find((entity) => entity.id === piece.entityId))?.marbleId === melodyMarble
 		);
 		const heights = platforms.map((piece) => piece.position.y);
 		expect(platforms.length / (Math.max(...heights) - Math.min(...heights))).toBeGreaterThan(5);
@@ -232,8 +229,8 @@ describe('fixtures', () => {
 		expect(result.descent?.length).toBeGreaterThan(60);
 		expect(result.descent?.[10]?.y).toBeCloseTo(paceAt(pace, result.descent?.[10]?.time ?? 0), 12);
 		// The MIDI file is the project's song
-		expect(project.music.sources).toEqual([expect.objectContaining({ kind: 'midi', path: 'audio/jingle-bells.mid' })]);
-		expect(project.music.tempo?.bpm).toBe(120);
+		expect(project.songs).toEqual([expect.objectContaining({ kind: 'midi', path: 'audio/jingle-bells.mid' })]);
+		expect(tempoOf(project)?.bpm).toBe(120);
 	}, 20_000);
 
 	it('jingle-bells: a windmill no marble comes near leaves every hit and sample unchanged', () => {
@@ -277,7 +274,7 @@ describe('fixtures', () => {
 			const project = loadFixture(name);
 			const result = simulator.simulate(project);
 			expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(count);
-			for (const marble of project.music.marbles) {
+			for (const marble of project.marbles) {
 				const bowl = bowlOfMarble(project, marble.id);
 				expect(bowl, `${name} ${marble.name}`).toBeDefined();
 				expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
@@ -291,9 +288,9 @@ describe('fixtures', () => {
 		const result = simulator.simulate(project);
 		expectAllOnTime(result, 16);
 		expectDotsInFrame(project, result);
-		expect(project.music.sources).toEqual([expect.objectContaining({ kind: 'audio', path: 'audio/tap-along.wav', offset: 1 })]);
+		expect(project.songs).toEqual([expect.objectContaining({ kind: 'audio', path: 'audio/tap-along.wav', start: 1 })]);
 		// The recording keeps an even 125 BPM rhythm, which the onsets keep to the detector's 11 ms frames
-		const times = project.music.marbles[0]?.hits.map((hit) => hit.time) ?? [];
+		const times = project.marbles[0]?.hits.map((hit) => hit.time) ?? [];
 		times.slice(1).forEach((time, index) => expect(time - (times[index] ?? 0)).toBeCloseTo(0.48, 1));
 	});
 });

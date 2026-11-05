@@ -4,11 +4,18 @@ import { songFitEnd } from './world';
 
 function projectWithHits(times: number[][], bowls: number[] = []): TProject {
 	return {
-		music: { sources: [], marbles: times.map((hits, index) => ({ id: `lane-${index}`, hits: hits.map((time, hit) => ({ id: `hit-${hit}`, time })) })), backing: [] },
-		entities: bowls.map((index) => ({
-			id: `bowl-${index}`,
-			components: { piece: { type: 'bowl', params: {} }, hitLink: { marbleId: `lane-${index}`, hitId: 'hit-0', angle: 0, contactAt: 0.5, pinned: false, anchored: true } }
-		}))
+		songs: [],
+		marbles: times.map((hits, index) => ({ id: `marble-${index}`, hits: hits.map((time, hit) => ({ id: `hit-${hit}`, time })) })),
+		track: {
+			pieces: bowls.map((index) => ({
+				id: `bowl-${index}`,
+				type: 'bowl',
+				params: {},
+				angle: 0,
+				place: { kind: 'follows', marbleId: `marble-${index}`, hitId: 'hit-0' }
+			})),
+			groups: []
+		}
 	} as unknown as TProject;
 }
 

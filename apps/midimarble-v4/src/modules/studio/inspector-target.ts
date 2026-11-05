@@ -14,7 +14,7 @@ import type { TWorkspace } from './StudioCx';
 export function inspectorTarget(project: TProject, selection: readonly string[], workspace: TWorkspace = 'film'): TInspectorTarget {
 	// Patterns are Track's: in Film a Group's selection is its pieces. In Track a live Pattern's piece shows its Group
 	if (workspace === 'track') {
-		const group = project.groups?.filter(isPatternGroup).find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
+		const group = project.track.groups.filter(isPatternGroup).find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
 		if (group != null) return { kind: 'group', id: group.id };
 		const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
 		if (range != null) return { kind: 'patternRange', ...range };
@@ -30,30 +30,27 @@ const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['light', 'decor'
  * those go and the Scene shows (ux-benchmark item 3); a marble, the Song and Film's own layers stay.
  */
 export function selectionEnteringFilm(project: TProject, selection: readonly string[]): string[] {
-	const pieces = new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id));
+	const pieces = new Set(project.track.pieces.map((entity) => entity.id));
 	return selection.filter((key) => !pieces.has(key) && parseHitKey(key) == null && parseGroupKey(key) == null && parseRangeKey(key) == null);
 }
 
 function selectedTarget(project: TProject, selection: readonly string[]): TInspectorTarget {
 	const selected = new Set(selection);
-	const entities = project.entities.filter((entity) => selected.has(entity.id));
 
-	const pieceIds = entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
+	const pieceIds = project.track.pieces.filter((entity) => selected.has(entity.id)).map((entity) => entity.id);
 	if (pieceIds.length > 0) return { kind: 'pieces', ids: pieceIds };
 
 	const hitKeys = selection.filter((key) => parseHitKey(key) != null);
 	if (hitKeys.length > 0) return { kind: 'hits', keys: hitKeys };
 
-	const titleIds = entities.filter((entity) => entity.components.wallText != null).map((entity) => entity.id);
+	const titleIds = project.film.titles.filter((title) => selected.has(title.id)).map((title) => title.id);
 	if (titleIds.length === 1) return { kind: 'title', id: titleIds[0] as string };
 	if (titleIds.length > 1) return { kind: 'titles', ids: titleIds };
 
 	const shot = project.film.camera.shots.find((item) => selection.some((key) => parseShotKey(key) === item.id));
 	if (shot != null) return { kind: 'shot', id: shot.id };
 
-	const marble = project.entities.find((entity) => entity.id === selection[0] && entity.components.marble != null);
-	const marbleId = marble?.components.marble?.marbleId;
-	if (marble != null && marbleId != null && project.music.marbles.some((marble) => marble.id === marbleId)) return { kind: 'marble', entityId: marble.id, marbleId };
+	if (project.marbles.some((marble) => marble.id === selection[0])) return { kind: 'marble', marbleId: selection[0] as string };
 
 	const lightIds = selection.flatMap((key) => parseLightKey(key) ?? []);
 	if (lightIds.length > 0) {
@@ -83,7 +80,7 @@ export type TInspectorTarget =
 	| { kind: 'title'; id: string }
 	| { kind: 'titles'; ids: string[] }
 	| { kind: 'shot'; id: string }
-	| { kind: 'marble'; entityId: string; marbleId: string }
+	| { kind: 'marble'; marbleId: string }
 	| { kind: 'light'; id: string }
 	| { kind: 'decor'; id: string }
 	| { kind: 'decorItems'; ids: string[] }

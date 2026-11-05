@@ -107,11 +107,9 @@ export function scatterDecorCommands(project: TProject, result: TSimulationResul
 
 /** Everything a scatter keeps its distance from besides runs and pieces: the user's decor, titles on the wall and Blender's objects */
 function keptBoxes(project: TProject, blenderObjects: readonly TBlenderObject[]): TWallBox[] {
-	const titles = project.entities.flatMap((entity): TWallBox[] => {
-		const text = entity.components.wallText;
-		const transform = entity.components.transform;
-		if (text == null || transform == null || (text.style != null && text.style !== 'wall')) return [];
-		return [{ x: transform.position.x, y: transform.position.y, halfX: (Math.max(1, text.text.length) * text.size * 0.62) / 2, halfY: text.size * 0.6, angle: transform.angle }];
+	const titles = project.film.titles.flatMap((text): TWallBox[] => {
+		if (text.style != null && text.style !== 'wall') return [];
+		return [{ x: text.position.x, y: text.position.y, halfX: (Math.max(1, text.text.length) * text.size * 0.62) / 2, halfY: text.size * 0.6, angle: text.angle }];
 	});
 	return [...decorList(project.film).filter((item) => item.scattered !== true && !isFrameEffect(item)).map(decorBox), ...titles, ...blenderObjects.map(blenderObjectBox)];
 }

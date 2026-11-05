@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { type TEntity, type TProject } from '@/modules/project';
+import { backingOf, type TMarble, type TPiece, type TProject, tieOf } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
 import { NO_BLENDER_OBJECTS, pieceProblems, preflightExport, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
@@ -8,66 +8,61 @@ import { loadFixture } from '@/modules/project/test-helpers';
 function withSongFixture(name: string): TProject {
 	const project = loadFixture(name);
 	// A Song, so the checks here are about the run and not about the missing Song
-	return { ...project, music: { ...project.music, sources: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }] } };
+	return { ...project, songs: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', start: 0, backing: backingOf(project) }] };
 }
 
 // Two marbles side by side with one platform each, a free rail and a free platform
 function createTwoMarbleProject(): TProject {
-	const marble = (id: string, marbleId: string, x: number): TEntity => ({
+	const marble = (id: string, name: string, labelColor: string, x: number, hits: TMarble['hits']): TMarble => ({
 		id,
-		name: id === 'marble-a' ? 'Melody' : 'Bass',
-		components: { marble: { marbleId, radius: 0.008 }, release: { position: { x, y: 0.6 }, time: 0 } }
+		name,
+		labelColor,
+		sound: 9,
+		radius: 0.008,
+		start: { position: { x, y: 0.6 }, time: 0 },
+		hits
 	});
-	const platform = (id: string, marbleId: string | null, hitId: string): TEntity => ({
+	const platform = (id: string, marbleId: string | null, hitId: string): TPiece => ({
 		id,
 		name: id,
-		components: {
-			piece: { type: 'platform', params: {} },
-			transform: { position: { x: 0, y: 0 }, angle: 0 },
-			...(marbleId != null ? { hitLink: { marbleId, hitId, angle: 0, contactAt: 0.5 } } : {})
-		}
+		type: 'platform',
+		params: {},
+		angle: 0,
+		place: marbleId != null ? { kind: 'plays', marbleId, hitId, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } }
 	});
 	return {
-		$schema: 'marble-project@5',
+		$schema: 'marble-project@6',
 		gravity: 1,
 		id: 'preflight',
 		title: 'Preflight',
 		revision: 3,
 		format: { width: 9, height: 16 },
 		length: 4,
-		music: {
-			sources: [{ id: 'song', kind: 'midi', path: 'audio/song.mid', name: 'Song', offset: 0 }],
-			marbles: [
-				{
-					id: 'lane-a',
-					name: 'Melody',
-					color: '#3478f6',
-					instrument: 9,
-					hits: [
-						{ id: 'a1', time: 1 },
-						{ id: 'a2', time: 2 },
-						{ id: 'a3', time: 3 }
-					]
-				},
-				{ id: 'lane-b', name: 'Bass', color: '#ff9f0a', instrument: 9, hits: [{ id: 'b1', time: 1.5 }] }
-			],
-			backing: []
-		},
-		entities: [
-			marble('marble-a', 'lane-a', -0.1),
-			marble('marble-b', 'lane-b', 0.1),
-			platform('pa1', 'lane-a', 'a1'),
-			platform('pa2', 'lane-a', 'a2'),
-			platform('pb1', 'lane-b', 'b1'),
-			platform('loose', null, ''),
-			{ id: 'rail', name: 'rail', components: { piece: { type: 'rail', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 } } }
+		songs: [{ id: 'song', kind: 'midi', path: 'audio/song.mid', name: 'Song', start: 0, backing: [] }],
+		marbles: [
+			marble('marble-a', 'Melody', '#3478f6', -0.1, [
+				{ id: 'a1', time: 1 },
+				{ id: 'a2', time: 2 },
+				{ id: 'a3', time: 3 }
+			]),
+			marble('marble-b', 'Bass', '#ff9f0a', 0.1, [{ id: 'b1', time: 1.5 }])
 		],
-		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], quality: 'final', camera: { auto: true, distance: 0.85, tilt: 1, sway: 1, shots: [] } }
+		track: {
+			pieces: [
+				platform('pa1', 'marble-a', 'a1'),
+				platform('pa2', 'marble-a', 'a2'),
+				platform('pb1', 'marble-b', 'b1'),
+				platform('loose', null, ''),
+				{ id: 'rail', name: 'rail', type: 'rail', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } }
+			],
+			groups: []
+		},
+		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles: [], quality: 'final', camera: { auto: true, distance: 0.85, tilt: 1, sway: 1, shots: [] } }
 	};
 }
 
 function hit(marbleId: string, hitId: string, targetTime: number, patch: Partial<THitResult> = {}): THitResult {
-	const x = marbleId === 'lane-a' ? -0.1 : 0.1;
+	const x = marbleId === 'marble-a' ? -0.1 : 0.1;
 	return { marbleId, hitId, targetTime, pieceEntityId: null, dot: { x, y: 0.5 - targetTime * 0.3 }, velocity: null, actualTime: targetTime, error: 0, status: 'onTime', ...patch };
 }
 
@@ -84,16 +79,16 @@ function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult
 		revision: 3,
 		duration: 4,
 		marbles: [
-			{ entityId: 'marble-a', marbleId: 'lane-a', radius: 0.008, samples: [] },
-			{ entityId: 'marble-b', marbleId: 'lane-b', radius: 0.008, samples: [] }
+			{ entityId: 'marble-a', marbleId: 'marble-a', radius: 0.008, samples: [] },
+			{ entityId: 'marble-b', marbleId: 'marble-b', radius: 0.008, samples: [] }
 		],
 		pieces: [piece('pa1'), piece('pa2'), piece('pb1'), piece('loose'), piece('rail', 'rail')],
 		contacts: [],
 		hits: [
-			hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1' }),
-			hit('lane-a', 'a2', 2, { pieceEntityId: 'pa2' }),
-			hit('lane-a', 'a3', 3, { pieceEntityId: null, actualTime: null, error: null, status: 'open' }),
-			hit('lane-b', 'b1', 1.5, { pieceEntityId: 'pb1' })
+			hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1' }),
+			hit('marble-a', 'a2', 2, { pieceEntityId: 'pa2' }),
+			hit('marble-a', 'a3', 3, { pieceEntityId: null, actualTime: null, error: null, status: 'open' }),
+			hit('marble-b', 'b1', 1.5, { pieceEntityId: 'pb1' })
 		],
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 },
 		...patch
@@ -124,7 +119,7 @@ describe('preflightExport function', () => {
 
 	it('should tip about a long free fall in plain words, without counting it as a problem', () => {
 		const project = createTwoMarbleProject();
-		const marble = project.music.marbles[0];
+		const marble = project.marbles[0];
 		const result = simulator.simulate(project);
 		const dots = [0.4, -1.7];
 		const hits = (marble?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: marble?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
@@ -149,9 +144,9 @@ describe('preflightExport function', () => {
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
 		const project = withSongFixture('zigzag');
-		const turned = project.entities.find((entity) => entity.components.hitLink?.hitId === project.music.marbles[0]?.hits[4]?.id);
-		if (turned?.components.hitLink == null) throw new Error('No linked platform');
-		turned.components.hitLink.angle += 0.9;
+		const turned = project.track.pieces.find((entity) => tieOf(entity)?.hitId === project.marbles[0]?.hits[4]?.id);
+		if (turned == null || tieOf(turned) == null) throw new Error('No linked platform');
+		turned.angle += 0.9;
 
 		const preflight = preflightExport(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
 
@@ -181,10 +176,10 @@ describe('preflightExport function', () => {
 		const project = createTwoMarbleProject();
 		const result = createResult({
 			hits: [
-				hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'missed', actualTime: 1.05, error: 0.05 }),
-				hit('lane-a', 'a2', 2, { pieceEntityId: 'pa2', status: 'missed', reason: 'resting' }),
-				hit('lane-a', 'a3', 3, { pieceEntityId: 'loose', status: 'drifting', error: -0.012 }),
-				hit('lane-b', 'b1', 1.5, { pieceEntityId: 'pb1', status: 'blocked', actualTime: null, error: null })
+				hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'missed', actualTime: 1.05, error: 0.05 }),
+				hit('marble-a', 'a2', 2, { pieceEntityId: 'pa2', status: 'missed', reason: 'resting' }),
+				hit('marble-a', 'a3', 3, { pieceEntityId: 'loose', status: 'drifting', error: -0.012 }),
+				hit('marble-b', 'b1', 1.5, { pieceEntityId: 'pb1', status: 'blocked', actualTime: null, error: null })
 			]
 		});
 
@@ -206,13 +201,13 @@ describe('preflightExport function', () => {
 		const preflight = preflightExport(project, createResult(), NO_BLENDER_OBJECTS);
 
 		expect(preflight.warnings).toBe(0);
-		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'info', title: 'Open note, Melody at 0:03.00', target: { ids: ['hit:lane-a:a3'], time: 3 } })]);
+		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'info', title: 'Open note, Melody at 0:03.00', target: { ids: ['hit:marble-a:a3'], time: 3 } })]);
 		expect(preflight.summary).toBe('3 of 4 hits on time · 1 tip');
 	});
 
 	it('should not report framing from dots alone: the run without marble motion has no camera', () => {
 		const project = createTwoMarbleProject();
-		const result = createResult({ hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', dot: { x: 1.2, y: 0 } })] });
+		const result = createResult({ hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1', dot: { x: 1.2, y: 0 } })] });
 
 		expect(preflightExport(project, result, NO_BLENDER_OBJECTS).issues).toEqual([]);
 	});
@@ -274,8 +269,8 @@ describe('preflightExport function', () => {
 		const samples = Array.from({ length: 300 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.015 }, angle: 0, velocity: { x: 0, y: 0 } }));
 		const result = createResult({
 			pieces: [{ ...piece('pa1'), position: { x: 0, y: 0 }, params: { length: 0.09, thickness: 0.012 } }],
-			marbles: [{ entityId: 'marble-a', marbleId: 'lane-a', radius: 0.008, samples }],
-			hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1' })]
+			marbles: [{ entityId: 'marble-a', marbleId: 'marble-a', radius: 0.008, samples }],
+			hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1' })]
 		});
 
 		const preflight = preflightExport(project, result, NO_BLENDER_OBJECTS);
@@ -288,12 +283,12 @@ describe('preflightExport function', () => {
 describe('a project with hits and no Song', () => {
 	function noSong(): TProject {
 		const project = createTwoMarbleProject();
-		return { ...project, music: { ...project.music, sources: [] } };
+		return { ...project, songs: [] };
 	}
 
 	it('should warn in the sheet and ask for a Song beside the summary, without counting a problem', () => {
 		const project = noSong();
-		const hits = project.music.marbles.flatMap((marble) => marble.hits.map((item) => hit(marble.id, item.id, item.time)));
+		const hits = project.marbles.flatMap((marble) => marble.hits.map((item) => hit(marble.id, item.id, item.time)));
 
 		const preflight = preflightExport(project, createResult({ hits, revision: project.revision }), NO_BLENDER_OBJECTS);
 		const summary = problemSummary(preflight);
@@ -307,7 +302,7 @@ describe('a project with hits and no Song', () => {
 
 	it('should not ask for a Song with no hits to play', () => {
 		const empty = noSong();
-		const project = { ...empty, music: { ...empty.music, marbles: empty.music.marbles.map((marble) => ({ ...marble, hits: [] })) } };
+		const project = { ...empty, marbles: empty.marbles.map((marble) => ({ ...marble, hits: [] })) };
 
 		const preflight = preflightExport(project, createResult({ hits: [], revision: project.revision }), NO_BLENDER_OBJECTS);
 
@@ -318,16 +313,12 @@ describe('a project with hits and no Song', () => {
 describe('problemSummary function', () => {
 	// Melody's windmill follows the marble at 0:02.50 and sits in its earlier run
 	function withWindmill(project: TProject): TProject {
-		const windmill: TEntity = {
+		const windmill: TPiece = {
 			id: 'windmill',
 			name: 'Windmill 1',
-			components: {
-				piece: { type: 'windmill', params: { entryDelay: 0.5 } },
-				transform: { position: { x: 0, y: 0 }, angle: 0 },
-				hitLink: { marbleId: 'lane-a', hitId: 'a2', angle: 0, contactAt: 0.5, anchored: true, offset: { x: 0, y: 0 } }
-			}
+			type: 'windmill', params: { entryDelay: 0.5 }, angle: 0, place: { kind: 'follows', marbleId: 'marble-a', hitId: 'a2', offset: { x: 0, y: 0 } }
 		};
-		return { ...project, entities: [...project.entities, windmill] };
+		return { ...project, track: { ...project.track, pieces: [...project.track.pieces, windmill] } };
 	}
 
 	it('should read Checking until the run for the current revision arrives', () => {
@@ -368,7 +359,7 @@ describe('problemSummary function', () => {
 
 		// Assert: only the piece, named by the marble that hits it
 		expect([...struck.keys()]).toEqual(['pb1']);
-		expect(struck.get('pb1')).toEqual([expect.objectContaining({ title: 'Melody hits pb1 of Bass', by: 'Melody', marbleId: 'lane-b', detail: 'Hits it 2 times from 0:02.20, without a note.' })]);
+		expect(struck.get('pb1')).toEqual([expect.objectContaining({ title: 'Melody hits pb1 of Bass', by: 'Melody', marbleId: 'marble-b', detail: 'Hits it 2 times from 0:02.20, without a note.' })]);
 	});
 
 	it('should order problems by their time, a framing span or their target, with timeless ones last', () => {
@@ -392,7 +383,7 @@ describe('problemSummary function', () => {
 		const base = createResult();
 		const result = createResult({
 			pieces: [...base.pieces, { ...piece('windmill', 'windmill'), status: 'blocked', entryTime: 0.5 }],
-			hits: [hit('lane-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'drifting', error: 0.012 }), ...base.hits.slice(1)]
+			hits: [hit('marble-a', 'a1', 1, { pieceEntityId: 'pa1', status: 'drifting', error: 0.012 }), ...base.hits.slice(1)]
 		});
 
 		const summary = problemSummary(preflightExport(project, result, NO_BLENDER_OBJECTS));
@@ -407,7 +398,7 @@ describe('problemSummary function', () => {
 		const base = createResult();
 		const open = { pieceEntityId: null, dot: null, actualTime: null, error: null, status: 'open' as const };
 		const result = createResult({
-			hits: [base.hits[0] ?? hit('lane-a', 'a1', 1), hit('lane-a', 'a2', 2, open), hit('lane-a', 'a3', 3, open), base.hits[3] ?? hit('lane-b', 'b1', 1.5)]
+			hits: [base.hits[0] ?? hit('marble-a', 'a1', 1), hit('marble-a', 'a2', 2, open), hit('marble-a', 'a3', 3, open), base.hits[3] ?? hit('marble-b', 'b1', 1.5)]
 		});
 
 		// Act

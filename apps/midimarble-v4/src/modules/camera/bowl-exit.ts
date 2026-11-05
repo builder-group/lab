@@ -29,7 +29,7 @@ export function bowlExit(project: TProject, run: TSimulationResult): number | nu
 	for (const marbleId of marbles) {
 		const bowl = bowlOfMarble(project, marbleId);
 		const marble = run.marbles.find((item) => item.marbleId === marbleId);
-		if (bowl?.components.piece?.type !== BOWL_TYPE || marble == null) return null;
+		if (bowl?.type !== BOWL_TYPE || marble == null) return null;
 		const caught = bowlCatch(run, bowl.id);
 		if (caught.status !== 'caught' || caught.enterTime == null) return null;
 		exit = Math.max(exit, leavesFrame(track, marble, caught.enterTime) - last);
@@ -60,6 +60,6 @@ function leavesFrame(track: NonNullable<ReturnType<typeof followCameraTrack>>, m
 }
 
 function lastNote(project: TProject): number | null {
-	const times = project.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time));
+	const times = project.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time));
 	return times.length ? Math.max(...times) : null;
 }

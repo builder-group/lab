@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { gravityOf } from './geometry';
 import { layoutFree, layoutOf, type TLayoutInput } from './piece-layout';
 import { ANCHOR_DELAY, isMusicalPiece, resolvePieceParams, resolvePiecePath, soundsHit } from './pieces';
@@ -13,7 +13,7 @@ import type { TResolvedPiece, TSimulationResult } from './types';
 
 export interface TAttachResult {
 	/** The entity after the change */
-	entity: TEntity;
+	entity: TPiece;
 	/** One edit that applies the change */
 	commands: TProjectCommand[];
 }
@@ -45,7 +45,7 @@ export function anchorPiece(
 	const [isFound, findErr, found] = findPiece(project, result, entityId);
 	if (!isFound) return Err(findErr);
 	const { entity, resolved } = found;
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return Err(new Error(`Marble ${marbleId} not found`));
 	const hit = anchorHit(marble.hits, time);
 	if (hit == null)
@@ -56,19 +56,20 @@ export function anchorPiece(
 		return Err(new Error(`The marble of ${marble.name} does not reach that moment`));
 
 	const pose = freePose(entity, resolved, track.radius);
-	const params = { ...entity.components.piece?.params, entryDelay: time - hit.time };
-	const next = withPiece(entity, {
-		params,
-		hitLink: {
+	const contactAt = tieOf(entity)?.contactAt ?? 0.5;
+	const next: TPiece = {
+		...entity,
+		params: { ...entity.params, entryDelay: time - hit.time },
+		angle: pose.angle,
+		place: {
+			kind: 'follows',
 			marbleId,
 			hitId: hit.id,
-			angle: pose.angle,
-			contactAt: entity.components.hitLink?.contactAt ?? 0.5,
-			anchored: true,
+			...(contactAt !== 0.5 ? { contactAt } : {}),
 			offset: { x: pose.position.x - sample.position.x, y: pose.position.y - sample.position.y }
 		}
-	});
-	return Ok({ entity: next, commands: [{ type: 'upsertEntity', entity: next }] });
+	};
+	return Ok({ entity: next, commands: [{ type: 'addPiece', piece: next }] });
 }
 
 /** Turns an anchored piece back into a free piece at its current pose */
@@ -95,17 +96,17 @@ export function linkPieceToHit(
 	const [isFound, findErr, found] = findPiece(project, result, entityId);
 	if (!isFound) return Err(findErr);
 	const { entity, resolved } = found;
-	const type = entity.components.piece?.type ?? '';
+	const type = entity.type ?? '';
 	if (!isMusicalPiece(type)) return Err(new Error(`A ${type} is scenery; anchor it instead`));
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = marble?.hits.find((item) => item.id === hitId);
 	if (marble == null || hit == null) return Err(new Error(`Hit ${hitId} not found`));
-	const owner = project.entities.find(
+	const owner = project.track.pieces.find(
 		(item) =>
 			item.id !== entityId &&
-			item.components.hitLink?.marbleId === marbleId &&
-			item.components.hitLink.hitId === hitId &&
-			soundsHit(item.components.piece?.type ?? '', item.components.hitLink)
+			tieOf(item)?.marbleId === marbleId &&
+			tieOf(item)?.hitId === hitId &&
+			soundsHit(item.type, tieOf(item))
 	);
 	if (owner != null) return Err(new Error(`The hit already has ${owner.name ?? 'a piece'}`));
 	const track = result.marbles.find((marble) => marble.marbleId === marbleId);
@@ -115,16 +116,13 @@ export function linkPieceToHit(
 	if (dot == null) return Err(new Error(`The marble of ${marble.name} does not reach that hit`));
 
 	const pose = freePose(entity, resolved, track?.radius);
-	const params = resolvePieceParams(type, entity.components.piece?.params ?? {});
+	const params = resolvePieceParams(type, entity.params ?? {});
 	const length = params['length'] ?? 0.06;
 	const along =
 		(dot.x - pose.position.x) * Math.cos(pose.angle) + (dot.y - pose.position.y) * Math.sin(pose.angle);
 	const contactAt = Math.min(1, Math.max(0, 0.5 + along / length));
-	const next = withPiece(entity, {
-		params: { ...entity.components.piece?.params, entryDelay: 0 },
-		hitLink: { marbleId, hitId, angle: pose.angle, contactAt }
-	});
-	return Ok({ entity: next, commands: [{ type: 'upsertEntity', entity: next }] });
+	const next: TPiece = { ...entity, params: { ...entity.params, entryDelay: 0 }, angle: pose.angle, place: { kind: 'plays', marbleId, hitId, contactAt } };
+	return Ok({ entity: next, commands: [{ type: 'addPiece', piece: next }] });
 }
 
 /** Turns a linked piece back into a free piece at its current pose; its hit opens again */
@@ -142,22 +140,22 @@ export function unlinkPiece(
  * transform is taken from a layout at the world origin.
  */
 export function freePose(
-	entity: TEntity,
+	entity: TPiece,
 	resolved: TResolvedPiece,
 	marbleRadius = DEFAULT_MARBLE_RADIUS
 ): { position: TVec2; angle: number } {
 	if (resolved.status === 'free') return { position: { ...resolved.position }, angle: resolved.angle };
-	const type = entity.components.piece?.type ?? resolved.type;
+	const type = entity.type ?? resolved.type;
 	if (layoutOf(type) === 'box' || layoutOf(type) === 'rotor')
 		return { position: { ...resolved.position }, angle: resolved.angle };
 	const input: TLayoutInput = {
 		type,
 		params: resolved.params,
-		path: resolvePiecePath(type, entity.components.path?.points),
-		extraPaths: entity.components.path?.paths,
-		layout: entity.components.piece?.layout,
+		path: resolvePiecePath(type, entity.path?.points),
+		extraPaths: entity.path?.paths,
+		layout: entity.layout,
 		angle: resolved.angle,
-		contactAt: entity.components.hitLink?.contactAt ?? 0.5,
+		contactAt: tieOf(entity)?.contactAt ?? 0.5,
 		marbleRadius
 	};
 	const shift = layoutFree(input, { x: 0, y: 0 }).position;
@@ -176,51 +174,30 @@ function detach(
 	const [isFound, findErr, found] = findPiece(project, result, entityId);
 	if (!isFound) return Err(findErr);
 	const { entity, resolved } = found;
-	const { hitLink, piece } = entity.components;
+	const hitLink = tieOf(entity);
 	if (hitLink == null) return Err(new Error(`${entity.name ?? entityId} plays no note and follows no marble`));
-	const isLinked = soundsHit(piece?.type ?? '', hitLink);
+	const isLinked = soundsHit(entity.type, hitLink);
 	if (from === 'linked' && !isLinked) return Err(new Error(`${entity.name ?? entityId} is anchored, not linked`));
 	if (from === 'anchored' && isLinked) return Err(new Error(`${entity.name ?? entityId} is linked, not anchored`));
 	if (resolved.status === 'unreached')
 		return Err(new Error(`${entity.name ?? entityId} has no pose in this run`));
 	const radius = result.marbles.find((marble) => marble.marbleId === hitLink.marbleId)?.radius;
 	const pose = freePose(entity, resolved, radius);
-	const { hitLink: _, ...components } = entity.components;
-	const params = { ...piece?.params };
-	delete params['entryDelay'];
-	const next: TEntity = {
-		...entity,
-		components: {
-			...components,
-			...(piece != null ? { piece: { ...piece, params } } : {}),
-			transform: pose
-		}
-	};
-	return Ok({ entity: next, commands: [{ type: 'upsertEntity', entity: next }] });
+	const { entryDelay: _, ...params } = entity.params;
+	const next: TPiece = { ...entity, params, angle: pose.angle, place: { kind: 'free', position: pose.position } };
+	return Ok({ entity: next, commands: [{ type: 'addPiece', piece: next }] });
 }
 
 function findPiece(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string
-): TResult<{ entity: TEntity; resolved: TResolvedPiece }, Error> {
-	const entity = project.entities.find((item) => item.id === entityId);
-	if (entity?.components.piece == null) return Err(new Error(`Piece ${entityId} not found`));
+): TResult<{ entity: TPiece; resolved: TResolvedPiece }, Error> {
+	const entity = project.track.pieces.find((item) => item.id === entityId);
+	if (entity == null) return Err(new Error(`Piece ${entityId} not found`));
 	if (result.revision !== project.revision)
 		return Err(new Error('The run is out of date; wait for the simulation to catch up'));
 	const resolved = result.pieces.find((item) => item.entityId === entityId);
 	if (resolved == null) return Err(new Error(`${entity.name ?? entityId} has no pose in this run`));
 	return Ok({ entity, resolved });
-}
-
-function withPiece(
-	entity: TEntity,
-	patch: { params: Record<string, number>; hitLink: NonNullable<TEntity['components']['hitLink']> }
-): TEntity {
-	const { transform: _, ...components } = entity.components;
-	const piece = entity.components.piece ?? { type: 'platform', params: {} };
-	return {
-		...entity,
-		components: { ...components, piece: { ...piece, params: patch.params }, hitLink: patch.hitLink }
-	};
 }

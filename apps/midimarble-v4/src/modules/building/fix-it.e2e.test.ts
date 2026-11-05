@@ -19,7 +19,7 @@ describe('fixTrack function on Jingle Bells', () => {
 		return {
 			simulate: async (project) => simulate(project),
 			autoPlace: async (project, target, entity) => {
-				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.components.piece?.type });
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: entity.type });
 				if (!isOk) throw error;
 				return placement.entity;
 			},
@@ -40,7 +40,7 @@ describe('fixTrack function on Jingle Bells', () => {
 	function handFirstNotesToBacking(count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult } {
 		const project = loadFixture('jingle-bells');
 		const before = simulate(project);
-		const notes = project.music.marbles[0]?.hits.slice(0, count).map((item) => item.id) ?? [];
+		const notes = project.marbles[0]?.hits.slice(0, count).map((item) => item.id) ?? [];
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, notes, BACKING_ID));
 		if (!isEditOk) throw editErr;
 		return { before, edited, broken: simulate(edited) };
@@ -81,7 +81,7 @@ describe('fixTrack function on Jingle Bells', () => {
 
 		// Assert
 		expect(brokenHits(outcome.result.hits).length).toBeLessThan(brokenHits(broken.hits).length);
-		expect(outcome.project.entities.some((entity) => entity.id === 'bowl-lane-1')).toBe(true);
+		expect(outcome.project.track.pieces.some((entity) => entity.id === 'bowl-lane-1')).toBe(true);
 		expect(messageOf(edited, broken, outcome)).toMatch(/Turn them by hand or undo the edit/);
 	}, 120_000);
 });

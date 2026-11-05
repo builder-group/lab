@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { TProject } from '@/modules/project';
+import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, type TSettleBase } from './local-edit';
 import { createSimulator, type TSimulator } from './simulate';
@@ -14,10 +14,10 @@ function turned(project: TProject, id: string, by: number): TProject {
 	return {
 		...project,
 		revision: project.revision + 1,
-		entities: project.entities.map((entity) => {
-			const link = entity.components.hitLink;
-			return entity.id === id && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, angle: link.angle + by } } } : entity;
-		})
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+			const link = tieOf(entity);
+			return entity.id === id && link != null ? { ...entity, angle: entity.angle + by } : entity;
+		}) }
 	};
 }
 
@@ -41,13 +41,13 @@ describe('small edits on Jingle Bells', () => {
 				const settled = answerSettle(simulator, { before: project, after }, memo);
 				memo = settled.memo;
 				const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
-				const run = (await createSimulator()).simulate({ ...after, entities: after.entities.map((entity) => changed.get(entity.id) ?? entity) });
+				const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } });
 
 				// Assert: what a later session opens is what the settle promised
 				const broken = run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked');
 				// One break holds what comes later; only marbles that strike each other break one each
 				const hasCollided = run.contacts.some((contact) => contact.kind === 'marble');
-				expect(broken.length, `${id} by ${by}°`).toBeLessThanOrEqual(hasCollided ? project.music.marbles.length : 1);
+				expect(broken.length, `${id} by ${by}°`).toBeLessThanOrEqual(hasCollided ? project.marbles.length : 1);
 				const near = new Set([id, ...settled.answer.absorbedBy]);
 				const shifts = run.hits.flatMap((hit) => {
 					const was = before.hits.find((item) => item.hitId === hit.hitId);
@@ -64,15 +64,15 @@ describe('small edits on Jingle Bells', () => {
 			const after = {
 				...project,
 				revision: project.revision + 1,
-				entities: project.entities.map((entity) => {
-					const link = entity.components.hitLink;
-					return entity.id === id && link != null ? { ...entity, components: { ...entity.components, hitLink: { ...link, contactAt: 0.4 } } } : entity;
-				})
+				track: { ...project.track, pieces: project.track.pieces.map((entity) => {
+					const link = tieOf(entity);
+					return entity.id === id && link != null ? { ...entity, place: { ...link, contactAt: 0.4 } } : entity;
+				}) }
 			};
 			const settled = answerSettle(simulator, { before: project, after }, memo);
 			memo = settled.memo;
 			const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
-			const run = (await createSimulator()).simulate({ ...after, entities: after.entities.map((entity) => changed.get(entity.id) ?? entity) });
+			const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } });
 
 			// Assert
 			expect(run.hits.filter((hit) => hit.status === 'onTime'), id).toHaveLength(run.hits.length);
@@ -82,11 +82,11 @@ describe('small edits on Jingle Bells', () => {
 	it('should leave at most a few problems and no heap when a platform goes', async () => {
 		for (const id of ['piece-1-2', 'piece-1-8', 'piece-2-16', 'piece-2-31']) {
 			// Act
-			const after = { ...project, revision: project.revision + 1, entities: project.entities.filter((entity) => entity.id !== id) };
+			const after = { ...project, revision: project.revision + 1, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== id) } };
 			const settled = answerSettle(simulator, { before: project, after }, memo);
 			memo = settled.memo;
 			const changed = new Map(settled.answer.entities.map((entity) => [entity.id, entity]));
-			const run = (await createSimulator()).simulate({ ...after, entities: after.entities.map((entity) => changed.get(entity.id) ?? entity) });
+			const run = (await createSimulator()).simulate({ ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } });
 
 			// Assert: pieces after a break stay where they were
 			expect(run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked').length, id).toBeLessThanOrEqual(3);

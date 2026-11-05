@@ -1,6 +1,6 @@
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { BACKING_ID, type THit, type TProject, formatTime, noteName, toHitKey } from '@/modules/project';
+import { BACKING_ID, type THit, type TProject, formatTime, noteName, toHitKey, tempoOf, backingOf } from '@/modules/project';
 import { focusedMarble, type StudioCx } from '../StudioCx';
 import { auditionNote, isNoteSelection, playedByMenu } from '@/modules/track';
 import { BACKING_COLOR } from '@/modules/music';
@@ -69,7 +69,7 @@ export const SongRoll: React.FC<TSongRollProps> = (props) => {
 		const rect = event.currentTarget.getBoundingClientRect();
 		const pitch = clampPitch(range.high - Math.floor((event.clientY - rect.top) / NOTE_ROW_HEIGHT), range);
 		const at = (event.clientX - rect.left) / zoom;
-		const time = event.altKey ? at : snapNoteTime(at, project.music.tempo?.bpm, zoom);
+		const time = event.altKey ? at : snapNoteTime(at, tempoOf(project)?.bpm, zoom);
 		const ownerId = focusedMarble(project, selection)?.id ?? BACKING_ID;
 		const { hit, commands } = addNoteCommands(ownerId, { time, pitch, duration: $noteLength.get() });
 		if (!cx.execute(commands)) return;
@@ -224,8 +224,8 @@ function boxRect(box: TBox): { left: number; top: number; width: number; height:
 /** Every pitched note of the song with the track that holds it */
 export function songNotes(project: TProject): TSongNote[] {
 	const owners = [
-		...project.music.marbles.map((marble) => ({ id: marble.id, name: marble.name, color: marble.color, hits: marble.hits })),
-		{ id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, hits: project.music.backing }
+		...project.marbles.map((marble) => ({ id: marble.id, name: marble.name, color: marble.labelColor, hits: marble.hits })),
+		{ id: BACKING_ID, name: 'Backing', color: BACKING_COLOR, hits: backingOf(project) }
 	];
 	return owners.flatMap((owner) =>
 		owner.hits.filter(isPitched).map((hit) => ({ key: toHitKey(owner.id, hit.id), ownerId: owner.id, ownerName: owner.name, color: owner.color, hit }))

@@ -131,25 +131,22 @@ export class DraftPreviewCx {
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
 		const hidden = this.studio.$hidden.get();
-		return project.entities.flatMap((entity) => {
-			const text = entity.components.wallText;
-			const transform = entity.components.transform;
-			if (text == null || hidden.includes(entity.id)) return [];
+		return project.film.titles.flatMap((text) => {
+			if (hidden.includes(text.id)) return [];
 			const color = text.color ?? defaultTitleColor(project.film);
 			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
 				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame, plain unless they ask for a plate
 				const screen = previewScreenTitleLayout(text.style, text.size, this.size, project.format, project.film.quality);
-				return [{ entityId: entity.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen, hasPlate: text.plate === true }];
+				return [{ entityId: text.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen, hasPlate: text.plate === true }];
 			}
-			if (transform == null) return [];
-			const center = this.toScreen(transform.position, 0);
+			const center = this.toScreen(text.position, 0);
 			const step = 0.01;
-			const along = this.toScreen({ x: transform.position.x + Math.cos(transform.angle) * step, y: transform.position.y + Math.sin(transform.angle) * step }, 0);
+			const along = this.toScreen({ x: text.position.x + Math.cos(text.angle) * step, y: text.position.y + Math.sin(text.angle) * step }, 0);
 			const pixelsPerMeter = Math.hypot(along.x - center.x, along.y - center.y) / step;
 			if (!Number.isFinite(pixelsPerMeter) || !Number.isFinite(center.x)) return [];
 			return [
 				{
-					entityId: entity.id,
+					entityId: text.id,
 					text: text.text,
 					color,
 					center,
@@ -287,20 +284,18 @@ export class DraftPreviewCx {
 		const result = this.studio.simulation.$result.get();
 		const hidden = this.studio.$hidden.get();
 		const playhead = this.studio.$playhead.get();
-		return project.entities.flatMap((entity): TPlacedMarble[] => {
-			const { marble: marbleEntity, release } = entity.components;
-			if (marbleEntity == null || release == null || hidden.includes(entity.id)) return [];
-			const motion = result?.marbles.find((item) => item.entityId === entity.id);
-			const position = marblePositionAt(motion, playhead, release.position);
-			const look = resolveElementLook(project.film, 'marble', entity.components.skin);
-			const marbleColor = project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color;
-			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? (marbleColor ?? '#3478f6') : marbleFilmColor(project, marbleEntity.marbleId), appliedOverrides(project.film), look);
+		return project.marbles.flatMap((marble): TPlacedMarble[] => {
+			if (hidden.includes(marble.id)) return [];
+			const motion = result?.marbles.find((item) => item.entityId === marble.id);
+			const position = marblePositionAt(motion, playhead, marble.start.position);
+			const look = resolveElementLook(project.film, 'marble', marble.skin);
+			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? marble.labelColor : marbleFilmColor(project, marble.id), appliedOverrides(project.film), look);
 			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Track
-			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color : undefined;
+			const label = look.skin === 'marble:contrast' && marble.skin?.color == null ? marble.labelColor : undefined;
 			return [
 				{
-					entityId: entity.id,
-					radius: marbleEntity.radius,
+					entityId: marble.id,
+					radius: marble.radius,
 					position,
 					...draft,
 					...(label != null ? { body: label, rim: null } : {})

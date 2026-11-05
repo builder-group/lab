@@ -1,5 +1,5 @@
 import { displayPiece, newlyBroken, addedProblems, withCommands } from '@/modules/building';
-import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, freePosition, tieOf } from '@/modules/project';
 import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
 import type { TBlenderObject } from '@/modules/scene';
 
@@ -30,41 +30,37 @@ export function duplicatePieces(project: TProject, result: TSimulationResult | n
 }
 
 /** The pieces as free pieces where they are now, which ⌘C keeps; a tied piece without a pose in this run is left out */
-export function freePieces(project: TProject, result: TSimulationResult | null, entityIds: string[]): TEntity[] {
+export function freePieces(project: TProject, result: TSimulationResult | null, entityIds: string[]): TPiece[] {
 	return entityIds.flatMap((entityId) => {
-		const entity = project.entities.find((item) => item.id === entityId);
-		const free = entity?.components.piece != null ? freeEntity(project, result, entity) : null;
+		const entity = project.track.pieces.find((item) => item.id === entityId);
+		const free = entity != null ? freeEntity(project, result, entity) : null;
 		return free != null ? [free] : [];
 	});
 }
 
-function copiesOf(project: TProject, pieces: readonly TEntity[], offset: TVec2): TDuplicate {
+function copiesOf(project: TProject, pieces: readonly TPiece[], offset: TVec2): TDuplicate {
 	const commands: TProjectCommand[] = [];
-	const copies: TEntity[] = [];
-	let entities = project.entities;
+	const copies: TPiece[] = [];
+	let entities = project.track.pieces;
 	for (const free of pieces) {
-		const type = free.components.piece?.type;
-		const transform = free.components.transform;
-		if (type == null || transform == null) continue;
-		const copy: TEntity = {
+		const position = freePosition(free);
+		if (position == null) continue;
+		const copy: TPiece = {
 			...free,
 			id: createId('piece'),
-			name: nextPieceName(type, entities),
-			components: {
-				...free.components,
-				transform: { ...transform, position: { x: transform.position.x + offset.x, y: transform.position.y + offset.y } }
-			}
+			name: nextPieceName(free.type, entities),
+			place: { kind: 'free', position: { x: position.x + offset.x, y: position.y + offset.y } }
 		};
 		entities = [...entities, copy];
 		copies.push(copy);
-		commands.push({ type: 'upsertEntity', entity: copy });
+		commands.push({ type: 'addPiece', piece: copy });
 	}
 	return { commands, copies };
 }
 
 export interface TDuplicate {
 	commands: TProjectCommand[];
-	copies: TEntity[];
+	copies: TPiece[];
 }
 
 /** Where the copies landed, or that every spot would break hits */
@@ -80,7 +76,7 @@ export function duplicateClear(project: TProject, result: TSimulationResult | nu
 }
 
 /** The same for free pieces kept by ⌘C, which may come from another project */
-export async function pasteClear(project: TProject, result: TSimulationResult | null, pieces: readonly TEntity[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null, blenderObjects: readonly TBlenderObject[]): Promise<TClearDuplicate> {
+export async function pasteClear(project: TProject, result: TSimulationResult | null, pieces: readonly TPiece[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null, blenderObjects: readonly TBlenderObject[]): Promise<TClearDuplicate> {
 	const atOriginals = copiesOf(project, pieces, { x: 0, y: 0 });
 	// Without a run nothing moves a marble's path yet that a spot could be checked against
 	if (result == null || !atOriginals.copies.length) return { ...copiesOf(project, pieces, DUPLICATE_OFFSET), spot: 'near the original' };
@@ -124,12 +120,12 @@ function* nearbyOffsets(): Generator<TVec2> {
 }
 
 /** Tells for an offset of the copies whether they keep clear of every marble's path and every piece */
-function clearField(result: TSimulationResult, copies: TEntity[]): { isClear: (offset: TVec2) => boolean; sideOffset: () => TVec2 | null } {
+function clearField(result: TSimulationResult, copies: TPiece[]): { isClear: (offset: TVec2) => boolean; sideOffset: () => TVec2 | null } {
 	const radius = result.marbles.reduce((most, track) => Math.max(most, track.radius), 0);
 	const items = copies.map((copy) => {
-		const type = copy.components.piece?.type ?? 'platform';
-		const position = copy.components.transform?.position ?? { x: 0, y: 0 };
-		const shapes = resolvedPieceShapes(displayPiece(copy, { pose: { position, angle: copy.components.transform?.angle ?? 0 } }, radius || undefined));
+		const type = copy.type;
+		const position = freePosition(copy) ?? { x: 0, y: 0 };
+		const shapes = resolvedPieceShapes(displayPiece(copy, { pose: { position, angle: copy.angle } }, radius || undefined));
 		const bounds = shapesBounds(shapes);
 		// A windmill sweeps its whole circle once a marble turns it
 		const isRotor = layoutOf(type) === 'rotor';
@@ -189,10 +185,10 @@ function clearField(result: TSimulationResult, copies: TEntity[]): { isClear: (o
 }
 
 /** The piece as a free piece where it is now, or null when it is tied and has no pose in this run */
-function freeEntity(project: TProject, result: TSimulationResult | null, entity: TEntity): TEntity | null {
-	const link = entity.components.hitLink;
+function freeEntity(project: TProject, result: TSimulationResult | null, entity: TPiece): TPiece | null {
+	const link = tieOf(entity);
 	if (link == null) return entity;
 	if (result == null) return null;
-	const [isOk, , value] = soundsHit(entity.components.piece?.type ?? '', link) ? unlinkPiece(project, result, entity.id) : unanchorPiece(project, result, entity.id);
+	const [isOk, , value] = soundsHit(entity.type, link) ? unlinkPiece(project, result, entity.id) : unanchorPiece(project, result, entity.id);
 	return isOk ? value.entity : null;
 }

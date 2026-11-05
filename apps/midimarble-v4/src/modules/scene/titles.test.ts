@@ -31,12 +31,11 @@ describe('title timing', () => {
 	it('should list titles as clips by start and pass the times to the scene description', () => {
 		// Prepare
 		let project: TProject = createProject({ title: 'Titles' });
-		const { commands, entityId } = addWallTextCommands({ x: 0, y: 0.2 }, { color: '#1f3a5f', frameHeight: 0.5, text: 'Fin' });
+		const { commands, entityId } = addWallTextCommands(project, { x: 0, y: 0.2 }, { color: '#1f3a5f', frameHeight: 0.5, text: 'Fin' });
 		const [isAddedOk, addedErr, added] = applyProjectCommands(project, commands);
 		if (!isAddedOk) throw addedErr;
-		const text = added.entities.find((entity) => entity.id === entityId)?.components.wallText ?? TEXT;
 		const [isTimedOk, timedErr, timed] = applyProjectCommands(added, [
-			{ type: 'setComponent', entityId, component: { name: 'wallText', value: { ...text, in: 1, out: 3 } } }
+			{ type: 'updateFilm', film: { titles: added.film.titles.map((title) => (title.id === entityId ? { ...title, in: 1, out: 3 } : title)) } }
 		]);
 		if (!isTimedOk) throw timedErr;
 		project = timed;
@@ -54,13 +53,7 @@ describe('title timing', () => {
 describe('songDisplayName function', () => {
 	const song = (name: string | null, title = 'Untitled 8') => ({
 		title,
-		music: {
-			sources:
-				name == null
-					? []
-					: [{ id: 's', kind: 'midi' as const, path: `midi/${name}`, name, offset: 0 }],
-			marbles: []
-		}
+		songs: name == null ? [] : [{ name, path: `midi/${name}` }]
 	});
 
 	it('should read the song file as words in Title Case', () => {
@@ -103,8 +96,7 @@ describe('title color', () => {
 		const project = createProject({ id: 'p', title: 'T' });
 		project.film.theme = 'pegboard';
 		const { color: _color, ...unset } = TEXT;
-		const entity = { id: 'text-1', name: 'Fin', components: { wallText: unset, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
-		project.entities.push(entity);
+		project.film.titles.push({ id: 'text-1', name: 'Fin', ...unset, position: { x: 0, y: 0 }, angle: 0 });
 		const build = buildSceneDescription(project, { revision: project.revision, duration: 1, marbles: [], pieces: [], hits: [] } as never, { fps: 30 });
 		expect(build.description.wallTexts?.[0]?.color).toBe(WHITE);
 		expect(themeCommands(project, 'neon')).toHaveLength(1);

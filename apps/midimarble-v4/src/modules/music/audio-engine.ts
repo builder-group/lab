@@ -1,5 +1,5 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
-import type { TLane, TProject, TSource } from '@/modules/project';
+import type { TMarble, TProject, TSong } from '@/modules/project';
 import { backingVoice, mixAudioSource, renderMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
 import { hasSong } from './parts';
 import { createScrubber } from './scrub';
@@ -101,7 +101,7 @@ export function createAudioEngine(): TAudioEngine {
 		scrubTo: (time) => scrubber.move(time),
 		endScrub,
 		async audition(marble, pitch) {
-			const key = `${marble.instrument}:${pitch}`;
+			const key = `${marble.sound}:${pitch}`;
 			let buffer = auditionCache.get(key);
 			if (buffer == null) {
 				const bank = await loadInstrumentBank();
@@ -148,12 +148,12 @@ export interface TAudioEngine {
 	scrubTo: (time: number) => void;
 	endScrub: () => void;
 	// Plays one note of the Song; a hit without a pitch has nothing to play
-	audition: (marble: TLane, pitch: number) => Promise<void>;
+	audition: (marble: TMarble, pitch: number) => Promise<void>;
 	setVolume: (volume: number) => void;
 	dispose: () => void;
 }
 
-export type TResolveSourceUrl = (source: TSource) => string | null;
+export type TResolveSourceUrl = (source: TSong) => string | null;
 
 /**
  * The Song is the only sound. Imported recordings already contain the music, so marbles and Backing are synthesized
@@ -166,10 +166,10 @@ export async function renderProjectAudio(
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE } = options;
 	if (!hasSong(project)) return silentAudio(project.length, sampleRate);
-	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
+	const audioSources = project.songs.filter((song) => song.kind === 'audio' && song.path != null);
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
-		const audio = renderMarbles(project.music.marbles, { sampleRate, duration: project.length, bank, backing: backingVoice(project) });
+		const audio = renderMarbles(project.marbles, { sampleRate, duration: project.length, bank, backing: backingVoice(project) });
 		fadeOut(audio, FILM_AUDIO_FADE);
 		return audio;
 	}
@@ -181,7 +181,7 @@ export async function renderProjectAudio(
 		}))
 	);
 	for (const { source, decoded } of decodedSources)
-		if (decoded != null) mixAudioSource(audio, decoded, source.offset);
+		if (decoded != null) mixAudioSource(audio, decoded, source.start);
 	fadeOut(audio, FILM_AUDIO_FADE);
 	return audio;
 }
@@ -191,13 +191,13 @@ export function createAudioSignature(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl
 ): string {
-	const audioSources = project.music.sources
-		.filter((source) => source.kind === 'audio')
-		.map((source) => ({ url: resolveSourceUrl(source), offset: source.offset }));
+	const audioSources = project.songs
+		.filter((song) => song.kind === 'audio' && song.path != null)
+		.map((song) => ({ url: resolveSourceUrl(song), offset: song.start }));
 	const isSynthesized = !audioSources.length && hasSong(project);
 	const marbles = isSynthesized
-		? project.music.marbles.map((marble) => ({
-				instrument: marble.instrument,
+		? project.marbles.map((marble) => ({
+				instrument: marble.sound,
 				hits: marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [[hit.time, hit.pitch, hit.velocity ?? null, hit.duration ?? null]]))
 			}))
 		: [];

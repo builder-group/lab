@@ -10,7 +10,9 @@ import { buildSceneDescription } from '../src/modules/scene/scene-builder';
 import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
 import { backingVoice } from '../src/modules/music/synthesize';
 import { parseProject } from '../src/modules/project/project-file';
-import { type TProject } from '../src/modules/project/schema';
+import { tempoOf } from '../src/modules/project/commands';
+import { type THit, type TProject } from '../src/modules/project/schema';
+import { getPieceDefinition } from '../src/modules/simulation/pieces';
 import { createSimulator } from '../src/modules/simulation/simulate';
 import type { TSimulationResult } from '../src/modules/simulation/types';
 
@@ -23,43 +25,59 @@ const BUILD_CASE = 'jingle-bells';
 
 // --- The only part that reads the project's shape. After schema @6 rewrite these five for @6 and leave the rest. -----
 
-/** Marbles with the ID results and scene use, each with what sets its sound */
-function marblesOf(project: TProject) {
-	const marbles = new Map(project.music.marbles.map((marble) => [marble.id, marble]));
-	return project.entities.flatMap((entity) => {
-		const marbleEntity = entity.components.marble;
-		const marble = marbleEntity == null ? undefined : marbles.get(marbleEntity.marbleId);
-		return marble == null ? [] : [{ id: entity.id, marbleId: marble.id, sound: marble.instrument, hits: marble.hits }];
-	});
+/** A hit as the dump shows it: its tie to a song is new in @6 and changes nothing heard or run */
+function plainHit({ songId: _songId, ...hit }: THit): Omit<THit, 'songId'> {
+	return hit;
 }
 
-/** Everything that changes what's heard, by marble and not by marble, since marbles go in @6 */
+/** Marbles with the ID results and scene use, each with what sets its sound */
+function marblesOf(project: TProject) {
+	return project.marbles.map((marble) => ({ id: marble.id, marbleId: marble.id, sound: marble.sound, hits: marble.hits.map(plainHit) }));
+}
+
+/** Everything that changes what's heard, by marble and not by lane, since lanes go in @6 */
 function audioInputs(project: TProject) {
 	const backing = backingVoice(project);
 	return {
 		marbles: marblesOf(project).map(({ id, sound, hits }) => ({ id, sound, hits: sortedHits(hits) })),
-		backing: backing == null ? null : { sound: backing.instrument, hits: sortedHits(backing.hits) },
-		songs: project.music.sources.map(({ id, kind, path, name, offset }) => ({ id, kind, path, name, start: offset })),
-		tempo: project.music.tempo ?? null,
+		backing: backing == null ? null : { sound: backing.instrument, hits: sortedHits(backing.hits.map(plainHit)) },
+		songs: project.songs.filter((song) => song.path != null).map(({ id, kind, path, name, start }) => ({ id, kind, path, name, start })),
+		tempo: tempoOf(project) ?? null,
 		length: project.length
 	};
 }
 
 /** The hits alone, as Build Track starts from them */
 function withoutPieces(project: TProject): TProject {
-	const { groups: _groups, ...rest } = project;
-	return { ...rest, entities: project.entities.filter((entity) => entity.components.piece == null) };
+	return { ...project, track: { pieces: [], groups: [] } };
 }
 
 /** IDs of pieces and groups, in project order: what a Build Track run made is named by position */
 function madeIds(project: TProject): string[] {
-	const pieces = project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id);
-	return [...pieces, ...(project.groups ?? []).map((group) => group.id)];
+	return [...project.track.pieces.map((piece) => piece.id), ...project.track.groups.map((group) => group.id)];
 }
 
-/** The pieces a Build Track run left in the project, in order, as stored */
+/** The pieces a Build Track run left in the project, in order, as @5 stored them, so they compare with the baseline's */
 function storedPieces(project: TProject): unknown[] {
-	return project.entities.filter((entity) => entity.components.piece != null);
+	return project.track.pieces.map((piece) => {
+		const { id, name, labelColor, type, layout, params, angle, place, path, skin, ride } = piece;
+		const laneId = place.kind === 'free' ? '' : place.marbleId.replace('marble-', 'lane-');
+		const tie = place.kind === 'free' ? {} : (({ kind: _kind, marbleId: _marbleId, ...rest }) => rest)(place);
+		const anchored = place.kind === 'follows' && (type === 'bowl' || getPieceDefinition(type)?.musical === true) ? { anchored: true } : {};
+		const contactAt = place.kind === 'follows' ? { contactAt: place.contactAt ?? 0.5 } : {};
+		return {
+			id,
+			...(name != null ? { name } : {}),
+			...(labelColor != null ? { labelColor } : {}),
+			components: {
+				piece: { type, ...(layout != null ? { layout } : {}), params },
+				...(place.kind === 'free' ? { transform: { position: place.position, angle } } : { hitLink: { laneId, ...tie, angle, ...contactAt, ...anchored } }),
+				...(path != null ? { path } : {}),
+				...(skin != null ? { skin } : {}),
+				...(ride != null ? { transit: ride } : {})
+			}
+		};
+	});
 }
 
 // --- Schema-neutral from here on --------------------------------------------------------------------------------------

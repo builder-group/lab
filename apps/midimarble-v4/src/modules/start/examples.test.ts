@@ -24,7 +24,7 @@ describe('loadExample function', () => {
 
 		expect(isAudioOk).toBe(true);
 		expect(tap?.files).toEqual([{ path: 'audio/tap-along.wav', url: expect.stringContaining('tap-along.wav') }]);
-		expect(tap?.project.music.sources[0]?.path).toBe('audio/tap-along.wav');
+		expect(tap?.project.songs[0]?.path).toBe('audio/tap-along.wav');
 	});
 });
 

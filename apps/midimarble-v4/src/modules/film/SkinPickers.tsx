@@ -2,8 +2,8 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TMenuEntry } from '@/components';
 import { addedPacks } from '@/modules/library';
-import { type TLibraryItem, isThemeColorByNote, noneWallColor, resolveElementLook, PLAIN_PIECE_COLOR, pieceLabelColor, wallCommands, wallLayer, catalogSkin, elementLabel, elementPlural, type TSkinElement } from '@/modules/scene';
-import type { TEntity, TProject, TWallSkin } from '@/modules/project';
+import { type TLibraryItem, isThemeColorByNote, noneWallColor, resolveElementLook, PLAIN_PIECE_COLOR, pieceLabelColor, skinnedOf, wallCommands, wallLayer, catalogSkin, elementLabel, elementPlural, type TSkinElement, type TSkinned } from '@/modules/scene';
+import type { TProject, TWallSkin } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { builtInSkinCommands, itemFitsPieceType, resetToThemeCommands, skinAppliedMessage, skinTargetIds, type TSkinTarget } from './film-commands';
@@ -25,7 +25,7 @@ function currentOf(tiles: readonly TPickerTile[], fallback: string): React.Compo
  * The skin of the selected marbles or pieces of one type: the theme's, the Starter skins, then skins from added Packs,
  * made by an agent or imported. A click applies to the selection, ⌥-click to every one of the type.
  */
-export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TSkinElement; pieceType: string; entities: TEntity[]; selected?: TEntity[] }> = (props) => {
+export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TSkinElement; pieceType: string; entities: TSkinned[]; selected?: TSkinned[] }> = (props) => {
 	const { cx, project, element, pieceType, entities, selected = entities } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
 	const globalItems = useFeatureState(cx.library.$globalItems);
@@ -74,7 +74,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 		...entries.map((entry) => libraryTile(cx, project, entry, entities, tileTitle(libraryItemLabel(entry.item)), (toAll) => void applyItem(entry.item, toAll), () => menu((toAll) => void applyItem(entry.item, toAll))))
 	];
 	// A single piece in something the tiles don't list yet, such as a skin of a project still loading its library
-	const worn = new Set(entities.map((entity) => entity.components.skin?.assetId));
+	const worn = new Set(entities.map((entity) => entity.skin?.assetId));
 	const only = worn.size === 1 ? [...worn][0] : undefined;
 	const fallback = only != null ? (catalogSkin(only)?.label ?? only) : 'Mixed';
 
@@ -82,18 +82,18 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 };
 
 /** A skin from a Pack, made by an agent or imported, with where it comes from and its star */
-function libraryTile(cx: StudioCx, project: TProject, entry: TLibraryEntry, entities: TEntity[], title: string, onApply: (toAll: boolean) => void, menu: () => TMenuEntry[]): TPickerTile {
+function libraryTile(cx: StudioCx, project: TProject, entry: TLibraryEntry, entities: TSkinned[], title: string, onApply: (toAll: boolean) => void, menu: () => TMenuEntry[]): TPickerTile {
 	const { item } = entry;
 	const pack = addedPacks.get().find((candidate) => candidate.id === item.packId);
 	// Removing an item the film still shows would leave its pieces without a skin
-	const isInUse = project.entities.some((entity) => entity.components.skin?.assetId === item.id);
+	const isInUse = skinnedOf(project).some((entity) => entity.skin?.assetId === item.id);
 	return {
 		key: libraryItemKey(item),
 		label: libraryItemLabel(item),
 		detail: item.manifestError != null ? "Can't be read" : libraryItemOrigin(item),
 		onDetail: notAddedPackAction(cx, item),
 		previewUrl: item.previewUrl,
-		isCurrent: entities.length > 0 && entities.every((entity) => entity.components.skin?.assetId === item.id),
+		isCurrent: entities.length > 0 && entities.every((entity) => entity.skin?.assetId === item.id),
 		title,
 		...(pack != null ? {} : { isKept: entry.isKept, onKeep: () => void cx.library.setKept(entry, !entry.isKept) }),
 		onApply,
@@ -135,10 +135,9 @@ export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props)
 };
 
 /** What the skin None shows on the first of a selection: its label color, or plain wood */
-function noneColor(project: TProject, entity: TEntity | undefined): string {
+function noneColor(project: TProject, entity: TSkinned | undefined): string {
 	if (entity == null) return PLAIN_PIECE_COLOR;
-	const marble = project.music.marbles.find((item) => item.id === entity.components.marble?.marbleId);
-	return marble?.color ?? pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR;
+	return 'type' in entity ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR) : entity.labelColor;
 }
 
 /** The skin None in small: the plain shape in its color, since it has no rendered look of its own */
@@ -164,7 +163,7 @@ const WallThumb: React.FC<{ kind: TWallSkin; color: string }> = ({ kind, color }
  * Says what a skin did when the film alone doesn't show it: other piece types kept, or platforms keeping the skin's
  * color with Color by Note on. `assetId` is the applied skin, null for the theme's default.
  */
-function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[], assetId: string | null): void {
+function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TSkinned[], assetId: string | null): void {
 	const keepsSkinColor = isThemeColorByNote(project.film) && !resolveElementLook(project.film, 'platform', assetId != null ? { assetId } : null).isThemeSkin;
 	const message = skinAppliedMessage({ skinLabel, pieceType, selected, keepsSkinColor });
 	if (message != null) cx.notifyEdit(message);

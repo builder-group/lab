@@ -6,40 +6,54 @@ import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinC
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
-import { applyProjectCommands, SComponents, SFilm, SEntity, SHit, SLane, SProject, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
-import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
+import { applyProjectCommands, patched, PROJECT_COMMAND_EXAMPLES, SProjectCommand, type TMarble, type TPiece, type TProject, type TProjectCommand, type TProjectTheme, type TSkin, type TTitle } from '@/modules/project';
+import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
 // piece's every field. Each expands here into project commands, against the project as the earlier ones left it.
 
-export type TAgentCommand =
-	| TProjectCommand
-	| {
-			type: 'placePiece';
-			pieceType: string;
-			/** Tied to a hit, as a click on its dot ties a platform */
-			hit?: { marbleId: string; hitId: string };
-			/** A free piece at this wall point */
-			position?: TVec2;
-			/** Surface angle in radians; the app picks one for a hit without it */
-			angle?: number;
-			params?: Record<string, number>;
-			name?: string;
-			/** A rail's or tunnel's points on the wall */
-			path?: TVec2[];
-			/** A Rail's further paths, in the same coordinates as `path` */
-			paths?: TVec2[][];
-			/** How a Rail gets its paths: `path` (drawn, the default), `curve`, `c`, `chain` or `switchback`, shaped by `params` such as `turns`, `width` and `drop` */
-			layout?: TRailLayout;
-	  }
-	/** A library item as the skin of a piece type or of pieces */
-	| { type: 'applySkin'; assetId: string; pieceType?: string; entityIds?: string[] }
-	/** A decoration at a wall point: `source` is a built-in `decor:` id or `assets/<id>/asset.blend` */
-	| { type: 'placeDecor'; source: string; at: TVec2 }
-	/** Scatter Decor: fills the free wall the camera sees and replaces what it placed before */
-	| { type: 'scatterDecor'; sources?: string[]; density?: number; seed?: number }
-	/** Flatten a live Pattern: its pieces stay as they are, to edit one by one, and the Pattern is gone */
-	| { type: 'flattenPattern'; groupId: string };
+const SVec = z.strictObject({ x: z.number(), y: z.number() });
+
+const SPlacePiece = z.strictObject({
+	type: z.literal('placePiece'),
+	pieceType: z.string(),
+	/** Tied to a hit, as a click on its dot ties a platform */
+	hit: z.strictObject({ marbleId: z.string(), hitId: z.string() }).optional(),
+	/** A free piece at this wall point */
+	position: SVec.optional(),
+	/** Surface angle in radians; the app picks one for a hit without it */
+	angle: z.number().optional(),
+	params: z.record(z.string(), z.number()).optional(),
+	name: z.string().optional(),
+	/** A rail's or tunnel's points on the wall */
+	path: z.array(SVec).optional(),
+	/** A Rail's further paths, in the same coordinates as `path` */
+	paths: z.array(z.array(SVec)).optional(),
+	/** How a Rail gets its paths: `path` (drawn, the default), `curve`, `c`, `chain` or `switchback`, shaped by `params` such as `turns`, `width` and `drop` */
+	layout: z.enum(RAIL_LAYOUTS).optional()
+});
+/** A library item as the skin of a piece type, or of pieces and marbles by ID */
+const SApplySkin = z.strictObject({ type: z.literal('applySkin'), assetId: z.string(), pieceType: z.string().optional(), ids: z.array(z.string()).optional() });
+/** A decoration at a wall point: `source` is a built-in `decor:` id or `assets/<id>/asset.blend` */
+const SPlaceDecor = z.strictObject({ type: z.literal('placeDecor'), source: z.string(), at: SVec });
+/** Scatter Decor: fills the free wall the camera sees and replaces what it placed before */
+const SScatterDecor = z.strictObject({ type: z.literal('scatterDecor'), sources: z.array(z.string()).optional(), density: z.number().optional(), seed: z.number().optional() });
+/** Flatten a live Pattern: its pieces stay as they are, to edit one by one, and the Pattern is gone */
+const SFlattenPattern = z.strictObject({ type: z.literal('flattenPattern'), groupId: z.string() });
+
+const SAgentCommand = z.discriminatedUnion('type', [...SProjectCommand.options, SPlacePiece, SApplySkin, SPlaceDecor, SScatterDecor, SFlattenPattern]);
+
+export type TAgentCommand = z.infer<typeof SAgentCommand>;
+
+/** What each command looks like: an error shows it to an agent, and the guides list every one */
+export const AGENT_COMMAND_EXAMPLES: Record<TAgentCommand['type'], string> = {
+	...PROJECT_COMMAND_EXAMPLES,
+	placePiece: "{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle }",
+	applySkin: "{ type: 'applySkin', assetId, pieceType }",
+	placeDecor: "{ type: 'placeDecor', source: 'decor:snowfall', at: { x, y } }",
+	scatterDecor: "{ type: 'scatterDecor', sources: [], density: 0.2 }",
+	flattenPattern: "{ type: 'flattenPattern', groupId: 'group-h1' }"
+};
 
 export interface TExpandedCommands {
 	commands: TProjectCommand[];
@@ -52,47 +66,6 @@ export interface TExpandedCommands {
 	/** What the edit does beyond what it says, for the reply */
 	notices: string[];
 }
-
-const SVec = z.strictObject({ x: z.number(), y: z.number() });
-const SComponentName = z.enum(Object.keys(SComponents.shape) as [keyof typeof SComponents.shape, ...(keyof typeof SComponents.shape)[]]);
-
-const FILM_EXAMPLE_LINE = "{ type: 'updateFilm', film: { theme: 'brass' } }";
-
-/** Each command's fields, strictly: a wrong shape is an error that names the field, never an empty Undo step */
-const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
-	updateProject: { schema: z.strictObject({ type: z.string(), patch: SProject.pick({ title: true, length: true, format: true, gravity: true }).partial().strict() }), example: "{ type: 'updateProject', patch: { title: 'Name', length: 32, format: { width: 9, height: 16 }, gravity: 0.5 } }" },
-	upsertSource: { schema: z.strictObject({ type: z.string(), source: SSource }), example: "{ type: 'upsertSource', source }" },
-	removeSource: { schema: z.strictObject({ type: z.string(), sourceId: z.string() }), example: "{ type: 'removeSource', sourceId }" },
-	upsertLane: { schema: z.strictObject({ type: z.string(), marble: SLane.partial({ hits: true }) }), example: "{ type: 'upsertLane', marble }" },
-	removeLane: { schema: z.strictObject({ type: z.string(), marbleId: z.string() }), example: "{ type: 'removeLane', marbleId }" },
-	upsertHits: { schema: z.strictObject({ type: z.string(), marbleId: z.string(), hits: z.array(SHit) }), example: "{ type: 'upsertHits', marbleId, hits: [{ id, time }] }" },
-	removeHits: { schema: z.strictObject({ type: z.string(), marbleId: z.string(), hitIds: z.array(z.string()) }), example: "{ type: 'removeHits', marbleId, hitIds: [] }" },
-	assignHits: { schema: z.strictObject({ type: z.string(), hitIds: z.array(z.string()), marbleId: z.string() }), example: "{ type: 'assignHits', hitIds: [], marbleId }" },
-	setBackingInstrument: { schema: z.strictObject({ type: z.string(), instrument: z.number().int().nullable() }), example: "{ type: 'setBackingInstrument', instrument: 0 }" },
-	upsertEntity: { schema: z.strictObject({ type: z.string(), entity: SEntity }), example: "{ type: 'upsertEntity', entity: { id, name, components } }" },
-	removeEntities: { schema: z.strictObject({ type: z.string(), entityIds: z.array(z.string()) }), example: "{ type: 'removeEntities', entityIds: [] }" },
-	setComponent: {
-		schema: z
-			.strictObject({ type: z.string(), entityId: z.string(), component: z.strictObject({ name: SComponentName, value: z.unknown() }) })
-			.superRefine((command, context) => {
-				const checked = (SComponents.shape[command.component.name] as z.ZodType).safeParse(command.component.value);
-				if (checked.success && command.component.value != null) return;
-				for (const issue of checked.success ? [{ path: [], message: 'is required' }] : checked.error.issues) context.addIssue({ code: 'custom', path: ['component', 'value', ...issue.path], message: issue.message });
-			}),
-		example: "{ type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }, with name one of marble, release, piece, transform, hitLink, path, skin or wallText"
-	},
-	removeComponent: { schema: z.strictObject({ type: z.string(), entityId: z.string(), name: SComponentName }), example: "{ type: 'removeComponent', entityId, name }" },
-	updateFilm: { schema: z.strictObject({ type: z.string(), film: SFilm.partial() }), example: FILM_EXAMPLE_LINE },
-	setTempo: { schema: z.strictObject({ type: z.string(), tempo: STempo.nullable() }), example: "{ type: 'setTempo', tempo: { bpm: 120, beatsPerBar: 4 } }" },
-	placePiece: {
-		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ marbleId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional(), paths: z.array(z.array(SVec)).optional(), layout: z.enum(RAIL_LAYOUTS).optional() }),
-		example: "{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle }"
-	},
-	applySkin: { schema: z.strictObject({ type: z.string(), assetId: z.string(), pieceType: z.string().optional(), entityIds: z.array(z.string()).optional() }), example: "{ type: 'applySkin', assetId, pieceType }" },
-	flattenPattern: { schema: z.strictObject({ type: z.string(), groupId: z.string() }), example: "{ type: 'flattenPattern', groupId: 'group-h1' }" },
-	placeDecor: { schema: z.strictObject({ type: z.string(), source: z.string(), at: SVec }), example: "{ type: 'placeDecor', source: 'decor:snowfall', at: { x, y } }" },
-	scatterDecor: { schema: z.strictObject({ type: z.string(), sources: z.array(z.string()).optional(), density: z.number().optional(), seed: z.number().optional() }), example: "{ type: 'scatterDecor', sources: [], density: 0.2 }" }
-};
 
 /** What `updateFilm` takes, field by field: an error shows the field that went wrong, not the same line every time */
 const FILM_EXAMPLES: Record<string, string> = {
@@ -117,22 +90,22 @@ function issueWords(message: string): string {
 
 /** Why a command's fields don't fit, in words that show the shape it takes; null when they fit */
 export function commandProblem(command: { type: string }): string | null {
-	const shape = COMMAND_SHAPES[command.type];
-	if (shape == null) return `There is no project command called ${command.type}. They are: ${Object.keys(COMMAND_SHAPES).join(', ')}.`;
-	const checked = shape.schema.safeParse(command);
+	const shape = SAgentCommand.options.find((option) => option.shape.type.value === command.type);
+	if (shape == null) return `There is no project command called ${command.type}. They are: ${Object.keys(AGENT_COMMAND_EXAMPLES).join(', ')}.`;
+	const checked = shape.safeParse(command);
 	if (checked.success) return null;
 	const issues = checked.error.issues.map((issue) => {
 		const where = issue.path.join('.');
 		if (issue.code === 'unrecognized_keys') return `${where !== '' ? `${where} has ` : ''}unknown ${issue.keys.length === 1 ? 'field' : 'fields'} ${issue.keys.join(', ')}`;
 		return `${where !== '' ? `${where}: ` : ''}${issueWords(issue.message)}`;
 	});
-	const example = command.type === 'updateFilm' ? filmExample(checked.error.issues) : `It looks like ${shape.example}`;
+	const example = command.type === 'updateFilm' ? filmExample(checked.error.issues) : `It looks like ${AGENT_COMMAND_EXAMPLES[command.type as TAgentCommand['type']]}`;
 	return `${command.type} doesn't fit: ${issues.join('; ')}. ${example}.`;
 }
 
 /**
- * What an agent means by a part of a value: `updateFilm` changes only the named fields of the camera, wall and lights, and
- * `setComponent` only those of a marble, title or skin, so nothing has to be read back first or guessed, like a radius.
+ * What an agent means by a part of a value: `updateFilm` changes only the named fields of the camera, wall and lights, and an
+ * update only those of a skin or a marble's start, so nothing has to be read back first or guessed.
  */
 function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCommand {
 	if (command.type === 'updateFilm') {
@@ -147,12 +120,22 @@ function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCom
 		}
 		return { ...command, film: merged } as TAgentCommand;
 	}
-	if (command.type !== 'setComponent' || !isObject(command.component)) return command;
-	const { name, value } = command.component as { name?: unknown; value?: unknown };
-	if (!isObject(value) || (name !== 'marble' && name !== 'wallText' && name !== 'skin')) return command;
-	const entity = project.entities.find((item) => item.id === command.entityId);
-	const current = entity?.components[name];
-	return { ...command, component: { name, value: { ...(name === 'skin' ? {} : {}), ...current, ...value } } } as TAgentCommand;
+	if (command.type === 'updatePiece' && isObject(command.patch)) {
+		const current = project.track.pieces.find((item) => item.id === command.pieceId);
+		return withCurrentSkin(command, current?.skin);
+	}
+	if (command.type === 'updateMarble' && isObject(command.patch)) {
+		const current = project.marbles.find((item) => item.id === command.marbleId);
+		const next = withCurrentSkin(command, current?.skin);
+		const start = (next.patch as Record<string, unknown>)['start'];
+		return isObject(start) && current != null ? ({ ...next, patch: { ...next.patch, start: { ...current.start, ...start } } } as TAgentCommand) : next;
+	}
+	return command;
+}
+
+function withCurrentSkin<GCommand extends { patch: object }>(command: GCommand, current: TSkin | undefined): GCommand {
+	const skin = (command.patch as Record<string, unknown>)['skin'];
+	return isObject(skin) ? { ...command, patch: { ...command.patch, skin: { ...current, ...skin } } } : command;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -186,85 +169,78 @@ const KNOWN_FONT = /\.(ttf|otf|ttc)$/i;
 const BUILT_IN_FONT = 'Bfont Regular';
 const MARBLE_RADIUS = { min: 0.004, max: 0.04 };
 
-function titleProblem(text: NonNullable<TEntity['components']['wallText']>): string | null {
+function titleProblem(text: TTitle): string | null {
 	if (text.font === BUILT_IN_FONT || KNOWN_FONT.test(text.font)) return null;
 	return `${text.font} isn't a font a title can use, and it would show in the built-in one. Use '${BUILT_IN_FONT}' or a .ttf or .otf file in the project, such as assets/fonts/name.ttf.`;
 }
 
-function entityProblem(project: TProject, items: readonly TLibraryItem[], entity: TEntity): string | null {
-	const { skin, wallText, marble: marbleEntity } = entity.components;
-	const element = entitySkinElement(entity);
-	if (skin?.assetId != null && element != null) {
-		const problem = skinProblem(skin.assetId, element, items);
-		if (problem != null) return problem;
-	}
-	if (wallText != null) {
-		const problem = titleProblem(wallText);
-		if (problem != null) return problem;
-	}
-	if (marbleEntity != null) {
-		if (marbleEntity.radius < MARBLE_RADIUS.min || marbleEntity.radius > MARBLE_RADIUS.max) return `A marble's radius is in meters, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marbleEntity.radius} is outside that. get_state.marbles[].radius has the current one.`;
-		if (!project.music.marbles.some((marble) => marble.id === marbleEntity.marbleId)) return `There is no marble ${marbleEntity.marbleId}. get_state.marbles[].marbleId lists them.`;
-	}
+function pieceProblem(items: readonly TLibraryItem[], piece: TPiece): string | null {
+	return piece.skin?.assetId != null ? skinProblem(piece.skin.assetId, skinElement(piece.type), items) : null;
+}
+
+function marbleProblem(items: readonly TLibraryItem[], marble: Pick<TMarble, 'radius' | 'skin'>): string | null {
+	const problem = marble.skin?.assetId != null ? skinProblem(marble.skin.assetId, 'marble', items) : null;
+	if (problem != null) return problem;
+	if (marble.radius < MARBLE_RADIUS.min || marble.radius > MARBLE_RADIUS.max) return `A marble's radius is in meters, from ${MARBLE_RADIUS.min} to ${MARBLE_RADIUS.max}; ${marble.radius} is outside that. get_state.marbles[].radius has the current one.`;
 	return null;
 }
 
 /** How a piece stands and plays: a live Pattern owns all of it. A Skin and its Depth are only how it looks */
-function physicalOf(entity: TEntity): string {
-	const { hitLink, transform, path, piece } = entity.components;
-	const { depth: _depth, ...params } = piece?.params ?? {};
-	return JSON.stringify([hitLink, transform, path, piece?.type, piece?.layout, params]);
+function physicalOf(piece: TPiece): string {
+	const { depth: _depth, ...params } = piece.params;
+	return JSON.stringify([piece.place, piece.angle, piece.path, piece.type, piece.layout, params]);
 }
 
 /** The same answer a person gets dragging a piece of a live Pattern, naming the command that frees it */
-function livePatternProblem(project: TProject, entityId: string, next: TEntity | null): string | null {
-	const group = patternOfPiece(project, entityId);
-	const entity = project.entities.find((item) => item.id === entityId);
-	if (group == null || entity == null || (next != null && physicalOf(next) === physicalOf(entity))) return null;
+function livePatternProblem(project: TProject, pieceId: string, next: TPiece | null): string | null {
+	const group = patternOfPiece(project, pieceId);
+	const piece = project.track.pieces.find((item) => item.id === pieceId);
+	if (group == null || piece == null || (next != null && physicalOf(next) === physicalOf(piece))) return null;
 	return `${patternLockWords(group)} { type: 'flattenPattern', groupId: '${group.id}' } does, or applyPattern fits it again.`;
 }
 
-const NO_ENTITY = 'get_state lists them: marbles[].entityId, layers.pieces[].id, layers.titles[].id.';
+const NOTHING_THERE = 'get_state lists them: marbles[].marbleId, layers.pieces[].id, layers.titles[].id.';
 
 /** Why a command that fits its shape still can't run on this project: an id or value it names isn't there */
 function valueProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], command: TAgentCommand): string | null {
-	const missingMarble = (marbleId: string): string | null => (marbleId === 'backing' || project.music.marbles.some((marble) => marble.id === marbleId) ? null : `There is no marble ${marbleId}. get_state.marbles[].marbleId lists them.`);
-	const missingEntity = (entityId: string): string | null => (project.entities.some((entity) => entity.id === entityId) ? null : `There is nothing called ${entityId}. ${NO_ENTITY}`);
+	const missingMarble = (marbleId: string): string | null => (marbleId === 'backing' || project.marbles.some((marble) => marble.id === marbleId) ? null : `There is no marble ${marbleId}. get_state.marbles[].marbleId lists them.`);
+	const missingPiece = (pieceId: string): string | null => (project.track.pieces.some((piece) => piece.id === pieceId) ? null : `There is nothing called ${pieceId}. ${NOTHING_THERE}`);
 	switch (command.type) {
-		case 'setComponent': {
-			const entity = project.entities.find((item) => item.id === command.entityId);
-			if (entity == null) return missingEntity(command.entityId);
-			const next = { ...entity, components: { ...entity.components, [command.component.name]: command.component.value } };
-			return livePatternProblem(project, entity.id, next) ?? entityProblem(project, items, next);
+		case 'updatePiece': {
+			const piece = project.track.pieces.find((item) => item.id === command.pieceId);
+			if (piece == null) return missingPiece(command.pieceId);
+			const next = patched(piece, command.patch);
+			return livePatternProblem(project, piece.id, next) ?? pieceProblem(items, next);
 		}
-		case 'removeComponent': {
-			const entity = project.entities.find((item) => item.id === command.entityId);
-			if (entity == null) return missingEntity(command.entityId);
-			if (entity.components[command.name] == null) return `${entity.name ?? entity.id} has no ${command.name}.`;
-			const { [command.name]: _removed, ...rest } = entity.components;
-			return livePatternProblem(project, entity.id, { ...entity, components: rest });
-		}
-		case 'upsertEntity':
-			return livePatternProblem(project, command.entity.id, command.entity) ?? entityProblem(project, items, command.entity);
-		case 'removeEntities': {
-			const missing = command.entityIds.map(missingEntity).find((problem) => problem != null);
+		case 'addPiece':
+			return livePatternProblem(project, command.piece.id, command.piece) ?? pieceProblem(items, command.piece);
+		case 'removePieces': {
+			const missing = command.pieceIds.map(missingPiece).find((problem) => problem != null);
 			if (missing != null) return missing;
 			// A whole Pattern goes at once, like deleting its Group; one piece of it doesn't
-			const partOf = command.entityIds.find((id) => patternOfPiece(project, id)?.pieceIds.some((piece) => !command.entityIds.includes(piece)) === true);
+			const partOf = command.pieceIds.find((id) => patternOfPiece(project, id)?.pieceIds.some((piece) => !command.pieceIds.includes(piece)) === true);
 			return partOf != null ? livePatternProblem(project, partOf, null) : null;
 		}
+		case 'addMarble':
+			return marbleProblem(items, command.marble);
+		case 'updateMarble': {
+			const marble = project.marbles.find((item) => item.id === command.marbleId);
+			if (marble == null) return missingMarble(command.marbleId);
+			return marbleProblem(items, patched(marble, command.patch));
+		}
 		case 'flattenPattern':
-			return project.groups?.some((group) => group.id === command.groupId) === true ? null : `There is no Group ${command.groupId}. get_state lists them.`;
-		case 'removeSource':
-			return project.music.sources.some((source) => source.id === command.sourceId) ? null : `There is no source ${command.sourceId}. get_state.song.sources lists them.`;
-		case 'removeLane':
+			return project.track.groups.some((group) => group.id === command.groupId) === true ? null : `There is no Group ${command.groupId}. get_state lists them.`;
+		case 'updateSong':
+		case 'removeSong':
+			return project.songs.some((song) => song.id === command.songId) ? null : `There is no song ${command.songId}. get_state.song.songs lists them.`;
+		case 'removeMarble':
 		case 'upsertHits':
 		case 'assignHits':
 			return missingMarble(command.marbleId);
 		case 'removeHits': {
 			const marble = missingMarble(command.marbleId);
 			if (marble != null) return marble;
-			const owner = project.music.marbles.find((item) => item.id === command.marbleId);
+			const owner = project.marbles.find((item) => item.id === command.marbleId);
 			const missing = owner == null ? undefined : command.hitIds.find((id) => !owner.hits.some((hit) => hit.id === id));
 			return missing != null ? `There is no hit ${missing} on that marble. get_state.marbles[].hitList lists them.` : null;
 		}
@@ -272,15 +248,15 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 			return filmProblem(project, items, packThemes, command.film);
 		case 'applySkin': {
 			if (command.pieceType != null && command.pieceType !== 'marble' && getPieceDefinition(command.pieceType) == null) return `There is no piece type ${command.pieceType}. Use one from ${SKIN_ELEMENTS.join(', ')}.`;
-			for (const id of command.entityIds ?? []) {
-				const entity = project.entities.find((item) => item.id === id);
-				if (entity == null) return missingEntity(id);
-				if (entitySkinElement(entity) == null) return `${entity.name ?? id} is neither a piece nor a marble, so it wears no skin.`;
+			const skinned = [...project.marbles, ...project.track.pieces];
+			for (const id of command.ids ?? []) {
+				if (skinned.some((item) => item.id === id)) continue;
+				const title = project.film.titles.find((item) => item.id === id);
+				return title != null ? `${title.name ?? id} is neither a piece nor a marble, so it wears no skin.` : `There is nothing called ${id}. ${NOTHING_THERE}`;
 			}
-			const targets = project.entities.filter((entity) => command.entityIds?.includes(entity.id) ?? (entity.components.piece?.type ?? (entity.components.marble != null ? 'marble' : null)) === command.pieceType);
-			for (const entity of targets) {
-				const element = entitySkinElement(entity);
-				const problem = element != null ? skinProblem(command.assetId, element, items) : null;
+			const targets = skinned.filter((item) => command.ids?.includes(item.id) ?? ('type' in item ? item.type : 'marble') === command.pieceType);
+			for (const item of targets) {
+				const problem = skinProblem(command.assetId, entitySkinElement(item), items);
 				if (problem != null) return problem;
 			}
 			// With nothing of that type yet, the skin itself can still be wrong
@@ -305,17 +281,13 @@ function filmProblem(project: TProject, items: readonly TLibraryItem[], packThem
 			if (problem != null) return problem;
 		}
 	}
+	for (const title of film.titles ?? []) {
+		const problem = titleProblem(title);
+		if (problem != null) return problem;
+	}
 	const focus = film.camera?.focusMarbleId;
-	if (focus != null && !project.entities.some((entity) => entity.id === focus && entity.components.marble != null)) return `There is no marble ${focus}. get_state.marbles[].entityId lists them.`;
+	if (focus != null && !project.marbles.some((marble) => marble.id === focus)) return `There is no marble ${focus}. get_state.marbles[].marbleId lists them.`;
 	return null;
-}
-
-/** A marble's start is its release, and its transform is never read, so moving one that way would look done and do nothing */
-function misleadingComponent(project: TProject, command: TAgentCommand): string | null {
-	if (command.type !== 'setComponent' || command.component.name !== 'transform') return null;
-	const entity = project.entities.find((item) => item.id === command.entityId);
-	if (entity?.components.marble == null) return null;
-	return "A marble starts at its release, not a transform. Use { type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }.";
 }
 
 export function expandCommands(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], input: readonly TAgentCommand[], packThemes: readonly TProjectTheme[] = [], blenderObjects: readonly TBlenderObject[] = []): TResult<TExpandedCommands, Error> {
@@ -325,7 +297,7 @@ export function expandCommands(project: TProject, result: TSimulationResult | nu
 	let running = project;
 	for (const given of input) {
 		const command = withCurrentValues(running, given);
-		const problem = commandProblem(command) ?? misleadingComponent(running, command) ?? valueProblem(running, items, packThemes, command);
+		const problem = commandProblem(command) ?? valueProblem(running, items, packThemes, command);
 		if (problem != null) return Err(new Error(problem));
 		const [isExpandedOk, expandedErr, expanded] = expandOne(running, result, items, packThemes, blenderObjects, command);
 		if (!isExpandedOk) return Err(expandedErr);
@@ -340,24 +312,23 @@ export function expandCommands(project: TProject, result: TSimulationResult | nu
 }
 
 function changesRadius(project: TProject, command: TAgentCommand): boolean {
-	if (command.type !== 'setComponent' || command.component.name !== 'marble') return false;
-	const radius = project.entities.find((entity) => entity.id === command.entityId)?.components.marble?.radius;
-	return radius !== command.component.value.radius;
+	if (command.type !== 'updateMarble' || command.patch.radius == null) return false;
+	return project.marbles.find((marble) => marble.id === command.marbleId)?.radius !== command.patch.radius;
 }
 
-function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TEntity }, Error> {
+function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; entity?: TPiece }, Error> {
 	switch (command.type) {
 		case 'flattenPattern': {
-			const group = project.groups?.find((item) => item.id === command.groupId);
+			const group = project.track.groups.find((item) => item.id === command.groupId);
 			return group != null ? Ok({ commands: flattenCommands(group) }) : Err(new Error(`There is no Group ${command.groupId}. get_state lists them.`));
 		}
 		case 'placePiece': {
 			const [isPieceOk, pieceErr, entity] = placedPiece(project, result, command);
-			return isPieceOk ? Ok({ commands: [{ type: 'upsertEntity', entity }], entity }) : Err(pieceErr);
+			return isPieceOk ? Ok({ commands: [{ type: 'addPiece', piece: entity }], entity }) : Err(pieceErr);
 		}
 		case 'applySkin': {
-			const target = command.entityIds != null ? { kind: 'entities' as const, entityIds: command.entityIds } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
-			if (target == null) return Err(new Error('applySkin needs a pieceType or entityIds'));
+			const target = command.ids != null ? { kind: 'entities' as const, entityIds: command.ids } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
+			if (target == null) return Err(new Error('applySkin needs a pieceType or ids'));
 			const commands = skinCommands(project, target, command.assetId);
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}
@@ -388,29 +359,27 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 	}
 }
 
-function placedPiece(project: TProject, result: TSimulationResult | null, command: Extract<TAgentCommand, { type: 'placePiece' }>): TResult<TEntity, Error> {
+function placedPiece(project: TProject, result: TSimulationResult | null, command: Extract<TAgentCommand, { type: 'placePiece' }>): TResult<TPiece, Error> {
 	const definition = getPieceDefinition(command.pieceType);
 	if (definition == null) return Err(new Error(`There is no piece called ${command.pieceType}`));
-	let entity: TEntity;
+	let entity: TPiece;
 	if (command.hit != null) {
 		const hit = command.hit;
 		const target = result?.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
 		if (target?.dot == null) return Err(new Error(`Hit ${hit.hitId} has no dot yet. Place the hits before it first.`));
 		entity = pieceForHit(project, target, command.pieceType);
 	} else if (command.position != null) {
-		entity = createFreePiece(command.pieceType, { position: command.position, angle: command.angle ?? 0 }, project.entities, command.path != null ? { points: command.path } : undefined);
+		entity = createFreePiece(command.pieceType, { position: command.position, angle: command.angle ?? 0 }, project.track.pieces, command.path != null ? { points: command.path } : undefined);
 	} else {
 		return Err(new Error('placePiece needs a hit or a position'));
 	}
-	const { piece, hitLink, transform } = entity.components;
-	if (command.params != null && piece != null) piece.params = { ...piece.params, ...command.params };
-	if (command.angle != null && hitLink != null) hitLink.angle = command.angle;
-	if (command.angle != null && hitLink == null && transform != null) transform.angle = command.angle;
-	if (command.path != null && command.hit != null) entity.components.path = { points: command.path };
-	if (command.paths != null && entity.components.path != null) entity.components.path = { ...entity.components.path, paths: command.paths };
-	if (command.layout != null && piece != null && piece.type === 'rail') {
-		piece.layout = command.layout;
-		piece.params = { ...piece.params, ...railLayoutInfo[command.layout].defaults, ...command.params };
+	if (command.params != null) entity.params = { ...entity.params, ...command.params };
+	if (command.angle != null) entity.angle = command.angle;
+	if (command.path != null && command.hit != null) entity.path = { points: command.path };
+	if (command.paths != null && entity.path != null) entity.path = { ...entity.path, paths: command.paths };
+	if (command.layout != null && entity.type === 'rail') {
+		entity.layout = command.layout;
+		entity.params = { ...entity.params, ...railLayoutInfo[command.layout].defaults, ...command.params };
 	}
 	if (command.name != null) entity.name = command.name;
 	return Ok(entity);

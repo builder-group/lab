@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { applyProjectCommands } from './commands';
 import { createProject } from './create-project';
 import { amendHistory, createHistory, pushHistory, redoHistory, undoHistory, type TProjectHistory } from './history';
-import type { TEntity, TProject } from './schema';
+import type { TPiece, TProject } from './schema';
 
 describe('history groups', () => {
 	it('should make each push its own undo step, named by its revision', () => {
@@ -46,14 +46,14 @@ describe('history groups', () => {
 		// Assert
 		expect(late.past).toHaveLength(3);
 		expect(ids(undone.present).slice(-2)).toEqual(['windmill', 'platform']);
-		expect(undone.present.entities.find((entity) => entity.id === 'windmill')?.name).toBe('windmill');
+		expect(undone.present.track.pieces.find((entity) => entity.id === 'windmill')?.name).toBe('windmill');
 	});
 
 	it('should keep the group through an amend, which changes the revision', () => {
 		// Prepare
 		const placed = edit(createHistory(createProject()), piece('a'));
 		const group = placed.groups.present;
-		const [, , refined] = applyProjectCommands(placed.present, [{ type: 'upsertEntity', entity: { ...piece('a'), name: 'Refined' } }]);
+		const [, , refined] = applyProjectCommands(placed.present, [{ type: 'addPiece', piece: { ...piece('a'), name: 'Refined' } }]);
 
 		// Act
 		const amended = amendHistory(placed, refined as TProject);
@@ -82,15 +82,15 @@ describe('history groups', () => {
 });
 
 function ids(project: TProject): string[] {
-	return project.entities.map((entity) => entity.id);
+	return project.track.pieces.map((entity) => entity.id);
 }
 
-function piece(id: string): TEntity {
-	return { id, name: id, components: { transform: { position: { x: 0, y: 0 }, angle: 0 } } };
+function piece(id: string): TPiece {
+	return { id, name: id, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
 }
 
-function edit(history: TProjectHistory, entity: TEntity, group?: number): TProjectHistory {
-	const [isOk, error, next] = applyProjectCommands(history.present, [{ type: 'upsertEntity', entity }]);
+function edit(history: TProjectHistory, entity: TPiece, group?: number): TProjectHistory {
+	const [isOk, error, next] = applyProjectCommands(history.present, [{ type: 'addPiece', piece: entity }]);
 	if (!isOk) throw error;
 	return pushHistory(history, next, group);
 }

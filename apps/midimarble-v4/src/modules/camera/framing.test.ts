@@ -17,8 +17,8 @@ function samples(x: number): TMarbleTrack['samples'] {
 
 function scene(melody: number[], bass: number[], isClose = true): { result: TSimulationResult; track: TCameraTrack } {
 	const marbles: TMarbleTrack[] = [
-		{ entityId: 'marble-a', marbleId: 'melody', radius: 0.012, samples: samples(-SPREAD) },
-		{ entityId: 'marble-b', marbleId: 'bass', radius: 0.012, samples: samples(SPREAD) }
+		{ entityId: 'melody', marbleId: 'melody', radius: 0.012, samples: samples(-SPREAD) },
+		{ entityId: 'bass', marbleId: 'bass', radius: 0.012, samples: samples(SPREAD) }
 	];
 	const hit = (marbleId: string, time: number, index: number): THitResult => ({
 		marbleId,

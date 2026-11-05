@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, createProject, isPatternGroup, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createProject, isPatternGroup, type TMarble, type TPatternGroup, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { createSimulator, type TSimulator, extraStrikes, rollingHits, touchingPairs } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
 import { measurePattern } from './measures';
-import { runGroupChange } from './run-group';
+import { patternSpan, runGroupChange } from './run-group';
 
 const MINUTES = 60_000;
 let sim: TSimulator;
@@ -14,12 +14,12 @@ beforeAll(async () => {
 });
 afterAll(() => sim.dispose());
 
-const MARBLE = 'lane';
+const MARBLE = 'marble';
 
 interface TReferenceHits {
 	gravity: number;
-	release: NonNullable<TEntity['components']['release']>;
-	startRail: TEntity['components'];
+	release: TMarble['start'];
+	startRail: { piece: Pick<TPiece, 'type' | 'params'>; transform: { position: TVec2; angle: number }; path: NonNullable<TPiece['path']> };
 	hits: number[];
 }
 
@@ -33,14 +33,13 @@ function apply(project: TProject, commands: TProjectCommand[]): TProject {
 function referenceProject(): TProject {
 	const reference = JSON.parse(readFileSync(new URL('../../../../fixtures/reference-hits.json', import.meta.url), 'utf8')) as TReferenceHits;
 	const project = createProject({ id: 'chain', title: 'Chain' });
-	const marble = project.music.marbles[0];
-	const marbleEntity = project.entities[0];
-	if (marble == null || marbleEntity?.components.marble == null) throw new Error('No marble');
+	const marble = project.marbles[0];
+	const { piece, transform, path } = reference.startRail;
+	if (marble == null) throw new Error('No marble');
 	return apply({ ...project, gravity: reference.gravity }, [
-		{ type: 'upsertLane', marble: { ...marble, id: MARBLE, hits: reference.hits.map((time, index) => ({ id: `h${index}`, time })) } },
-		{ type: 'removeLane', marbleId: marble.id },
-		{ type: 'upsertEntity', entity: { ...marbleEntity, components: { marble: { ...marbleEntity.components.marble, marbleId: MARBLE }, release: reference.release } } },
-		{ type: 'upsertEntity', entity: { id: 'start-rail', name: 'Rail 1', components: reference.startRail } },
+		{ type: 'addMarble', marble: { ...marble, id: MARBLE, start: reference.release, hits: reference.hits.map((time, index) => ({ id: `h${index}`, time })) } },
+		{ type: 'removeMarble', marbleId: marble.id },
+		{ type: 'addPiece', piece: { id: 'start-rail', name: 'Rail 1', ...piece, angle: transform.angle, place: { kind: 'free', position: transform.position }, path } },
 		{ type: 'updateProject', patch: { length: (reference.hits.at(-1) ?? 0) + 0.6 } }
 	]);
 }
@@ -57,7 +56,7 @@ const CHAIN: [number, number, 'zigzag' | 'staircase' | 'longRail', number][] = [
 ];
 
 function buildChain(start: TProject): TProject {
-	const times = start.music.marbles[0]?.hits.map((hit) => hit.time) ?? [];
+	const times = start.marbles[0]?.hits.map((hit) => hit.time) ?? [];
 	let project = start;
 	for (const [first, last, kind, width] of CHAIN) {
 		const gap = kind === 'longRail' ? 0.02 : 0;
@@ -79,19 +78,21 @@ describe('Patterns chained on the reference hits', () => {
 		const result = sim.simulate(chain);
 		const measures = measurePattern(chain, result, MARBLE);
 		const falls = gapFalls(result);
-		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.groups?.filter(isPatternGroup).flatMap((group) => group.problems ?? []).map((problem) => problem.words) }));
+		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.track.groups?.filter(isPatternGroup).flatMap((group) => group.pattern.problems ?? []).map((problem) => problem.words) }));
 
 		expect(measures.onTime).toBe(58);
 		// Width stays what's asked, so what it can't do is said, not fixed by another Width
-		expect(chain.groups?.filter(isPatternGroup).every((group) => group.width === 0.14 || group.width === 0.09)).toBe(true);
-		const said = chain.groups?.filter(isPatternGroup).flatMap((group) => group.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
+		expect(chain.track.groups?.filter(isPatternGroup).every((group) => group.pattern.width === 0.14 || group.pattern.width === 0.09)).toBe(true);
+		const said = chain.track.groups?.filter(isPatternGroup).flatMap((group) => group.pattern.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
 		if (extraStrikes(chain, result).length > 0) expect(said).toMatch(/twice|a second time|another bar/);
 		if (rollingHits(chain, result).length > 0) expect(said).toContain('rolls');
 		for (const fall of falls) expect(fall).toBeLessThan(0.4);
 
-		const first = chain.groups?.filter(isPatternGroup).find((group) => group.from < 2);
+		const spanOf = (group: TPatternGroup) => { const marble = chain.marbles.find((item) => item.id === MARBLE); return marble != null ? patternSpan(marble, group) : null; };
+		const first = chain.track.groups?.filter(isPatternGroup).find((group) => (spanOf(group)?.from ?? Infinity) < 2);
+		const firstSpan = first != null ? spanOf(first) : null;
 		const changedAt = performance.now();
-		const changed = runGroupChange(chain, { marbleId: MARBLE, groupId: first?.id, from: first?.from ?? 0, to: first?.to ?? 0, kind: 'zigzag', width: 0.15, bounce: 0.5 }, { sim });
+		const changed = runGroupChange(chain, { marbleId: MARBLE, groupId: first?.id, from: firstSpan?.from ?? 0, to: firstSpan?.to ?? 0, kind: 'zigzag', width: 0.15, bounce: 0.5 }, { sim });
 		const after = apply(chain, changed.commands);
 		const rerun = sim.simulate(after);
 		const again = measurePattern(after, rerun, MARBLE);
@@ -104,7 +105,7 @@ describe('Patterns chained on the reference hits', () => {
 
 	it('should answer a hover preview on real rhythm quickly', { timeout: MINUTES }, () => {
 		const project = referenceProject();
-		const hits = project.music.marbles[0]?.hits ?? [];
+		const hits = project.marbles[0]?.hits ?? [];
 		const start = runGroupChange(project, { marbleId: MARBLE, from: hits[0]?.time ?? 0, to: hits[24]?.time ?? 0, kind: 'zigzag', width: 0.14, bounce: 0.5 }, { sim });
 		const base = apply(project, start.commands);
 		const times: number[] = [];

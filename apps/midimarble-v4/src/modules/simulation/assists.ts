@@ -1,10 +1,10 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { createId, type TEntity, type THit, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
 import { GRAVITY_Y, gravityOf, surfaceNormal } from './geometry';
 import { descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
 import { layoutOf } from './piece-layout';
-import { getPieceDefinition, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit } from './pieces';
+import { getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
 import { BOWL_TYPE } from './bowl';
@@ -21,7 +21,7 @@ export type TSimulateFn = (project: TProject) => TSimulationResult;
 
 export interface TAssistPlacement {
 	hitId: string;
-	entity: TEntity;
+	entity: TPiece;
 	commands: TProjectCommand[];
 }
 
@@ -37,7 +37,7 @@ export interface TOpenHit {
 	/** The hit result for the open hit, if the result has it */
 	result: THitResult | null;
 	/** The last hit before it that has a piece, with that piece */
-	previous: { hit: THit; entity: TEntity } | null;
+	previous: { hit: THit; entity: TPiece } | null;
 }
 
 /** The first hit after the marble's last hit with a piece that has no piece itself */
@@ -46,7 +46,7 @@ export function nextOpenHit(
 	result: TSimulationResult | null,
 	marbleId: string
 ): TOpenHit | null {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return null;
 	const owners = hitOwners(project, marbleId);
 	let lastOwned = -1;
@@ -99,10 +99,10 @@ function copyToNextOpenHit(
 	if (open == null) return Err(new Error('The marble has no open hit after its last piece'));
 	if (open.previous == null) return Err(new Error('There is no earlier piece to copy'));
 	const entity = copyLinkedPiece(open.previous.entity, open.hit.id, isMirrored, {
-		entities: project.entities,
+		entities: project.track.pieces,
 		id: options.id
 	});
-	return Ok({ hitId: open.hit.id, entity, commands: [{ type: 'upsertEntity', entity }] });
+	return Ok({ hitId: open.hit.id, entity, commands: [{ type: 'addPiece', piece: entity }] });
 }
 
 /**
@@ -111,35 +111,36 @@ function copyToNextOpenHit(
  * path pieces reflect their path.
  */
 export function copyLinkedPiece(
-	source: TEntity,
+	source: TPiece,
 	hitId: string,
 	isMirrored: boolean,
-	options: { entities?: TEntity[]; id?: string } = {}
-): TEntity {
+	options: { entities?: TPiece[]; id?: string } = {}
+): TPiece {
 	const { entities = [], id = createId('piece') } = options;
-	const { piece, hitLink, path } = source.components;
-	if (piece == null || hitLink == null)
-		throw new Error(`Entity ${source.id} is not a linked piece`);
-	let { angle, contactAt } = hitLink;
-	let points = path?.points.map((point) => ({ ...point }));
+	const hitLink = tieOf(source);
+	if (hitLink == null) throw new Error(`Piece ${source.id} is not a linked piece`);
+	let { angle } = source;
+	let contactAt = hitLink.contactAt ?? 0.5;
+	let points = source.path?.points.map((point) => ({ ...point }));
 	if (isMirrored) {
-		const kind = layoutOf(piece.type);
+		const kind = layoutOf(source.type);
 		if (kind === 'rotor') angle = wrapAngle(Math.PI - angle);
 		else angle = -angle;
 		if (kind === 'box') contactAt = 1 - contactAt;
 		if (points != null) points = points.map((point) => ({ x: -point.x, y: point.y }));
 	}
-	const definition = getPieceDefinition(piece.type);
-	const count = entities.filter((entity) => entity.components.piece?.type === piece.type).length;
-	const entity: TEntity = {
+	const definition = getPieceDefinition(source.type);
+	const count = entities.filter((entity) => entity.type === source.type).length;
+	const entity: TPiece = {
 		id,
-		name: `${definition?.label ?? piece.type} ${count + 1}`,
-		components: {
-			piece: { ...piece, params: { ...piece.params } },
-			hitLink: { marbleId: hitLink.marbleId, hitId, angle, contactAt }
-		}
+		name: `${definition?.label ?? source.type} ${count + 1}`,
+		type: source.type,
+		...(source.layout != null ? { layout: source.layout } : {}),
+		params: { ...source.params },
+		angle,
+		place: hitPlace(source.type, hitLink.marbleId, hitId, contactAt)
 	};
-	if (points != null) entity.components.path = { points, ...(path?.paths != null ? { paths: isMirrored ? path.paths.map((line) => line.map((point) => ({ x: -point.x, y: point.y }))) : path.paths } : {}) };
+	if (points != null) entity.path = { points, ...(source.path?.paths != null ? { paths: isMirrored ? source.path.paths.map((line) => line.map((point) => ({ x: -point.x, y: point.y }))) : source.path.paths } : {}) };
 	return entity;
 }
 
@@ -324,7 +325,7 @@ export interface TAngleEvaluation {
 export interface TAutoPlacePlan {
 	hitId: string;
 	/** The piece the chosen angle and bounce are applied to */
-	base: TEntity;
+	base: TPiece;
 	isShared: boolean;
 	/** The marble arrives faster than `FAST_ARRIVAL` */
 	isFast: boolean;
@@ -395,7 +396,7 @@ export async function runAutoPlaceSearch(
  * has the same hits, contacts and samples up to then as the whole run.
  */
 export function autoPlaceHorizon(project: TProject, marbleId: string, hitId: string): number | null {
-	const hits = project.music.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
+	const hits = project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const index = hits.findIndex((hit) => hit.id === hitId);
 	return index >= 0 ? trialEnd(project, hits, index) : null;
 }
@@ -433,8 +434,8 @@ interface TPlacementContext {
 	hit: THit;
 	dot: TVec2;
 	velocity: TVec2 | null;
-	owners: Map<string, TEntity>;
-	base: TEntity;
+	owners: Map<string, TPiece>;
+	base: TPiece;
 	previousAngle: number | null;
 	followingHit: THit | null;
 	nextHit: THit | null;
@@ -474,7 +475,7 @@ function placementContext(
 	options: Omit<TAutoPlaceOptions, 'range'>
 ): TResult<TPlacementContext, Error> {
 	const { simulate, type = 'platform' } = options;
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const index = marble?.hits.findIndex((hit) => hit.id === hitId) ?? -1;
 	const hit = marble?.hits[index];
 	if (marble == null || hit == null)
@@ -490,12 +491,12 @@ function placementContext(
 	const existing = owners.get(hitId);
 	let base =
 		existing ??
-		createLinkedPiece(type, marbleId, hitId, 0, { entities: project.entities, id: options.id });
-	const baseType = base.components.piece?.type ?? type;
+		createLinkedPiece(type, marbleId, hitId, 0, { entities: project.track.pieces, id: options.id });
+	const baseType = base.type ?? type;
 	let previousAngle: number | null = null;
 	for (let i = index - 1; i >= 0 && previousAngle == null; i--) {
 		const previous = owners.get(marble.hits[i]?.id ?? '');
-		if (previous?.components.hitLink != null) previousAngle = previous.components.hitLink.angle;
+		if (previous != null && tieOf(previous) != null) previousAngle = previous.angle;
 	}
 	const longGap = longGapThreshold(project);
 	const followingHit = marble.hits[index + 1] ?? null;
@@ -510,7 +511,7 @@ function placementContext(
 	const speedScale = g / -GRAVITY_Y;
 	// One marble can be followed by the camera itself and keeps the steady descent of its default bounce,
 	// which is the pace rate for a regular rhythm; several marbles must keep to the shared pace
-	const isShared = project.entities.filter((entity) => entity.components.marble != null).length > 1;
+	const isShared = project.marbles.length > 1;
 	const isPaced = isShared && isBox;
 	if (nextHit != null && !isPaced)
 		base = withSettlingBounce(base, velocity, nextHit.time - hit.time, g);
@@ -556,8 +557,7 @@ function placementContext(
 	const afterNext = nextHit != null ? (marble.hits[index + 2] ?? null) : null;
 	const isNextLaunch = nextHit != null && afterNext != null && afterNext.time - nextHit.time > longGap;
 	const marbleRadius =
-		project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components
-			.marble?.radius ?? 0;
+		project.marbles.find((item) => item.id === marbleId)?.radius ?? 0;
 	// An arrival slower than a bounce can turn into a takeoff that leaves the surface rolls on the next piece whatever its
 	// tilt, so it fails here rather than a few hits of backing up later. Mending a run, playing again comes first.
 	const fallingSpeed = Math.max(
@@ -566,7 +566,7 @@ function placementContext(
 		afterNext != null && bounceSpec != null && !marble.hits.slice(index + 1).some((later) => owners.has(later.id)) ? bounceTakeoff(marbleRadius, g) / bounceSpec.max : 0
 	);
 	const until = trialEnd(project, marble.hits, index);
-	const pieceLength = resolvePieceParams(baseType, base.components.piece?.params ?? {})['length'];
+	const pieceLength = resolvePieceParams(baseType, base.params ?? {})['length'];
 	const length = Math.max(pieceLength ?? PLACEMENT_LENGTH, PLACEMENT_LENGTH);
 	// Placed in the middle of a run a person or Fix is mending, the pieces after it follow the marble wherever the
 	// new tilt sends it, so the tilt that keeps closest to the old run wins and only what came before it is judged
@@ -797,7 +797,7 @@ function evaluatePlacement(
 			score,
 			nextDot,
 			travel,
-			bounce: entity.components.piece?.params['bounce'] ?? null,
+			bounce: entity.params['bounce'] ?? null,
 			paceError,
 			...(shorter != null ? { length: shorter } : {})
 		},
@@ -1071,7 +1071,7 @@ function* autoPlaceSearch(
 		nextDot: chosen.nextDot,
 		travel: chosen.travel,
 		paceError: chosen.paceError,
-		commands: [{ type: 'upsertEntity', entity }]
+		commands: [{ type: 'addPiece', piece: entity }]
 	};
 	if (chosen.bounce != null) placement.bounce = chosen.bounce;
 	return Ok(placement);
@@ -1091,12 +1091,11 @@ function reservedSpots(
 	const halfLength = (params['length'] ?? 0) / 2;
 	const halfThickness = (params['thickness'] ?? 0) / 2;
 	const spots: { time: number; shapes: TPieceShape[] }[] = [];
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		if (marble.id === marbleId) continue;
 		const owners = hitOwners(project, marble.id);
 		const radius =
-			project.entities.find((entity) => entity.components.marble?.marbleId === marble.id)?.components
-				.marble?.radius ?? 0;
+			project.marbles.find((item) => item.id === marble.id)?.radius ?? 0;
 		for (const hit of marble.hits) {
 			if (hit.time >= until) break;
 			const dot = findHitResult(result, marble.id, hit.id)?.dot;
@@ -1124,7 +1123,7 @@ function travelPattern(
 	marbleId: string,
 	hits: THit[],
 	index: number,
-	owners: Map<string, TEntity>,
+	owners: Map<string, TPiece>,
 	minTravel: number
 ): { side: number | null; travel: number | null } {
 	const step = (to: number): number | null => {
@@ -1159,7 +1158,7 @@ export interface TContinueOptions {
 
 export interface TContinueSuggestion {
 	hitId: string;
-	entity: TEntity;
+	entity: TPiece;
 	/** Resolved piece from the verification run */
 	piece: TResolvedPiece | null;
 	dot: TVec2 | null;
@@ -1211,21 +1210,21 @@ export function continueSuggestions(
 		idFor = () => createId('piece'),
 		canTurn = true
 	} = options;
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return null;
 	const owners = hitOwners(project, marbleId);
 	const open = nextOpenHit(project, result, marbleId);
 	if (open == null) return null;
 
 	// The placed run before the open hit: consecutive hits with pieces of one type that land on time
-	const run: { hit: THit; entity: TEntity; angle: number }[] = [];
+	const run: { hit: THit; entity: TPiece; angle: number }[] = [];
 	for (let i = open.index - 1; i >= 0 && run.length < 4; i--) {
 		const hit = marble.hits[i];
 		const entity = hit != null ? owners.get(hit.id) : undefined;
-		const angle = entity?.components.hitLink?.angle;
+		const angle = entity?.angle;
 		if (hit == null || entity == null || angle == null) break;
 		if (!isOnTime(findHitResult(result, marbleId, hit.id)?.status)) break;
-		if (run[0] != null && run[0].entity.components.piece?.type !== entity.components.piece?.type)
+		if (run[0] != null && run[0].entity.type !== entity.type)
 			break;
 		run.unshift({ hit, entity, angle });
 	}
@@ -1233,13 +1232,13 @@ export function continueSuggestions(
 	if (pattern == null) return null;
 	const period = pattern === 'repeat' ? 1 : 2;
 	const longGap = longGapThreshold(project);
-	const isSharedFrame = project.entities.filter((entity) => entity.components.marble != null).length > 1;
+	const isSharedFrame = project.marbles.length > 1;
 
 	// Source of each ghost: the piece one period earlier, placed or ghost
-	const sources = new Map<number, TEntity>();
+	const sources = new Map<number, TPiece>();
 	run.forEach((item, i) => sources.set(open.index - run.length + i, item.entity));
-	const ghosts: { hit: THit; entity: TEntity }[] = [];
-	const entities = [...project.entities];
+	const ghosts: { hit: THit; entity: TPiece }[] = [];
+	const entities = [...project.track.pieces];
 	for (let k = open.index; k < marble.hits.length && ghosts.length < maxCount; k++) {
 		const hit = marble.hits[k];
 		const previous = marble.hits[k - 1];
@@ -1344,7 +1343,7 @@ export function continueSuggestions(
 		// What a ghost touches also depends on where the one before it sends the marble
 		for (const index of [reach, reach - 1]) {
 			const ghost = list[index];
-			const angle = ghost?.entity.components.hitLink?.angle;
+			const angle = ghost?.entity.angle;
 			if (ghost == null || angle == null) continue;
 			for (const degrees of CONTINUE_TURNS) {
 				if (tries <= 0 || turned != null) break;
@@ -1365,13 +1364,13 @@ export function continueSuggestions(
 		suggestions,
 		commands: suggestions
 			.filter((suggestion) => suggestion.isOk)
-			.map((suggestion) => ({ type: 'upsertEntity', entity: suggestion.entity }))
+			.map((suggestion) => ({ type: 'addPiece', piece: suggestion.entity }))
 	};
 }
 
 interface TGhost {
 	hit: THit;
-	entity: TEntity;
+	entity: TPiece;
 }
 
 interface TGhostCheck {
@@ -1408,7 +1407,7 @@ function flawedGhosts(project: TProject, trial: TSimulationResult, ghosts: TGhos
 }
 
 /** The tilt size of the latest earlier piece of the marble whose interval to its next hit matches this hit's */
-function lastTiltOfInterval(hits: THit[], index: number, owners: Map<string, TEntity>, tolerance: number): number | null {
+function lastTiltOfInterval(hits: THit[], index: number, owners: Map<string, TPiece>, tolerance: number): number | null {
 	const hit = hits[index];
 	const following = hits[index + 1];
 	if (hit == null || following == null) return null;
@@ -1416,7 +1415,7 @@ function lastTiltOfInterval(hits: THit[], index: number, owners: Map<string, TEn
 	for (let i = index - 1; i >= 0; i--) {
 		const [from, to] = [hits[i], hits[i + 1]];
 		if (from == null || to == null || Math.abs(to.time - from.time - interval) > tolerance) continue;
-		const angle = owners.get(from.id)?.components.hitLink?.angle;
+		const angle = owners.get(from.id)?.angle;
 		if (angle != null) return Math.abs(angle);
 	}
 	return null;
@@ -1459,7 +1458,7 @@ export interface TLongGap {
  */
 export function findLongGaps(project: TProject, marbleId: string): TLongGap[] {
 	const threshold = longGapThreshold(project);
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return [];
 	const gaps: TLongGap[] = [];
 	for (let i = 1; i < marble.hits.length; i++) {
@@ -1467,10 +1466,10 @@ export function findLongGaps(project: TProject, marbleId: string): TLongGap[] {
 		const to = marble.hits[i] as THit;
 		const duration = to.time - from.time;
 		if (duration <= threshold) continue;
-		const bridge = project.entities.find((entity) => {
-			const { piece, hitLink } = entity.components;
-			if (piece == null || hitLink == null) return false;
-			const kind = layoutOf(piece.type);
+		const bridge = project.track.pieces.find((entity) => {
+			const hitLink = tieOf(entity);
+			if (entity == null || hitLink == null) return false;
+			const kind = layoutOf(entity.type);
 			return (
 				(kind === 'path' || kind === 'tube' || kind === 'generated') &&
 				hitLink.marbleId === marbleId &&
@@ -1505,13 +1504,13 @@ export function openLongGaps(project: TProject, marbleId: string): TLongGap[] {
 // Shared helpers
 
 /** Pieces that sound each hit of the marble: linked musical pieces (platforms), never scenery */
-export function hitOwners(project: TProject, marbleId: string): Map<string, TEntity> {
-	const owners = new Map<string, TEntity>();
-	for (const entity of project.entities) {
-		const { piece, hitLink } = entity.components;
-		if (piece == null || hitLink == null || hitLink.marbleId !== marbleId) continue;
-		if (getPieceDefinition(piece.type) == null) continue;
-		if (!soundsHit(piece.type, hitLink)) continue;
+export function hitOwners(project: TProject, marbleId: string): Map<string, TPiece> {
+	const owners = new Map<string, TPiece>();
+	for (const entity of project.track.pieces) {
+		const hitLink = tieOf(entity);
+		if (hitLink == null || hitLink.marbleId !== marbleId) continue;
+		if (getPieceDefinition(entity.type) == null) continue;
+		if (!soundsHit(entity.type, hitLink)) continue;
 		if (!owners.has(hitLink.hitId)) owners.set(hitLink.hitId, entity);
 	}
 	return owners;
@@ -1534,11 +1533,11 @@ export function simulateTrial(
 	return simulate({ ...project, length: Math.max(1 / 240, Math.min(project.length, until)) });
 }
 
-export function withEntities(project: TProject, entities: TEntity[]): TProject {
+export function withEntities(project: TProject, entities: TPiece[]): TProject {
 	const replaced = new Map(entities.map((entity) => [entity.id, entity]));
-	const kept = project.entities.map((entity) => replaced.get(entity.id) ?? entity);
-	const added = entities.filter((entity) => !project.entities.some((e) => e.id === entity.id));
-	return { ...project, entities: [...kept, ...added] };
+	const kept = project.track.pieces.map((entity) => replaced.get(entity.id) ?? entity);
+	const added = entities.filter((entity) => !project.track.pieces.some((e) => e.id === entity.id));
+	return { ...project, track: { ...project.track, pieces: [...kept, ...added] } };
 }
 
 export function isInBand(point: TVec2, band: TFrameBand, share: number): boolean {
@@ -1558,25 +1557,19 @@ function isOnTime(status: THitStatus | undefined): boolean {
  * Pieces without a `bounce` parameter are unchanged.
  */
 function withSettlingBounce(
-	entity: TEntity,
+	entity: TPiece,
 	velocity: TVec2 | null,
 	interval: number,
 	g = -GRAVITY_Y
-): TEntity {
-	const { piece } = entity.components;
-	const spec = piece != null ? getPieceDefinition(piece.type)?.params['bounce'] : undefined;
-	if (piece == null || spec == null || velocity == null) return entity;
+): TPiece {
+	
+	const spec = entity != null ? getPieceDefinition(entity.type)?.params['bounce'] : undefined;
+	if (spec == null || velocity == null) return entity;
 	const steady = (g * interval) / (1 + spec.default);
 	const speed = -velocity.y;
 	const bounce =
 		speed > 0 ? Math.min(spec.max, Math.max(spec.min, (spec.default * steady) / speed)) : spec.max;
-	return {
-		...entity,
-		components: {
-			...entity.components,
-			piece: { ...piece, params: { ...piece.params, bounce: Math.round(bounce * 100) / 100 } }
-		}
-	};
+	return { ...entity, params: { ...entity.params, bounce: Math.round(bounce * 100) / 100 } };
 }
 
 /**
@@ -1606,25 +1599,18 @@ function clampBounce(bounce: number, spec: { min: number; max: number } | undefi
 	return Math.round(Math.min(spec.max, Math.max(spec.min, bounce)) * 100) / 100;
 }
 
-function withBounce(entity: TEntity, bounce: number | null): TEntity {
-	const { piece } = entity.components;
-	if (piece == null || bounce == null) return entity;
-	return {
-		...entity,
-		components: { ...entity.components, piece: { ...piece, params: { ...piece.params, bounce } } }
-	};
+function withBounce(entity: TPiece, bounce: number | null): TPiece {
+	if (bounce == null) return entity;
+	return { ...entity, params: { ...entity.params, bounce } };
 }
 
-function withLength(entity: TEntity, length: number | undefined): TEntity {
-	const { piece } = entity.components;
-	if (piece == null || length == null) return entity;
-	return { ...entity, components: { ...entity.components, piece: { ...piece, params: { ...piece.params, length } } } };
+function withLength(entity: TPiece, length: number | undefined): TPiece {
+	if (length == null) return entity;
+	return { ...entity, params: { ...entity.params, length } };
 }
 
-function withAngle(entity: TEntity, angle: number): TEntity {
-	const { hitLink } = entity.components;
-	if (hitLink == null) return entity;
-	return { ...entity, components: { ...entity.components, hitLink: { ...hitLink, angle } } };
+function withAngle(entity: TPiece, angle: number): TPiece {
+	return tieOf(entity) == null ? entity : { ...entity, angle };
 }
 
 /**
@@ -1641,13 +1627,12 @@ function hasStrayContact(
 	until: number,
 	frontiers: Map<string, number> = new Map()
 ): boolean {
-	const marble = project.entities.find((entity) => entity.components.marble?.marbleId === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	// Free, anchored and scenery pieces are environment the marble may strike; only hit pieces are stray
 	const environment = new Set(
-		project.entities
+		project.track.pieces
 			.filter((entity) => {
-				const { piece, hitLink } = entity.components;
-				return piece != null && entity.id !== entityId && !soundsHit(piece.type, hitLink);
+				return entity.id !== entityId && !soundsHit(entity.type, tieOf(entity));
 			})
 			.map((entity) => entity.id)
 	);
@@ -1681,16 +1666,12 @@ export function crossesOtherMarbles(
 	until: number,
 	frontiers: Map<string, number>
 ): boolean {
-	const marbleOf = new Map(
-		project.entities.flatMap((entity) =>
-			entity.components.marble != null ? [[entity.components.marble.marbleId, entity.id] as const] : []
-		)
-	);
-	const marbleEntityId = marbleOf.get(marbleId);
+	const marbleEntityId = project.marbles.find((item) => item.id === marbleId)?.id;
 	const marbleOfPiece = new Map(
-		project.entities.flatMap((entity) =>
-			entity.components.hitLink != null ? [[entity.id, entity.components.hitLink.marbleId] as const] : []
-		)
+		project.track.pieces.flatMap((entity) => {
+			const tie = tieOf(entity);
+			return tie != null ? [[entity.id, tie.marbleId] as const] : [];
+		})
 	);
 	const isCrossing = trial.contacts.some((contact) => {
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.01) return false;
@@ -1706,7 +1687,7 @@ export function crossesOtherMarbles(
 		(hit) =>
 			hit.marbleId !== marbleId &&
 			hit.targetTime < until - 0.02 &&
-			hit.targetTime < (frontiers.get(marbleOf.get(hit.marbleId) ?? '') ?? Infinity) &&
+			hit.targetTime < (frontiers.get(hit.marbleId) ?? Infinity) &&
 			isOnTime(before.get(`${hit.marbleId}/${hit.hitId}`)) &&
 			!isOnTime(hit.status)
 	);
@@ -1719,12 +1700,12 @@ export function crossesOtherMarbles(
 export function openFrontiers(project: TProject, result: TSimulationResult): Map<string, number> {
 	const frontiers = new Map<string, number>();
 	const marbleOf = (marbleId: string): string | undefined =>
-		project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.id;
+		project.marbles.find((item) => item.id === marbleId)?.id;
 	const earlier = (marbleEntityId: string | undefined, time: number): void => {
 		if (marbleEntityId != null) frontiers.set(marbleEntityId, Math.min(frontiers.get(marbleEntityId) ?? Infinity, time));
 	};
 	for (const hit of result.hits) if (hit.status === 'open') earlier(marbleOf(hit.marbleId), hit.targetTime);
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		for (const gap of openLongGaps(project, marble.id)) earlier(marbleOf(marble.id), gap.from + launchHorizon(project));
 	}
 	return frontiers;

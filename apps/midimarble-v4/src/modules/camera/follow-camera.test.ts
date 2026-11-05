@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { type TProject } from '@/modules/project';
+import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { bowlCatch, createSimulator } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
@@ -315,12 +315,12 @@ describe('follow camera', () => {
 	it('shows each marble landing in its Bowl', () => {
 		const { project: duet, result } = fixture('two-marbles');
 		const track = required(followCameraTrack(duet, result, 30));
-		const bowls = duet.entities.filter((entity) => entity.components.piece?.type === 'bowl');
+		const bowls = duet.track.pieces.filter((entity) => entity.type === 'bowl');
 		expect(bowls).toHaveLength(2);
 		for (const bowl of bowls) {
 			const caught = bowlCatch(result, bowl.id);
 			expect(caught.status).toBe('caught');
-			const marble = required(result.marbles.find((item) => item.marbleId === bowl.components.hitLink?.marbleId));
+			const marble = required(result.marbles.find((item) => item.marbleId === tieOf(bowl)?.marbleId));
 			const enter = pyRound(required(caught.enterTime) * 30);
 			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));
 			const [u, v] = project(track, enter, sample.position.x, sample.position.y);

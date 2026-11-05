@@ -1,5 +1,5 @@
-import type { TEntity, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, findEntryTime, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, touchingPairs } from '@/modules/simulation';
+import type { TPiece, TProject, TVec2 } from '@/modules/project';
+import { gravityOf, findEntryTime, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, touchingPairs } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
 import { sampleAt, withEntity } from './fit-bars';
 
@@ -11,7 +11,7 @@ const DEGREE = Math.PI / 180;
 const RAMP_LIMIT = 1.55;
 
 interface TRailFit {
-	entity: TEntity;
+	entity: TPiece;
 	project: TProject;
 	kind: 'ramp' | 'switchback';
 	/** Seconds it was asked to hold the marble, and how far off it came */
@@ -42,7 +42,7 @@ interface TTrial extends TRailFit {
 export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, start: { hitId: string | null; time: number }, toHitId: string, onTry?: () => void): TRailAnswer {
 	let sims = 0;
 	const whys = new Map<string, number>();
-	const marble = base.music.marbles.find((item) => item.id === marbleId);
+	const marble = base.marbles.find((item) => item.id === marbleId);
 	const { hitId: fromHitId, time: from } = start;
 	const to = marble?.hits.find((hit) => hit.id === toHitId)?.time;
 	if (to == null) return { fit: null, why: null };
@@ -70,11 +70,11 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 
 	/** How the rail stands: tied to the hit before it, or where the marble is that long after its release */
 	const tieOf = (angle: number, contactAt: number, isDrawn: boolean): TRailTie => {
-		if (fromHitId != null) return { hitLink: { marbleId, hitId: fromHitId, angle, contactAt } };
+		if (fromHitId != null) return { place: hitPlace('rail', marbleId, fromHitId, contactAt), angle };
 		const marble = sampleAt(samples, from + delay)?.position ?? entry.position;
 		// A generated layout enters at its position; a drawn path's origin is on the wire, under the marble
 		const onWire = isDrawn ? marbleRadius(base, marbleId) + wireRadius : 0;
-		return { transform: { position: { x: marble.x + Math.sin(angle) * onWire, y: marble.y - Math.cos(angle) * onWire }, angle } };
+		return { place: { kind: 'free', position: { x: marble.x + Math.sin(angle) * onWire, y: marble.y - Math.cos(angle) * onWire } }, angle };
 	};
 
 	const trial = (kind: 'ramp' | 'switchback', width: number, turns: number, slope: number, downhill: number, contactAt: number): TTrial => {
@@ -86,7 +86,7 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 		const marble = result.marbles.find((item) => item.marbleId === marbleId);
 		const last = [...(marble?.samples ?? [])].reverse().find((sample) => sample.time <= to);
 		const leave = ride.leave != null ? ride.leave - from : null;
-		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.otherEntityId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.entities.find((item) => item.id === contact.otherEntityId)?.components.piece?.type === 'platform');
+		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.otherEntityId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.track.pieces.find((item) => item.id === contact.otherEntityId)?.type === 'platform');
 		const isTouching = !ride.isBlocked && touchingPairs(next, result).some((pair) => pair.a === id || pair.b === id);
 		const why = ride.isBlocked ? 'it would run through the marble’s path' : ride.isTrapped ? 'the marble stops on it' : leave == null ? 'the marble misses it' : isStruck ? 'the marble strikes a bar on the way' : null;
 		if (why != null) whys.set(why, (whys.get(why) ?? 0) + 1);
@@ -193,38 +193,37 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 }
 
 function marbleRadius(project: TProject, marbleId: string): number {
-	return project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.marble?.radius ?? 0.012;
+	return project.marbles.find((item) => item.id === marbleId)?.radius ?? 0.012;
 }
 
-type TRailTie = Pick<TEntity['components'], 'hitLink' | 'transform'>;
+type TRailTie = Pick<TPiece, 'place' | 'angle'>;
 
-function rampEntity(id: string, tie: TRailTie, delay: number, width: number, slope: number, downhill: number): TEntity {
+function rampEntity(id: string, tie: TRailTie, delay: number, width: number, slope: number, downhill: number): TPiece {
 	const scale = 1 / Math.cos(slope);
 	return {
 		id,
 		name: 'Rail',
-		components: {
-			piece: { type: 'rail', params: railParams('path', { entryDelay: delay }) },
-			path: {
-				points: [
-					{ x: -downhill * 0.006 * scale, y: 0 },
-					{ x: 0, y: 0 },
-					{ x: downhill * width * scale, y: 0 }
-				]
-			},
-			...tie
-		}
+		type: 'rail',
+		params: railParams('path', { entryDelay: delay }),
+		path: {
+			points: [
+				{ x: -downhill * 0.006 * scale, y: 0 },
+				{ x: 0, y: 0 },
+				{ x: downhill * width * scale, y: 0 }
+			]
+		},
+		...tie
 	};
 }
 
-function switchbackEntity(id: string, tie: TRailTie, delay: number, width: number, turns: number): TEntity {
+function switchbackEntity(id: string, tie: TRailTie, delay: number, width: number, turns: number): TPiece {
 	return {
 		id,
 		name: 'Rail',
-		components: {
-			piece: { type: 'rail', layout: 'switchback', params: railParams('switchback', { entryDelay: delay, turns, width }) },
-			...tie
-		}
+		type: 'rail',
+		layout: 'switchback',
+		params: railParams('switchback', { entryDelay: delay, turns, width }),
+		...tie
 	};
 }
 

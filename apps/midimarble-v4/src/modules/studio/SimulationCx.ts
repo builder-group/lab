@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import type { TEntity, TProject, TProjectCommand, TProjectHistory, TVec2 } from '@/modules/project';
+import { type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
 import { createSimulationClient, isSuperseded, marbleEdits, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
@@ -149,7 +149,7 @@ export class SimulationCx {
 		const known = this.settled;
 		const seen = this.seenHistory;
 		this.seenHistory = history;
-		const isStep = seen != null && (seen.past.at(-1)?.entities === history.present.entities || seen.future[0]?.entities === history.present.entities);
+		const isStep = seen != null && (seen.past.at(-1)?.track.pieces === history.present.track.pieces || seen.future[0]?.track.pieces === history.present.track.pieces);
 		if (known == null || this.client == null || known.present.id !== history.present.id || isStep || this.studio.assist.isBuilding || this.studio.assist.isFixing === true) {
 			this.settleRun++;
 			this.settled = history;
@@ -179,8 +179,8 @@ export class SimulationCx {
 	}
 
 	/** Lands what a settle found, in the edit's undo step or as its own */
-	landSettled(entities: TEntity[], isAmend: boolean): void {
-		this.landWorkedOut(entities.map((entity) => ({ type: 'upsertEntity', entity })), { amend: isAmend });
+	landSettled(entities: TPiece[], isAmend: boolean): void {
+		this.landWorkedOut(entities.map((entity) => ({ type: 'addPiece', piece: entity })), { amend: isAmend });
 	}
 
 	/** Lands an edit that already worked out how the run goes on, so nothing folds into it: a settle would decide again */
@@ -263,9 +263,9 @@ export class SimulationCx {
 		const { first, project } = pending;
 		const status = result.hits.find((hit) => hit.marbleId === first.marbleId && hit.hitId === first.hitId)?.status;
 		if (result.revision !== pending.revision || status == null || status === 'onTime' || status === 'drifting' || status === 'waiting') return;
-		const marble = project.music.marbles.find((item) => item.id === first.marbleId);
+		const marble = project.marbles.find((item) => item.id === first.marbleId);
 		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
-		const waiting = project.entities.filter((entity) => entity.components.hitLink?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
+		const waiting = project.track.pieces.filter((entity) => tieOf(entity)?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === tieOf(entity)?.hitId)?.time ?? -1) > first.time).length;
 		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
 		this.studio.notifyEdit(`${marble?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
 	}
@@ -325,9 +325,9 @@ export class SimulationCx {
 }
 
 /** `project` with these entities in place of the ones of the same id */
-function withEntities(project: TProject, entities: TEntity[]): TProject {
+function withEntities(project: TProject, entities: TPiece[]): TProject {
 	const changed = new Map(entities.map((entity) => [entity.id, entity]));
-	return { ...project, entities: project.entities.map((entity) => changed.get(entity.id) ?? entity) };
+	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((entity) => changed.get(entity.id) ?? entity) } };
 }
 
 /** Why a dragged platform can't go all the way: `chip` beside the drag, `notice` after the drop */
@@ -346,9 +346,9 @@ const MOVE_MOVED = 0.001;
 export function moveLimit(project: TProject, move: { marbleId: string; hitId: string }, answer: Pick<TSettleAnswer, 'move'>): TMoveLimit | null {
 	const outcome = answer.move;
 	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
-	const marble = project.music.marbles.find((item) => item.id === move.marbleId);
-	const name = project.entities.find((entity) => entity.components.hitLink?.marbleId === move.marbleId && entity.components.hitLink.hitId === move.hitId)?.name ?? 'The platform';
-	const from = project.entities.find((entity) => entity.id === outcome.fromId)?.name;
+	const marble = project.marbles.find((item) => item.id === move.marbleId);
+	const name = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === move.marbleId && tieOf(entity)?.hitId === move.hitId)?.name ?? 'The platform';
+	const from = project.track.pieces.find((entity) => entity.id === outcome.fromId)?.name;
 	if (outcome.isFixed) {
 		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${marble?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };
 		return { chip: `Stays: the marble leaves ${from} here`, notice: `${name} stays where it is: the marble leaves ${from} here. Move ${from} to change its spot.`, isStuck: true };

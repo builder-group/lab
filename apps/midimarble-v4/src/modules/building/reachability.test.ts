@@ -13,11 +13,10 @@ beforeAll(async () => {
 /** A new project whose marble is released at `releaseTime` and has open hits at `times` */
 function tapped(times: number[], releaseTime = 0): { project: TProject; result: TSimulationResult; hits: THitResult[] } {
 	const project = createProject();
-	const marble = project.music.marbles[0];
-	const marbleEntity = project.entities.find((entity) => entity.components.marble != null);
-	if (marble == null || marbleEntity?.components.release == null) throw new Error('A new project has a marble');
+	const marble = project.marbles[0];
+	if (marble == null) throw new Error('A new project has a marble');
 	marble.hits = times.map((time, index) => ({ id: `hit-${index + 1}`, time }));
-	marbleEntity.components.release.time = releaseTime;
+	marble.start.time = releaseTime;
 	const result = simulate(project);
 	const hits = marble.hits.map((item) => result.hits.find((hit) => hit.hitId === item.id)).filter((hit) => hit != null);
 	return { project, result, hits };
@@ -88,7 +87,7 @@ describe('moveHitLaterFix function', () => {
 
 	it('should not move the notes of a song, which offer Make Backing instead', () => {
 		const { project, result, hits } = tapped([0.02, 1]);
-		project.music.sources = [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }];
+		project.songs = [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', start: 0, backing: [] }];
 		const hit = hits[0] as THitResult;
 
 		expect(canMakeBacking(project)).toBe(true);
@@ -109,8 +108,8 @@ describe('releaseFixFor function', () => {
 		// Assert
 		expect(fix?.label).toBe('Move Release Earlier');
 		const command = fix?.commands[0];
-		if (command?.type !== 'setComponent' || command.component.name !== 'release') throw new Error('Expected a release change');
-		expect(command.component.value.time).toBe(0.5);
+		if (command?.type !== 'updateMarble' || command.patch.start == null) throw new Error('Expected a release change');
+		expect(command.patch.start.time).toBe(0.5);
 		expect(reachMessage(reach, { hit: 'Hit 1', marble: 'Marble 1' }, fix)).toBe('Hit 1 is too soon for Marble 1. Move the release earlier or make it Backing.');
 	});
 

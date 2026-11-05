@@ -1,5 +1,5 @@
-import { marbleColors, type TEntity, type TProject, type TWallKind, type TWallSkin } from '@/modules/project';
-import { draftMarble, resolveTheme, type TResolvedTheme, wallLayer, WALL_KINDS, catalogSkin, catalogSkins, type TSkinElement, STARTER_ORIGIN } from '@/modules/scene';
+import { marbleColors, type TProject, type TWallKind, type TWallSkin } from '@/modules/project';
+import { draftMarble, resolveTheme, skinnedOf, type TResolvedTheme, type TSkinned, wallLayer, WALL_KINDS, catalogSkin, catalogSkins, type TSkinElement, STARTER_ORIGIN } from '@/modules/scene';
 
 // What a selection's picker offers, as tiles: the theme's choice first, the rest as the catalog lists them, and which
 // one the selection wears. A mixed selection rings none.
@@ -21,11 +21,11 @@ export interface TLookTile {
  * `usedSkins` names it. Choosing the theme's own skin follows the theme (`builtInSkinCommands`), so it has no second tile.
  * The first tile gives the selection back to its theme, properties too.
  */
-export function skinTiles(film: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TEntity[], usedSkins?: ReadonlySet<string>): TLookTile[] {
+export function skinTiles(film: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TSkinned[], usedSkins?: ReadonlySet<string>): TLookTile[] {
 	const theme = resolveTheme(film);
 	const part = theme.parts[element].skin;
 	const owns = entities.map((entity) => {
-		const assetId = entity.components.skin?.assetId;
+		const assetId = entity.skin?.assetId;
 		return assetId != null ? assetId : null;
 	});
 	const shown = themeSkinShown(theme, element, entities[0]);
@@ -43,17 +43,17 @@ function themeTileLabel(skin: string | undefined): string {
 }
 
 /** Every skin the project wears or one of its themes names, which keeps a hidden skin on the tiles */
-export function usedSkinIds(project: Pick<TProject, 'entities' | 'film'>): ReadonlySet<string> {
-	const worn = project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []);
+export function usedSkinIds(project: Pick<TProject, 'track' | 'marbles' | 'film'>): ReadonlySet<string> {
+	const worn = skinnedOf(project).flatMap((entity) => entity.skin?.assetId ?? []);
 	const named = project.film.themes.flatMap((theme) => Object.values(theme.parts ?? {}).flatMap((part) => part.skin ?? []));
 	return new Set([...worn, ...named]);
 }
 
 /** The skin the theme dresses an entity with; a theme's contrast marble is Pearl or Deep by what stands apart from the wall */
-function themeSkinShown(theme: TResolvedTheme, element: TSkinElement, entity: TEntity | undefined): ReturnType<typeof catalogSkin> {
+function themeSkinShown(theme: TResolvedTheme, element: TSkinElement, entity: TSkinned | undefined): ReturnType<typeof catalogSkin> {
 	const part = theme.parts[element].skin;
 	if (part !== 'marble:contrast') return catalogSkin(part);
-	return catalogSkin(`marble:${draftMarble(theme.base, entity == null ? '#d0d4dc' : (entity.components.skin?.color ?? marbleColors[0] ?? '#d0d4dc'), theme.overrides).tone}`);
+	return catalogSkin(`marble:${draftMarble(theme.base, entity == null ? '#d0d4dc' : (entity.skin?.color ?? marbleColors[0] ?? '#d0d4dc'), theme.overrides).tone}`);
 }
 
 /** A wall tile: `kind` null follows the theme. The walls have no rendered previews, so the tile draws its kind */

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createLane, type TEntity, type TProject } from '@/modules/project';
+import { createMarble, type TMarble, type TPiece, type TProject, tieOf } from '@/modules/project';
 import { createStaircaseProject } from './fixture-projects';
 import { resolvePieceParams } from './pieces';
 import { createLinkedPiece } from './placement';
@@ -11,22 +11,18 @@ import { loadFixture } from '@/modules/project/test-helpers';
 function createBareProject(end: number): TProject {
 	const project = createStaircaseProject();
 	project.length = end;
-	project.music.marbles = [];
-	project.entities = [];
+	project.marbles = [];
+	project.track.pieces = [];
 	return project;
 }
 
 function addMarble(
 	project: TProject,
 	index: number,
-	release: TEntity['components']['release']
+	start: TMarble['start']
 ): string {
-	const marble = createLane(index, `lane-${index + 1}`);
-	project.music.marbles.push(marble);
-	project.entities.push({
-		id: `marble-${index + 1}`,
-		components: { marble: { marbleId: marble.id, radius: 0.008 }, release }
-	});
+	const marble: TMarble = { ...createMarble(index, start.position, `marble-${index + 1}`), radius: 0.008, start };
+	project.marbles.push(marble);
 	return marble.id;
 }
 
@@ -37,21 +33,21 @@ function addLinkedHit(
 	angle: number,
 	type = 'platform'
 ): string {
-	const marble = project.music.marbles.find((l) => l.id === marbleId);
+	const marble = project.marbles.find((l) => l.id === marbleId);
 	if (marble == null) throw new Error('Missing marble');
 	const hitId = `${marbleId}-hit-${marble.hits.length + 1}`;
 	marble.hits.push({ id: hitId, time });
 	const id = `piece-${hitId}`;
-	project.entities.push(
-		createLinkedPiece(type, marbleId, hitId, angle, { entities: project.entities, id })
+	project.track.pieces.push(
+		createLinkedPiece(type, marbleId, hitId, angle, { entities: project.track.pieces, id })
 	);
 	return id;
 }
 
 function setAngle(project: TProject, entityId: string, angle: number): void {
-	const hitLink = project.entities.find((entity) => entity.id === entityId)?.components.hitLink;
-	if (hitLink == null) throw new Error(`Missing linked piece ${entityId}`);
-	hitLink.angle = angle;
+	const piece = project.track.pieces.find((entity) => entity.id === entityId);
+	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${entityId}`);
+	piece.angle = angle;
 }
 
 function withoutStats(result: TSimulationResult): Omit<TSimulationResult, 'stats'> {
@@ -88,8 +84,8 @@ describe('simulate', () => {
 		const project = loadFixture('zigzag');
 		const base = simulator.simulate(project);
 		for (const motorSpeed of [0, 3]) {
-			const windmill = { id: 'windmill-far', name: 'Windmill', components: { piece: { type: 'windmill', params: { motorSpeed } }, transform: { position: { x: 5, y: 5 }, angle: 0.3 } } };
-			const result = simulator.simulate({ ...project, revision: project.revision + 1, entities: [...project.entities, windmill] });
+			const windmill: TPiece = { id: 'windmill-far', name: 'Windmill', type: 'windmill', params: { motorSpeed }, angle: 0.3, place: { kind: 'free', position: { x: 5, y: 5 } } };
+			const result = simulator.simulate({ ...project, revision: project.revision + 1, track: { ...project.track, pieces: [...project.track.pieces, windmill] } });
 			expect(result.hits).toEqual(base.hits);
 			expect(result.marbles).toEqual(base.marbles);
 			expect(result.contacts).toEqual(base.contacts);
@@ -103,8 +99,8 @@ describe('simulate', () => {
 		// Just below the marble's path at 3 s
 		const at = marble?.samples.find((sample) => sample.time >= 3)?.position;
 		if (marble == null || at == null) throw new Error('Missing sample');
-		const windmill = { id: 'windmill-near', name: 'Windmill', components: { piece: { type: 'windmill', params: { motorSpeed: 0 } }, transform: { position: { x: at.x + 0.02, y: at.y - 0.12 }, angle: 0.3 } } };
-		const result = simulator.simulate({ ...project, revision: project.revision + 1, entities: [...project.entities, windmill] });
+		const windmill: TPiece = { id: 'windmill-near', name: 'Windmill', type: 'windmill', params: { motorSpeed: 0 }, angle: 0.3, place: { kind: 'free', position: { x: at.x + 0.02, y: at.y - 0.12 } } };
+		const result = simulator.simulate({ ...project, revision: project.revision + 1, track: { ...project.track, pieces: [...project.track.pieces, windmill] } });
 		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-near');
 		if (strike == null) throw new Error('The marble misses the windmill');
 		expect(result.marbles[0]?.samples.filter((sample) => sample.time < strike.time)).toEqual(marble.samples.filter((sample) => sample.time < strike.time));
@@ -144,7 +140,7 @@ describe('simulate', () => {
 		const waiting = structuredClone(project);
 		const fifth = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
 		const fifthHit = before.hits.find((hit) => hit.pieceEntityId === 'piece-1-5');
-		const link = waiting.entities.find((entity) => entity.id === 'piece-1-5')?.components.hitLink;
+		const link = tieOf(waiting.track.pieces.find((entity) => entity.id === 'piece-1-5'));
 		if (fifth == null || fifthHit?.dot == null || link == null) throw new Error('Missing fifth platform');
 		link.held = { dot: fifthHit.dot, velocity: fifthHit.velocity, leaves: null };
 		const waitingResult = simulator.simulate(waiting);
@@ -202,9 +198,9 @@ describe('simulate', () => {
 
 	it('resumes past a dragged free piece until a marble could reach it', async () => {
 		const project = loadFixture('zigzag');
-		const free = (x: number, y: number): TEntity => ({
+		const free = (x: number, y: number): TPiece => ({
 			id: 'dragged',
-			components: { piece: { type: 'platform', params: {} }, transform: { position: { x, y }, angle: 0.3 } }
+			type: 'platform', params: {}, angle: 0.3, place: { kind: 'free', position: { x, y } }
 		});
 		const base = simulator.simulate(project);
 		const late = base.marbles[0]?.samples.find((sample) => sample.time >= 4.5)?.position;
@@ -218,7 +214,7 @@ describe('simulate', () => {
 			{ x: late.x + 0.01, y: late.y - 0.02 },
 			{ x: 1.5, y: 0 }
 		].entries()) {
-			const dragged = { ...project, revision: project.revision + 1, entities: [...project.entities, free(position.x, position.y)] };
+			const dragged = { ...project, revision: project.revision + 1, track: { ...project.track, pieces: [...project.track.pieces, free(position.x, position.y)] } };
 			const incremental = simulator.simulate(dragged);
 			const fresh = await createSimulator();
 			const full = fresh.simulate(dragged);
@@ -227,7 +223,7 @@ describe('simulate', () => {
 			expect(withoutStats(incremental)).toEqual(withoutStats(full));
 		}
 		// The free piece far away leaves the run exactly as without it
-		const away = simulator.simulate({ ...project, entities: [...project.entities, free(1.5, 0)] });
+		const away = simulator.simulate({ ...project, track: { ...project.track, pieces: [...project.track.pieces, free(1.5, 0)] } });
 		expect(away.marbles).toEqual(base.marbles);
 		expect(away.hits).toEqual(base.hits);
 	});
@@ -252,8 +248,7 @@ describe('simulate', () => {
 		for (const time of [0.5, 0.9, 1.3]) addLinkedHit(project, marbleA, time, -0.1);
 		for (const time of [0.7, 1.1, 1.5]) addLinkedHit(project, marbleB, time, 0.1);
 		// After the long first falls, a lower bounce than the default keeps the marbles falling at each hit
-		for (const entity of project.entities)
-			if (entity.components.piece != null) entity.components.piece.params['bounce'] = 0.55;
+		for (const entity of project.track.pieces) entity.params['bounce'] = 0.55;
 		const result = simulator.simulate(project);
 		expect(result.marbles).toHaveLength(2);
 		expect(result.hits).toHaveLength(6);
@@ -332,9 +327,9 @@ describe('simulate', () => {
 		const project = createBareProject(1.2);
 		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
 		const windmillId = addLinkedHit(project, marbleId, 0.4, 0.2, 'windmill');
-		const entity = project.entities.find((item) => item.id === windmillId);
-		if (entity?.components.piece == null) throw new Error('Missing windmill');
-		entity.components.piece.params['motorSpeed'] = 2;
+		const entity = project.track.pieces.find((item) => item.id === windmillId);
+		if (entity == null) throw new Error('Missing windmill');
+		entity.params['motorSpeed'] = 2;
 		const result = simulator.simulate(project);
 		// The windmill is scenery: the marble strikes it at 0.4 s, but the hit there stays open
 		expect(result.hits[0]?.status).toBe('open');
@@ -350,26 +345,19 @@ describe('simulate', () => {
 	it('builds free rails and windmills from their transform', () => {
 		const project = createBareProject(0.5);
 		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
-		project.entities.push(
+		project.track.pieces.push(
 			{
 				id: 'free-rail',
-				components: {
-					piece: { type: 'rail', params: {} },
-					transform: { position: { x: 0.1, y: 0.2 }, angle: 0 },
-					path: {
+				type: 'rail', params: {}, angle: 0, place: { kind: 'free', position: { x: 0.1, y: 0.2 } }, path: {
 						points: [
 							{ x: 0, y: 0 },
 							{ x: 0.1, y: -0.01 }
 						]
 					}
-				}
 			},
 			{
 				id: 'free-windmill',
-				components: {
-					piece: { type: 'windmill', params: { bladeCount: 3 } },
-					transform: { position: { x: -0.2, y: 0.2 }, angle: 0.5 }
-				}
+				type: 'windmill', params: { bladeCount: 3 }, angle: 0.5, place: { kind: 'free', position: { x: -0.2, y: 0.2 } }
 			}
 		);
 		const result = simulator.simulate(project);
@@ -390,12 +378,9 @@ describe('simulate', () => {
 		// touched without being struck
 		const shelfTop = 0.4 + (resolvePieceParams('platform', {})['thickness'] ?? 0) / 2;
 		const marbleId = addMarble(project, 0, { position: { x: 0, y: shelfTop + 0.0085 }, time: 0 });
-		project.entities.push({
+		project.track.pieces.push({
 			id: 'shelf',
-			components: {
-				piece: { type: 'platform', params: { length: 0.2 } },
-				transform: { position: { x: 0, y: 0.4 }, angle: 0 }
-			}
+			type: 'platform', params: { length: 0.2 }, angle: 0, place: { kind: 'free', position: { x: 0, y: 0.4 } }
 		});
 		const pieceId = addLinkedHit(project, marbleId, 0.5, 0);
 		const result = simulator.simulate(project);
@@ -421,7 +406,7 @@ describe('simulate', () => {
 	it('flags open dots outside the frame band', () => {
 		const project = createBareProject(1);
 		addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0, velocity: { x: 0.5, y: 0 } });
-		project.music.marbles[0]?.hits.push({ id: 'near', time: 0.2 }, { id: 'far', time: 0.8 });
+		project.marbles[0]?.hits.push({ id: 'near', time: 0.2 }, { id: 'far', time: 0.8 });
 		const result = simulator.simulate(project);
 		expect(result.hits.map((hit) => hit.outOfFrame)).toEqual([false, true]);
 	});
@@ -433,7 +418,7 @@ describe('simulate', () => {
 			time: 0,
 			velocity: { x: 0.2, y: 0 }
 		});
-		project.music.marbles[0]?.hits.push({ id: 'open', time: 0.3 });
+		project.marbles[0]?.hits.push({ id: 'open', time: 0.3 });
 		const result = simulator.simulate(project);
 		const hit = result.hits.find((h) => h.marbleId === marbleId);
 		expect(hit?.status).toBe('open');

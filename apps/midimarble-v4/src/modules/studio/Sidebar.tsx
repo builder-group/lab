@@ -7,7 +7,7 @@ import { PieceIcon, useRunPreflight } from '@/modules/canvas';
 import { badgeStatus, StatusIcon, type TBadgeStatus, groupSelection } from '@/modules/track';
 import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands, updateLightCommands, shotKindLabel } from '@/modules/scene';
 import { $scatterPanel, revealMadeInBlender } from '@/modules/film';
-import { isPatternGroup, type TEntity, type TProject, formatTime, SCENE_KEY } from '@/modules/project';
+import { isPatternGroup, type TPiece, type TProject, formatTime, SCENE_KEY, tieOf } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { inspectorTarget } from './inspector-target';
@@ -203,7 +203,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
 		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
-		else if (row.kind === 'title') openContextMenu(event, titleMenu(cx, row.entity));
+		else if (row.kind === 'title') openContextMenu(event, titleMenu(cx, row.title));
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
 		else if (row.kind === 'madeInBlender') openContextMenu(event, [{ label: 'Open in Blender', onSelect: () => revealMadeInBlender(cx, row.name) }, commandItem(cx, 'decor.scatter')]);
 		else if (row.kind === 'group' && row.id === DECOR_KEY) openContextMenu(event, [commandItem(cx, 'decor.scatter')]);
@@ -285,8 +285,8 @@ interface TRowActions {
 }
 
 /** A piece's badge: like Xcode's navigator, only problems get one; on-time pieces stay quiet */
-function pieceRowStatus(piece: TEntity, resolved: TResolvedPiece | undefined, hit: THitResult | undefined, hitBy: TPreflightIssue | undefined): TBadgeStatus | null {
-	const own = soundsHit(piece.components.piece?.type ?? 'platform', piece.components.hitLink) ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
+function pieceRowStatus(piece: TPiece, resolved: TResolvedPiece | undefined, hit: THitResult | undefined, hitBy: TPreflightIssue | undefined): TBadgeStatus | null {
+	const own = soundsHit(piece.type ?? 'platform', tieOf(piece)) ? badgeStatus(resolved?.status, hit) : resolved?.status === 'blocked' ? 'blocked' : null;
 	// Another marble hitting it shows when the piece's own status is fine
 	return hitBy != null && (own == null || own === 'onTime') ? 'struck' : own;
 }
@@ -303,9 +303,9 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 	function rename(value: string | null): void {
 		cx.$renaming.set(null);
 		if (value == null || value === view.label) return;
-		if (row.kind === 'marble') cx.execute([{ type: 'upsertLane', marble: { ...row.marble, name: value } }]);
-		else if (row.kind === 'patternGroup') cx.execute([{ type: 'upsertGroup', group: { ...row.group, name: value } }]);
-		else if (row.kind === 'title') cx.execute([{ type: 'upsertEntity', entity: { ...row.entity, name: value } }]);
+		if (row.kind === 'marble') cx.execute([{ type: 'updateMarble', marbleId: row.marble.id, patch: { name: value } }]);
+		else if (row.kind === 'patternGroup') cx.execute([{ type: 'addGroup', group: { ...row.group, name: value } }]);
+		else if (row.kind === 'title' && cx.project != null) cx.execute([{ type: 'updateFilm', film: { titles: cx.project.film.titles.map((title) => (title.id === row.title.id ? { ...title, name: value } : title)) } }]);
 		else if (row.kind === 'light' && row.light != null && cx.project != null) cx.execute(updateLightCommands(cx.project, row.light.id, { name: value }));
 	}
 
@@ -371,7 +371,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 			};
 		}
 		case 'marble':
-			return { icon: <span className="mm-layer-chip" style={{ background: row.marble.color }} />, label: row.marble.name, isOpen: row.hasChildren ? row.isOpen : undefined };
+			return { icon: <span className="mm-layer-chip" style={{ background: row.marble.labelColor }} />, label: row.marble.name, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
 		case 'patternGroup':
@@ -385,7 +385,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'shot':
 			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: shotKindLabel(row.shot.kind), time: row.shot.time };
 		case 'title':
-			return { icon: <Type size={14} strokeWidth={1.75} style={{ color: row.entity.labelColor }} />, label: row.entity.name ?? row.entity.components.wallText?.text ?? 'Title' };
+			return { icon: <Type size={14} strokeWidth={1.75} style={{ color: row.title.labelColor }} />, label: row.title.name ?? row.title.text };
 		case 'piece':
 			return { icon: null, label: row.piece.name ?? '' };
 		case 'decor':
@@ -453,7 +453,7 @@ function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 		case 'marble':
 			return marbleLabelEntries(cx, row.marble);
 		case 'title':
-			return entityLabelEntries(cx, row.entity);
+			return entityLabelEntries(cx, row.title);
 		case 'decor': {
 			const selected = selectedDecorIds(cx.$selection.get());
 			return decorLabelEntries(cx, selected.includes(row.decor.id) ? selected : [row.decor.id]);
@@ -466,7 +466,7 @@ function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
 const PieceRow = React.memo(function PieceRow(
 	props: TRowProps & {
 		cx: StudioCx;
-		piece: TEntity;
+		piece: TPiece;
 		isRenaming: boolean;
 		isHidden: boolean;
 		isLocked: boolean;
@@ -475,15 +475,15 @@ const PieceRow = React.memo(function PieceRow(
 	}
 ) {
 	const { cx, row, piece, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, isHidden, isLocked, status, hitTime, actions } = props;
-	const type = piece.components.piece?.type ?? 'platform';
+	const type = piece.type ?? 'platform';
 	const name = piece.name ?? type;
-	const link = piece.components.hitLink;
+	const link = tieOf(piece);
 	const isLinked = soundsHit(type, link);
 	// A piece that follows a moment names it, as the inspector header does: "Follows Marble 1 at 0:03.2"
 	const project = cx.project;
 	const attach = link != null && !isLinked && project != null ? attachState(project, piece) : null;
 	const followLabel =
-		attach?.kind === 'anchored' ? `Follows ${project?.music.marbles.find((marble) => marble.id === attach.marbleId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
+		attach?.kind === 'anchored' ? `Follows ${project?.marbles.find((marble) => marble.id === attach.marbleId)?.name ?? 'a marble'} at ${formatTime(attach.time)}` : null;
 	const isProblem = status != null && status !== 'onTime';
 
 	return (
@@ -504,7 +504,7 @@ const PieceRow = React.memo(function PieceRow(
 			isRenaming={isRenaming}
 			onRename={(value) => {
 				cx.$renaming.set(null);
-				if (value != null && value !== name) cx.execute([{ type: 'upsertEntity', entity: { ...piece, name: value } }]);
+				if (value != null && value !== name) cx.execute([{ type: 'addPiece', piece: { ...piece, name: value } }]);
 			}}
 			// A linked piece reads by its hit time; an anchored one says it only follows the marble
 			meta={

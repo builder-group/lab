@@ -31,12 +31,7 @@ export function withTitleTime<GTimed extends TTimed>(text: GTimed, field: 'in' |
 
 /** Titles as clips for the Titles track: their entity, text and span, by start time */
 export function titleClips(project: TProject): { entityId: string; text: string; start: number; end: number }[] {
-	return project.entities
-		.flatMap((entity) => {
-			const text = entity.components.wallText;
-			return text == null ? [] : [{ entityId: entity.id, text: text.text, ...titleSpan(text, project.length) }];
-		})
-		.sort((a, b) => a.start - b.start);
+	return project.film.titles.map((title) => ({ entityId: title.id, text: title.text, ...titleSpan(title, project.length) })).sort((a, b) => a.start - b.start);
 }
 
 /**
@@ -45,9 +40,9 @@ export function titleClips(project: TProject): { entityId: string; text: string;
  */
 export function songDisplayName(project: {
 	title: string;
-	music: { sources: readonly { name: string }[] };
+	songs: readonly { name: string; path?: string | undefined }[];
 }): string | null {
-	const file = project.music.sources[0]?.name;
+	const file = project.songs.find((song) => song.path != null)?.name;
 	const fromFile = file != null ? prettifyName(file.replace(/\.[^./]+$/, '')) : '';
 	if (fromFile !== '') return fromFile;
 	const title = project.title.trim();

@@ -3,7 +3,7 @@ import { Ok } from 'tuple-result';
 import { host } from '@/environment';
 import { addedPacks, library } from '@/modules/library';
 import { type TLibraryItem, type TPack } from '@/modules/scene';
-import { createHistory, createLane, createMarble, createProject, type TEntity, type TProject } from '@/modules/project';
+import { createHistory, createMarble, createProject, type TMarble, type TPiece, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { readMenuItem } from '@/modules/studio/menu-bar';
 import { StudioCx } from '@/modules/studio';
@@ -12,8 +12,8 @@ import { busyReason, runTool } from './mcp-tools';
 
 function projectWithHit(): { project: TProject; marbleId: string; hitId: string } {
 	const project = createProject({ title: 'Song' });
-	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
-	return { project: { ...project, music: { ...project.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 })] }, marbleId: marble.id, hitId: 'hit1' };
+	const marble = { ...createMarble(0, { x: 0, y: 0 }), hits: [{ id: 'hit1', time: 1, pitch: 60 }] };
+	return { project: { ...project, marbles: [marble] }, marbleId: marble.id, hitId: 'hit1' };
 }
 
 function resultFor(project: TProject, marbleId: string, hitId: string): TSimulationResult {
@@ -123,16 +123,16 @@ describe('MCP tools', () => {
 		expect(answer.hits).toBeTypeOf('string');
 		expect(cx.$history.get()?.past.length).toBe((before ?? 0) + 1);
 
-		const placed = cx.project?.entities.find((entity) => entity.id === answer.selection[0]);
-		expect(placed?.components.piece?.type).toBe('platform');
-		expect(placed?.components.hitLink?.angle).toBe(0.2);
+		const placed = cx.project?.track.pieces.find((entity) => entity.id === answer.selection[0]);
+		expect(placed?.type).toBe('platform');
+		expect(placed?.angle).toBe(0.2);
 		expect(cx.undoLabel).toBe('Agent: Place Platform');
 		expect(cx.$notice.get()?.message).toBe('Agent: Place Platform');
 		expect(cx.$notice.get()?.actions?.some((action) => action.isUndo === true)).toBe(true);
 		expect(readMenuItem(cx, { command: 'edit.undo' }, false).title).toBe('Undo Agent: Place Platform');
 
 		cx.undo();
-		expect(cx.project?.entities.some((entity) => entity.id === answer.selection[0])).toBe(false);
+		expect(cx.project?.track.pieces.some((entity) => entity.id === answer.selection[0])).toBe(false);
 		expect(cx.undoLabel).toBeNull();
 		expect(readMenuItem(cx, { command: 'edit.redo' }, false).title).toBe('Redo Agent: Place Platform');
 		expect(readMenuItem(cx, { command: 'edit.undo' }, false).title).toBe('Undo');
@@ -220,10 +220,20 @@ describe('MCP tools', () => {
 		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
 	});
 
+	it('should select a marble and a title by their IDs', async () => {
+		const { cx, marbleId } = studio();
+		await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Hello' } });
+		const titleId = cx.project?.film.titles[0]?.id;
+		const reply = await runTool(cx, 'run_command', { id: 'edit.select', args: { select: [marbleId, titleId] } });
+		expect(reply.isError).toBe(false);
+		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
+		expect(state.selection).toMatchObject([{ kind: 'marble', id: marbleId }, { kind: 'title', id: titleId }]);
+	});
+
 	it("should refuse a command's wrong fields, naming them, with no Undo step", async () => {
 		const { cx } = studio();
 		const before = cx.$history.get();
-		for (const command of [{ type: 'updateProject', gravity: 0.4 }, { type: 'updateProject', foo: 1 }, { type: 'updateProject', patch: { foo: 1 } }, { type: 'setComponent', entityId: 'x', component: { name: 'marble', release: {} } }]) {
+		for (const command of [{ type: 'updateProject', gravity: 0.4 }, { type: 'updateProject', foo: 1 }, { type: 'updateProject', patch: { foo: 1 } }, { type: 'updateMarble', marbleId: 'x', patch: { release: {} } }]) {
 			const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [command] } });
 			expect(reply.isError).toBe(true);
 			expect(textOf(reply)).toContain("doesn't fit");
@@ -243,12 +253,25 @@ describe('MCP tools', () => {
 		expect(cx.$history.get()).toBe(before);
 	});
 
-	it('should tell a marble to start at its release, not a transform', async () => {
+	it('should tell a marble to set its start, not a place', async () => {
 		const { cx } = studio();
-		const marble = cx.project?.entities.find((entity) => entity.components.marble != null);
-		const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setComponent', entityId: marble?.id, component: { name: 'transform', value: { position: { x: 1, y: 1 }, angle: 0 } } }] } });
+		const marble = cx.project?.marbles[0];
+		const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'updateMarble', marbleId: marble?.id, patch: { place: { kind: 'free', position: { x: 1, y: 1 } } } }] } });
 		expect(reply.isError).toBe(true);
-		expect(textOf(reply)).toContain('release');
+		expect(textOf(reply)).toContain("updateMarble doesn't fit");
+		expect(textOf(reply)).toContain('start: { position');
+	});
+
+	it('should show the project under the names of its fields in get_state', async () => {
+		const { cx, marbleId } = studio();
+		await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'addSong', song: { id: 'song-1', name: 'Song.wav', kind: 'audio', path: 'audio/song.wav', start: 1, backing: [] } }] } });
+		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
+		expect(state.project.format).toEqual({ width: 9, height: 16 });
+		expect(state.quality).toBe('final');
+		expect(state.song.songs).toEqual([{ id: 'song-1', name: 'Song.wav', kind: 'audio', start: 1 }]);
+		expect(state.marbles[0]).toMatchObject({ marbleId, start: { x: 0, y: 0 } });
+		expect(state.marbles[0]).not.toHaveProperty('entityId');
+		expect(state.camera).toEqual({ auto: true, distance: 1.36, tilt: 1, sway: 1, shots: [] });
 	});
 
 	it('should set Gravity from args.value and refuse it without one', async () => {
@@ -271,8 +294,8 @@ describe('MCP tools', () => {
 		return runTool(cx, 'run_command', { id: 'project.execute', args: { commands } });
 	}
 
-	function marbleOf(cx: StudioCx): TEntity {
-		return cx.project?.entities.find((entity) => entity.components.marble != null) as TEntity;
+	function marbleOf(cx: StudioCx): TMarble {
+		return cx.project?.marbles[0] as TMarble;
 	}
 
 	function skinItem(id: string, pieceType: string): TLibraryItem {
@@ -283,9 +306,9 @@ describe('MCP tools', () => {
 		it.each(['marble:glass', 'marble:metal', 'marble:magic'])('should put %s on a marble from the command to the scene Blender reads', async (skin) => {
 			const { cx } = studio();
 			const marble = marbleOf(cx);
-			const reply = await execute(cx, { type: 'applySkin', assetId: skin, entityIds: [marble.id] });
+			const reply = await execute(cx, { type: 'applySkin', assetId: skin, ids: [marble.id] });
 			expect(reply.isError).toBe(false);
-			expect(marbleOf(cx).components.skin?.assetId).toBe(skin);
+			expect(marbleOf(cx).skin?.assetId).toBe(skin);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { skin: string }[] };
 			expect(state.marbles[0]?.skin).toBe(skin);
 		});
@@ -294,23 +317,23 @@ describe('MCP tools', () => {
 			const { cx } = studio();
 			const marble = marbleOf(cx);
 			for (const assetId of ['marble:nosuchthing', 'platform:copper', 'rail:gold', 'gift-red']) {
-				const reply = await execute(cx, { type: 'applySkin', assetId, entityIds: [marble.id] });
+				const reply = await execute(cx, { type: 'applySkin', assetId, ids: [marble.id] });
 				expect(reply.isError, assetId).toBe(true);
-				expect(marbleOf(cx).components.skin).toBeUndefined();
+				expect(marbleOf(cx).skin).toBeUndefined();
 			}
 			expect(textOf(await execute(cx, { type: 'applySkin', assetId: 'marble:nosuchthing', pieceType: 'marble' }))).toContain('marble:glass');
 			expect(textOf(await execute(cx, { type: 'applySkin', assetId: 'platform:copper', pieceType: 'marble' }))).toContain("can't dress a Marble");
-			expect((await execute(cx, { type: 'applySkin', assetId: 'marble:glass', entityIds: ['nobody'] })).isError).toBe(true);
-			expect((await execute(cx, { type: 'setComponent', entityId: marble.id, component: { name: 'skin', value: { assetId: 'marble:nope' } } })).isError).toBe(true);
+			expect((await execute(cx, { type: 'applySkin', assetId: 'marble:glass', ids: ['nobody'] })).isError).toBe(true);
+			expect((await execute(cx, { type: 'updateMarble', marbleId: marble.id, patch: { skin: { assetId: 'marble:nope' } } })).isError).toBe(true);
 		});
 
 		it('should take a marble skin from the library, and no other piece type', async () => {
 			const { cx } = studio();
 			cx.library.$projectItems.set([skinItem('green-glass', 'marble'), skinItem('gift-red', 'platform')]);
 			const marble = marbleOf(cx);
-			expect((await execute(cx, { type: 'applySkin', assetId: 'gift-red', entityIds: [marble.id] })).isError).toBe(true);
-			expect((await execute(cx, { type: 'applySkin', assetId: 'green-glass', entityIds: [marble.id] })).isError).toBe(false);
-			expect(marbleOf(cx).components.skin?.assetId).toBe('green-glass');
+			expect((await execute(cx, { type: 'applySkin', assetId: 'gift-red', ids: [marble.id] })).isError).toBe(true);
+			expect((await execute(cx, { type: 'applySkin', assetId: 'green-glass', ids: [marble.id] })).isError).toBe(false);
+			expect(marbleOf(cx).skin?.assetId).toBe('green-glass');
 		});
 
 		it('should list every built-in skin and the library in list_commands', async () => {
@@ -367,37 +390,37 @@ describe('MCP tools', () => {
 		});
 	});
 
-	describe('components', () => {
-		it('should name the real component names in errors', async () => {
+	describe('marbles and titles', () => {
+		it('should name the real commands in errors', async () => {
 			const { cx } = studio();
 			const reply = textOf(await execute(cx, { type: 'setComponent', entityId: marbleOf(cx).id, component: { name: 'walltext', value: {} } }));
-			expect(reply).toContain('wallText');
-			expect(reply).toContain('hitLink');
+			expect(reply).toContain('updatePiece');
+			expect(reply).toContain('updateFilm');
 		});
 
 		it('should change a marble color without a radius, and warn when a radius changes', async () => {
 			const { cx } = studio();
 			const id = marbleOf(cx).id;
-			const radius = marbleOf(cx).components.marble?.radius;
-			const color = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'skin', value: { color: '#22ff66' } } }))) as { notices?: string[] };
-			expect(marbleOf(cx).components.skin?.color).toBe('#22ff66');
-			expect(marbleOf(cx).components.marble?.radius).toBe(radius);
+			const radius = marbleOf(cx).radius;
+			const color = JSON.parse(textOf(await execute(cx, { type: 'updateMarble', marbleId: id, patch: { skin: { color: '#22ff66' } } }))) as { notices?: string[] };
+			expect(marbleOf(cx).skin?.color).toBe('#22ff66');
+			expect(marbleOf(cx).radius).toBe(radius);
 			expect(color.notices).toBeUndefined();
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; filmColor: string }[] };
 			expect(state.marbles[0]).toMatchObject({ radius, filmColor: '#22ff66' });
-			const bigger = JSON.parse(textOf(await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 0.0125 } } }))) as { notices: string[] };
+			const bigger = JSON.parse(textOf(await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 0.0125 } }))) as { notices: string[] };
 			expect(bigger.notices[0]).toContain('radius changes the run');
-			expect((await execute(cx, { type: 'setComponent', entityId: id, component: { name: 'marble', value: { radius: 1.2 } } })).isError).toBe(true);
+			expect((await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 1.2 } })).isError).toBe(true);
 		});
 
 		it('should refuse ids that are not there and fonts a title can not use', async () => {
 			const { cx } = studio();
-			expect(textOf(await execute(cx, { type: 'removeEntities', entityIds: ['nobody'] }))).toContain('There is nothing called nobody');
-			expect((await execute(cx, { type: 'removeLane', marbleId: 'nope' })).isError).toBe(true);
-			expect((await execute(cx, { type: 'removeSource', sourceId: 'nope' })).isError).toBe(true);
+			expect(textOf(await execute(cx, { type: 'removePieces', pieceIds: ['nobody'] }))).toContain('There is nothing called nobody');
+			expect((await execute(cx, { type: 'removeMarble', marbleId: 'nope' })).isError).toBe(true);
+			expect((await execute(cx, { type: 'removeSong', songId: 'nope' })).isError).toBe(true);
 			await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Hello' } });
-			const title = cx.project?.entities.find((entity) => entity.components.wallText != null) as TEntity;
-			expect(textOf(await execute(cx, { type: 'setComponent', entityId: title.id, component: { name: 'wallText', value: { font: 'Georgia' } } }))).toContain("isn't a font");
+			const titles = cx.project?.film.titles.map((title) => ({ ...title, font: 'Georgia' }));
+			expect(textOf(await execute(cx, { type: 'updateFilm', film: { titles } }))).toContain("isn't a font");
 		});
 	});
 
@@ -408,9 +431,9 @@ describe('MCP tools', () => {
 			expect(reply.changed).toBe(true);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { layers: { titles: { text: string; style: string }[] } };
 			expect(state.layers.titles).toEqual([expect.objectContaining({ text: 'Jingle Bells', style: 'songName' })]);
-			const title = cx.project?.entities.find((entity) => entity.components.wallText != null);
-			expect(title?.components.transform?.position).toEqual({ x: 0.1, y: -0.2 });
-			expect(title?.components.wallText?.color).toBe('#112233');
+			const title = cx.project?.film.titles[0];
+			expect(title?.position).toEqual({ x: 0.1, y: -0.2 });
+			expect(title?.color).toBe('#112233');
 			expect((await runTool(cx, 'run_command', { id: 'film.addText', args: { style: 'nope' } })).isError).toBe(true);
 		});
 
@@ -496,9 +519,10 @@ describe('expandCommands function', () => {
 		const [isOk, , expanded] = expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', position: { x: 1, y: 2 }, angle: 0.5, params: { length: 0.1 }, name: 'Top' }, { type: 'updateProject', patch: { length: 3 } }]);
 		expect(isOk).toBe(true);
 		const placed = expanded?.commands[0];
-		expect(placed?.type === 'upsertEntity' && placed.entity.components.transform).toEqual({ position: { x: 1, y: 2 }, angle: 0.5 });
-		expect(placed?.type === 'upsertEntity' && placed.entity.components.piece?.params['length']).toBe(0.1);
-		expect(placed?.type === 'upsertEntity' && placed.entity.name).toBe('Top');
+		expect(placed?.type === 'addPiece' && placed.piece.place).toEqual({ kind: 'free', position: { x: 1, y: 2 } });
+		expect(placed?.type === 'addPiece' && placed.piece.angle).toBe(0.5);
+		expect(placed?.type === 'addPiece' && placed.piece.params['length']).toBe(0.1);
+		expect(placed?.type === 'addPiece' && placed.piece.name).toBe('Top');
 		expect(expanded?.commands[1]).toEqual({ type: 'updateProject', patch: { length: 3 } });
 		expect(expanded?.summary).toBeNull();
 	});
@@ -511,15 +535,15 @@ describe('expandCommands function', () => {
 
 	it("should answer in words that a live Pattern's piece doesn't edit, and free it with flattenPattern", () => {
 		const base = createProject({ id: 'p', title: 'P' });
-		const bar: TEntity = { id: 'bar', name: 'Bar', components: { piece: { type: 'platform', params: { depth: 0.09 } }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
-		const project: TProject = { ...base, entities: [...base.entities, bar], groups: [{ id: 'g', name: 'Zigzag', marbleId: base.music.marbles[0]?.id ?? '', from: 1, to: 2, kind: 'zigzag', width: 0.14, bounce: 0.5, pieceIds: ['bar'] }] };
-		const moved: TEntity = { ...bar, components: { ...bar.components, transform: { position: { x: 1, y: 0 }, angle: 0 } } };
-		const deeper: TEntity = { ...bar, components: { ...bar.components, piece: { type: 'platform', params: { depth: 0.05 } } } };
+		const bar: TPiece = { id: 'bar', name: 'Bar', type: 'platform', params: { depth: 0.09 }, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
+		const project: TProject = { ...base, track: { pieces: [...base.track.pieces, bar], groups: [{ id: 'g', name: 'Zigzag', marbleId: base.marbles[0]?.id ?? '', pieceIds: ['bar'], pattern: { kind: 'zigzag', hitIds: [], width: 0.14, bounce: 0.5 } }] } };
+		const moved: TPiece = { ...bar, place: { kind: 'free', position: { x: 1, y: 0 } } };
+		const deeper: TPiece = { ...bar, params: { depth: 0.05 } };
 
-		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: moved }])[1]?.message).toContain('Part of Zigzag. Flatten to edit it.');
-		expect(expandCommands(project, null, [], [{ type: 'removeEntities', entityIds: ['bar'] }])[0]).toBe(true);
-		expect(expandCommands(project, null, [], [{ type: 'upsertEntity', entity: deeper }])[0]).toBe(true);
-		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'upsertGroup', group: { id: 'g', name: 'Zigzag', marbleId: base.music.marbles[0]?.id ?? '', pieceIds: ['bar'] } }]);
+		expect(expandCommands(project, null, [], [{ type: 'addPiece', piece: moved }])[1]?.message).toContain('Part of Zigzag. Flatten to edit it.');
+		expect(expandCommands(project, null, [], [{ type: 'removePieces', pieceIds: ['bar'] }])[0]).toBe(true);
+		expect(expandCommands(project, null, [], [{ type: 'addPiece', piece: deeper }])[0]).toBe(true);
+		expect(expandCommands(project, null, [], [{ type: 'flattenPattern', groupId: 'g' }])[2]?.commands).toEqual([{ type: 'addGroup', group: { id: 'g', name: 'Zigzag', marbleId: base.marbles[0]?.id ?? '', pieceIds: ['bar'] } }]);
 	});
 
 	it('should refuse what it can\'t do in plain words', () => {

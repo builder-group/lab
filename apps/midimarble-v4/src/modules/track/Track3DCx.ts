@@ -168,7 +168,7 @@ export class Track3DCx {
 		if (project.film.wall.labelColor !== this.wallColor) this.paintWall(renderer);
 		const pieces = this.pieces();
 		const playhead = studio.$playhead.get();
-		const radius = project.entities.find((entity) => entity.components.marble != null)?.components.marble?.radius ?? 0.012;
+		const radius = project.marbles[0]?.radius ?? 0.012;
 		this.pathZ = pathDepth(pieces, radius);
 		const result = studio.simulation.$result.get();
 		const view = this.trackCx.$camera.get().view;
@@ -205,12 +205,10 @@ export class Track3DCx {
 		const hidden = studio.$hidden.get();
 		renderer.setWallHidden(hidden.includes(WALL_KEY));
 		renderer.setMarbles(
-			project.entities.flatMap((entity) => {
-				const { marble: marbleEntity, release } = entity.components;
-				if (marbleEntity == null || release == null || hidden.includes(entity.id)) return [];
-				const color = project.music.marbles.find((marble) => marble.id === marbleEntity.marbleId)?.color ?? '#3478f6';
-				const motion = result?.marbles.find((item) => item.entityId === entity.id);
-				return [{ entityId: entity.id, color, radius: marbleEntity.radius, position: marblePositionAt(motion, playhead, release.position), z: this.pathZ }];
+			project.marbles.flatMap((marble) => {
+				if (hidden.includes(marble.id)) return [];
+				const motion = result?.marbles.find((item) => item.entityId === marble.id);
+				return [{ entityId: marble.id, color: marble.labelColor, radius: marble.radius, position: marblePositionAt(motion, playhead, marble.start.position), z: this.pathZ }];
 			})
 		);
 		renderer.render();

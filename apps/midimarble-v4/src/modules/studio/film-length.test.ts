@@ -4,7 +4,7 @@ import { StudioCx } from './StudioCx';
 
 function opened(end: number): { cx: StudioCx; marbleId: string } {
 	const project = createProject({ title: 'Song' });
-	const marble = project.music.marbles[0];
+	const marble = project.marbles[0];
 	if (marble == null) throw new Error('No marble');
 	marble.hits = [{ id: 'h0', time: 1 }, { id: 'h1', time: 3.6 }];
 	const cx = new StudioCx();
@@ -24,9 +24,9 @@ describe('the film length', () => {
 
 	it('should stay when a Bowl is added or removed', () => {
 		const { cx, marbleId } = opened(4);
-		cx.execute([{ type: 'upsertEntity', entity: { id: 'bowl', components: { piece: { type: 'bowl', params: {} }, hitLink: { marbleId, hitId: 'h1', angle: 0, contactAt: 0.5, anchored: true } } } }]);
+		cx.execute([{ type: 'addPiece', piece: { id: 'bowl', type: 'bowl', params: {}, angle: 0, place: { kind: 'follows', marbleId: marbleId, hitId: 'h1' } } }]);
 		expect(cx.project?.length).toBe(4);
-		cx.execute([{ type: 'removeEntities', entityIds: ['bowl'] }]);
+		cx.execute([{ type: 'removePieces', pieceIds: ['bowl'] }]);
 		expect(cx.project?.length).toBe(4);
 	});
 

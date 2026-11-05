@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library } from '@/modules/library';
-import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, themeCommands, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme } from '@/modules/scene';
+import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, themeCommands, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme, skinnedOf } from '@/modules/scene';
 import { type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { skinCommands, type TSkinTarget } from './film-commands';
@@ -124,7 +124,7 @@ export class FilmLibraryCx {
 	openExportPack(): void {
 		const project = this.source.getProject();
 		if (project == null) return;
-		const worn = new Set(project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []));
+		const worn = new Set(skinnedOf(project).flatMap((entity) => entity.skin?.assetId ?? []));
 		const assetIds = this.$projectItems.get().flatMap((item) => (worn.has(item.id) ? [item.id] : []));
 		this.$exportPack.set({ name: resolveTheme(project.film).name, includesTheme: true, assetIds });
 	}

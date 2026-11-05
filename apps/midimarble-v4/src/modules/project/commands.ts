@@ -1,46 +1,74 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { BACKING_ID, SProject, type TComponentName, type TComponents, type TEntity, type TFilm, type TGroup, type THit, type TLane, type TProject, type TSource, type TTempo } from './schema';
+import { z } from 'zod';
+import { BACKING_ID, SFilm, SGroup, SHit, SMarble, SPiece, SProject, SSong, type TGroup, type THit, type TMarble, type TProject, type TSong } from './schema';
 
-export type TProjectCommand =
-	| { type: 'updateProject'; patch: Partial<Pick<TProject, 'title' | 'length' | 'format' | 'gravity'>> }
-	| { type: 'upsertSource'; source: TSource }
-	| { type: 'removeSource'; sourceId: string }
-	| { type: 'upsertLane'; marble: Omit<TLane, 'hits'> & { hits?: THit[] } }
-	| { type: 'removeLane'; marbleId: string }
-	// `BACKING_ID` as the marble edits Backing
-	| { type: 'upsertHits'; marbleId: string; hits: THit[] }
-	| { type: 'removeHits'; marbleId: string; hitIds: string[] }
-	// Moves hits from wherever they are to a marble or to Backing (`BACKING_ID`), keeping their IDs
-	| { type: 'assignHits'; hitIds: string[]; marbleId: string }
-	| { type: 'setBackingInstrument'; instrument: number | null }
-	| { type: 'upsertEntity'; entity: TEntity }
-	| { type: 'removeEntities'; entityIds: string[] }
-	| { type: 'upsertGroup'; group: TGroup }
-	| { type: 'removeGroups'; groupIds: string[] }
-	| { type: 'setComponent'; entityId: string; component: TComponentPatch }
-	| { type: 'removeComponent'; entityId: string; name: TComponentName }
-	| { type: 'updateFilm'; film: Partial<TFilm> }
-	| { type: 'setTempo'; tempo: TTempo | null };
+// Every edit of a project, an agent's too. One definition per command: its fields here, with an example beside them, and the
+// TypeScript type inferred. `add` replaces what has the same ID, `update` changes the named fields and deletes one with
+// `null`, `remove` also takes what can't stand without it.
 
-export type TComponentPatch = {
-	[GName in TComponentName]: { name: GName; value: NonNullable<TComponents[GName]> };
-}[TComponentName];
+/** A record's fields as an update names them: any of them, and `null` to delete it */
+function patchOf<GShape extends z.ZodRawShape>(record: z.ZodObject<GShape>) {
+	const entries = Object.entries(record.shape)
+		.filter(([name]) => name !== 'id')
+		.map(([name, field]) => [name, (field as z.ZodType).nullable().optional()]);
+	return z.strictObject(Object.fromEntries(entries) as { [GName in Exclude<keyof GShape, 'id'>]: z.ZodOptional<z.ZodNullable<GShape[GName]>> });
+}
+
+const SUpdateProject = z.strictObject({ type: z.literal('updateProject'), patch: SProject.pick({ title: true, length: true, format: true, gravity: true }).partial().strict() });
+const SAddSong = z.strictObject({ type: z.literal('addSong'), song: SSong });
+const SUpdateSong = z.strictObject({ type: z.literal('updateSong'), songId: z.string(), patch: patchOf(SSong) });
+const SRemoveSong = z.strictObject({ type: z.literal('removeSong'), songId: z.string() });
+const SAddMarble = z.strictObject({ type: z.literal('addMarble'), marble: SMarble });
+const SUpdateMarble = z.strictObject({ type: z.literal('updateMarble'), marbleId: z.string(), patch: patchOf(SMarble) });
+const SRemoveMarble = z.strictObject({ type: z.literal('removeMarble'), marbleId: z.string() });
+const SUpsertHits = z.strictObject({ type: z.literal('upsertHits'), marbleId: z.string(), hits: z.array(SHit) });
+const SRemoveHits = z.strictObject({ type: z.literal('removeHits'), marbleId: z.string(), hitIds: z.array(z.string()) });
+const SAssignHits = z.strictObject({ type: z.literal('assignHits'), hitIds: z.array(z.string()), marbleId: z.string() });
+const SAddPiece = z.strictObject({ type: z.literal('addPiece'), piece: SPiece });
+const SUpdatePiece = z.strictObject({ type: z.literal('updatePiece'), pieceId: z.string(), patch: patchOf(SPiece) });
+const SRemovePieces = z.strictObject({ type: z.literal('removePieces'), pieceIds: z.array(z.string()) });
+const SAddGroup = z.strictObject({ type: z.literal('addGroup'), group: SGroup });
+const SUpdateGroup = z.strictObject({ type: z.literal('updateGroup'), groupId: z.string(), patch: patchOf(SGroup) });
+const SRemoveGroups = z.strictObject({ type: z.literal('removeGroups'), groupIds: z.array(z.string()) });
+const SUpdateFilm = z.strictObject({ type: z.literal('updateFilm'), film: SFilm.partial() });
+
+export const SProjectCommand = z.discriminatedUnion('type', [SUpdateProject, SAddSong, SUpdateSong, SRemoveSong, SAddMarble, SUpdateMarble, SRemoveMarble, SUpsertHits, SRemoveHits, SAssignHits, SAddPiece, SUpdatePiece, SRemovePieces, SAddGroup, SUpdateGroup, SRemoveGroups, SUpdateFilm]);
+
+export type TProjectCommand = z.infer<typeof SProjectCommand>;
+
+/** What each command looks like, as an error shows it to an agent and its guide lists it */
+export const PROJECT_COMMAND_EXAMPLES: Record<TProjectCommand['type'], string> = {
+	updateProject: "{ type: 'updateProject', patch: { title: 'Name', length: 32, format: { width: 9, height: 16 }, gravity: 0.5 } }",
+	addSong: "{ type: 'addSong', song: { id, name, kind: 'audio', path: 'audio/song.wav', start: 1, backing: [] } }",
+	updateSong: "{ type: 'updateSong', songId, patch: { tempo: { bpm: 120, beatsPerBar: 4 }, backingSound: 0 } }",
+	removeSong: "{ type: 'removeSong', songId }",
+	addMarble: "{ type: 'addMarble', marble: { id, name, labelColor: '#3478f6', sound: 9, radius: 0.012, start: { position: { x, y }, time: 0 }, hits: [] } }",
+	updateMarble: "{ type: 'updateMarble', marbleId, patch: { name: 'Melody', start: { position: { x, y }, time: 0 } } }",
+	removeMarble: "{ type: 'removeMarble', marbleId }",
+	upsertHits: "{ type: 'upsertHits', marbleId, hits: [{ id, time }] }",
+	removeHits: "{ type: 'removeHits', marbleId, hitIds: [] }",
+	assignHits: "{ type: 'assignHits', hitIds: [], marbleId }",
+	addPiece: "{ type: 'addPiece', piece: { id, name, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x, y } } } }",
+	updatePiece: "{ type: 'updatePiece', pieceId, patch: { angle: 0.2, skin: null } }",
+	removePieces: "{ type: 'removePieces', pieceIds: [] }",
+	addGroup: "{ type: 'addGroup', group: { id, name, pieceIds: [] } }",
+	updateGroup: "{ type: 'updateGroup', groupId, patch: { name: 'Bridge', pattern: null } }",
+	removeGroups: "{ type: 'removeGroups', groupIds: [] }",
+	updateFilm: "{ type: 'updateFilm', film: { theme: 'brass' } }"
+};
 
 /**
- * Applies a batch of commands as one edit. The result is validated and the revision increases once.
- * An invalid batch leaves the source project untouched.
+ * Applies a batch of commands as one edit. The result is validated and the revision increases once. Nothing is copied that
+ * didn't change, so an unchanged section keeps its identity, and the source project is never touched.
  */
-export function applyProjectCommands(
-	project: TProject,
-	commands: TProjectCommand[]
-): TResult<TProject, Error> {
-	let next = structuredClone(project);
+export function applyProjectCommands(project: TProject, commands: TProjectCommand[]): TResult<TProject, Error> {
+	let next = project;
 	for (const command of commands) {
 		const [isApplied, applyErr, applied] = applyCommand(next, command);
 		if (!isApplied) return Err(applyErr);
 		next = applied;
 	}
-	next.revision = project.revision + 1;
+	next = { ...next, revision: project.revision + 1 };
 	const parsed = SProject.safeParse(next);
 	if (!parsed.success) {
 		return Err(new Error(`Invalid edit: ${parsed.error.issues[0]?.message ?? 'unknown issue'}`));
@@ -51,139 +79,180 @@ export function applyProjectCommands(
 function applyCommand(project: TProject, command: TProjectCommand): TResult<TProject, Error> {
 	switch (command.type) {
 		case 'updateProject':
-			Object.assign(project, command.patch);
-			return Ok(project);
-		case 'upsertSource':
-			project.music.sources = upsertById(project.music.sources, command.source);
-			return Ok(project);
-		case 'removeSource':
-			project.music.sources = project.music.sources.filter((source) => source.id !== command.sourceId);
-			return Ok(project);
-		case 'upsertLane': {
-			const existing = project.music.marbles.find((marble) => marble.id === command.marble.id);
-			const marble: TLane = { ...command.marble, hits: sortHits(command.marble.hits ?? existing?.hits ?? []) };
-			project.music.marbles = upsertById(project.music.marbles, marble);
-			return Ok(project);
+			return Ok({ ...project, ...definedOf(command.patch) });
+		case 'addSong':
+			return Ok({ ...project, songs: upsertById(project.songs, { ...command.song, backing: sortHits(command.song.backing) }) });
+		case 'updateSong':
+			return updateList(project, 'songs', command.songId, command.patch, 'Song');
+		case 'removeSong':
+			// The hits stay; only their tie to the song goes
+			return Ok({ ...project, songs: project.songs.filter((song) => song.id !== command.songId), marbles: project.marbles.map((marble) => untied(marble, command.songId)) });
+		case 'addMarble':
+			return Ok({ ...project, marbles: upsertById(project.marbles, { ...command.marble, hits: sortHits(command.marble.hits) }) });
+		case 'updateMarble': {
+			const patch = command.patch.hits != null ? { ...command.patch, hits: sortHits(command.patch.hits) } : command.patch;
+			return updateList(project, 'marbles', command.marbleId, patch, 'Marble');
 		}
-		case 'removeLane': {
-			project.music.marbles = project.music.marbles.filter((marble) => marble.id !== command.marbleId);
-			// A marble owns its marble; pieces linked to its hits stay and surface as orphans
-			project.entities = project.entities.filter(
-				(entity) => entity.components.marble?.marbleId !== command.marbleId
-			);
-			if (project.groups != null) setGroups(project, project.groups.filter((group) => group.marbleId !== command.marbleId));
-			return Ok(project);
-		}
+		case 'removeMarble':
+			// A marble owns its hits; pieces tied to them stay and surface as orphans
+			return Ok({
+				...project,
+				marbles: project.marbles.filter((marble) => marble.id !== command.marbleId),
+				track: { ...project.track, groups: project.track.groups.filter((group) => group.marbleId !== command.marbleId) }
+			});
 		case 'upsertHits': {
-			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.marbleId);
-			if (!isOwnerOk) return Err(ownerErr);
-			let hits = owner.hits;
-			for (const hit of command.hits) hits = upsertById(hits, hit);
-			owner.hits = sortHits(hits);
-			return Ok(project);
+			if (command.marbleId === BACKING_ID) {
+				const song = backingSong(project) ?? newNotesSong();
+				return Ok({ ...project, songs: upsertById(project.songs, { ...song, backing: withHits(song.backing, command.hits) }) });
+			}
+			const marble = project.marbles.find((item) => item.id === command.marbleId);
+			if (marble == null) return Err(new Error(`Marble ${command.marbleId} does not exist`));
+			return Ok({ ...project, marbles: upsertById(project.marbles, { ...marble, hits: withHits(marble.hits, command.hits) }) });
 		}
 		case 'removeHits': {
-			const [isOwnerOk, ownerErr, owner] = hitOwner(project, command.marbleId);
-			if (!isOwnerOk) return Err(ownerErr);
 			const removed = new Set(command.hitIds);
-			owner.hits = owner.hits.filter((hit) => !removed.has(hit.id));
-			return Ok(project);
-		}
-		case 'assignHits': {
-			const [isTargetOk, targetErr, target] = hitOwner(project, command.marbleId);
-			if (!isTargetOk) return Err(targetErr);
-			const wanted = new Set(command.hitIds);
-			const owners = [...project.music.marbles, backingOwner(project)];
-			const moved: THit[] = [];
-			for (const owner of owners) {
-				if (owner.id === command.marbleId) continue;
-				moved.push(...owner.hits.filter((hit) => wanted.has(hit.id)));
-				owner.hits = owner.hits.filter((hit) => !wanted.has(hit.id));
+			if (command.marbleId === BACKING_ID) {
+				return Ok({ ...project, songs: project.songs.map((song) => (song.backing.some((hit) => removed.has(hit.id)) ? { ...song, backing: song.backing.filter((hit) => !removed.has(hit.id)) } : song)) });
 			}
-			const found = new Set([...moved, ...target.hits].map((hit) => hit.id));
-			const missing = command.hitIds.find((id) => !found.has(id));
-			if (missing != null) return Err(new Error(`Hit ${missing} does not exist`));
-			target.hits = sortHits([...target.hits, ...moved]);
-			return Ok(project);
+			const marble = project.marbles.find((item) => item.id === command.marbleId);
+			if (marble == null) return Err(new Error(`Marble ${command.marbleId} does not exist`));
+			return Ok({ ...project, marbles: upsertById(project.marbles, { ...marble, hits: marble.hits.filter((hit) => !removed.has(hit.id)) }) });
 		}
-		case 'setBackingInstrument': {
-			const { backingInstrument: _previous, ...music } = project.music;
-			project.music = command.instrument == null ? music : { ...music, backingInstrument: command.instrument };
-			return Ok(project);
+		case 'assignHits':
+			return assignHits(project, command.hitIds, command.marbleId);
+		case 'addPiece':
+			return Ok({ ...project, track: { ...project.track, pieces: upsertById(project.track.pieces, command.piece) } });
+		case 'updatePiece': {
+			const pieces = updatedById(project.track.pieces, command.pieceId, command.patch);
+			if (pieces == null) return Err(new Error(`Piece ${command.pieceId} does not exist`));
+			return Ok({ ...project, track: { ...project.track, pieces } });
 		}
-		case 'upsertEntity':
-			project.entities = upsertById(project.entities, command.entity);
-			return Ok(project);
-		case 'removeEntities': {
-			const removed = new Set(command.entityIds);
-			project.entities = project.entities.filter((entity) => !removed.has(entity.id));
+		case 'removePieces': {
+			const removed = new Set(command.pieceIds);
 			// A Group lists its pieces; one that lost them all is gone with them
-			if (project.groups != null) setGroups(project, project.groups.map((group) => ({ ...group, pieceIds: group.pieceIds.filter((id) => !removed.has(id)) })).filter((group) => group.pieceIds.length > 0 || !project.groups?.find((item) => item.id === group.id)?.pieceIds.length));
-			return Ok(project);
+			const groups = project.track.groups.flatMap((group) => {
+				if (!group.pieceIds.some((id) => removed.has(id))) return [group];
+				const pieceIds = group.pieceIds.filter((id) => !removed.has(id));
+				return pieceIds.length > 0 ? [{ ...group, pieceIds }] : [];
+			});
+			return Ok({ ...project, track: { pieces: project.track.pieces.filter((piece) => !removed.has(piece.id)), groups } });
 		}
-		case 'upsertGroup':
-			setGroups(project, upsertById(project.groups ?? [], command.group));
-			return Ok(project);
-		case 'removeGroups':
-			setGroups(project, (project.groups ?? []).filter((group) => !command.groupIds.includes(group.id)));
-			return Ok(project);
-		case 'setComponent': {
-			const entity = project.entities.find((item) => item.id === command.entityId);
-			if (entity == null) return Err(new Error(`Entity ${command.entityId} does not exist`));
-			(entity.components as Record<string, unknown>)[command.component.name] = command.component.value;
-			return Ok(project);
+		case 'addGroup':
+			return Ok({ ...project, track: { ...project.track, groups: upsertById<TGroup>(project.track.groups, command.group) } });
+		case 'updateGroup': {
+			const groups = updatedById(project.track.groups, command.groupId, command.patch);
+			if (groups == null) return Err(new Error(`Group ${command.groupId} does not exist`));
+			return Ok({ ...project, track: { ...project.track, groups } });
 		}
-		case 'removeComponent': {
-			const entity = project.entities.find((item) => item.id === command.entityId);
-			if (entity == null) return Err(new Error(`Entity ${command.entityId} does not exist`));
-			entity.components = Object.fromEntries(
-				Object.entries(entity.components).filter(([name]) => name !== command.name)
-			) as TComponents;
-			return Ok(project);
+		case 'removeGroups': {
+			const removed = new Set(command.groupIds);
+			return Ok({ ...project, track: { ...project.track, groups: project.track.groups.filter((group) => !removed.has(group.id)) } });
 		}
 		case 'updateFilm': {
-			const film = { ...project.film, ...command.film };
+			const film = { ...project.film, ...definedOf(command.film) };
 			// The follow camera reads shot markers in time order
-			project.film = { ...film, camera: { ...film.camera, shots: [...film.camera.shots].sort((a, b) => a.time - b.time) } };
-			return Ok(project);
-		}
-		case 'setTempo': {
-			const { tempo: _previous, ...music } = project.music;
-			project.music = command.tempo == null ? music : { ...music, tempo: command.tempo };
-			return Ok(project);
+			const sorted = command.film.camera != null ? { camera: { ...film.camera, shots: [...film.camera.shots].sort((a, b) => a.time - b.time) } } : {};
+			return Ok({ ...project, film: { ...film, ...sorted } });
 		}
 	}
 }
 
-/** A project without Groups has no list at all, as its file stays the same */
-function setGroups(project: TProject, groups: TGroup[]): void {
-	if (groups.length > 0) project.groups = groups;
-	else delete project.groups;
+/** The song a project makes when it has notes no marble plays and no song yet */
+function newNotesSong(): TSong {
+	return { id: 'song-notes', name: '', kind: 'midi', start: 0, backing: [] };
 }
 
-/** The hit list a command edits: a marble's hits, or Backing for `BACKING_ID`. Writes to `hits` go to the project. */
-function hitOwner(project: TProject, marbleId: string): TResult<THitOwner, Error> {
-	if (marbleId === BACKING_ID) return Ok(backingOwner(project));
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
-	if (marble == null) return Err(new Error(`Marble ${marbleId} does not exist`));
-	return Ok(marble);
+/** The song that holds Backing: the one that has any, else the MIDI file's, else the first */
+export function backingSong(project: Pick<TProject, 'songs'>): TSong | undefined {
+	return project.songs.find((song) => song.backing.length > 0) ?? project.songs.find((song) => song.kind === 'midi') ?? project.songs[0];
 }
 
-function backingOwner(project: TProject): THitOwner {
+/** The notes no marble plays */
+export function backingOf(project: Pick<TProject, 'songs'>): THit[] {
+	return backingSong(project)?.backing ?? [];
+}
+
+/** The song's meter, known from an imported MIDI file */
+export function tempoOf(project: Pick<TProject, 'songs'>): TSong['tempo'] {
+	return project.songs.find((song) => song.tempo != null)?.tempo;
+}
+
+/** Moves hits from wherever they are to a marble or to Backing (`BACKING_ID`), keeping their IDs */
+function assignHits(project: TProject, hitIds: readonly string[], marbleId: string): TResult<TProject, Error> {
+	const wanted = new Set(hitIds);
+	const isToBacking = marbleId === BACKING_ID;
+	if (!isToBacking && !project.marbles.some((marble) => marble.id === marbleId)) return Err(new Error(`Marble ${marbleId} does not exist`));
+	const moved: THit[] = [];
+	const without = (hits: THit[]): THit[] => {
+		const found = hits.filter((hit) => wanted.has(hit.id));
+		moved.push(...found);
+		return found.length > 0 ? hits.filter((hit) => !wanted.has(hit.id)) : hits;
+	};
+	const marbles = project.marbles.map((marble) => {
+		if (marble.id === marbleId) return marble;
+		const hits = without(marble.hits);
+		return hits === marble.hits ? marble : { ...marble, hits };
+	});
+	const songs = isToBacking
+		? project.songs
+		: project.songs.map((song) => {
+				const backing = without(song.backing);
+				return backing === song.backing ? song : { ...song, backing };
+			});
+	const target = isToBacking ? (backingSong(project) ?? newNotesSong()) : null;
+	const found = new Set([...moved, ...(target?.backing ?? project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [])].map((hit) => hit.id));
+	const missing = hitIds.find((id) => !found.has(id));
+	if (missing != null) return Err(new Error(`Hit ${missing} does not exist`));
+	if (target != null) return Ok({ ...project, marbles, songs: upsertById(songs, { ...target, backing: sortHits([...target.backing, ...moved]) }) });
+	return Ok({ ...project, songs, marbles: marbles.map((marble) => (marble.id === marbleId ? { ...marble, hits: sortHits([...marble.hits, ...moved]) } : marble)) });
+}
+
+function updateList(project: TProject, key: 'songs' | 'marbles', id: string, patch: object, noun: string): TResult<TProject, Error> {
+	const items = updatedById<{ id: string }>(project[key], id, patch);
+	if (items == null) return Err(new Error(`${noun} ${id} does not exist`));
+	return Ok({ ...project, [key]: items });
+}
+
+function updatedById<GItem extends { id: string }>(items: GItem[], id: string, patch: object): GItem[] | null {
+	const index = items.findIndex((item) => item.id === id);
+	const existing = items[index];
+	if (existing == null) return null;
+	const next = [...items];
+	next[index] = patched(existing, patch);
+	return next;
+}
+
+/** The record with a patch's fields; `null` deletes one and an absent or undefined one stays */
+export function patched<GItem extends object>(item: GItem, patch: object): GItem {
+	const next = { ...item } as Record<string, unknown>;
+	for (const [name, value] of Object.entries(patch)) {
+		if (value === null) delete next[name];
+		else if (value !== undefined) next[name] = value;
+	}
+	return next as GItem;
+}
+
+function definedOf<GPatch extends object>(patch: GPatch): GPatch {
+	return Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)) as GPatch;
+}
+
+/** A marble without its hits' tie to a song, the same object when none has one */
+function untied(marble: TMarble, songId: string): TMarble {
+	if (!marble.hits.some((hit) => hit.songId === songId)) return marble;
 	return {
-		id: BACKING_ID,
-		get hits() {
-			return project.music.backing;
-		},
-		set hits(hits) {
-			project.music.backing = hits;
-		}
+		...marble,
+		hits: marble.hits.map((hit) => {
+			if (hit.songId !== songId) return hit;
+			const { songId: _songId, ...free } = hit;
+			return free;
+		})
 	};
 }
 
-interface THitOwner {
-	id: string;
-	hits: THit[];
+function withHits(hits: THit[], added: readonly THit[]): THit[] {
+	let next = hits;
+	for (const hit of added) next = upsertById(next, hit);
+	return sortHits(next);
 }
 
 function upsertById<GItem extends { id: string }>(items: GItem[], item: GItem): GItem[] {
@@ -197,4 +266,3 @@ function upsertById<GItem extends { id: string }>(items: GItem[], item: GItem): 
 function sortHits(hits: THit[]): THit[] {
 	return [...hits].sort((a, b) => a.time - b.time);
 }
-

@@ -1,4 +1,4 @@
-import type { TEntity } from '@/modules/project';
+import { type TPiece, tieOf } from '@/modules/project';
 import { getPieceDefinition, layoutOf, railLayoutInfo, type TRailLayout } from '@/modules/simulation';
 
 /** The parameters the Physics panel holds: how a piece behaves. Everything else is its Shape. */
@@ -29,6 +29,6 @@ function shapeRank(name: string): number {
  * Whether the inspector shows the link panel: only for one piece that plays a note or follows a marble, as a piece
  * tied to nothing has nothing to show. Play a Note… and Follow a Marble… in its menus tie it.
  */
-export function showsLinkPanel(entities: TEntity[]): boolean {
-	return entities.length === 1 && entities[0]?.components.hitLink != null;
+export function showsLinkPanel(entities: TPiece[]): boolean {
+	return entities.length === 1 && tieOf(entities[0]) != null;
 }

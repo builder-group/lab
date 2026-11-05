@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from './export-preflight';
 import { alignNotes, createImportCommands, parseMidiFile, proposeMarbles } from '@/modules/music';
-import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
+import { applyProjectCommands, createProject, type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, extraStrikes, bowlOfMarble, touchingPairs, type TSimulator } from '@/modules/simulation';
 import { buildTrack, localBuildDeps, type TBuildOutcome, type TBuildProgress } from './build-track';
@@ -25,7 +25,7 @@ function fromHitTimes(marbles: number[][]): TProject {
 
 function bareFixture(name: string): TProject {
 	const project = loadFixture(name);
-	return { ...project, entities: project.entities.filter((entity) => entity.components.piece == null) };
+	return { ...project, track: { ...project.track, pieces: [] } };
 }
 
 /** The app's import sheet at its defaults: every melodic track, split across up to four marbles, a second of lead-in */
@@ -41,19 +41,20 @@ function importedJingle(): TProject {
 
 /** The same project with other hit IDs, as another import would give it */
 function withHitIds(project: TProject, order: 'marble 0 sorts first' | 'last marble sorts first'): TProject {
-	const count = project.music.marbles.length;
-	const marbles = project.music.marbles.map((marble, marbleIndex) => ({
+	const count = project.marbles.length;
+	const marbles = project.marbles.map((marble, marbleIndex) => ({
 		...marble,
 		hits: marble.hits.map((hit, hitIndex) => ({ ...hit, id: `hit-${order === 'marble 0 sorts first' ? marbleIndex : count - marbleIndex}-${String(hitIndex).padStart(3, '0')}` }))
 	}));
-	return { ...project, music: { ...project.music, marbles } };
+	return { ...project, marbles };
 }
 
 function piecesByOrder(project: TProject): string[] {
-	const order = new Map(project.music.marbles.flatMap((marble) => marble.hits).map((hit, index) => [hit.id, index]));
-	return project.entities
-		.filter((entity) => entity.components.piece != null)
-		.map(({ components: { hitLink, ...rest } }) => JSON.stringify({ ...rest, hitLink: hitLink == null ? null : { ...hitLink, hitId: order.get(hitLink.hitId) } }));
+	const order = new Map(project.marbles.flatMap((marble) => marble.hits).map((hit, index) => [hit.id, index]));
+	return project.track.pieces.map(({ id: _id, name: _name, ...rest }) => {
+		const link = tieOf(rest);
+		return JSON.stringify({ ...rest, place: link == null ? rest.place : { ...link, hitId: order.get(link.hitId) } });
+	});
 }
 
 /** A long fall is only a tip: Build Track still leaves one on a 1.06 s gap, which the Patterns prototype doesn't change */
@@ -70,7 +71,7 @@ describe('buildTrack function', () => {
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(115);
 		expect(outcome.attention).toEqual([]);
 		expect(problemsBesidesSong(outcome.project, outcome)).toEqual([]);
-		for (const marble of outcome.project.music.marbles) expect(bowlOfMarble(outcome.project, marble.id)).not.toBeNull();
+		for (const marble of outcome.project.marbles) expect(bowlOfMarble(outcome.project, marble.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
 		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS)).label).toBe('115 of 115 hits on time');
 		// How it looks: nothing touches on the wall, each platform is struck once
@@ -116,7 +117,7 @@ describe('buildTrack function', () => {
 
 	it('gives the same track whatever the random IDs, when hits of two marbles coincide', async () => {
 		const opening = importedJingle();
-		const project = { ...opening, music: { ...opening.music, marbles: opening.music.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => hit.time < 16) })) } };
+		const project = { ...opening, marbles: opening.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => hit.time < 16) })) };
 		const first = await buildTrack(withHitIds(project, 'marble 0 sorts first'), localBuildDeps(simulator));
 		const second = await buildTrack(withHitIds(project, 'last marble sorts first'), localBuildDeps(simulator));
 		expect(piecesByOrder(second.project)).toEqual(piecesByOrder(first.project));

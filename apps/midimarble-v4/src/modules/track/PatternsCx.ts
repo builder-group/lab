@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, patternLockWords, patternOfPiece, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
+import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, patternLockWords, patternOfPiece, patternSpan, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
@@ -138,8 +138,11 @@ export class PatternsCx {
 		const project = this.studio.project;
 		if (project == null) return;
 		this.isStopped = false;
-		for (const group of project.music.marbles.flatMap((marble) => groupsOfMarble(project, marble.id)[0] ?? [])) {
-			const answer = await this.fit(changeFor({ marbleId: group.marbleId, from: group.from, to: group.to, group }, group.kind), false);
+		for (const marble of project.marbles) {
+			const group = groupsOfMarble(project, marble.id).find((item) => patternSpan(marble, item) != null);
+			const span = group != null ? patternSpan(marble, group) : null;
+			if (group == null || span == null) continue;
+			const answer = await this.fit(changeFor({ marbleId: group.marbleId, from: span.from, to: span.to, group }, group.pattern.kind), false);
 			if (answer == null) {
 				if (this.isStopped) this.studio.undo();
 				return;
@@ -156,6 +159,8 @@ export class PatternsCx {
 	/** Makes or changes the Group and selects it. Null when it was stopped or couldn't be made */
 	async apply(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): Promise<TPatternAnswer | null> {
 		this.endHover();
+		const marble = this.studio.project?.marbles.find((item) => item.id === target.marbleId);
+		const span = marble != null && target.group != null ? patternSpan(marble, target.group) : null;
 		const change = changeFor(target, kind, settings);
 		const answer = await this.fit(change);
 		if (answer == null) return null;
@@ -164,12 +169,12 @@ export class PatternsCx {
 			return answer;
 		}
 		if (!this.studio.simulation.landWorkedOut(answer.commands, { label: PATTERN_LABELS[kind] })) return null;
-		const group = this.studio.project?.groups?.find((item) => item.id === answer.groupId);
+		const group = this.studio.project?.track.groups.find((item) => item.id === answer.groupId);
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
 		// The zoom stays where the range was framed, like an operator's redo in Blender
 		this.studio.$trackCx.get()?.revealOnceSimulated(pieceIds, true);
-		this.tell(answer, madeWords(target, kind, settings, answer.name));
+		this.tell(answer, madeWords(target, span, kind, settings, answer.name));
 		return answer;
 	}
 
@@ -280,29 +285,29 @@ function failureKey(target: TPatternTarget): string {
 function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TGroupChange {
 	const { group, marbleId, from, to } = target;
 	const defaults = PATTERN_DEFAULTS[kind];
-	const isSameKind = group?.kind === kind;
-	const maxTilt = settings.maxTilt ?? (isSameKind ? group.maxTilt : undefined);
+	const isSameKind = group?.pattern.kind === kind;
+	const maxTilt = settings.maxTilt ?? (isSameKind ? group.pattern.maxTilt : undefined);
 	return {
 		...(group != null ? { groupId: group.id } : {}),
 		marbleId,
 		from,
 		to,
 		kind,
-		width: settings.width ?? (isSameKind ? group.width : defaults.width),
-		bounce: settings.bounce ?? (isSameKind ? group.bounce : defaults.bounce),
+		width: settings.width ?? (isSameKind ? group.pattern.width : defaults.width),
+		bounce: settings.bounce ?? (isSameKind ? group.pattern.bounce : defaults.bounce),
 		...(maxTilt != null ? { maxTilt } : {})
 	};
 }
 
 /** What a click or a setting just did, so the notice names the edit its Undo takes back */
-function madeWords(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings, name: string): string {
+function madeWords(target: TPatternTarget, span: { from: number; to: number } | null, kind: TPatternKind, settings: TPatternSettings, name: string): string {
 	const { group } = target;
 	if (group == null) return `Made ${name}`;
-	if (group.kind !== kind) return `${group.name} is now ${PATTERN_LABELS[kind]}`;
+	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERN_LABELS[kind]}`;
 	if (settings.width != null) return `${name}: Width ${(settings.width * 100).toFixed(0)} cm`;
 	if (settings.bounce != null) return `${name}: Bounce ${settings.bounce.toFixed(2)}`;
 	if (settings.maxTilt != null) return `${name}: Tilt limit ${settings.maxTilt.toFixed(0)}°`;
-	return target.from !== group.from || target.to !== group.to ? `${name}: new range` : `Fitted ${name} again`;
+	return span != null && (target.from !== span.from || target.to !== span.to) ? `${name}: new range` : `Fitted ${name} again`;
 }
 
 function stepKey(history: { past: readonly unknown[]; future: readonly unknown[] }): string {
@@ -320,7 +325,7 @@ export function patternTargets(project: TProject, selection: readonly string[]):
 	const byMarble = new Map<string, number[]>();
 	for (const key of selection) {
 		const parsed = parseHitKey(key);
-		const hit = project.music.marbles.find((marble) => marble.id === parsed?.marbleId)?.hits.find((item) => item.id === parsed?.hitId);
+		const hit = project.marbles.find((marble) => marble.id === parsed?.marbleId)?.hits.find((item) => item.id === parsed?.hitId);
 		if (parsed == null || hit == null) continue;
 		byMarble.set(parsed.marbleId, [...(byMarble.get(parsed.marbleId) ?? []), hit.time]);
 	}
@@ -335,7 +340,7 @@ export function withWholePatterns(project: TProject, selection: readonly string[
 
 /** A selection with every piece of any Group standing for that Group, as a marquee finds Figma's groups */
 export function withWholeGroups(project: TProject, selection: readonly string[]): string[] {
-	const groups = (project.groups ?? []).filter((group) => group.pieceIds.some((id) => selection.includes(id)));
+	const groups = project.track.groups.filter((group) => group.pieceIds.some((id) => selection.includes(id)));
 	return [...new Set([...selection, ...groups.flatMap(groupSelection)])];
 }
 
@@ -346,7 +351,7 @@ export function groupSelection(group: TGroup): string[] {
 
 /** Selection for a range dragged in the strip: its notes as hits, the same as dragging over them, or the silence itself */
 export function rangeSelection(project: TProject, marbleId: string, from: number, to: number): string[] {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return [];
 	const hits = hitsInRange(marble, from, to);
 	return hits.length > 0 ? hits.map((hit) => toHitKey(marbleId, hit.id)) : [toRangeKey(marbleId, from, to)];

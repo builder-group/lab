@@ -1,5 +1,5 @@
 import type { TSceneDecorItem } from './decor';
-import type { TMadeInBlender, TSkinComponent, TThemeParts } from '@/modules/project';
+import type { TMadeInBlender, TSkin, TThemeParts } from '@/modules/project';
 
 // Contract between the app and the bundled Blender worker. The app sends a scene description with
 // `apply_scene`; the worker creates or updates app-owned objects and keyframes from it.
@@ -134,7 +134,7 @@ export interface TSceneMarble {
 	motionPath: string;
 	sampleCount: number;
 	/** The marble's own skin and property overrides; absent wears the theme's. Physics never reads it. Optional and additive. */
-	skin?: TSkinComponent | null;
+	skin?: TSkin | null;
 	/** Package-relative `.blend` of a library skin the marble wears; absent for a built-in skin. Optional and additive. */
 	assetPath?: string | null;
 	/**
@@ -188,7 +188,7 @@ export interface TScenePiece {
 	 */
 	paths?: { x: number; y: number }[][] | null;
 	/** The piece's own skin and property overrides; null wears the theme's */
-	skin: TSkinComponent | null;
+	skin: TSkin | null;
 	/**
 	 * Package-relative `.blend` of a library skin, such as `assets/piano-key/asset.blend`. Set when `skin.assetId`
 	 * names a project library item; built-in skins such as `platform:copper` have none. Optional and additive.
@@ -199,7 +199,7 @@ export interface TScenePiece {
 	notePitch?: number;
 }
 
-/** Native Blender text object on the wall, from an entity's `wallText` and `transform` components */
+/** Native Blender text object on the wall, from a title */
 export interface TSceneWallText {
 	id: string;
 	text: string;

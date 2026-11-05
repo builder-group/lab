@@ -1,6 +1,6 @@
-import { createId, MARBLE_SPACING, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { createId, MARBLE_SPACING, type TPiece, type TProject, type TVec2, type TMarble, freePosition } from '@/modules/project';
 import { nextPieceName } from './piece-names';
-import { getPieceDefinition, type TRailLayout } from './pieces';
+import { getPieceDefinition, hitPlace, type TRailLayout } from './pieces';
 
 const DEFAULT_TILT = (15 * Math.PI) / 180;
 // Dots closer than this to the frame center lean against the horizontal motion instead
@@ -28,7 +28,7 @@ export interface TCreateLinkedPieceOptions {
 	/** How a Rail gets its paths */
 	layout?: TRailLayout;
 	/** Existing entities, used to number the name */
-	entities?: TEntity[];
+	entities?: TPiece[];
 	id?: string;
 	/** Where along it the marble strikes, the middle by default */
 	contactAt?: number;
@@ -41,7 +41,7 @@ export function createLinkedPiece(
 	hitId: string,
 	angle: number,
 	options: TCreateLinkedPieceOptions = {}
-): TEntity {
+): TPiece {
 	const { entities = [], id = createId('piece') } = options;
 	const definition = getPieceDefinition(type);
 	const params: Record<string, number> = {};
@@ -49,10 +49,11 @@ export function createLinkedPiece(
 	return {
 		id,
 		name: nextPieceName(type, entities),
-		components: {
-			piece: { type, ...(options.layout != null ? { layout: options.layout } : {}), params },
-			hitLink: { marbleId, hitId, angle, contactAt: options.contactAt ?? 0.5 }
-		}
+		type,
+		...(options.layout != null ? { layout: options.layout } : {}),
+		params,
+		angle,
+		place: hitPlace(type, marbleId, hitId, options.contactAt)
 	};
 }
 
@@ -77,9 +78,9 @@ export function startRailId(marbleId: string): string {
 }
 
 /** The Rail this marble starts on, if it still has one */
-export function startRailOf(project: TProject, marbleId: string): TEntity | undefined {
+export function startRailOf(project: TProject, marbleId: string): TPiece | undefined {
 	const id = startRailId(marbleId);
-	return project.entities.find((entity) => entity.id === id);
+	return project.track.pieces.find((entity) => entity.id === id);
 }
 
 export function frameBand(project: TProject, marbleId?: string): TFrameBand {
@@ -87,23 +88,22 @@ export function frameBand(project: TProject, marbleId?: string): TFrameBand {
 	const distance = project.film.camera.distance;
 	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 1.263 : 1);
 	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its marble lies there
-	const releaseX = (entity: TEntity): number => {
-		const x = entity.components.release?.position.x ?? 0;
-		const rail = startRailOf(project, entity.components.marble?.marbleId ?? '')?.components;
-		return rail?.transform != null && Math.abs(rail.transform.position.x - x) < 0.02 ? x + (rail.piece?.params['laneOffset'] ?? 0) : x;
+	const releaseX = (marble: TMarble): number => {
+		const x = marble.start.position.x;
+		const rail = startRailOf(project, marble.id);
+		const railX = freePosition(rail)?.x;
+		return railX != null && Math.abs(railX - x) < 0.02 ? x + (rail?.params['laneOffset'] ?? 0) : x;
 	};
-	const marbles = project.entities.filter(
-		(entity) => entity.components.marble != null && entity.components.release != null
-	);
+	const { marbles } = project;
 	if (marbles.length <= 1) {
-		const marble = project.entities.find((entity) => entity.components.marble != null);
+		const marble = project.marbles[0];
 		return { centerX: marble != null ? releaseX(marble) : 0, halfWidth: width / 2 };
 	}
-	const centerX = marbles.reduce((sum, entity) => sum + releaseX(entity), 0) / marbles.length;
+	const centerX = marbles.reduce((sum, marble) => sum + releaseX(marble), 0) / marbles.length;
 	const ordered = marbles
-		.map((entity, index) => ({ entity, index }))
-		.sort((a, b) => releaseX(a.entity) - releaseX(b.entity) || a.index - b.index);
-	const slot = ordered.findIndex((item) => item.entity.components.marble?.marbleId === marbleId);
+		.map((marble, index) => ({ marble, index }))
+		.sort((a, b) => releaseX(a.marble) - releaseX(b.marble) || a.index - b.index);
+	const slot = ordered.findIndex((item) => item.marble.id === marbleId);
 	const span = (marbles.length - 1) * MARBLE_SPACING;
 	// With several marbles the camera moves back for the group, so the whole band is at least the film frame
 	if (marbleId == null || slot < 0) return { centerX, halfWidth: Math.max(span / 2 + MARBLE_HALF_WIDTH, width / 2) };

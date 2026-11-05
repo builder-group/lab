@@ -1,4 +1,4 @@
-import type { TEntity, TProject } from '@/modules/project';
+import { type TPiece, type TProject, tieOf } from '@/modules/project';
 import { startRailOf } from './placement';
 import { getPieceDefinition } from './pieces';
 
@@ -6,13 +6,13 @@ import { getPieceDefinition } from './pieces';
  * Name for a new piece of a type: its label and the number after the highest one in use, so a new piece
  * continues the numbering even after pieces were deleted or renamed in order
  */
-export function nextPieceName(type: string, entities: TEntity[]): string {
+export function nextPieceName(type: string, entities: TPiece[]): string {
 	const label = pieceLabel(type);
 	const pattern = new RegExp(`^${escapeRegExp(label)} (\\d+)$`);
 	let highest = 0;
 	let count = 0;
 	for (const entity of entities) {
-		if (entity.components.piece?.type !== type) continue;
+		if (entity.type !== type) continue;
 		count++;
 		const number = Number(pattern.exec(entity.name ?? '')?.[1] ?? 0);
 		highest = Math.max(highest, number);
@@ -26,34 +26,34 @@ export function nextPieceName(type: string, entities: TEntity[]): string {
  * reads "Platform 1…n" and "Rail 1…n" in time order. Only `name` changes.
  */
 export function namePiecesInOrder(project: TProject): TProject {
-	const ordered: TEntity[] = [];
-	for (const marble of project.music.marbles) {
+	const ordered: TPiece[] = [];
+	for (const marble of project.marbles) {
 		const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
 		const startRail = startRailOf(project, marble.id);
 		if (startRail != null) ordered.push(startRail);
 		ordered.push(
-			...project.entities
-				.filter((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id)
-				.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0))
+			...project.track.pieces
+				.filter((entity) => tieOf(entity)?.marbleId === marble.id)
+				.sort((a, b) => (order.get(tieOf(a)?.hitId ?? '') ?? 0) - (order.get(tieOf(b)?.hitId ?? '') ?? 0))
 		);
 	}
 	const placed = new Set(ordered);
-	ordered.push(...project.entities.filter((entity) => entity.components.piece != null && !placed.has(entity)));
+	ordered.push(...project.track.pieces.filter((entity) => !placed.has(entity)));
 
-	const names = new Map<TEntity, string>();
+	const names = new Map<TPiece, string>();
 	const counts = new Map<string, number>();
 	for (const entity of ordered) {
-		const type = entity.components.piece?.type ?? '';
+		const type = entity.type ?? '';
 		const number = (counts.get(type) ?? 0) + 1;
 		counts.set(type, number);
 		names.set(entity, `${pieceLabel(type)} ${number}`);
 	}
 	return {
 		...project,
-		entities: project.entities.map((entity) => {
+		track: { ...project.track, pieces: project.track.pieces.map((entity) => {
 			const name = names.get(entity);
 			return name == null || name === entity.name ? entity : { ...entity, name };
-		})
+		}) }
 	};
 }
 

@@ -1,5 +1,5 @@
 import type { TAssetProperty } from './asset-manifest';
-import type { TEntity, TSkinComponent, TThemeParts } from '@/modules/project';
+import type { TMarble, TPiece, TProject, TProjectCommand, TSkin, TThemeParts } from '@/modules/project';
 import { STARTER_ORIGIN } from './pack-data';
 import catalog from '../../../blender/mm_worker/skin_catalog.json';
 
@@ -8,8 +8,8 @@ import catalog from '../../../blender/mm_worker/skin_catalog.json';
 // `blender/tests/skin_look_cases.json`.
 
 export type TSkinElement = keyof typeof catalog.elements;
-export type TSkinColorSource = NonNullable<TSkinComponent['colorSource']>;
-export type TSkinOnHit = NonNullable<TSkinComponent['onHit']>;
+export type TSkinColorSource = NonNullable<TSkin['colorSource']>;
+export type TSkinOnHit = NonNullable<TSkin['onHit']>;
 
 export interface TCatalogSkin {
 	id: string;
@@ -64,10 +64,22 @@ export function skinElement(type: string): TSkinElement {
 	return (SKIN_ELEMENTS as string[]).includes(type) ? (type as TSkinElement) : 'platform';
 }
 
-/** The element of a piece or a marble; null for anything else */
-export function entitySkinElement(entity: TEntity): TSkinElement | null {
-	if (entity.components.piece != null) return skinElement(entity.components.piece.type);
-	return entity.components.marble != null ? 'marble' : null;
+/** What wears a skin: a piece, or a marble, which has no `type` */
+export type TSkinned = TPiece | TMarble;
+
+/** Everything in the project that wears a skin */
+export function skinnedOf(project: Pick<TProject, 'track' | 'marbles'>): TSkinned[] {
+	return [...project.track.pieces, ...project.marbles];
+}
+
+/** The element of a piece or a marble */
+export function entitySkinElement(entity: TSkinned): TSkinElement {
+	return 'type' in entity ? skinElement(entity.type) : 'marble';
+}
+
+/** The edit that gives a piece or a marble a skin; null takes its skin away */
+export function skinCommand(entity: TSkinned, skin: TSkin | null): TProjectCommand {
+	return 'type' in entity ? { type: 'updatePiece', pieceId: entity.id, patch: { skin } } : { type: 'updateMarble', marbleId: entity.id, patch: { skin } };
 }
 
 export function elementLabel(element: TSkinElement): string {
@@ -124,7 +136,7 @@ export interface TSkinLook {
  * from the theme's part while it shows the theme's skin, or from the skin. A library skin's id reads as no built-in skin,
  * so its properties resolve on the theme's.
  */
-export function resolveSkinLook(base: string, parts: TThemeParts | null | undefined, element: TSkinElement, component?: TSkinComponent | null): TSkinLook {
+export function resolveSkinLook(base: string, parts: TThemeParts | null | undefined, element: TSkinElement, component?: TSkin | null): TSkinLook {
 	const part = parts?.[element] ?? {};
 	const partSkin = part.skin != null && fits(part.skin, element) ? part.skin : themeDefaultSkin(base, element);
 	const own = component?.assetId != null && fits(component.assetId, element) ? component.assetId : null;

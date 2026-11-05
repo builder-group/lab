@@ -1,4 +1,4 @@
-import type { TVec2 } from '@/modules/project';
+import { type TVec2, type TPlays, type TFollows } from '@/modules/project';
 import type { TPieceDefinition } from './types';
 
 /**
@@ -250,7 +250,13 @@ export function isMusicalPiece(type: string): boolean {
 	return getPieceDefinition(type)?.musical === true;
 }
 
-/** True when a linked piece sounds its hit: a musical piece that is linked, not anchored */
-export function soundsHit(type: string, hitLink: { anchored?: boolean } | undefined): boolean {
-	return hitLink != null && hitLink.anchored !== true && isMusicalPiece(type);
+/** How a piece ties to a hit: a musical piece plays it, anything else follows the marble there */
+export function hitPlace(type: string, marbleId: string, hitId: string, contactAt = 0.5): TPlays | TFollows {
+	if (isMusicalPiece(type)) return { kind: 'plays', marbleId, hitId, contactAt };
+	return { kind: 'follows', marbleId, hitId, ...(contactAt !== 0.5 ? { contactAt } : {}) };
+}
+
+/** True when a piece sounds its hit: a musical piece that plays it */
+export function soundsHit(type: string, place: { kind: string } | null | undefined): boolean {
+	return place?.kind === 'plays' && isMusicalPiece(type);
 }

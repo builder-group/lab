@@ -1,4 +1,4 @@
-import { createLane, DEFAULT_GRAVITY, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { DEFAULT_GRAVITY, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TVec2, type TMarble, createMarble } from '@/modules/project';
 import { KIT_SCALE } from './pieces';
 import { createLinkedPiece } from './placement';
 
@@ -77,28 +77,25 @@ function createRunProject(options: {
 	gravity?: number;
 }): TProject {
 	const project = createBareRunProject(options);
-	const { entities } = project;
+	const { pieces } = project.track;
 	options.marbles.forEach((item, index) => {
-		const marble = project.music.marbles[index];
+		const marble = project.marbles[index];
 		if (marble == null) return;
 		marble.hits.forEach((hit, hitIndex) => {
 			const piece = createLinkedPiece('platform', marble.id, hit.id, item.angles(hitIndex), {
-				entities,
+				entities: pieces,
 				id: `piece-${index + 1}-${hitIndex + 1}`
 			});
-			if (item.bounce != null && piece.components.piece != null)
-				piece.components.piece.params['bounce'] = item.bounce;
-			if (item.platform != null && piece.components.piece != null)
-				Object.assign(piece.components.piece.params, item.platform);
-			entities.push(piece);
+			if (item.bounce != null) piece.params['bounce'] = item.bounce;
+			if (item.platform != null) Object.assign(piece.params, item.platform);
+			pieces.push(piece);
 		});
-		const component = entities.find((entity) => entity.components.marble?.marbleId === marble.id)?.components.marble;
-		if (item.radius != null && component != null) component.radius = item.radius;
+		if (item.radius != null) marble.radius = item.radius;
 	});
 	return project;
 }
 
-/** Marbles `lane-N` with hits `hit-N-M` and marbles `marble-N`, without pieces */
+/** Marbles `marble-N` with hits `hit-N-M`, without pieces */
 export function createBareRunProject(options: {
 	id: string;
 	title: string;
@@ -107,41 +104,21 @@ export function createBareRunProject(options: {
 	/** Share of Earth gravity, the default of new projects when unset */
 	gravity?: number;
 }): TProject {
-	const marbles = options.marbles.map((item, index) => {
-		const marble = createLane(index, `lane-${index + 1}`);
-		marble.hits = item.hitTimes.map((time, hitIndex) => ({
-			id: `hit-${index + 1}-${hitIndex + 1}`,
-			time
-		}));
-		return marble;
-	});
-	const entities: TEntity[] = [];
-	options.marbles.forEach((item, index) => {
-		const marble = marbles[index];
-		if (marble == null) return;
-		const release: NonNullable<TEntity['components']['release']> = {
-			position: { x: item.x, y: item.y },
-			time: item.releaseTime
-		};
-		if (item.velocity != null) release.velocity = item.velocity;
-		entities.push({
-			id: `marble-${index + 1}`,
-			name: marble.name,
-			components: {
-				marble: { marbleId: marble.id, radius: DEFAULT_MARBLE_RADIUS },
-				release
-			}
-		});
-	});
+	const marbles = options.marbles.map((item, index): TMarble => ({
+		...createMarble(index, { x: item.x, y: item.y }, `marble-${index + 1}`),
+		start: { position: { x: item.x, y: item.y }, time: item.releaseTime, ...(item.velocity != null ? { velocity: item.velocity } : {}) },
+		hits: item.hitTimes.map((time, hitIndex) => ({ id: `hit-${index + 1}-${hitIndex + 1}`, time }))
+	}));
 	return {
-		$schema: 'marble-project@5',
+		$schema: 'marble-project@6',
 		id: options.id,
 		title: options.title,
 		revision: 0,
 		format: { width: 9, height: 16 },
 		length: options.end,
-		music: { sources: [], marbles, backing: [] },
-		entities,
+		songs: [],
+		marbles,
+		track: { pieces: [], groups: [] },
 		gravity: options.gravity ?? DEFAULT_GRAVITY,
 		film: {
 			theme: 'pegboard',
@@ -150,6 +127,7 @@ export function createBareRunProject(options: {
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
+			titles: [],
 			quality: 'final',
 			// 1.166 m frames the Marble Race Kit through the 85 mm lens; the default kit is KIT_SCALE times larger
 			camera: { auto: true, distance: 1.166 * KIT_SCALE, tilt: 0.7, sway: 1, shots: [] }

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, createProject, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createProject, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
 import { checkGroupChange } from './check-group';
 import { runGroupChange, type TGroupRunOutcome } from './run-group';
 
-const MARBLE = 'lane';
+const MARBLE = 'marble';
 let sim: TSimulator;
 
 beforeAll(async () => {
@@ -20,13 +20,11 @@ function apply(project: TProject, commands: TProjectCommand[]): TProject {
 
 function smallProject(times: number[]): TProject {
 	const project = createProject({ id: 'check', title: 'Check' });
-	const marble = project.music.marbles[0];
-	const marbleEntity = project.entities[0];
-	if (marble == null || marbleEntity?.components.marble == null) throw new Error('No marble');
+	const marble = project.marbles[0];
+	if (marble == null) throw new Error('No marble');
 	return apply(project, [
-		{ type: 'upsertLane', marble: { ...marble, id: MARBLE, hits: times.map((time, index) => ({ id: `h${index}`, time })) } },
-		{ type: 'removeLane', marbleId: marble.id },
-		{ type: 'upsertEntity', entity: { ...marbleEntity, components: { ...marbleEntity.components, marble: { ...marbleEntity.components.marble, marbleId: MARBLE } } } },
+		{ type: 'addMarble', marble: { ...marble, id: MARBLE, hits: times.map((time, index) => ({ id: `h${index}`, time })) } },
+		{ type: 'removeMarble', marbleId: marble.id },
 		{ type: 'updateProject', patch: { length: (times.at(-1) ?? 0) + 0.6 } }
 	]);
 }
@@ -64,9 +62,9 @@ describe('checkGroupChange function', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
 		const outcome = outcomeOf(project);
 		// A piece dropped on the marble's way: the edit would land a problem the song didn't have
-		const bar = outcome.project.entities.find((entity) => entity.components.piece?.type === 'platform') as TEntity;
-		const stray: TEntity = { ...bar, id: 'stray', name: 'Stray', components: { ...bar.components, hitLink: { ...bar.components.hitLink!, hitId: 'h1' } } };
-		const worse = { ...outcome, project: { ...outcome.project, entities: [...outcome.project.entities, stray] } };
+		const bar = outcome.project.track.pieces.find((entity) => entity.type === 'platform') as TPiece;
+		const stray: TPiece = { ...bar, id: 'stray', name: 'Stray', place: { ...tieOf(bar)!, hitId: 'h1' } };
+		const worse = { ...outcome, project: { ...outcome.project, track: { ...outcome.project.track, pieces: [...outcome.project.track.pieces, stray] } } };
 
 		const check = checkGroupChange(project, worse, MARBLE, sim);
 

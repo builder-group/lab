@@ -48,7 +48,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	const song = project == null ? undefined : songSource(project);
 	const hasSong = project != null && hasSongLayer(project);
-	const audio = project?.music.sources.find((source) => source.kind === 'audio');
+	const audio = project?.songs.find((item) => item.kind === 'audio' && item.path != null);
 	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
 	const trackWidth = Math.max((project?.length ?? 1) * zoom + 120, 0);
 
@@ -104,7 +104,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		const element = scrollRef.current;
 		if (element == null || first == null) return;
 		// A title and a shot have their clip in a shared row
-		const track = cx.project?.entities.some((entity) => entity.id === first && entity.components.wallText != null) === true ? TITLES_KEY : parseShotKey(first) != null ? CAMERA_KEY : first;
+		const track = cx.project?.film.titles.some((title) => title.id === first) === true ? TITLES_KEY : parseShotKey(first) != null ? CAMERA_KEY : first;
 		const header = element.querySelector(`[data-track="${CSS.escape(track)}"]`);
 		if (header == null) return;
 		const view = element.getBoundingClientRect();
@@ -131,9 +131,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			let best = time;
 			let bestDistance = 8 / zoom;
 			for (const onset of audioAnalysis.onsets) {
-				const distance = Math.abs(onset + audio.offset - time);
+				const distance = Math.abs(onset + audio.start - time);
 				if (distance < bestDistance) {
-					best = onset + audio.offset;
+					best = onset + audio.start;
 					bestDistance = distance;
 				}
 			}
@@ -220,9 +220,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
 	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
 	const showsParts = isSongExpanded && songRows != null;
-	const showsTitles = workspace === 'film' && project.entities.some((entity) => entity.components.wallText != null);
+	const showsTitles = workspace === 'film' && project.film.titles.length > 0;
 	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.music.marbles.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
+	const rowsHeight = project.marbles.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
 
 	// MARK: - UI
 
@@ -268,9 +268,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					{showsParts ? <PartRows cx={cx} project={project} parts={parts} zoom={zoom} width={trackWidth} isAudible={(id) => isPartAudible(partMix, id)} /> : null}
 					{/* The same layers as Layers, in the same order: Song, the Camera, marbles, then in Film Titles */}
 					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
-					{project.music.marbles.map((marble) => (
+					{project.marbles.map((marble) => (
 						<div key={marble.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
-							<TrackHeader cx={cx} marble={marble} project={project} selection={selection} />
+							<TrackHeader cx={cx} marble={marble} selection={selection} />
 							<TimeGutter />
 							<MarbleTrack
 								cx={cx}
@@ -287,7 +287,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							/>
 						</div>
 					))}
-					{!project.music.marbles.length ? (
+					{!project.marbles.length ? (
 						<div className="mm-placeholder !h-auto !items-start py-6" style={{ paddingLeft: TIME_ORIGIN + 24 }}>
 							<span className="mm-placeholder-title">No Marbles</span>
 							<span className="mm-placeholder-body">Import a MIDI file with ⌘I, drop one on the window or add a marble with +.</span>

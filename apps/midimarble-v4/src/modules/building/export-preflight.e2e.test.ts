@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { type TProject } from '@/modules/project';
+import { backingOf, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
 import { NO_BLENDER_OBJECTS, framingProblemAt, preflightExport } from './export-preflight';
@@ -7,7 +7,7 @@ import { NO_BLENDER_OBJECTS, framingProblemAt, preflightExport } from './export-
 function withSongFixture(name: string): TProject {
 	const project = loadFixture(name);
 	// A Song, so the checks here are about the run and not about the missing Song
-	return { ...project, music: { ...project.music, sources: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }] } };
+	return { ...project, songs: [{ id: 'song', kind: 'midi', path: 'song.mid', name: 'Song', start: 0, backing: backingOf(project) }] };
 }
 
 describe('preflightExport function on whole songs', () => {
@@ -22,17 +22,17 @@ describe('preflightExport function on whole songs', () => {
 		expect(preflightExport(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues).toEqual([]);
 
 		// The bass pieces follow their marble, so moving its release moves its whole run away from the melody. The 120° camera widens for any run in reach, so it takes 8 m to lose a marble
-		const bass = project.entities.find((entity) => entity.name === 'Bass' && entity.components.release != null);
-		if (bass?.components.release == null) throw new Error('No bass release');
-		bass.components.release.position.x += 8;
+		const bass = project.marbles.find((marble) => marble.name === 'Bass');
+		if (bass == null) throw new Error('No bass release');
+		bass.start.position.x += 8;
 		const result = simulator.simulate(project);
 		const preflight = preflightExport(project, result, NO_BLENDER_OBJECTS);
 		const framing = preflight.issues.filter((issue) => issue.kind === 'framing');
-		const first = framing.find((issue) => issue.marbleId === 'lane-2');
+		const first = framing.find((issue) => issue.marbleId === 'marble-2');
 
 		expect(first).toEqual(
 			expect.objectContaining({
-				id: 'frame:lane-2:1',
+				id: 'frame:marble-2:1',
 				severity: 'warning',
 				title: expect.stringMatching(/^Bass leaves the frame at 0:0\d\.\d\d \(\d+ hits\)$/),
 				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:\d\d\.\d\d\.$/),

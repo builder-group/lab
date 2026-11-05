@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHistory, createLane, createMarble, createProject, type TProject } from '@/modules/project';
+import { createHistory, createMarble, createProject, type TPiece, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { agentClientName, agentStatusLine, connectedAgents, doingWords, editPresenceLabel, presenceLabel, touchedKeys } from './agent-presence';
@@ -116,10 +116,10 @@ describe('AgentPresenceCx', () => {
 
 function withPiece(): { project: TProject; marbleId: string; hitId: string; pieceId: string; result: TSimulationResult } {
 	const project = createProject({ title: 'Song' });
-	const marble = { ...createLane(0), hits: [{ id: 'hit1', time: 1.5, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
+	const marble = { ...createMarble(0, { x: 0, y: 0 }), hits: [{ id: 'hit1', time: 1.5, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
 	const pieceId = 'platform1';
-	const piece = { id: pieceId, name: 'Platform 1', components: { piece: { type: 'platform', params: { length: 0.08 } }, hitLink: { marbleId: marble.id, hitId: 'hit1', angle: 0.25 } } } as unknown as TProject['entities'][number];
-	const next = { ...project, music: { ...project.music, marbles: [marble] }, entities: [createMarble(marble, { x: 0, y: 0 }), piece] };
+	const piece: TPiece = { id: pieceId, name: 'Platform 1', type: 'platform', params: { length: 0.08 }, angle: 0.25, place: { kind: 'plays', marbleId: marble.id, hitId: 'hit1', contactAt: 0.5 } };
+	const next = { ...project, marbles: [marble], track: { ...project.track, pieces: [piece] } };
 	const result = {
 		revision: next.revision,
 		pieces: [{ entityId: pieceId, position: { x: 0.1, y: -0.2 } }],
@@ -132,13 +132,20 @@ function withPiece(): { project: TProject; marbleId: string; hitId: string; piec
 }
 
 describe('touchedKeys', () => {
-	it('should find the entities and layers an edit changed, not a removed one', () => {
+	it('should find the pieces, marbles, titles and layers an edit changed, not a removed one', () => {
 		const { project, pieceId } = withPiece();
 		expect(touchedKeys(project, { ...project, revision: project.revision + 1 })).toEqual([]);
-		const changed = project.entities.map((entity) => (entity.id === pieceId ? { ...entity, name: 'Renamed' } : entity));
-		const added = { id: 'new1', name: 'New', components: {} } as TProject['entities'][number];
-		expect(touchedKeys(project, { ...project, entities: [...changed, added] })).toEqual([pieceId, 'new1']);
-		expect(touchedKeys(project, { ...project, entities: project.entities.filter((entity) => entity.id !== pieceId) })).toEqual([]);
+		const changed = project.track.pieces.map((entity) => (entity.id === pieceId ? { ...entity, name: 'Renamed' } : entity));
+		const added: TPiece = { id: 'new1', name: 'New', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
+		expect(touchedKeys(project, { ...project, track: { ...project.track, pieces: [...changed, added] } })).toEqual([pieceId, 'new1']);
+		expect(touchedKeys(project, { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== pieceId) } })).toEqual([]);
+		const marbleId = project.marbles[0]?.id;
+		const renamed = project.marbles.map((marble) => ({ ...marble, name: 'Renamed' }));
+		expect(touchedKeys(project, { ...project, marbles: renamed })).toEqual([marbleId]);
+		// Notes are shown on their own
+		expect(touchedKeys(project, { ...project, marbles: project.marbles.map((marble) => ({ ...marble, hits: [] })) })).toEqual([]);
+		const title = { id: 'text-1', text: 'Fin', font: 'Bfont Regular', size: 0.03, position: { x: 0, y: 0 }, angle: 0 };
+		expect(touchedKeys(project, { ...project, film: { ...project.film, titles: [title] } })).toEqual(['text-1']);
 		expect(touchedKeys(project, { ...project, film: { ...project.film, wall: { color: '#123456' } } as TProject['film'] })).toContain('wall');
 		expect(touchedKeys(project, { ...project, film: { ...project.film, lights: { ...project.film.lights, key: { color: '#ffffff' } } } as TProject['film'] })).toContain('light:key');
 	});
@@ -196,8 +203,7 @@ describe('Stop and edits through McpCx', () => {
 	function studio(): StudioCx {
 		const { project, result } = withPiece();
 		const cx = new StudioCx();
-		// Edits check the whole project, and the fixture's piece holds only what resolving a selection reads
-		cx.$history.set(createHistory({ ...project, entities: project.entities.filter((entity) => entity.components.marble != null) }));
+		cx.$history.set(createHistory(project));
 		cx.simulation.$result.set(result);
 		cx.$history.listen(({ value }) => {
 			if (value != null) cx.simulation.$result.set({ ...result, revision: value.present.revision });
@@ -254,9 +260,9 @@ describe('Stop and edits through McpCx', () => {
 		});
 		cx.execute([{ type: 'updateProject', patch: { gravity: 0.5 } }]);
 		expect(seen).toEqual([]);
-		const marble = cx.project?.entities.find((item) => item.components.marble != null);
+		const marble = cx.project?.marbles[0];
 		const outcome = await cx.runAgentStep('Agent: Rename', async () => {
-			if (marble != null) cx.execute([{ type: 'upsertEntity', entity: { ...marble, name: 'Renamed' } }]);
+			if (marble != null) cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { name: 'Renamed' } }]);
 		});
 		expect(outcome.notices).toEqual([]);
 		expect(seen[0]).toEqual([marble?.id]);

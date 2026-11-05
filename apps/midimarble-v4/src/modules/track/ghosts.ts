@@ -1,4 +1,4 @@
-import type { TEntity, TVec2 } from '@/modules/project';
+import type { TPiece, TVec2 } from '@/modules/project';
 import type { TContinueAnswer, TGapAnswer, THitResult, TResolvedPiece } from '@/modules/simulation';
 
 // Ghost pieces are suggestions drawn in place before they exist: Continue offers the next pieces of a
@@ -15,7 +15,7 @@ export interface TPlaceAnswer {
 	marbleId: string;
 	hit: THitResult;
 	type: string;
-	entity: TEntity;
+	entity: TPiece;
 	/** The piece as it shows at its dot */
 	piece: TResolvedPiece;
 	/** Where the marble's next note lands with this piece; null until Auto place answers */

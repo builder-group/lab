@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TEntity } from '@/modules/project';
+import type { TPiece } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
 import { gapPieceOrder, gapPieceTypeOf, gapSearch, type TGapSearchPlan, type TGapTry } from './gap-pieces';
 import { chainGeometry, layoutAtMarble, layoutFree, layoutOf, switchbackGeometry, type TLayoutInput } from './piece-layout';
@@ -44,15 +44,11 @@ describe('Rail layouts', () => {
 
 	it('should hold a drawn Rail\'s further paths as colliders of the one piece', async () => {
 		const project = createBareRunProject({ id: 'two-paths', title: 'Two Paths', end: 1.2, gravity: 0.5, marbles: [{ x: 0, y: 0.1, releaseTime: 0, hitTimes: [] }] });
-		const rail: TEntity = {
+		const rail: TPiece = {
 			id: 'rail',
-			components: {
-				piece: { type: 'rail', params: {} },
-				transform: { position: { x: 0, y: 0 }, angle: 0 },
-				path: { points: [{ x: 0.3, y: 0 }, { x: 0.5, y: 0 }], paths: [[{ x: -0.1, y: 0 }, { x: 0.1, y: -0.02 }]] }
-			}
+			type: 'rail', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } }, path: { points: [{ x: 0.3, y: 0 }, { x: 0.5, y: 0 }], paths: [[{ x: -0.1, y: 0 }, { x: 0.1, y: -0.02 }]] }
 		};
-		project.entities.push(rail);
+		project.track.pieces.push(rail);
 		const simulator = await createSimulator();
 		const result = simulator.simulate(project);
 		expect(result.pieces.find((piece) => piece.entityId === 'rail')?.paths).toHaveLength(2);
@@ -74,7 +70,7 @@ describe('asking for a gap piece', () => {
 	it('should refuse a candidate that keeps the marble in its turns', () => {
 		const candidate: TGapTry = { entryTime: 1, downhill: 1, contactAt: 0.5, width: 0.12, turns: 2, slope: 0.1 };
 		const stuck = { dot: null, isDotInFrame: true, isRunInFrame: true, leaveTime: null, pieceStatus: 'placed', nextStatus: null };
-		const plan: TGapSearchPlan = { type: 'chain', id: 'chain', count: 0, marbleId: 'lane', fromHitId: 'hit', fromTime: 0.5, candidates: [candidate], fallback: candidate, isRefined: false };
+		const plan: TGapSearchPlan = { type: 'chain', id: 'chain', count: 0, marbleId: 'marble', fromHitId: 'hit', fromTime: 0.5, candidates: [candidate], fallback: candidate, isRefined: false };
 		const steps = gapSearch(plan);
 		steps.next();
 		const done = steps.next([{ score: 0, check: stuck }]);

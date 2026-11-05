@@ -3,7 +3,7 @@ import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, CAMERA_KEY, toHitKey } from '@/modules/project';
+import { formatTime, CAMERA_KEY, toHitKey, tieOf } from '@/modules/project';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 
@@ -197,7 +197,7 @@ function withoutBehindBreak(project: TProject, result: TSimulationResult, issues
 	const breaks = new Map<string, number>();
 	for (const hit of result.hits) {
 		if (hit.status !== 'missed' && hit.status !== 'blocked') continue;
-		const waits = project.entities.find((entity) => entity.id === hit.pieceEntityId)?.components.hitLink?.held != null;
+		const waits = tieOf(project.track.pieces.find((entity) => entity.id === hit.pieceEntityId))?.held != null;
 		if (waits && hit.targetTime < (breaks.get(hit.marbleId) ?? Infinity)) breaks.set(hit.marbleId, hit.targetTime);
 	}
 	if (breaks.size === 0) return issues;
@@ -266,7 +266,7 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
 	const open: THitResult[] = [];
 
-	const numbers = new Map(project.music.marbles.flatMap((marble) => marble.hits.map((hit, index) => [toHitKey(marble.id, hit.id), index + 1] as const)));
+	const numbers = new Map(project.marbles.flatMap((marble) => marble.hits.map((hit, index) => [toHitKey(marble.id, hit.id), index + 1] as const)));
 	for (const hit of result.hits) {
 		const marble = names.marble(hit.marbleId);
 		const key = toHitKey(hit.marbleId, hit.hitId);
@@ -352,10 +352,10 @@ function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
 function sceneryIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return result.pieces.flatMap((piece) => {
 		if (piece.status !== 'blocked') return [];
-		const entity = project.entities.find((item) => item.id === piece.entityId);
-		const link = entity?.components.hitLink;
+		const entity = project.track.pieces.find((item) => item.id === piece.entityId);
+		const link = tieOf(entity);
 		// Platforms that play a note are reported with their hit
-		if (link == null || soundsHit(entity?.components.piece?.type ?? piece.type, link)) return [];
+		if (link == null || soundsHit(entity?.type ?? piece.type, link)) return [];
 		const marble = names.marble(link.marbleId);
 		const time = piece.entryTime ?? piece.hitTime ?? undefined;
 		const type = (getPieceDefinition(piece.type)?.label ?? 'piece').toLowerCase();
@@ -382,9 +382,9 @@ function sceneryIssues(project: TProject, result: TSimulationResult, names: TNam
  * Fix-it places it again (Place Bowl Again).
  */
 function bowlIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
-	return project.entities.flatMap((entity) => {
-		const link = entity.components.hitLink;
-		if (entity.components.piece?.type !== BOWL_TYPE || link == null) return [];
+	return project.track.pieces.flatMap((entity) => {
+		const link = tieOf(entity);
+		if (entity.type !== BOWL_TYPE || link == null) return [];
 		const piece = result.pieces.find((item) => item.entityId === entity.id);
 		const caught = bowlCatch(result, entity.id);
 		if (piece == null || caught.status === 'caught' || caught.status === 'blocked') return [];
@@ -419,29 +419,28 @@ function bowlIssues(project: TProject, result: TSimulationResult, names: TNames)
  * `strikeIssues`. Free pieces, platforms included, are environment the marbles may strike.
  */
 function contactIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
-	const hitsMarbleOf = new Map(result.marbles.map((marble) => [marble.entityId, marble.marbleId]));
 	const marbleOfPiece = new Map<string, string>();
-	for (const entity of project.entities) {
-		if (entity.components.hitLink != null) marbleOfPiece.set(entity.id, entity.components.hitLink.marbleId);
+	for (const entity of project.track.pieces) {
+		const tie = tieOf(entity);
+		if (tie != null) marbleOfPiece.set(entity.id, tie.marbleId);
 	}
 	for (const hit of result.hits) {
 		if (hit.pieceEntityId != null) marbleOfPiece.set(hit.pieceEntityId, hit.marbleId);
 	}
 
-	const groups = new Map<string, { kind: 'marble' | 'lane'; marbleEntityId: string; otherId: string; first: TVec2; time: number; count: number }>();
+	const groups = new Map<string, { kind: 'marble' | 'piece'; marbleEntityId: string; otherId: string; first: TVec2; time: number; count: number }>();
 	for (const contact of result.contacts) {
 		if (contact.time > result.duration) continue;
-		let kind: 'marble' | 'lane';
+		let kind: 'marble' | 'piece';
 		if (contact.kind === 'marble') {
 			// Every collision is reported once per marble; keep the pair once
 			if (contact.marbleEntityId > contact.otherEntityId) continue;
 			kind = 'marble';
 		} else {
 			const pieceMarble = marbleOfPiece.get(contact.otherEntityId);
-			const hitsMarble = hitsMarbleOf.get(contact.marbleEntityId);
 			// Free pieces are environment; only another marble's attached pieces are stray
-			if (pieceMarble == null || pieceMarble === hitsMarble) continue;
-			kind = 'lane';
+			if (pieceMarble == null || pieceMarble === contact.marbleEntityId) continue;
+			kind = 'piece';
 		}
 		const key = `${contact.marbleEntityId}:${contact.otherEntityId}`;
 		const group = groups.get(key);
@@ -553,7 +552,7 @@ function passIssues(project: TProject, result: TSimulationResult, names: TNames)
 /** A long free fall between two notes: a tip, since every hit still plays and the film just goes empty for a moment */
 function fallIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const issues: TPreflightIssue[] = [];
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		const hits = result.hits.filter((hit) => hit.marbleId === marble.id && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime);
 		for (let index = 1; index < hits.length; index++) {
 			const from = hits[index - 1];
@@ -561,7 +560,7 @@ function fallIssues(project: TProject, result: TSimulationResult, names: TNames)
 			if (from?.dot == null || to?.dot == null) continue;
 			const fall = from.dot.y - to.dot.y;
 			if (fall < LONG_FALL) continue;
-			const isBridged = project.entities.some((entity) => entity.components.hitLink?.marbleId === marble.id && entity.components.hitLink.hitId === from.hitId && !soundsHit(entity.components.piece?.type ?? '', entity.components.hitLink));
+			const isBridged = project.track.pieces.some((entity) => tieOf(entity)?.marbleId === marble.id && tieOf(entity)?.hitId === from.hitId && !soundsHit(entity.type ?? '', tieOf(entity)));
 			if (isBridged) continue;
 			issues.push({
 				id: `fall:${marble.id}:${from.hitId}`,
@@ -571,7 +570,7 @@ function fallIssues(project: TProject, result: TSimulationResult, names: TNames)
 				title: `${names.marble(marble.id)} falls ${fall.toFixed(1)} m at ${wholeSeconds(from.targetTime)}: a Long Rail fills that gap`,
 				label: 'Long fall',
 				time: from.targetTime,
-				target: { ids: [from.pieceEntityId ?? '', project.entities.find((entity) => entity.components.marble?.marbleId === marble.id)?.id ?? ''].filter(Boolean), point: from.dot, time: from.targetTime }
+				target: { ids: [from.pieceEntityId ?? '', marble.id].filter(Boolean), point: from.dot, time: from.targetTime }
 			});
 		}
 	}
@@ -666,20 +665,19 @@ const LETTER_WIDTH = 0.55;
 /** A screen title wider than the frame on any of its lines. A wall title is cut off only by where the camera looks, which a person sees */
 function titleIssues(project: TProject): TPreflightIssue[] {
 	const aspect = project.format.width / project.format.height;
-	return project.entities.flatMap((entity) => {
-		const title = entity.components.wallText;
-		if (title == null || title.style == null || title.style === 'wall') return [];
+	return project.film.titles.flatMap((title) => {
+		if (title.style == null || title.style === 'wall') return [];
 		const longest = Math.max(...title.text.split('\n').map((line) => line.length));
 		if (longest * LETTER_WIDTH * title.size <= aspect) return [];
 		return [
 			{
-				id: `title:${entity.id}`,
+				id: `title:${title.id}`,
 				kind: 'title' as const,
 				severity: 'warning' as const,
 				title: `“${title.text.split('\n')[0]}” is cut off`,
 				detail: 'The title is wider than the frame. A shorter line or a smaller Size fits it.',
 				time: title.in ?? 0,
-				target: { ids: [entity.id], time: title.in ?? 0, workspace: 'film' as const }
+				target: { ids: [title.id], time: title.in ?? 0, workspace: 'film' as const }
 			}
 		];
 	});
@@ -713,14 +711,12 @@ interface TNames {
 }
 
 function createNames(project: TProject): TNames {
-	const marbles = new Map(project.music.marbles.map((marble) => [marble.id, marble.name]));
-	const entities = new Map(
-		project.entities.map((entity) => {
-			const type = entity.components.piece?.type;
-			const fallback = entity.components.marble != null ? 'Marble' : type != null ? (getPieceDefinition(type)?.label ?? type) : entity.id;
-			return [entity.id, entity.name ?? fallback];
-		})
-	);
+	const marbles = new Map(project.marbles.map((marble) => [marble.id, marble.name]));
+	const entities = new Map<string, string>([
+		...marbles,
+		...project.track.pieces.map((entity): [string, string] => [entity.id, entity.name ?? getPieceDefinition(entity.type)?.label ?? entity.type]),
+		...project.film.titles.map((title): [string, string] => [title.id, title.name ?? title.id])
+	]);
 	return { marble: (id) => marbles.get(id) ?? 'Marble', entity: (id) => entities.get(id) ?? id };
 }
 
@@ -730,5 +726,5 @@ function cameraTarget(time: number): TPreflightTarget {
 }
 
 function countHits(project: TProject): number {
-	return project.music.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
+	return project.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
 }

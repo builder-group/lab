@@ -1,6 +1,6 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
-import { createId, marbleColors, type TEntity, type TLane, type TProjectCommand, formatTime, parseDecorKey, toHitKey } from '@/modules/project';
+import { createId, marbleColors, type TPiece, type TMarble, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
 import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
@@ -32,26 +32,34 @@ export function labelColorItem(entries: TMenuEntry[]): TMenuEntry {
 	return { label: 'Label Color', onSelect: () => undefined, submenu: entries };
 }
 
-/** A marble's label is its marble's color, which it always has */
-export function marbleLabelEntries(cx: StudioCx, marble: TLane): TMenuEntry[] {
-	return labelColorEntries(cx, marble.color, (color) => (color != null ? [{ type: 'upsertLane', marble: { ...marble, color } }] : []), false);
+/** A marble always has a label color */
+export function marbleLabelEntries(cx: StudioCx, marble: TMarble): TMenuEntry[] {
+	return labelColorEntries(cx, marble.labelColor, (color) => (color != null ? [{ type: 'updateMarble', marbleId: marble.id, patch: { labelColor: color } }] : []), false);
 }
 
-/** The entity's Label Color, and with it the rest of the selection when it is part of one, as one edit */
-export function entityLabelEntries(cx: StudioCx, entity: TEntity): TMenuEntry[] {
+/** The piece's or title's Label Color, and with it the rest of the selected pieces and titles when it is part of the selection, as one edit */
+export function entityLabelEntries(cx: StudioCx, entity: TPiece | TTitle): TMenuEntry[] {
 	const selection = cx.$selection.get();
-	const targets = selection.includes(entity.id) ? (cx.project?.entities.filter((item) => selection.includes(item.id)) ?? [entity]) : [entity];
-	return labelColorEntries(cx, entity.labelColor, (color) =>
-		targets.map((target): TProjectCommand => {
-			const { labelColor: _labelColor, ...rest } = target;
-			return { type: 'upsertEntity', entity: color != null ? { ...rest, labelColor: color } : rest };
-		})
-	);
+	const ids = selection.includes(entity.id) ? selection : [entity.id];
+	return labelColorEntries(cx, entity.labelColor, (color) => (cx.project != null ? labelColorCommands(cx.project, ids, color) : []));
 }
 
-/** Label Color for the selected entities' menu */
+function labelColorCommands(project: TProject, ids: readonly string[], color: string | null): TProjectCommand[] {
+	const pieces = project.track.pieces.filter((piece) => ids.includes(piece.id));
+	const commands = pieces.map((piece): TProjectCommand => ({ type: 'updatePiece', pieceId: piece.id, patch: { labelColor: color } }));
+	if (!project.film.titles.some((title) => ids.includes(title.id))) return commands;
+	const titles = project.film.titles.map((title) => {
+		if (!ids.includes(title.id)) return title;
+		const { labelColor: _labelColor, ...rest } = title;
+		return color != null ? { ...rest, labelColor: color } : rest;
+	});
+	return [...commands, { type: 'updateFilm', film: { titles } }];
+}
+
+/** Label Color for the selected pieces' and titles' menu */
 function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
-	const first = cx.project?.entities.find((entity) => cx.$selection.get().includes(entity.id));
+	const selection = cx.$selection.get();
+	const first = cx.project?.track.pieces.find((entity) => selection.includes(entity.id)) ?? cx.project?.film.titles.find((title) => selection.includes(title.id));
 	return first != null ? labelColorItem(entityLabelEntries(cx, first)) : null;
 }
 
@@ -59,10 +67,12 @@ function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	// Film shows what works there: Track's edits ask for the wall
 	if (cx.$workspace.get() !== 'track') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
-	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
+	const selection = cx.$selection.get();
+	const selected = cx.project?.track.pieces.filter((entity) => selection.includes(entity.id)) ?? [];
+	const isOnlyPiece = selected.length === 1 && ![...(cx.project?.marbles ?? []), ...(cx.project?.film.titles ?? [])].some((layer) => selection.includes(layer.id));
 	return tidyMenu([
-		selected.length === 1 && selected[0]?.components.hitLink != null ? commandItem(cx, 'build.fix') : null,
-		selected.some((entity) => entity.components.hitLink != null) ? commandItem(cx, 'build.rebuildFrom') : null,
+		isOnlyPiece && tieOf(selected[0]) != null ? commandItem(cx, 'build.fix') : null,
+		selected.some((entity) => tieOf(entity) != null) ? commandItem(cx, 'build.rebuildFrom') : null,
 		'separator',
 		commandItem(cx, 'view.fitSelection'),
 		'separator',
@@ -91,7 +101,7 @@ function pieceLinkItems(cx: StudioCx): TMenuEntry[] {
 }
 
 /** Right-click on a title, in Layers or Film's preview */
-export function titleMenu(cx: StudioCx, title: TEntity): TMenuEntry[] {
+export function titleMenu(cx: StudioCx, title: TTitle): TMenuEntry[] {
 	return [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(entityLabelEntries(cx, title)), 'separator', commandItem(cx, 'edit.delete')];
 }
 
@@ -120,9 +130,9 @@ export function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 /** The menu of what a right-click found in Film's preview, which it has selected; null for empty space */
 export function filmObjectMenu(cx: StudioCx, id: string): TMenuEntry[] | null {
 	if (parseDecorKey(id) != null) return decorMenu(cx, false);
-	const entity = cx.project?.entities.find((item) => item.id === id);
-	if (entity?.components.wallText != null) return titleMenu(cx, entity);
-	return entity?.components.piece != null ? pieceMenu(cx) : null;
+	const title = cx.project?.film.titles.find((item) => item.id === id);
+	if (title != null) return titleMenu(cx, title);
+	return cx.project?.track.pieces.some((item) => item.id === id) === true ? pieceMenu(cx) : null;
 }
 
 /** Right-click on empty space in Film's preview: what works here, as Track's canvas lists its assists */
@@ -132,11 +142,11 @@ export function filmMenu(cx: StudioCx): TMenuEntry[] {
 }
 
 /** Right-click on a hit in the timeline */
-export function hitMenu(cx: StudioCx, marble: TLane, hitId: string): TMenuEntry[] {
+export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntry[] {
 	const project = cx.project;
 	const hit = marble.hits.find((item) => item.id === hitId);
 	if (project == null || hit == null) return [];
-	const piece = project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.marbleId === marble.id && entity.components.hitLink.hitId === hitId);
+	const piece = project.track.pieces.find((entity) => tieOf(entity)?.marbleId === marble.id && tieOf(entity)?.hitId === hitId);
 	const selected = cx.$selection.get();
 	const key = toHitKey(marble.id, hitId);
 	const moving = selected.includes(key) ? selected : [key];
@@ -161,10 +171,9 @@ export function hitMenu(cx: StudioCx, marble: TLane, hitId: string): TMenuEntry[
 }
 
 /** Right-click on a marble row or its header; `time` is where an added hit goes */
-export function marbleMenu(cx: StudioCx, marble: TLane, time?: number): TMenuEntry[] {
+export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuEntry[] {
 	const project = cx.project;
 	if (project == null) return [];
-	const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marble.id);
 	const suggested = suggestedHits(cx, marble).length;
 
 	return tidyMenu([
@@ -173,22 +182,20 @@ export function marbleMenu(cx: StudioCx, marble: TLane, time?: number): TMenuEnt
 		{ label: 'Select All Hits', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
 		suggested > 0 ? { label: suggestedHitsLabel(suggested), onSelect: () => addSuggestedHits(cx, marble) } : null,
 		'separator',
-		marbleEntity != null
-			? {
-					label: 'Rename…',
-					onSelect: () => {
-						cx.$selection.set([marbleEntity.id]);
-						cx.renameSelection();
-					}
-				}
-			: null,
+		{
+			label: 'Rename…',
+			onSelect: () => {
+				cx.$selection.set([marble.id]);
+				cx.renameSelection();
+			}
+		},
 		labelColorItem(marbleLabelEntries(cx, marble)),
 		cx.$workspace.get() === 'track' ? commandItem(cx, 'marble.add') : null,
-		{ label: 'Delete Marble', disabled: project.music.marbles.length <= 1, onSelect: () => cx.execute([{ type: 'removeLane', marbleId: marble.id }]) }
+		{ label: 'Delete Marble', disabled: project.marbles.length <= 1, onSelect: () => cx.execute([{ type: 'removeMarble', marbleId: marble.id }]) }
 	]);
 }
 
-export function addHit(cx: StudioCx, marble: TLane, time: number): void {
+export function addHit(cx: StudioCx, marble: TMarble, time: number): void {
 	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone
 	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000 };
 	if (cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) cx.$selection.set([toHitKey(marble.id, hit.id)]);

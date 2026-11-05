@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, type TEntity } from '@/modules/project';
+import { createProject, tieOf } from '@/modules/project';
 import { createLinkedPiece, resolvePiecePath, tunnelDefinition, type TSimulationResult } from '@/modules/simulation';
 import { clearRotorPosition, createFreePiece, railPath, ROTOR_CLEARANCE, withPathType } from './attach-edit';
 
@@ -12,7 +12,7 @@ describe('withPathType function', () => {
 	it('should turn a drawn rail into a tunnel and back with the same path and pose', () => {
 		// Prepare
 		const rail = createFreePiece('rail', { position: { x: 0.3, y: 0.5 }, angle: 0.2 }, [], railPath(nodes));
-		rail.components.piece = { type: 'rail', params: { ...rail.components.piece?.params, gap: 0.018 } };
+		rail.params = { ...rail.params, gap: 0.018 };
 
 		// Act
 		const tunnel = withPathType(rail, 'tunnel', [rail]);
@@ -20,27 +20,30 @@ describe('withPathType function', () => {
 
 		// Assert
 		expect(tunnel.id).toBe(rail.id);
-		expect(tunnel.components.piece?.type).toBe('tunnel');
-		expect(tunnel.components.path).toEqual(rail.components.path);
-		expect(tunnel.components.transform).toEqual(rail.components.transform);
-		expect(tunnel.components.piece?.params['bore']).toBe(tunnelDefinition.params['bore']?.default);
-		expect(tunnel.components.piece?.params['gap']).toBeUndefined();
-		expect(back.components.path).toEqual(rail.components.path);
-		expect(back.components.transform).toEqual(rail.components.transform);
-		expect(back.components.piece?.params['gap']).not.toBe(0.018);
+		expect(tunnel.type).toBe('tunnel');
+		expect(tunnel.path).toEqual(rail.path);
+		expect(tunnel.place).toEqual(rail.place);
+		expect(tunnel.angle).toBe(rail.angle);
+		expect(tunnel.params['bore']).toBe(tunnelDefinition.params['bore']?.default);
+		expect(tunnel.params['gap']).toBeUndefined();
+		expect(back.path).toEqual(rail.path);
+		expect(back.place).toEqual(rail.place);
+		expect(back.angle).toBe(rail.angle);
+		expect(back.params['gap']).not.toBe(0.018);
 	});
 
 	it('should keep the anchor and its moment on the trajectory', () => {
-		const rail = createLinkedPiece('rail', 'lane-1', 'hit-2', 0, { entities: [] });
-		rail.components.piece = { type: 'rail', params: { ...rail.components.piece?.params, entryDelay: 0.25 } };
-		rail.components.hitLink = { ...(rail.components.hitLink as NonNullable<TEntity['components']['hitLink']>), anchored: true, offset: { x: 0.01, y: -0.02 } };
+		const rail = createLinkedPiece('rail', 'marble-1', 'hit-2', 0, { entities: [] });
+		rail.params = { ...rail.params, entryDelay: 0.25 };
+		rail.place = { kind: 'follows', marbleId: 'marble-1', hitId: 'hit-2', offset: { x: 0.01, y: -0.02 } };
 
 		const tunnel = withPathType(rail, 'tunnel', [rail]);
 
-		expect(tunnel.components.hitLink).toEqual(rail.components.hitLink);
-		expect(tunnel.components.piece?.params['entryDelay']).toBe(0.25);
+		expect(tieOf(tunnel)).toEqual(tieOf(rail));
+		expect(tunnel.angle).toBe(rail.angle);
+		expect(tunnel.params['entryDelay']).toBe(0.25);
 		// The rail ran on its default path, which the tunnel keeps instead of taking its own
-		expect(tunnel.components.path?.points).toEqual(resolvePiecePath('rail', undefined));
+		expect(tunnel.path?.points).toEqual(resolvePiecePath('rail', undefined));
 	});
 
 	it('should renumber a default name after the new type and keep a custom one', () => {
@@ -61,8 +64,8 @@ describe('clearRotorPosition function', () => {
 	const fall = (x: number) => Array.from({ length: 100 }, (_, i) => ({ time: i * 0.01, position: { x, y: 0.6 - i * 0.01 }, angle: 0, velocity: { x: 0, y: -1 } }));
 	const result = {
 		marbles: [
-			{ entityId: 'marble-1', marbleId: 'lane-1', radius: 0.012, samples: fall(0) },
-			{ entityId: 'marble-2', marbleId: 'lane-2', radius: 0.012, samples: fall(0.2) }
+			{ entityId: 'marble-1', marbleId: 'marble-1', radius: 0.012, samples: fall(0) },
+			{ entityId: 'marble-2', marbleId: 'marble-2', radius: 0.012, samples: fall(0.2) }
 		],
 		pieces: []
 	} as unknown as TSimulationResult;
@@ -73,7 +76,7 @@ describe('clearRotorPosition function', () => {
 		const reach = 0.06;
 
 		// Act
-		const hub = clearRotorPosition(createProject(), result, { position: { x: 0, y: 0.3 }, velocity: { x: 0, y: -1 } }, reach, 'lane-1');
+		const hub = clearRotorPosition(createProject(), result, { position: { x: 0, y: 0.3 }, velocity: { x: 0, y: -1 } }, reach, 'marble-1');
 
 		// Assert
 		expect(distanceToFall(hub, 0) - 0.012 - reach).toBeGreaterThanOrEqual(ROTOR_CLEARANCE - 1e-9);
@@ -86,7 +89,7 @@ describe('clearRotorPosition function', () => {
 		const reach = 0.09;
 
 		// Act
-		const hub = clearRotorPosition(createProject(), result, { position: { x: 0, y: 0.3 }, velocity: { x: 0, y: -1 } }, reach, 'lane-1');
+		const hub = clearRotorPosition(createProject(), result, { position: { x: 0, y: 0.3 }, velocity: { x: 0, y: -1 } }, reach, 'marble-1');
 
 		// Assert
 		expect(hub.x).toBeLessThan(0);

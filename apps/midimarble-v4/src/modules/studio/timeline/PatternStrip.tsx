@@ -1,7 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { patternSpan } from '@/modules/building';
 import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
-import { isPatternGroup, type TPatternGroup, type TLane, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
+import { isPatternGroup, type TPatternGroup, type TMarble, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { PATTERN_STRIP_HEIGHT } from './timeline-layout';
 
@@ -28,7 +29,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const stripRef = React.useRef<HTMLDivElement>(null);
 	if (project == null) return null;
 
-	const groups = (project.groups ?? []).filter((group) => group.marbleId === marble.id);
+	const groups = project.track.groups.filter((group) => group.marbleId === marble.id);
 	const selectedGroupIds = new Set(selection.flatMap((key) => parseGroupKey(key) ?? []));
 	const selectedRange = selectedSpan(marble, selection);
 
@@ -61,11 +62,12 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const edit = resize;
 		setResize(null);
 		const trackCx = cx.$trackCx.get();
-		if (edit == null || trackCx == null) return;
-		const from = edit.edge === 'from' ? Math.min(edit.time, group.to) : group.from;
-		const to = edit.edge === 'to' ? Math.max(edit.time, group.from) : group.to;
-		if (Math.abs(from - group.from) < 1e-4 && Math.abs(to - group.to) < 1e-4) return;
-		void cx.patterns.apply({ marbleId: marble.id, from, to, group }, group.kind);
+		const span = patternSpan(marble, group);
+		if (edit == null || trackCx == null || span == null) return;
+		const from = edit.edge === 'from' ? Math.min(edit.time, span.to) : span.from;
+		const to = edit.edge === 'to' ? Math.max(edit.time, span.from) : span.to;
+		if (Math.abs(from - span.from) < 1e-4 && Math.abs(to - span.to) < 1e-4) return;
+		void cx.patterns.apply({ marbleId: marble.id, from, to, group }, group.pattern.kind);
 	}
 
 	const isHinting = hoverX != null && range == null && selectedRange == null;
@@ -92,25 +94,24 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 			) : null}
 			{shownRange != null ? <span className="mm-pattern-range" style={{ left: Math.min(shownRange.from, shownRange.to) * zoom, width: Math.max(1, Math.abs(shownRange.to - shownRange.from) * zoom) }} /> : null}
 			{groups.map((group) => {
-				const pattern = isPatternGroup(group) ? group : null;
-				const span = pattern ?? (isPatternGroup(group) ? null : plainGroupSpan(project, marble, group));
+				const span = isPatternGroup(group) ? patternSpan(marble, group) : plainGroupSpan(project, marble, group);
 				if (span == null) return null;
 				const isResizing = resize?.groupId === group.id;
 				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, span.to) : span.from;
 				const to = isResizing && resize.edge === 'to' ? Math.max(resize.time, span.from) : span.to;
 				// A rail's block stops short of the notes around its silence, whose blocks reach past them
-				const pad = pattern?.kind === 'longRail' ? -BLOCK_PAD : BLOCK_PAD;
+				const pad = group.pattern?.kind === 'longRail' ? -BLOCK_PAD : BLOCK_PAD;
 				return (
 					<div
 						key={group.id}
 						className="mm-pattern-block"
 						data-selected={selectedGroupIds.has(group.id)}
-						data-problem={(pattern?.problems?.length ?? 0) > 0}
+						data-problem={(group.pattern?.problems?.length ?? 0) > 0}
 						role="button"
 						tabIndex={-1}
 						aria-label={`${group.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`}
 						title={`${group.name} · ${formatTime(span.from)} to ${formatTime(span.to)}`}
-						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--row-color' as string]: marble.color }}
+						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--row-color' as string]: marble.labelColor }}
 						onPointerDown={(event) => event.stopPropagation()}
 						onPointerEnter={() => setHoverX(null)}
 						onPointerMove={(event) => event.stopPropagation()}
@@ -120,7 +121,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						{/* A block too short for its name shows none, not "Zig…"; the tooltip has it */}
 						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}
 						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
-						{pattern != null && pattern.kind !== 'longRail'
+						{isPatternGroup(group) && group.pattern.kind !== 'longRail'
 							? (['from', 'to'] as const).map((edge) => (
 									<span
 										key={edge}
@@ -131,14 +132,14 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 											if (event.button !== 0) return;
 											event.stopPropagation();
 											event.currentTarget.setPointerCapture(event.pointerId);
-											setResize({ groupId: group.id, edge, time: edge === 'from' ? pattern.from : pattern.to });
+											setResize({ groupId: group.id, edge, time: edge === 'from' ? span.from : span.to });
 										}}
 										onPointerMove={(event) => {
 											if (resize?.groupId === group.id) setResize({ ...resize, time: timeAt(event.clientX) });
 										}}
 										onPointerUp={(event) => {
 											event.stopPropagation();
-											endResize(pattern);
+											endResize(group);
 										}}
 									/>
 								))
@@ -152,13 +153,13 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 
 interface TPatternStripProps {
 	cx: StudioCx;
-	marble: TLane;
+	marble: TMarble;
 	zoom: number;
 	timeAt: (clientX: number) => number;
 }
 
 /** What is selected on this row as a span of time: the dragged silence, or from the first selected hit to the last */
-function selectedSpan(marble: TLane, selection: readonly string[]): { from: number; to: number } | null {
+function selectedSpan(marble: TMarble, selection: readonly string[]): { from: number; to: number } | null {
 	const range = selection.flatMap((key) => parseRangeKey(key) ?? []).find((item) => item.marbleId === marble.id);
 	if (range != null) return range;
 	const times = selection.flatMap((key) => {

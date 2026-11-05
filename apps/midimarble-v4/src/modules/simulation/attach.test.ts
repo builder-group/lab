@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { type TEntity } from '@/modules/project';
+import { type TPiece, tieOf } from '@/modules/project';
 import { ANCHOR_DELAY } from './pieces';
 import { anchorHit, anchorPiece, linkPieceToHit, unanchorPiece, unlinkPiece } from './attach';
 import { createSimulator, type TSimulator } from './simulate';
@@ -32,9 +32,9 @@ describe('attach helpers', () => {
 	it('should unlink a platform in place and link it back onto its hit', () => {
 		const project = loadFixture('zigzag');
 		const result = simulator.simulate(project);
-		const marble = project.music.marbles[0];
+		const marble = project.marbles[0];
 		const hit = marble?.hits[8];
-		const linked = project.entities.find((entity) => entity.components.hitLink?.hitId === hit?.id);
+		const linked = project.track.pieces.find((entity) => tieOf(entity)?.hitId === hit?.id);
 		if (marble == null || hit == null || linked == null) throw new Error('No linked platform');
 
 		const [isUnlinked, unlinkErr, unlinked] = unlinkPiece(project, result, linked.id);
@@ -42,7 +42,7 @@ describe('attach helpers', () => {
 		const free = apply(project, unlinked.commands);
 		const freeResult = simulator.simulate(free);
 
-		expect(unlinked.entity.components.hitLink).toBeUndefined();
+		expect(tieOf(unlinked.entity)).toBeNull();
 		expectSamePose(pieceOf(freeResult, linked.id), pieceOf(result, linked.id));
 		expect(freeResult.hits.find((item) => item.hitId === hit.id)?.status).toBe('open');
 
@@ -57,11 +57,11 @@ describe('attach helpers', () => {
 	it('should refuse to link scenery or a hit that already sounds', () => {
 		const project = loadFixture('zigzag');
 		const result = simulator.simulate(project);
-		const marble = project.music.marbles[0];
-		const [first, second] = project.entities.filter((entity) => entity.components.hitLink != null);
+		const marble = project.marbles[0];
+		const [first, second] = project.track.pieces.filter((entity) => tieOf(entity) != null);
 		if (marble == null || first == null || second == null) throw new Error('No linked platforms');
 
-		const [isLinked, linkErr] = linkPieceToHit(project, result, first.id, marble.id, second.components.hitLink?.hitId ?? '');
+		const [isLinked, linkErr] = linkPieceToHit(project, result, first.id, marble.id, tieOf(second)?.hitId ?? '');
 
 		expect(isLinked).toBe(false);
 		expect(linkErr?.message).toMatch(/already has/);
@@ -69,17 +69,21 @@ describe('attach helpers', () => {
 
 	it('should anchor free pieces to a moment on the trajectory and free them in place', () => {
 		const base = loadFixture('zigzag');
-		const marble = base.music.marbles[0];
+		const marble = base.marbles[0];
 		if (marble == null) throw new Error('No marble');
-		const away = (id: string, type: string, x: number, y: number, angle: number, layout?: 'switchback'): TEntity => ({
+		const away = (id: string, type: string, x: number, y: number, angle: number, layout?: 'switchback'): TPiece => ({
 			id,
 			name: id,
-			components: { piece: { type, ...(layout != null ? { layout } : {}), params: {} }, transform: { position: { x, y }, angle } }
+			type,
+			...(layout != null ? { layout } : {}),
+			params: {},
+			angle,
+			place: { kind: 'free', position: { x, y } }
 		});
 		const project = apply(base, [
-			{ type: 'upsertEntity', entity: away('scenery-rail', 'rail', 1.5, -0.4, -0.2) },
-			{ type: 'upsertEntity', entity: away('scenery-switchback', 'rail', -1.5, -0.6, -0.15, 'switchback') },
-			{ type: 'upsertEntity', entity: away('scenery-windmill', 'windmill', 1.5, 0.2, 0.3) }
+			{ type: 'addPiece', piece: away('scenery-rail', 'rail', 1.5, -0.4, -0.2) },
+			{ type: 'addPiece', piece: away('scenery-switchback', 'rail', -1.5, -0.6, -0.15, 'switchback') },
+			{ type: 'addPiece', piece: away('scenery-windmill', 'windmill', 1.5, 0.2, 0.3) }
 		]);
 		let result = simulator.simulate(project);
 		let current = project;
@@ -93,7 +97,7 @@ describe('attach helpers', () => {
 			result = simulator.simulate(current);
 			const after = pieceOf(result, id);
 
-			expect(anchored.entity.components.hitLink).toEqual(expect.objectContaining({ anchored: true, hitId: marble.hits[3]?.id }));
+			expect(tieOf(anchored.entity)).toEqual(expect.objectContaining({ kind: 'follows', hitId: marble.hits[3]?.id }));
 			expect(after.entryTime).toBeCloseTo(time, 9);
 			expectSamePose(after, before);
 		}
@@ -110,13 +114,13 @@ describe('attach helpers', () => {
 
 	it('should anchor before the first hit with a negative delay on it', () => {
 		const base = loadFixture('zigzag');
-		const marble = base.music.marbles[0];
+		const marble = base.marbles[0];
 		const first = marble?.hits[0];
 		if (marble == null || first == null) throw new Error('No marble');
 		const project = apply(base, [
 			{
-				type: 'upsertEntity',
-				entity: { id: 'early-windmill', name: 'early-windmill', components: { piece: { type: 'windmill', params: {} }, transform: { position: { x: 1.5, y: 0.2 }, angle: 0 } } }
+				type: 'addPiece',
+				piece: { id: 'early-windmill', name: 'early-windmill', type: 'windmill', params: {}, angle: 0, place: { kind: 'free', position: { x: 1.5, y: 0.2 } } }
 			}
 		]);
 		const result = simulator.simulate(project);
@@ -127,8 +131,8 @@ describe('attach helpers', () => {
 		if (!isAnchored) throw anchorErr;
 		const next = simulator.simulate(apply(project, anchored.commands));
 
-		expect(anchored.entity.components.hitLink?.hitId).toBe(first.id);
-		expect(anchored.entity.components.piece?.params['entryDelay']).toBeCloseTo(time - first.time, 9);
+		expect(tieOf(anchored.entity)?.hitId).toBe(first.id);
+		expect(anchored.entity.params['entryDelay']).toBeCloseTo(time - first.time, 9);
 		expect(pieceOf(next, 'early-windmill').entryTime).toBeCloseTo(time, 9);
 		expectSamePose(pieceOf(next, 'early-windmill'), before);
 		expect(next.hits.filter((item) => item.status !== 'onTime')).toEqual([]);

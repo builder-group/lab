@@ -122,10 +122,10 @@ describe('pace', () => {
 			const whole = frameBand(project);
 			expect(whole.centerX).toBeCloseTo(0, 12);
 			// The band covering every marble is at least the film frame, the limit of what stays in view
-			expect(whole.halfWidth).toBeGreaterThanOrEqual(MARBLE_SPACING / 2 + frameBand(project, 'lane-1').halfWidth);
+			expect(whole.halfWidth).toBeGreaterThanOrEqual(MARBLE_SPACING / 2 + frameBand(project, 'marble-1').halfWidth);
 			// Marbles follow their releases from left to right; neighboring bands meet without a gap
-			const left = frameBand(project, 'lane-2');
-			const right = frameBand(project, 'lane-1');
+			const left = frameBand(project, 'marble-2');
+			const right = frameBand(project, 'marble-1');
 			expect(left.centerX).toBeCloseTo(-MARBLE_SPACING / 2, 12);
 			expect(right.centerX).toBeCloseTo(MARBLE_SPACING / 2, 12);
 			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
@@ -137,8 +137,8 @@ describe('pace', () => {
 				end: 1,
 				marbles: [{ x: 0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5] }]
 			});
-			expect(frameBand(single, 'lane-1').centerX).toBe(0.1);
-			expect(frameBand(single, 'lane-1').halfWidth).toBeCloseTo((0.225 * single.film.camera.distance) / 1.263, 12);
+			expect(frameBand(single, 'marble-1').centerX).toBe(0.1);
+			expect(frameBand(single, 'marble-1').halfWidth).toBeCloseTo((0.225 * single.film.camera.distance) / 1.263, 12);
 		});
 	});
 });

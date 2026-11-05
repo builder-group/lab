@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { BOWL_TAIL_MAX, bowlTail, songEnd } from '@/modules/music';
-import { type TProject } from '@/modules/project';
+import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { bowlCatch, createSimulator } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
@@ -40,7 +40,7 @@ describe('follow camera on whole songs', () => {
 		const track = required(followCameraTrack(jingle, result, 30));
 		// The melody's last note is at 31 s; the bass plays until 32.5 s, where the camera holds
 		const bass = required(
-			result.marbles.find((marble) => marble.marbleId === jingle.music.marbles[1]?.id)
+			result.marbles.find((marble) => marble.marbleId === jingle.marbles[1]?.id)
 		);
 		for (let frame = 30 * 30; frame <= 32.5 * 30; frame += 3) {
 			const sample = bass.samples.find((item) => item.time >= frame / 30);
@@ -220,19 +220,19 @@ describe('follow camera on whole songs', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const lastNote = Math.max(
-			...jingle.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time))
+			...jingle.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time))
 		);
 		const longer = required(results.get('jingle-bells-longer'));
 		const exit = required(bowlExit(longer.project, longer.result));
 		expect(exit).toBe(Number.POSITIVE_INFINITY);
 		expect(jingle.length).toBe(songEnd(lastNote, bowlTail(exit)));
 		const end = track.frameCount - 1;
-		const bowls = jingle.entities.filter((entity) => entity.components.piece?.type === 'bowl');
+		const bowls = jingle.track.pieces.filter((entity) => entity.type === 'bowl');
 		expect(bowls).toHaveLength(2);
 		for (const bowl of bowls) {
 			const caught = bowlCatch(result, bowl.id);
 			expect(caught.status).toBe('caught');
-			const marble = required(result.marbles.find((item) => item.marbleId === bowl.components.hitLink?.marbleId));
+			const marble = required(result.marbles.find((item) => item.marbleId === tieOf(bowl)?.marbleId));
 			// The marble enters its Bowl in frame, with a margin of 5 % of it
 			const enter = pyRound(required(caught.enterTime) * 30);
 			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));
@@ -250,7 +250,7 @@ describe('follow camera on whole songs', () => {
 
 	it('ends Reference 20 no later than the longest tail, with its last marble in its Bowl in frame', () => {
 		const { project: reference, result } = fixture('reference-20');
-		const lastNote = Math.max(...reference.music.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time)));
+		const lastNote = Math.max(...reference.marbles.flatMap((marble) => marble.hits.map((hit) => hit.time)));
 		expect(reference.length).toBeLessThanOrEqual(songEnd(lastNote, BOWL_TAIL_MAX));
 		const track = required(followCameraTrack(reference, result, 30));
 		const end = track.frameCount - 1;
@@ -266,7 +266,7 @@ describe('follow camera on whole songs', () => {
 		const held = required(followCameraTrack(reference, result, 30));
 		const without = required(
 			followCameraTrack(
-				{ ...reference, entities: reference.entities.filter((entity) => entity.components.piece?.type !== 'bowl') },
+				{ ...reference, track: { ...reference.track, pieces: reference.track.pieces.filter((entity) => entity.type !== 'bowl') } },
 				{ ...result, pieces: result.pieces.filter((piece) => piece.type !== 'bowl') },
 				30
 			)

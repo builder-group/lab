@@ -1,4 +1,4 @@
-import { isPatternGroup, type TEntity, type TGroup, type TLane, type TPatternGroup, type TProject, type TProjectCommand } from '@/modules/project';
+import { isPatternGroup, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import type { TSimulator } from '@/modules/simulation';
 import { touchingPairs } from '@/modules/simulation';
 import { sampleAt, ZIGZAG_WIDTH } from './fit-bars';
@@ -82,7 +82,7 @@ export interface TGroupRunOutcome {
 	notes: string[];
 	measures: TPatternMeasures | null;
 	/** What the Group's own pieces will look like, for a preview */
-	entities: TEntity[];
+	entities: TPiece[];
 	/** The project as this edit would leave it */
 	project: TProject;
 }
@@ -96,7 +96,7 @@ export interface TGroupRunOptions {
 
 /** The live Pattern a piece belongs to: while it has one its pieces move only by fitting it again, like Blender's Array modifier */
 export function patternOfPiece(project: TProject, pieceId: string): TPatternGroup | null {
-	return project.groups?.filter(isPatternGroup).find((group) => group.pieceIds.includes(pieceId)) ?? null;
+	return project.track.groups.filter(isPatternGroup).find((group) => group.pieceIds.includes(pieceId)) ?? null;
 }
 
 /** What a person or an agent is told trying to edit a piece of a live Pattern */
@@ -110,16 +110,36 @@ export function patternLockWords(group: TPatternGroup): string {
  */
 export function flattenCommands(group: TGroup): TProjectCommand[] {
 	const { id, name, marbleId, pieceIds } = group;
-	return [{ type: 'upsertGroup', group: { id, name, ...(marbleId != null ? { marbleId } : {}), pieceIds } }];
+	return [{ type: 'addGroup', group: { id, name, ...(marbleId != null ? { marbleId } : {}), pieceIds } }];
+}
+
+/**
+ * The span of a Pattern's block in the timeline, from the hits it holds: bars from their first hit to their last, a Long Rail
+ * between the notes around its silence, or from the marble's start to the note it opens the track for. Null without its hits.
+ */
+export function patternSpan(marble: TMarble, group: TPatternGroup): { from: number; to: number } | null {
+	const times = group.pattern.hitIds.flatMap((id) => {
+		const hit = marble.hits.find((item) => item.id === id);
+		return hit == null ? [] : [hit.time];
+	});
+	const first = times[0];
+	const last = times.at(-1);
+	if (first == null || last == null) return null;
+	if (group.pattern.kind !== 'longRail') return { from: first, to: last };
+	if (group.pattern.hitIds.length === 1) return { from: marble.start.time, to: last - RAIL_MARGIN };
+	return times.length === 2 ? { from: first + RAIL_MARGIN, to: last - RAIL_MARGIN } : null;
 }
 
 /** The hits in a range, in time order */
-export function hitsInRange(marble: TLane, from: number, to: number): TLane['hits'] {
+export function hitsInRange(marble: TMarble, from: number, to: number): TMarble['hits'] {
 	return marble.hits.filter((hit) => hit.time >= from - 1e-6 && hit.time <= to + 1e-6);
 }
 
+/** A marble's Patterns in time order; one whose hits are gone comes last */
 export function groupsOfMarble(project: TProject, marbleId: string): TPatternGroup[] {
-	return (project.groups ?? []).filter(isPatternGroup).filter((group) => group.marbleId === marbleId).sort((a, b) => a.from - b.from);
+	const marble = project.marbles.find((item) => item.id === marbleId);
+	const fromOf = (group: TPatternGroup): number => (marble != null ? patternSpan(marble, group)?.from : null) ?? Number.MAX_VALUE;
+	return project.track.groups.filter(isPatternGroup).filter((group) => group.marbleId === marbleId).sort((a, b) => fromOf(a) - fromOf(b));
 }
 
 interface TGroupTarget {
@@ -130,7 +150,7 @@ interface TGroupTarget {
 }
 
 /** What a range means for a Pattern, or why it can't take it */
-function targetOf(marble: TLane, change: Pick<TGroupChange, 'from' | 'to' | 'kind'>): TGroupTarget {
+function targetOf(marble: TMarble, change: Pick<TGroupChange, 'from' | 'to' | 'kind'>): TGroupTarget {
 	const { from, to, kind } = change;
 	const hits = hitsInRange(marble, from, to);
 	const refuse = (hitId: string, words: string): TGroupTarget => ({ hitIds: [], from, to, problem: { hitId, words } });
@@ -149,6 +169,11 @@ function targetOf(marble: TLane, change: Pick<TGroupChange, 'from' | 'to' | 'kin
 	return { hitIds: hits.map((hit) => hit.id), from: first.time, to: last.time, problem: null };
 }
 
+/** What a Group's own span means for its Pattern; one whose hits are gone refuses as an empty range does */
+function targetOfGroup(marble: TMarble, group: TPatternGroup): TGroupTarget {
+	return targetOf(marble, { ...(patternSpan(marble, group) ?? { from: Infinity, to: Infinity }), kind: group.pattern.kind });
+}
+
 /** A new name: "Zigzag", then "Zigzag 2" */
 function nextGroupName(groups: readonly TGroup[], kind: TPatternKind): string {
 	const label = PATTERN_LABELS[kind];
@@ -159,7 +184,7 @@ function nextGroupName(groups: readonly TGroup[], kind: TPatternKind): string {
 
 function withoutPieces(project: TProject, ids: readonly string[]): TProject {
 	const removed = new Set(ids);
-	return ids.length > 0 ? { ...project, entities: project.entities.filter((entity) => !removed.has(entity.id)) } : project;
+	return ids.length > 0 ? { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => !removed.has(entity.id)) } } : project;
 }
 
 function sameExit(a: TPatternExit | null, b: TPatternExit | null): boolean {
@@ -176,18 +201,18 @@ function marbleAt(sim: TSimulator, project: TProject, marbleId: string, time: nu
 /** Runs a Group's Pattern and what follows it, and answers with one edit. The project isn't touched */
 export function runGroupChange(project: TProject, change: TGroupChange, options: TGroupRunOptions): TGroupRunOutcome {
 	const { sim, isPreview = false, onProgress } = options;
-	const marble = project.music.marbles.find((item) => item.id === change.marbleId);
-	const existing = change.groupId != null ? project.groups?.filter(isPatternGroup).find((group) => group.id === change.groupId) : undefined;
-	let name = existing != null && existing.kind === change.kind ? existing.name : nextGroupName(project.groups ?? [], change.kind);
+	const marble = project.marbles.find((item) => item.id === change.marbleId);
+	const existing = change.groupId != null ? project.track.groups.filter(isPatternGroup).find((group) => group.id === change.groupId) : undefined;
+	let name = existing != null && existing.pattern.kind === change.kind ? existing.name : nextGroupName(project.track.groups, change.kind);
 	const refuse = (problems: TPatternProblem[]): TGroupRunOutcome => ({ commands: [], groupId: null, name, problems, blocking: problems, nearestWidth: null, later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], measures: null, entities: [], project });
 	if (marble == null) return refuse([{ hitId: '', words: 'That marble is gone.' }]);
 	const target = targetOf(marble, change);
 	if (target.problem != null) return refuse([target.problem]);
 
 	const others = groupsOfMarble(project, marble.id).filter((group) => group.id !== existing?.id);
-	const later = isPreview ? [] : others.filter((group) => group.from > target.to - 1e-6);
+	const later = isPreview ? [] : others.filter((group) => (patternSpan(marble, group)?.from ?? Infinity) > target.to - 1e-6);
 	const { trimmed, removedGroupIds, freed } = trimOverlaps(project, others, target.hitIds, marble, target.from, target.to);
-	if (existing?.kind !== change.kind) name = nextGroupName((project.groups ?? []).filter((group) => !removedGroupIds.includes(group.id) && group.id !== existing?.id), change.kind);
+	if (existing?.pattern.kind !== change.kind) name = nextGroupName(project.track.groups.filter((group) => !removedGroupIds.includes(group.id) && group.id !== existing?.id), change.kind);
 
 	// A rail it replaces goes first: the new one may take its ID
 	let working = withoutPieces(project, [...(existing?.pieceIds ?? []), ...freed]);
@@ -203,13 +228,14 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 			)
 		);
 
-	const exitBefore = later[0] != null ? marbleAt(sim, project, marble.id, later[0].from) : null;
-	const before = [...others].reverse().find((group) => group.to <= target.from + 1e-6);
+	const laterFrom = later[0] != null ? patternSpan(marble, later[0])?.from : undefined;
+	const exitBefore = laterFrom != null ? marbleAt(sim, project, marble.id, laterFrom) : null;
+	const before = [...others].reverse().find((group) => (patternSpan(marble, group)?.to ?? Infinity) <= target.from + 1e-6);
 	let fit = askFit(target.hitIds, change, 1, name, existing?.pieceIds ?? [], true);
 	let refitBefore: { group: TPatternGroup; fit: TFitPatternResult } | null = null;
 
 	// A rail that doesn't fit after the turn toward the frame: the bars before it play again without that turn
-	if (!fit.entities.length && change.kind === 'longRail' && before != null && before.kind !== 'longRail' && !isPreview) {
+	if (!fit.entities.length && change.kind === 'longRail' && before != null && before.pattern.kind !== 'longRail' && !isPreview) {
 		const refit = refitBarsWithoutTurn(before, marble, working, sim, project);
 		if (refit != null) {
 			const saved = working;
@@ -229,37 +255,38 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 		id: groupId,
 		name,
 		marbleId: marble.id,
-		from: target.from,
-		to: target.to,
-		kind: change.kind,
-		width: change.width,
-		bounce: change.bounce,
 		pieceIds: fit.entities.map((entity) => entity.id),
-		...(change.maxTilt != null ? { maxTilt: change.maxTilt } : {}),
-		...(fit.problems.length > 0 ? { problems: fit.problems } : {})
+		pattern: {
+			kind: change.kind,
+			hitIds: target.hitIds,
+			width: change.width,
+			bounce: change.bounce,
+			...(change.maxTilt != null ? { maxTilt: change.maxTilt } : {}),
+			...(fit.problems.length > 0 ? { problems: fit.problems } : {})
+		}
 	};
 
 	const groups = new Map<string, TPatternGroup>([[group.id, group]]);
 	const outcomes: TLaterGroupOutcome[] = [];
 	const blocking = [...fit.blocking];
-	const exitAfter = later[0] != null && !isPreview ? marbleAt(sim, working, marble.id, later[0].from) : null;
+	const exitAfter = laterFrom != null && !isPreview ? marbleAt(sim, working, marble.id, laterFrom) : null;
 	if (refitBefore != null) groups.set(refitBefore.group.id, { ...refitBefore.group, pieceIds: refitBefore.fit.entities.map((entity) => entity.id) });
 	if (!sameExit(exitBefore, exitAfter)) {
 		// Later Groups' pieces go first, so none of them gets in the way of the fit before it
 		working = withoutPieces(working, later.flatMap((item) => item.pieceIds));
 		later.forEach((item, index) => {
-			const laterTarget = targetOf(marble, item);
+			const laterTarget = targetOfGroup(marble, item);
 			if (laterTarget.problem != null) {
 				blocking.push(laterTarget.problem);
-				groups.set(item.id, { ...item, pieceIds: [], problems: [laterTarget.problem] });
+				groups.set(item.id, { ...item, pieceIds: [], pattern: { ...item.pattern, problems: [laterTarget.problem] } });
 				outcomes.push({ groupId: item.id, name: item.name, problems: [laterTarget.problem] });
 				return;
 			}
-			const laterFit = askFit(laterTarget.hitIds, item, index + 2, item.name, item.pieceIds);
+			const laterFit = askFit(laterTarget.hitIds, item.pattern, index + 2, item.name, item.pieceIds);
 			working = laterFit.project;
 			blocking.push(...laterFit.blocking);
-			const { problems: _old, ...plain } = item;
-			groups.set(item.id, { ...plain, pieceIds: laterFit.entities.map((entity) => entity.id), ...(laterFit.problems.length > 0 ? { problems: laterFit.problems } : {}) });
+			const { problems: _old, ...pattern } = item.pattern;
+			groups.set(item.id, { ...item, pieceIds: laterFit.entities.map((entity) => entity.id), pattern: { ...pattern, hitIds: laterTarget.hitIds, ...(laterFit.problems.length > 0 ? { problems: laterFit.problems } : {}) } });
 			outcomes.push({ groupId: item.id, name: item.name, problems: laterFit.problems });
 		});
 	}
@@ -271,7 +298,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	const inGroups = new Set([...groups.values(), ...others].flatMap((item) => item.pieceIds));
 	const laterLateHits = result == null ? 0 : result.hits.filter((hit) => hit.marbleId === marble.id && hit.targetTime > target.to && hit.pieceEntityId != null && !inGroups.has(hit.pieceEntityId) && hit.status !== 'onTime' && hit.status !== 'drifting' && hit.status !== 'open').length;
 	const made = new Set(group.pieceIds);
-	const marbleOf = (id: string): string | null => working.entities.find((entity) => entity.id === id)?.components.hitLink?.marbleId ?? null;
+	const marbleOf = (id: string): string | null => tieOf(working.track.pieces.find((entity) => entity.id === id))?.marbleId ?? null;
 	const otherMarbleTouches =
 		result == null
 			? []
@@ -279,7 +306,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 					const [mine, other] = made.has(pair.a) ? [pair.a, pair.b] : [pair.b, pair.a];
 					const otherMarble = marbleOf(other);
 					if (!made.has(mine) || otherMarble == null || otherMarble === marble.id) return [];
-					return [`${name} touches ${working.music.marbles.find((item) => item.id === otherMarble)?.name ?? 'another marble'}’s pieces at ${wordsForHitTime(pair.time)}. Patterns work one marble at a time for now.`];
+					return [`${name} touches ${working.marbles.find((item) => item.id === otherMarble)?.name ?? 'another marble'}’s pieces at ${wordsForHitTime(pair.time)}. Patterns work one marble at a time for now.`];
 				});
 	return {
 		commands,
@@ -300,7 +327,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 
 /** The marble released at this time, staying where it is */
 function withReleaseAt(project: TProject, marbleId: string, time: number): TProject {
-	return { ...project, entities: project.entities.map((entity) => (entity.components.marble?.marbleId === marbleId && entity.components.release != null ? { ...entity, components: { ...entity.components, release: { ...entity.components.release, time } } } : entity)) };
+	return { ...project, marbles: project.marbles.map((marble) => (marble.id === marbleId ? { ...marble, start: { ...marble.start, time } } : marble)) };
 }
 
 /**
@@ -309,75 +336,80 @@ function withReleaseAt(project: TProject, marbleId: string, time: number): TProj
  */
 function keepingSkins(project: TProject, pieceIds: readonly string[], fit: TFitPatternResult): TFitPatternResult {
 	const replaced = new Set([...pieceIds, ...fit.removedIds]);
-	const old = project.entities.filter((entity) => replaced.has(entity.id));
+	const old = project.track.pieces.filter((entity) => replaced.has(entity.id));
 	if (!old.length) return fit;
-	const dressed = new Map<string, TEntity>();
+	const dressed = new Map<string, TPiece>();
 	for (const entity of fit.entities) {
-		const type = entity.components.piece?.type;
-		const sameType = old.filter((item) => item.components.piece?.type === type);
-		const own = sameType.find((item) => item.components.hitLink != null && item.components.hitLink.hitId === entity.components.hitLink?.hitId) ?? sameType.find((item) => item.id === entity.id);
-		const skin = (own ?? sameType.find((item) => item.components.skin != null))?.components.skin;
-		dressed.set(entity.id, { ...entity, ...(own?.name != null ? { name: own.name } : {}), components: { ...entity.components, ...(skin != null ? { skin } : {}) } });
+		const type = entity.type;
+		const sameType = old.filter((item) => item.type === type);
+		const own = sameType.find((item) => tieOf(item) != null && tieOf(item)?.hitId === tieOf(entity)?.hitId) ?? sameType.find((item) => item.id === entity.id);
+		const skin = (own ?? sameType.find((item) => item.skin != null))?.skin;
+		dressed.set(entity.id, { ...entity, ...(own?.name != null ? { name: own.name } : {}), ...(skin != null ? { skin } : {}) });
 	}
-	return { ...fit, entities: fit.entities.map((entity) => dressed.get(entity.id) ?? entity), project: { ...fit.project, entities: fit.project.entities.map((entity) => dressed.get(entity.id) ?? entity) } };
+	return { ...fit, entities: fit.entities.map((entity) => dressed.get(entity.id) ?? entity), project: { ...fit.project, track: { ...fit.project.track, pieces: fit.project.track.pieces.map((entity) => dressed.get(entity.id) ?? entity) } } };
 }
 
 /** The size a Group's bars have now, so running it again keeps a Length or Depth changed by hand */
 function barSizeOf(project: TProject, pieceIds: readonly string[]): { barLength?: number; barDepth?: number } {
 	const ids = new Set(pieceIds);
-	const params = project.entities.find((entity) => ids.has(entity.id) && entity.components.piece?.type === 'platform')?.components.piece?.params;
+	const params = project.track.pieces.find((entity) => ids.has(entity.id) && entity.type === 'platform')?.params;
 	return { ...(params?.['length'] != null ? { barLength: params['length'] } : {}), ...(params?.['depth'] != null ? { barDepth: params['depth'] } : {}) };
 }
 
 /** The bars before a rail played again, the last one keeping its own direction; null when that leaves problems of its own */
-function refitBarsWithoutTurn(group: TPatternGroup, marble: TLane, working: TProject, sim: TSimulator, wearing: TProject): TFitPatternResult | null {
-	if (group.kind === 'longRail') return null;
-	const hits = hitsInRange(marble, group.from, group.to).map((hit) => hit.id);
-	const fit = keepingSkins(wearing, group.pieceIds, fitPattern({ project: withoutPieces(working, group.pieceIds), marbleId: marble.id, hitIds: hits, kind: group.kind, width: group.width, bounce: group.bounce, ...(group.maxTilt != null ? { maxTilt: group.maxTilt } : {}), keepsDirection: true, ...barSizeOf(working, group.pieceIds) }, { sim }));
+function refitBarsWithoutTurn(group: TPatternGroup, marble: TMarble, working: TProject, sim: TSimulator, wearing: TProject): TFitPatternResult | null {
+	const span = patternSpan(marble, group);
+	if (group.pattern.kind === 'longRail' || span == null) return null;
+	const hits = hitsInRange(marble, span.from, span.to).map((hit) => hit.id);
+	const fit = keepingSkins(wearing, group.pieceIds, fitPattern({ project: withoutPieces(working, group.pieceIds), marbleId: marble.id, hitIds: hits, kind: group.pattern.kind, width: group.pattern.width, bounce: group.pattern.bounce, ...(group.pattern.maxTilt != null ? { maxTilt: group.pattern.maxTilt } : {}), keepsDirection: true, ...barSizeOf(working, group.pieceIds) }, { sim }));
 	return fit.entities.length > 0 ? fit : null;
 }
 
 /**
- * Groups a new range runs over give up what it covers: their pieces on its hits go, their range shrinks to the hits
- * left before it, and the pieces after it stay as plain pieces. Nothing is left in a Group's list that it no longer plays.
+ * Groups a new range runs over give up what it covers: their pieces on its hits go, they keep only the hits left before
+ * it, and the pieces after it stay as plain pieces. Nothing is left in a Group's list that it no longer plays.
  */
-function trimOverlaps(project: TProject, others: readonly TPatternGroup[], hitIds: readonly string[], marble: TLane, from: number, to: number): { trimmed: TPatternGroup[]; removedGroupIds: string[]; freed: string[] } {
+function trimOverlaps(project: TProject, others: readonly TPatternGroup[], hitIds: readonly string[], marble: TMarble, from: number, to: number): { trimmed: TPatternGroup[]; removedGroupIds: string[]; freed: string[] } {
 	const trimmed: TPatternGroup[] = [];
 	const removedGroupIds: string[] = [];
 	const freed: string[] = [];
 	const covered = new Set(hitIds);
 	for (const group of others) {
-		if (group.to < from || group.from > to) continue;
-		if (group.kind === 'longRail') {
+		const span = patternSpan(marble, group);
+		if (span == null || span.to < from || span.from > to) continue;
+		if (group.pattern.kind === 'longRail') {
 			removedGroupIds.push(group.id);
 			freed.push(...group.pieceIds);
 			continue;
 		}
-		const left = hitsInRange(marble, group.from, group.to).filter((hit) => hit.time < from);
+		const left = hitsInRange(marble, span.from, span.to).filter((hit) => hit.time < from);
 		if (!left.length) {
 			removedGroupIds.push(group.id);
 			continue;
 		}
 		const leftIds = new Set(left.map((hit) => hit.id));
 		const pieceIds = group.pieceIds.filter((id) => {
-			const hitId = project.entities.find((entity) => entity.id === id)?.components.hitLink?.hitId;
+			const hitId = tieOf(project.track.pieces.find((entity) => entity.id === id))?.hitId;
 			return hitId != null && leftIds.has(hitId) && !covered.has(hitId);
 		});
-		trimmed.push({ ...group, to: left.at(-1)?.time ?? group.to, pieceIds });
+		trimmed.push({ ...group, pieceIds, pattern: { ...group.pattern, hitIds: left.map((hit) => hit.id) } });
 	}
 	return { trimmed, removedGroupIds, freed };
 }
 
-/** One command batch from one project to the next: pieces gone, pieces new or changed, Groups changed */
+/** One command batch from one project to the next: pieces gone, marbles released elsewhere, pieces new or changed, Groups changed */
 function editCommands(from: TProject, to: TProject, groups: readonly TGroup[], removedGroupIds: readonly string[]): TProjectCommand[] {
-	const before = new Map(from.entities.map((entity) => [entity.id, entity]));
-	const after = new Set(to.entities.map((entity) => entity.id));
-	const gone = from.entities.filter((entity) => !after.has(entity.id)).map((entity) => entity.id);
-	const changed = to.entities.filter((entity) => before.get(entity.id) !== entity);
+	const before = new Map(from.track.pieces.map((entity) => [entity.id, entity]));
+	const after = new Set(to.track.pieces.map((entity) => entity.id));
+	const gone = from.track.pieces.filter((entity) => !after.has(entity.id)).map((entity) => entity.id);
+	const changed = to.track.pieces.filter((entity) => before.get(entity.id) !== entity);
+	const starts = new Map(from.marbles.map((marble) => [marble.id, marble.start]));
+	const released = to.marbles.filter((marble) => starts.get(marble.id) !== marble.start);
 	return [
-		...(gone.length > 0 ? [{ type: 'removeEntities' as const, entityIds: gone }] : []),
-		...changed.map((entity) => ({ type: 'upsertEntity' as const, entity })),
+		...(gone.length > 0 ? [{ type: 'removePieces' as const, pieceIds: gone }] : []),
+		...released.map((marble) => ({ type: 'updateMarble' as const, marbleId: marble.id, patch: { start: marble.start } })),
+		...changed.map((entity) => ({ type: 'addPiece' as const, piece: entity })),
 		...(removedGroupIds.length > 0 ? [{ type: 'removeGroups' as const, groupIds: [...removedGroupIds] }] : []),
-		...groups.map((group) => ({ type: 'upsertGroup' as const, group }))
+		...groups.map((group) => ({ type: 'addGroup' as const, group }))
 	];
 }

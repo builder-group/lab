@@ -1,4 +1,4 @@
-import type { TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
+import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { TResult } from 'tuple-result';
 import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withEntities, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
 import { createRailForGap, createChainForGap, createSwitchbackForGap, createTunnelForGap, prepareGapSearch, type TGapEvaluation, type TGapPieceCheck, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
@@ -77,7 +77,7 @@ export interface TSearchBatch {
 export type TGapPieceType = 'switchback' | 'chain' | 'rail' | 'tunnel';
 
 export interface TAutoPlaceAnswer {
-	entity: TEntity;
+	entity: TPiece;
 	angle: number;
 	nextDot: TVec2 | null;
 	/** Height of the next dot above the shared pace y*, when known */
@@ -99,7 +99,7 @@ export interface TGapAnswer {
 	marbleId: string;
 	fromHitId: string;
 	toHitId: string;
-	entity: TEntity;
+	entity: TPiece;
 	commands: TProjectCommand[];
 	/** The suggested piece as the simulation resolves it, for drawing the ghost */
 	piece: TResolvedPiece | null;
@@ -117,7 +117,7 @@ export interface TWorkerAnswers {
 	continue: TContinueAnswer | null;
 	gapPiece: TGapAnswer;
 	settle: TSettleAnswer;
-	reconnect: { entities: TEntity[] } | null;
+	reconnect: { entities: TPiece[] } | null;
 }
 
 interface TPreparedSearch {
@@ -195,7 +195,7 @@ function gapAnswer(
 	startedAt: number
 ): TGapAnswer {
 	const { project, marbleId, fromHitId, toHitId, type } = request;
-	const toTime = project.music.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
+	const toTime = project.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === toHitId)?.time ?? proposal.entryTime;
 	const trial = simulateTrial(simulate, withEntities(project, [proposal.entity]), toTime + 0.02);
 	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	const track: TVec2[] = [];
@@ -247,7 +247,7 @@ function prepareSearch(simulate: TSimulateFn, request: TSearchRequest): TResult<
 		const base = horizon != null ? simulateTrial(simulate, project, horizon + BASE_MARGIN) : simulate(project);
 		return prepareAutoPlace(project, base, marbleId, request.hitId, { simulate, type: request.type, id });
 	}
-	const toTime = project.music.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === request.toHitId)?.time;
+	const toTime = project.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === request.toHitId)?.time;
 	const base = toTime != null ? simulateTrial(simulate, project, toTime + 0.02 + BASE_MARGIN) : simulate(project);
 	return prepareGapSearch(request.type, project, base, marbleId, request.fromHitId, request.toHitId, { simulate, id });
 }

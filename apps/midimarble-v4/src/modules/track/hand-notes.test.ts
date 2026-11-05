@@ -10,10 +10,10 @@ function fake(project: TProject) {
 
 function withHit(hit: { id: string; time: number; pitch?: number }, hasSong: boolean): { project: TProject; key: string } {
 	const base = createProject({ title: 'Hits' });
-	const marble = base.music.marbles[0];
+	const marble = base.marbles[0];
 	if (marble == null) throw new Error('A new project has a marble');
-	const sources = hasSong ? [{ id: 'song', kind: 'midi', path: 'song.mid', offset: 0 }] : [];
-	const project = { ...base, music: { ...base.music, sources, marbles: [{ ...marble, hits: [hit] }] } } as unknown as TProject;
+	const songs: TProject['songs'] = hasSong ? [{ id: 'song', name: 'song.mid', kind: 'midi', path: 'song.mid', start: 0, backing: [] }] : [];
+	const project: TProject = { ...base, songs, marbles: [{ ...marble, hits: [hit] }] };
 	return { project, key: toHitKey(marble.id, hit.id) };
 }
 

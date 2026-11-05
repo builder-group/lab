@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { TProject } from '@/modules/project';
+import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from './simulate';
 
 const HORIZON = 2;
 
 function tilted(project: TProject, time: number, by: number): TProject {
-	const linked = project.entities.flatMap((entity) => {
-		const link = entity.components.hitLink;
-		const hit = project.music.marbles.find((marble) => marble.id === link?.marbleId)?.hits.find((item) => item.id === link?.hitId);
-		return link?.angle != null && entity.components.piece?.type === 'platform' && hit != null ? [{ entity, link, time: hit.time }] : [];
+	const linked = project.track.pieces.flatMap((entity) => {
+		const link = tieOf(entity);
+		const hit = project.marbles.find((marble) => marble.id === link?.marbleId)?.hits.find((item) => item.id === link?.hitId);
+		return entity.type === 'platform' && hit != null ? [{ entity, time: hit.time }] : [];
 	});
 	const target = linked.filter((item) => item.time >= time).sort((a, b) => a.time - b.time)[0];
 	if (target == null) throw new Error('No platform at that time');
-	const entities = project.entities.map((entity) => (entity === target.entity ? { ...entity, components: { ...entity.components, hitLink: { ...target.link, angle: (target.link.angle ?? 0) + by } } } : entity));
-	return { ...project, entities };
+	const entities = project.track.pieces.map((entity) => (entity === target.entity ? { ...entity, angle: entity.angle + by } : entity));
+	return { ...project, track: { ...project.track, pieces: entities } };
 }
 
 async function warmed(project: TProject): Promise<TSimulator> {
@@ -69,6 +69,6 @@ describe('a preview that stops at a horizon', () => {
 		const simulator = await createSimulator();
 		const run = simulator.simulate(project, HORIZON);
 		expect(run.duration).toBeCloseTo(project.length, 2);
-		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(project.music.marbles.reduce((count, marble) => count + marble.hits.length, 0));
+		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(project.marbles.reduce((count, marble) => count + marble.hits.length, 0));
 	});
 });

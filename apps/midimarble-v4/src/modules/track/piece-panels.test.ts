@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { TEntity } from '@/modules/project';
+import type { TPiece } from '@/modules/project';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 
-function piece(hitLink?: { marbleId: string; hitId: string }): TEntity {
-	return { id: 'piece', components: { piece: { type: 'platform', params: {} }, ...(hitLink != null ? { hitLink } : {}) } } as unknown as TEntity;
+function piece(hitLink?: { marbleId: string; hitId: string }): TPiece {
+	return { id: 'piece', type: 'platform', params: {}, angle: 0, place: hitLink != null ? { kind: 'plays', ...hitLink, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
 }
 
 describe('pieceParamPanels function', () => {
@@ -37,7 +37,7 @@ describe('pieceParamPanels function', () => {
 
 describe('showsLinkPanel function', () => {
 	it('should show the panel only for one linked piece', () => {
-		const linked = piece({ marbleId: 'lane', hitId: 'hit' });
+		const linked = piece({ marbleId: 'marble', hitId: 'hit' });
 
 		expect(showsLinkPanel([linked])).toBe(true);
 		expect(showsLinkPanel([piece()])).toBe(false);

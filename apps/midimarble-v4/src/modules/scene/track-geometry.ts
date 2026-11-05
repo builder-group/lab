@@ -6,9 +6,9 @@ import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, ty
 // Pure derivations from a project and its simulation result that the canvas draws and picks against
 
 /** Marble center at `time`, interpolated between samples. Before release it waits at its release point. */
-/** The marbles of the marbles the eye in Layers hides: their trajectories and dots go with them */
+/** The marbles the eye in Layers hides: their trajectories and dots go with them */
 export function hiddenMarbleIds(project: TProject, hidden: readonly string[]): Set<string> {
-	return new Set(project.entities.flatMap((entity) => (entity.components.marble != null && hidden.includes(entity.id) ? [entity.components.marble.marbleId] : [])));
+	return new Set(project.marbles.flatMap((marble) => (hidden.includes(marble.id) ? [marble.id] : [])));
 }
 
 export function marblePositionAt(track: TMarbleTrack | undefined, time: number, release: TVec2): TVec2 {
@@ -169,11 +169,7 @@ export function rotationGrip(piece: TResolvedPiece): { pivot: TVec2; grip: TVec2
 
 /** Area worth showing: releases, pieces, reachable hit dots and the frame band */
 export function contentBounds(project: TProject, result: TSimulationResult | null): TBounds {
-	const points: TVec2[] = [];
-	for (const entity of project.entities) {
-		const release = entity.components.release;
-		if (release != null) points.push(release.position);
-	}
+	const points: TVec2[] = project.marbles.map((marble) => marble.start.position);
 	for (const piece of result?.pieces ?? []) points.push(...pieceOutline(piece));
 	for (const hit of result?.hits ?? []) if (hit.dot != null) points.push(hit.dot);
 	const band = frameBand(project);
@@ -224,11 +220,7 @@ function workEnds(hits: readonly THitResult[]): Map<string, number> {
  * release high above the first hit is framed when it fits, but never shrinks the pieces and dots to specks.
  */
 export function fitTargets(project: TProject, result: TSimulationResult | null): TBounds {
-	const releases: TVec2[] = [];
-	for (const entity of project.entities) {
-		const release = entity.components.release;
-		if (release != null) releases.push(release.position);
-	}
+	const releases: TVec2[] = project.marbles.map((marble) => marble.start.position);
 	const work: TVec2[] = [];
 	for (const piece of result?.pieces ?? []) work.push(...pieceOutline(piece));
 	const ends = workEnds(result?.hits ?? []);
@@ -279,7 +271,7 @@ export function firstHitsView(project: TProject, result: TSimulationResult, view
 		minY: bounds.minY - FIRST_HITS_BELOW,
 		maxY: bounds.maxY + FIRST_HITS_ABOVE
 	});
-	const releases = project.entities.flatMap((entity) => (entity.components.release != null ? [entity.components.release.position] : []));
+	const releases = project.marbles.map((marble) => marble.start.position);
 	const all = boundsOfPoints([...releases, { x: dots.minX, y: dots.minY }, { x: dots.maxX, y: dots.maxY }]) ?? dots;
 	const withReleases = fitBounds(around(all), viewport, padding);
 	return withReleases.scale >= minScale ? withReleases : fitBounds(around(dots), viewport, padding);

@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { applyProjectCommands, createHistory, createProject, pushHistory, type TEntity, type TProject, undoHistory, stepHitTarget, toHitKey } from '@/modules/project';
+import { applyProjectCommands, createHistory, createProject, pushHistory, type TPiece, type TProject, undoHistory, stepHitTarget, toHitKey, tieOf, backingOf } from '@/modules/project';
 import { createLinkedPiece, createSimulator, type TAutoPlaceAnswer, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { addNoteCommands } from '@/modules/studio/timeline/piano-roll';
 import { deleteHitCommands } from './hand-notes';
@@ -23,7 +23,7 @@ function openHit(marbleId: string, time: number, y: number): THitResult {
 describe('firstHitsView', () => {
 	function tapped(y: number): { project: TProject; result: TSimulationResult } {
 		const project = createProject();
-		const marbleId = project.music.marbles[0]?.id ?? '';
+		const marbleId = project.marbles[0]?.id ?? '';
 		return { project, result: { hits: [openHit(marbleId, 0.6, y), openHit(marbleId, 1.2, y - 2)], pieces: [], marbles: [] } as unknown as TSimulationResult };
 	}
 
@@ -62,7 +62,7 @@ describe('dotClickAction', () => {
 
 	it('should preview the platform for an open note, and the bridge for a long gap', async () => {
 		const simulator = await createSimulator();
-		const without = { ...project, entities: project.entities.filter((entity) => entity.id !== 'piece-1-5') };
+		const without = { ...project, track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== 'piece-1-5') } };
 		const result = simulator.simulate(without);
 		const hit = result.hits.find((item) => item.status === 'open');
 		if (hit == null) throw new Error('expected an open note');
@@ -92,7 +92,7 @@ describe('a dot click before it places', () => {
 	async function setup(): Promise<{ assist: AssistCx; cx: StudioCx; hit: THitResult; project: () => TProject; edits: () => number; answer: () => void; fail: () => void }> {
 		const simulator = await createSimulator();
 		const start = createStaircaseProject();
-		const without = { ...start, entities: start.entities.filter((entity) => entity.id !== 'piece-1-5') };
+		const without = { ...start, track: { ...start.track, pieces: start.track.pieces.filter((entity) => entity.id !== 'piece-1-5') } };
 		const result = simulator.simulate(without);
 		const hit = result.hits.find((item) => item.status === 'open');
 		if (hit == null) throw new Error('expected an open note');
@@ -146,8 +146,8 @@ describe('a dot click before it places', () => {
 		};
 	}
 
-	function pieceEntity(project: TProject, hit: THitResult, id: string): TEntity {
-		return createLinkedPiece('platform', hit.marbleId, hit.hitId, 0.2, { entities: project.entities, id });
+	function pieceEntity(project: TProject, hit: THitResult, id: string): TPiece {
+		return createLinkedPiece('platform', hit.marbleId, hit.hitId, 0.2, { entities: project.track.pieces, id });
 	}
 
 	const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -169,7 +169,7 @@ describe('a dot click before it places', () => {
 		// Return and N come through next(), a click on the ghost through acceptGhosts()
 		assist.next();
 		expect(edits()).toBe(1);
-		expect(project().entities.some((entity) => entity.components.hitLink?.hitId === hit.hitId)).toBe(true);
+		expect(project().track.pieces.some((entity) => tieOf(entity)?.hitId === hit.hitId)).toBe(true);
 		expect(assist.$ghosts.get().ghost).toBeNull();
 		expect(cx.$selection.get()[0]).not.toBe(toHitKey(hit.marbleId, hit.hitId));
 	});
@@ -262,13 +262,11 @@ describe('arrows in Track', () => {
 
 describe('stepping through hits', () => {
 	const project = {
-		entities: [{ id: 'platform', components: { piece: { type: 'platform' }, hitLink: { marbleId: 'a', hitId: 'a2' } } }],
-		music: {
-			marbles: [
-				{ id: 'a', hits: [{ id: 'a1', time: 1 }, { id: 'a2', time: 2 }, { id: 'a3', time: 3 }] },
-				{ id: 'b', hits: [{ id: 'b1', time: 1.5 }, { id: 'b2', time: 2.5 }] }
-			]
-		}
+		track: { pieces: [{ id: 'platform', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId: 'a', hitId: 'a2', contactAt: 0.5 } }], groups: [] },
+		marbles: [
+			{ id: 'a', hits: [{ id: 'a1', time: 1 }, { id: 'a2', time: 2 }, { id: 'a3', time: 3 }] },
+			{ id: 'b', hits: [{ id: 'b1', time: 1.5 }, { id: 'b2', time: 2.5 }] }
+		]
 	} as unknown as TProject;
 
 	it('should stay on the marble of the selected hit and go on from it, not the playhead', () => {
@@ -292,8 +290,8 @@ describe('⌫ on hits', () => {
 		const simulator = await createSimulator();
 		const project = createStaircaseProject();
 		const result = simulator.simulate(project);
-		const piece = project.entities.find((entity) => entity.id === 'piece-1-5');
-		const link = piece?.components.hitLink;
+		const piece = project.track.pieces.find((entity) => entity.id === 'piece-1-5');
+		const link = tieOf(piece);
 		if (link == null) throw new Error('expected a platform');
 		return { project, result, key: toHitKey(link.marbleId, link.hitId), pieceId: 'piece-1-5', hitId: link.hitId, marbleId: link.marbleId };
 	}
@@ -302,10 +300,10 @@ describe('⌫ on hits', () => {
 		const { project, result, key, hitId, marbleId, pieceId } = await played();
 		const [isOk, error, next] = applyProjectCommands(project, deleteHitCommands(project, result, [key]));
 		if (!isOk) throw error;
-		expect(next.music.marbles.find((marble) => marble.id === marbleId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
-		expect(next.music.backing.some((hit) => hit.id === hitId)).toBe(false);
-		expect(next.entities.some((entity) => entity.id === pieceId)).toBe(false);
-		expect(next.entities.some((entity) => entity.components.hitLink?.hitId === hitId)).toBe(false);
+		expect(next.marbles.find((marble) => marble.id === marbleId)?.hits.some((hit) => hit.id === hitId)).toBe(false);
+		expect(backingOf(next).some((hit) => hit.id === hitId)).toBe(false);
+		expect(next.track.pieces.some((entity) => entity.id === pieceId)).toBe(false);
+		expect(next.track.pieces.some((entity) => tieOf(entity)?.hitId === hitId)).toBe(false);
 	});
 });
 
@@ -313,7 +311,7 @@ describe('an added note', () => {
 	it('should give the marble a hit with a dot, as one undo step', async () => {
 		const simulator = await createSimulator();
 		const project = createStaircaseProject();
-		const marble = project.music.marbles[0];
+		const marble = project.marbles[0];
 		if (marble == null) throw new Error('expected a marble');
 		const last = Math.max(...marble.hits.map((hit) => hit.time));
 		const { hit, commands } = addNoteCommands(marble.id, { time: last + 0.5, pitch: 67, duration: 0.25 });
@@ -322,9 +320,9 @@ describe('an added note', () => {
 		const history = pushHistory(createHistory(project), added);
 		const result = simulator.simulate({ ...added, length: last + 2 });
 
-		expect(history.present.music.marbles[0]?.hits.find((item) => item.id === hit.id)?.pitch).toBe(67);
+		expect(history.present.marbles[0]?.hits.find((item) => item.id === hit.id)?.pitch).toBe(67);
 		expect(result.hits.find((item) => item.hitId === hit.id)?.status).toBe('open');
-		expect(undoHistory(history).present.music.marbles[0]?.hits.some((item) => item.id === hit.id)).toBe(false);
+		expect(undoHistory(history).present.marbles[0]?.hits.some((item) => item.id === hit.id)).toBe(false);
 	});
 });
 
@@ -357,27 +355,27 @@ describe('dragging a platform that plays a note', () => {
 	it('should keep Plays where it lies, report the timing there, and go back on time when placed again', () => {
 		const project = createStaircaseProject();
 		const before = simulate(project);
-		const entity = project.entities.find((item) => item.id === 'piece-1-5');
+		const entity = project.track.pieces.find((item) => item.id === 'piece-1-5');
 		const resolved = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
 		if (entity == null || resolved == null) throw new Error('missing piece');
 
 		// Waiting where it was, the run keeps it exactly there and the marble passes
-		const link = entity.components.hitLink;
+		const link = tieOf(entity);
 		if (link == null) throw new Error('missing link');
-		const waiting = { ...entity, components: { ...entity.components, hitLink: { ...link, held: { dot: { x: resolved.position.x, y: resolved.position.y - 0.1 }, velocity: { x: 0, y: -1 }, leaves: null } } } };
-		const lowerProject = withCommands(project, [{ type: 'upsertEntity', entity: waiting }]);
+		const waiting = { ...entity, place: { ...link, held: { dot: { x: resolved.position.x, y: resolved.position.y - 0.1 }, velocity: { x: 0, y: -1 }, leaves: null } } };
+		const lowerProject = withCommands(project, [{ type: 'addPiece', piece: waiting }]);
 
 		// Placed again, it follows its note once more
 		const commands = replaceCommands(lowerProject, entity);
 		expect(commands.length).toBeGreaterThan(0);
 		const back = withCommands(lowerProject, commands);
-		expect(back.entities.find((item) => item.id === 'piece-1-5')?.components.hitLink?.held).toBeUndefined();
+		expect(tieOf(back.track.pieces.find((item) => item.id === 'piece-1-5'))?.held).toBeUndefined();
 		expect(simulate(back).hits.every((item) => item.status === 'onTime')).toBe(true);
 	});
 
 	it('should show the dragged platform where the pointer holds it', () => {
 		const project = createStaircaseProject();
-		const entity = project.entities.find((item) => item.id === 'piece-1-5');
+		const entity = project.track.pieces.find((item) => item.id === 'piece-1-5');
 		if (entity == null) throw new Error('missing piece');
 		const shown = displayPiece(entity, { pose: { position: { x: 0.3, y: 0.2 }, angle: 0.1 } });
 		expect(shown.position.x).toBeCloseTo(0.3);

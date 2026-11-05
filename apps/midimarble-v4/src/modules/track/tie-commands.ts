@@ -1,5 +1,5 @@
 import { openContextMenu, type TMenuItem } from '@/components';
-import type { TProjectCommand } from '@/modules/project';
+import { type TProjectCommand, tieOf } from '@/modules/project';
 import { anchorPiece, isMusicalPiece, unanchorPiece, unlinkPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { attachState } from '@/modules/building';
@@ -40,7 +40,7 @@ export function followSelection(cx: StudioCx, marbleId?: string): void {
 			return;
 		}
 		commands.push(...value.commands);
-		current = { ...current, entities: current.entities.map((entity) => (entity.id === entityId ? value.entity : entity)) };
+		current = { ...current, track: { ...current.track, pieces: current.track.pieces.map((entity) => (entity.id === entityId ? value.entity : entity)) } };
 	}
 	if (commands.length) cx.execute(commands);
 }
@@ -52,8 +52,8 @@ export function detachSelection(cx: StudioCx): void {
 	if (project == null || result == null) return;
 	const commands: TProjectCommand[] = [];
 	for (const entityId of selectedPieceIds(project, cx.$selection.get())) {
-		const entity = project.entities.find((item) => item.id === entityId);
-		if (entity == null || entity.components.hitLink == null) continue;
+		const entity = project.track.pieces.find((item) => item.id === entityId);
+		if (entity == null || tieOf(entity) == null) continue;
 		const attach = attachState(project, entity);
 		const [isOk, error, value] = attach.kind === 'linked' ? unlinkPiece(project, result, entityId) : unanchorPiece(project, result, entityId);
 		if (!isOk) {
@@ -69,7 +69,7 @@ export function detachSelection(cx: StudioCx): void {
 export function hasTiedSelection(cx: StudioCx): boolean {
 	const project = cx.project;
 	if (project == null) return false;
-	return selectedPieceIds(project, cx.$selection.get()).some((id) => project.entities.find((entity) => entity.id === id)?.components.hitLink != null);
+	return selectedPieceIds(project, cx.$selection.get()).some((id) => tieOf(project.track.pieces.find((entity) => entity.id === id)) != null);
 }
 
 /** The one selected piece Play a Note… can link: a platform that does not play a note yet */
@@ -77,8 +77,8 @@ function pieceToLink(cx: StudioCx): string | null {
 	const project = cx.project;
 	if (project == null) return null;
 	const ids = selectedPieceIds(project, cx.$selection.get());
-	const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
-	if (entity == null || !isMusicalPiece(entity.components.piece?.type ?? '')) return null;
+	const entity = ids.length === 1 ? project.track.pieces.find((item) => item.id === ids[0]) : undefined;
+	if (entity == null || !isMusicalPiece(entity.type ?? '')) return null;
 	return attachState(project, entity).kind === 'linked' ? null : entity.id;
 }
 
@@ -106,9 +106,9 @@ export function followItems(cx: StudioCx): TMenuItem[] {
 	const result = cx.simulation.$result.get();
 	if (project == null || result == null) return [];
 	const ids = selectedPieceIds(project, cx.$selection.get());
-	const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
+	const entity = ids.length === 1 ? project.track.pieces.find((item) => item.id === ids[0]) : undefined;
 	const attach = entity != null ? attachState(project, entity) : null;
-	return project.music.marbles
+	return project.marbles
 		.filter((marble) => result.marbles.some((track) => track.marbleId === marble.id))
 		.map((marble) => ({ label: marble.name, checked: attach?.kind === 'anchored' && attach.marbleId === marble.id, onSelect: () => followSelection(cx, marble.id) }));
 }

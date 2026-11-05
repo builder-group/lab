@@ -1,7 +1,7 @@
 import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findMarbleConflicts } from '@/modules/music';
-import type { TLane, TProject } from '@/modules/project';
+import type { TMarble } from '@/modules/project';
 import { marbleLabelEntries, marbleMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
 import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
@@ -11,12 +11,10 @@ import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
  * its row stays flat: notes open only in the Song layer's piano roll.
  */
 export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
-	const { cx, marble, project, selection } = props;
+	const { cx, marble, selection } = props;
 	const [isRenaming, setIsRenaming] = React.useState(false);
-	const marbleEntity = project.entities.find((entity) => entity.components.marble?.marbleId === marble.id);
-	const id = marbleEntity?.id ?? marble.id;
 	const conflicts = findMarbleConflicts(marble).size;
-	const isSelected = selection.includes(id) || selection.some((key) => key.startsWith(`hit:${marble.id}:`));
+	const isSelected = selection.includes(marble.id) || selection.some((key) => key.startsWith(`hit:${marble.id}:`));
 	const hitCount = `${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`;
 	const details = conflicts > 0 ? `${conflicts} too close` : hitCount;
 
@@ -24,14 +22,14 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 		<div
 			className="mm-track-header sticky left-0 z-20 flex shrink-0 items-center gap-1.5 border-r border-b border-[var(--separator)] pr-1.5 pl-5"
 			style={{ width: HEADER_WIDTH, height: ROW_HEIGHT }}
-			data-track={id}
+			data-track={marble.id}
 			data-selected={isSelected}
 			onContextMenu={(event) => openContextMenu(event, marbleMenu(cx, marble))}
 		>
-			<button className="mm-track-chip cursor-pointer" style={{ background: marble.color }} onClick={(event) => openContextMenu(event, marbleLabelEntries(cx, marble))} title="Color" aria-label={`Label Color of ${marble.name}`} type="button" />
+			<button className="mm-track-chip cursor-pointer" style={{ background: marble.labelColor }} onClick={(event) => openContextMenu(event, marbleLabelEntries(cx, marble))} title="Color" aria-label={`Label Color of ${marble.name}`} type="button" />
 			<button
 				className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
-				onClick={() => cx.$selection.set([id])}
+				onClick={() => cx.$selection.set([marble.id])}
 				onDoubleClick={() => setIsRenaming(true)}
 				aria-label={marble.name}
 				title={`Select ${marble.name}; double-click to rename`}
@@ -42,7 +40,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 						value={marble.name}
 						onDone={(name) => {
 							setIsRenaming(false);
-							if (name != null && name !== marble.name) cx.execute([{ type: 'upsertLane', marble: { ...marble, name } }]);
+							if (name != null && name !== marble.name) cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { name } }]);
 						}}
 					/>
 				) : (
@@ -58,7 +56,6 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 
 interface TTrackHeaderProps {
 	cx: StudioCx;
-	marble: TLane;
-	project: TProject;
+	marble: TMarble;
 	selection: string[];
 }

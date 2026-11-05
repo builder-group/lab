@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, type TProject } from '@/modules/project';
+import { createMarble, createProject, type TProject, type TSong } from '@/modules/project';
 import { createAudioSignature, encodeWav } from './audio-engine';
 import { computePeaks } from './waveform';
 
@@ -27,17 +27,14 @@ describe('encodeWav function', () => {
 });
 
 describe('createAudioSignature function', () => {
-	const resolve = (source: { path: string }): string => `asset://${source.path}`;
+	const resolve = (source: TSong): string => `asset://${source.path ?? ''}`;
 
 	it('should ignore changes that do not affect audio', () => {
 		const project = withMarble(createProject());
 		const renamed: TProject = {
 			...project,
 			title: 'Other',
-			music: {
-				...project.music,
-				marbles: project.music.marbles.map((marble) => ({ ...marble, name: 'x', color: '#fff' }))
-			}
+			marbles: project.marbles.map((marble) => ({ ...marble, name: 'x', labelColor: '#fff' }))
 		};
 
 		expect(createAudioSignature(renamed, resolve)).toBe(createAudioSignature(project, resolve));
@@ -47,7 +44,7 @@ describe('createAudioSignature function', () => {
 		const project = withMarble(createProject());
 		const base = createAudioSignature(project, resolve);
 		const moved = mapMarbles(project, (marble) => ({ ...marble, hits: [{ id: 'hit', time: 0.7, pitch: 76 }] }));
-		const instrument = mapMarbles(project, (marble) => ({ ...marble, instrument: 12 }));
+		const instrument = mapMarbles(project, (marble) => ({ ...marble, sound: 12 }));
 		const tapped = mapMarbles(project, (marble) => ({ ...marble, hits: [...marble.hits, { id: 'tap', time: 0.9 }] }));
 
 		expect(createAudioSignature(tapped, resolve)).toBe(base);
@@ -60,16 +57,13 @@ describe('createAudioSignature function', () => {
 		const project = withMarble(createProject());
 		const withAudio: TProject = {
 			...project,
-			music: {
-				...project.music,
-				sources: [{ id: 'song', kind: 'audio', path: 'audio/song.wav', name: 'Song', offset: 0 }]
-			}
+			songs: [{ id: 'song', kind: 'audio', path: 'audio/song.wav', name: 'Song', start: 0, backing: [] }]
 		};
 		const base = createAudioSignature(withAudio, resolve);
 
 		expect(
 			createAudioSignature(
-				mapMarbles(withAudio, (marble) => ({ ...marble, instrument: 12 })),
+				mapMarbles(withAudio, (marble) => ({ ...marble, sound: 12 })),
 				resolve
 			)
 		).toBe(base);
@@ -77,10 +71,7 @@ describe('createAudioSignature function', () => {
 			createAudioSignature(
 				{
 					...withAudio,
-					music: {
-						...withAudio.music,
-						sources: withAudio.music.sources.map((source) => ({ ...source, offset: 1 }))
-					}
+					songs: withAudio.songs.map((song) => ({ ...song, start: 1 }))
 				},
 				resolve
 			)
@@ -107,19 +98,14 @@ describe('computePeaks function', () => {
 function withMarble(project: TProject): TProject {
 	return {
 		...project,
-		music: {
-			...project.music,
-			marbles: [
-				{ id: 'lane', name: 'Marble', color: '#f00', instrument: 9, hits: [{ id: 'hit', time: 0.5, pitch: 76 }] }
-			],
-			sources: [{ id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song', offset: 0 }]
-		}
+		marbles: [{ ...createMarble(0, { x: 0, y: 0 }, 'marble'), name: 'Marble', labelColor: '#f00', sound: 9, hits: [{ id: 'hit', time: 0.5, pitch: 76 }] }],
+		songs: [{ id: 'midi', kind: 'midi', path: 'song.mid', name: 'Song', start: 0, backing: [] }]
 	};
 }
 
 function mapMarbles(
 	project: TProject,
-	map: (marble: TProject['music']['marbles'][number]) => TProject['music']['marbles'][number]
+	map: (marble: TProject['marbles'][number]) => TProject['marbles'][number]
 ): TProject {
-	return { ...project, music: { ...project.music, marbles: project.music.marbles.map(map) } };
+	return { ...project, marbles: project.marbles.map(map) };
 }

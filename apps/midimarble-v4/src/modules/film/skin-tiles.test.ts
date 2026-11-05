@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { createProject, type TEntity, type TProject } from '@/modules/project';
+import { createMarble, createProject, type TPiece, type TProject } from '@/modules/project';
 import { catalogSkins } from '@/modules/scene';
 import { filterTiles, showsTileSearch, skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
 
-function platform(id: string, assetId?: string): TEntity {
-	return { id, components: { piece: { type: 'platform' }, ...(assetId != null ? { skin: { assetId } } : {}) } } as unknown as TEntity;
+function platform(id: string, assetId?: string): TPiece {
+	return { id, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } }, ...(assetId != null ? { skin: { assetId } } : {}) };
 }
 
-function brassProject(entities: TEntity[] = []): TProject {
+function brassProject(entities: TPiece[] = []): TProject {
 	const project = createProject({ id: 'p', title: 'T' });
 	project.film.theme = 'brass';
-	project.entities.push(...entities);
+	project.track.pieces.push(...entities);
 	return project;
 }
 
@@ -26,7 +26,7 @@ describe('skinTiles function', () => {
 
 	it('should ring the skin the selection wears, and nothing for a mixed selection', () => {
 		const film = brassProject().film;
-		const current = (entities: TEntity[]): string[] => skinTiles(film, 'platform', entities).filter((tile) => tile.isCurrent).map((tile) => tile.id);
+		const current = (entities: TPiece[]): string[] => skinTiles(film, 'platform', entities).filter((tile) => tile.isCurrent).map((tile) => tile.id);
 		expect(current([platform('a', 'platform:copper')])).toEqual(['platform:copper']);
 		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:copper')])).toEqual(['platform:copper']);
 		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:silver')])).toEqual([]);
@@ -38,7 +38,7 @@ describe('skinTiles function', () => {
 	});
 
 	it("should picture a theme's contrast marble as the skin it resolves to", () => {
-		const marble = { id: 'm', components: { marble: { color: '#e0533d' } } } as unknown as TEntity;
+		const marble = { ...createMarble(0, { x: 0, y: 0 }, 'm'), labelColor: '#e0533d' };
 		const [first] = skinTiles(brassProject().film, 'marble', [marble]);
 		expect(first?.id).toBe(THEME_DEFAULT_TILE);
 		expect(first?.previewUrl).not.toBeNull();

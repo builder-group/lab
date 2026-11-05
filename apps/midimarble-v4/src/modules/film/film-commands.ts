@@ -1,9 +1,9 @@
 import type { TLibraryItem } from '@/modules/scene';
-import { createId, type TEntity, type TProject, type TProjectCommand, type TSkinComponent, type TVec2 } from '@/modules/project';
+import { createId, type TProject, type TProjectCommand, type TSkin, type TVec2, type TTitle } from '@/modules/project';
 import { sampleCameraTrack, filmCamera } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { imageToWall } from './image-to-wall';
-import { resolveTheme, resetKeyLightCommands, wallCommands, entitySkinElement, type TSkinElement } from '@/modules/scene';
+import { resolveTheme, resetKeyLightCommands, wallCommands, skinCommand, skinnedOf, type TSkinElement, type TSkinned } from '@/modules/scene';
 
 
 // Project edits made from the Film workspace. Each function returns the commands of one undoable edit.
@@ -41,57 +41,59 @@ export function builtInSkinCommands(project: TProject, target: TSkinTarget, skin
 
 /** The entities show the theme's skin again and keep their property overrides */
 export function followThemeSkinCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
-	return project.entities.flatMap((entity) => {
-		const skin = entity.components.skin;
+	return skinnedOf(project).flatMap((entity) => {
+		const skin = entity.skin;
 		if (skin == null || !entityIds.includes(entity.id)) return [];
 		const { assetId: _assetId, ...rest } = skin;
-		return [skinValueCommand(entity.id, rest)];
+		return [skinValueCommand(entity, rest)];
 	});
 }
 
-/** Sets or removes a skin component: one that says nothing but its link goes away */
-function skinValueCommand(entityId: string, skin: TSkinComponent): TProjectCommand {
+/** Sets or removes a skin: one that says nothing but its link goes away */
+function skinValueCommand(entity: TSkinned, skin: TSkin): TProjectCommand {
 	const isEmpty = Object.entries(skin).every(([name, value]) => name === 'link' || value == null);
-	return isEmpty ? { type: 'removeComponent', entityId, name: 'skin' } : { type: 'setComponent', entityId, component: { name: 'skin', value: skin } };
+	return skinCommand(entity, isEmpty ? null : skin);
 }
 
 /** The skin properties the inspector edits, with null removing an override so the theme's value shows again */
-export type TSkinPropertyPatch = { [K in 'colorSource' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkinComponent[K] | null } & { property?: { name: string; value: number | string | null } };
+export type TSkinPropertyPatch = { [K in 'colorSource' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkin[K] | null } & { property?: { name: string; value: number | string | null } };
 
 /**
  * Changes skin properties on the target entities, as one edit.
  */
 export function skinPropertyCommands(project: TProject, entityIds: readonly string[], patch: TSkinPropertyPatch): TProjectCommand[] {
-	return project.entities
-		.filter((entity) => entityIds.includes(entity.id) && entitySkinElement(entity) != null)
+	return skinnedOf(project)
+		.filter((entity) => entityIds.includes(entity.id))
 		.flatMap((entity): TProjectCommand[] => {
 			const { property, ...fields } = patch;
-			const merged: Record<string, unknown> = { ...entity.components.skin, ...fields };
+			const merged: Record<string, unknown> = { ...entity.skin, ...fields };
 			if (property != null) {
-				const others = Object.entries(entity.components.skin?.properties ?? {}).filter(([name]) => name !== property.name);
+				const others = Object.entries(entity.skin?.properties ?? {}).filter(([name]) => name !== property.name);
 				const entries = property.value != null ? [...others, [property.name, property.value] as const] : others;
 				merged['properties'] = entries.length > 0 ? Object.fromEntries(entries) : null;
 			}
-			const skin = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TSkinComponent;
-			return [skinValueCommand(entity.id, skin)];
+			const skin = Object.fromEntries(Object.entries(merged).filter(([, value]) => value != null)) as TSkin;
+			return [skinValueCommand(entity, skin)];
 		});
 }
 
 /** Reset to Theme: the entities lose their own skin and properties, as one edit */
 export function resetToThemeCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
-	return project.entities
+	return skinnedOf(project)
 		.filter((entity) => entityIds.includes(entity.id))
 		.flatMap((entity): TProjectCommand[] => {
-			const skin = entity.components.skin;
+			const skin = entity.skin;
 			if (skin == null) return [];
 			// A marble keeps its film color: it isn't the theme's to give back
-			return skin.color != null ? [{ type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: { color: skin.color } } }] : [{ type: 'removeComponent', entityId: entity.id, name: 'skin' }];
+			return [skinCommand(entity, skin.color != null ? { color: skin.color } : null)];
 		});
 }
 
 /** The entities wearing something of their own over the theme */
 function handSkinnedIds(project: TProject): string[] {
-	return project.entities.filter((entity) => Object.keys(entity.components.skin ?? {}).some((name) => name !== 'color')).map((entity) => entity.id);
+	return skinnedOf(project)
+		.filter((entity) => Object.keys(entity.skin ?? {}).some((name) => name !== 'color'))
+		.map((entity) => entity.id);
 }
 
 /** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
@@ -114,29 +116,23 @@ export type TSkinTarget = { kind: 'entities'; entityIds: string[] } | { kind: 'p
 
 /** Pieces and marbles a skin target covers: the given entities, or every one of a type (`marble` for the marbles) */
 export function skinTargetIds(project: TProject, target: TSkinTarget): string[] {
-	return project.entities
-		.filter((entity) => {
-			const { piece, marble } = entity.components;
-			if (piece == null && marble == null) return false;
-			return target.kind === 'entities' ? target.entityIds.includes(entity.id) : (piece?.type ?? 'marble') === target.pieceType;
-		})
-		.map((entity) => entity.id);
+	return skinTargets(project, target).map((entity) => entity.id);
+}
+
+function skinTargets(project: TProject, target: TSkinTarget): TSkinned[] {
+	return skinnedOf(project).filter((entity) => (target.kind === 'entities' ? target.entityIds.includes(entity.id) : ('type' in entity ? entity.type : 'marble') === target.pieceType));
 }
 
 /** Sets a linked skin on everything targeted, keeping what each has chosen for its properties */
 export function skinCommands(project: TProject, target: TSkinTarget, assetId: string): TProjectCommand[] {
-	return skinTargetIds(project, target).map((entityId) => {
-		const own = project.entities.find((entity) => entity.id === entityId)?.components.skin;
-		return { type: 'setComponent' as const, entityId, component: { name: 'skin' as const, value: { ...own, assetId } } };
-	});
+	return skinTargets(project, target).map((entity) => skinCommand(entity, { ...entity.skin, assetId }));
 }
 
 /** The piece type most of the pieces have, so a section selected as a range in Layers shows its platforms' skins */
-export function commonPieceType(pieces: TEntity[]): string | null {
+export function commonPieceType(pieces: readonly TSkinned[]): string | null {
 	const counts = new Map<string, number>();
 	for (const entity of pieces) {
-		const type = entity.components.piece?.type;
-		if (type != null) counts.set(type, (counts.get(type) ?? 0) + 1);
+		if ('type' in entity) counts.set(entity.type, (counts.get(entity.type) ?? 0) + 1);
 	}
 	let best: string | null = null;
 	for (const [type, count] of counts) if (best == null || count > (counts.get(best) ?? 0)) best = type;
@@ -144,11 +140,10 @@ export function commonPieceType(pieces: TEntity[]): string | null {
 }
 
 /** Counts per piece type, most first: `5 Platforms, 1 Rail` */
-export function pieceCountLabel(pieces: TEntity[]): string {
+export function pieceCountLabel(pieces: readonly TSkinned[]): string {
 	const counts = new Map<string, number>();
 	for (const entity of pieces) {
-		const type = entity.components.piece?.type;
-		if (type != null) counts.set(type, (counts.get(type) ?? 0) + 1);
+		if ('type' in entity) counts.set(entity.type, (counts.get(entity.type) ?? 0) + 1);
 	}
 	return [...counts]
 		.sort((a, b) => b[1] - a[1])
@@ -161,16 +156,17 @@ export function pieceCountLabel(pieces: TEntity[]): string {
  * Color by Note on, where the film alone would not show what happened: `Copper applied to 5 platforms; Rail 1 kept
  * its skin`. Null when the change speaks for itself.
  */
-export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: TEntity[]; keepsSkinColor: boolean }): string | null {
+export function skinAppliedMessage(options: { skinLabel: string; pieceType: string; selected: readonly TSkinned[]; keepsSkinColor: boolean }): string | null {
 	const { skinLabel, pieceType, selected, keepsSkinColor } = options;
-	const applied = selected.filter((entity) => entity.components.piece?.type === pieceType);
-	const kept = selected.filter((entity) => entity.components.piece != null && entity.components.piece.type !== pieceType);
+	const pieces = selected.flatMap((entity) => ('type' in entity ? [entity] : []));
+	const applied = pieces.filter((entity) => entity.type === pieceType);
+	const kept = pieces.filter((entity) => entity.type !== pieceType);
 	const isColorKept = keepsSkinColor && pieceType === 'platform';
 	if (!applied.length || (!kept.length && !isColorKept)) return null;
 	const typeLabel = getPieceDefinition(pieceType)?.label ?? pieceType;
 	let message = `${skinLabel} applied to ${countOf(applied.length, typeLabel).toLowerCase()}`;
 	if (kept.length > 0) {
-		const names = kept.map((entity) => entity.name ?? getPieceDefinition(entity.components.piece?.type ?? '')?.label ?? 'Piece');
+		const names = kept.map((entity) => entity.name ?? getPieceDefinition(entity.type)?.label ?? 'Piece');
 		message += kept.length === 1 ? `; ${names[0]} kept its skin` : kept.length === 2 ? `; ${names[0]} and ${names[1]} kept their skins` : `; ${kept.length} other pieces kept their skins`;
 	}
 	if (isColorKept) message += `. ${applied.length === 1 ? 'It keeps' : 'They keep'} ${skinLabel}'s color with Color by Note`;
@@ -194,7 +190,7 @@ export function itemFitsPieceType(item: TLibraryItem, pieceType: string | null):
 
 export const DEFAULT_WALL_TEXT = { text: 'Title', font: 'Bfont Regular', size: 0.03, color: '#1d1d1f' };
 
-type TWallText = NonNullable<TEntity['components']['wallText']>;
+type TWallText = TTitle;
 export type TTitleStyle = NonNullable<TWallText['style']>;
 
 /**
@@ -233,17 +229,19 @@ export function frameHeightOnWall(project: TProject, result: TSimulationResult |
 }
 
 /** A new Wall Title at a wall point, in `color` (`defaultTitleColor`) and a size that reads in the frame */
-export function addWallTextCommands(point: TVec2, options: { color: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; entityId: string } {
+export function addWallTextCommands(project: TProject, point: TVec2, options: { color: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; entityId: string; title: TTitle } {
 	const text = options.text ?? DEFAULT_WALL_TEXT.text;
-	const entity: TEntity = {
+	const title: TTitle = {
 		id: createId('text'),
 		name: text,
-		components: {
-			wallText: { ...DEFAULT_WALL_TEXT, text, color: options.color, size: wallTitleSize('wall', options.frameHeight) },
-			transform: { position: { x: round(point.x), y: round(point.y) }, angle: 0 }
-		}
+		...DEFAULT_WALL_TEXT,
+		text,
+		color: options.color,
+		size: wallTitleSize('wall', options.frameHeight),
+		position: { x: round(point.x), y: round(point.y) },
+		angle: 0
 	};
-	return { commands: [{ type: 'upsertEntity', entity }], entityId: entity.id };
+	return { commands: [{ type: 'updateFilm', film: { titles: [...project.film.titles, title] } }], entityId: title.id, title };
 }
 
 /**
@@ -329,9 +327,9 @@ export function previewPointToWall(
 	const point = camera != null ? imageToWall(sampleCameraTrack(camera, time), project.format.width / project.format.height, u, v) : null;
 	if (point != null) return point;
 	const band = frameBand(project);
-	const marble = project.entities.find((entity) => entity.components.marble != null);
+	const marble = project.marbles[0];
 	const track = result?.marbles.find((item) => item.entityId === marble?.id);
-	const focus = (track == null ? null : trajectoryAt(track.samples, time, gravityOf(project))?.position) ?? marble?.components.release?.position ?? { x: band.centerX, y: 0 };
+	const focus = (track == null ? null : trajectoryAt(track.samples, time, gravityOf(project))?.position) ?? marble?.start.position ?? { x: band.centerX, y: 0 };
 	const width = band.halfWidth * 2;
 	const height = width * (project.format.height / project.format.width);
 	return { x: band.centerX + (u - 0.5) * width, y: focus.y - (v - 0.5) * height };

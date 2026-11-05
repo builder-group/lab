@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { TProject } from '@/modules/project';
+import { type TProject } from '@/modules/project';
 import { bowlCatch, bowlOfMarble } from './bowl';
 import { createBareRunProject } from './fixture-projects';
 import { bowlGeometry } from './piece-layout';
@@ -24,10 +24,10 @@ function drop(speed: number, vx: number, gravity = 0.5): TProject {
 		gravity,
 		marbles: [{ x: -vx * time, y: height, releaseTime: 0, velocity: { x: vx, y: 0 }, hitTimes: [] }]
 	});
-	project.entities.push({
+	project.track.pieces.push({
 		id: 'bowl-1',
 		name: 'Bowl 1',
-		components: { piece: { type: 'bowl', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 } }
+		type: 'bowl', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } }
 	});
 	return project;
 }
@@ -70,13 +70,13 @@ describe('bowlCatch', () => {
 
 	it('reports a marble that falls past the Bowl as missed', () => {
 		const project = drop(2, 0);
-		const bowl = project.entities.find((entity) => entity.id === 'bowl-1');
-		if (bowl?.components.transform != null) bowl.components.transform.position = { x: 0.3, y: 0 };
+		const bowl = project.track.pieces.find((entity) => entity.id === 'bowl-1');
+		if (bowl?.place.kind === 'free') bowl.place.position = { x: 0.3, y: 0 };
 		expect(bowlCatch(simulator.simulate(project), 'bowl-1').status).toBe('missed');
 	});
 
 	it('plays no note', () => {
 		expect(bowlDefinition.musical).not.toBe(true);
-		expect(bowlOfMarble(drop(1, 0), 'lane-1')).toBeUndefined();
+		expect(bowlOfMarble(drop(1, 0), 'marble-1')).toBeUndefined();
 	});
 });

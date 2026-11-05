@@ -10,12 +10,9 @@ function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0
 
 function project(hitIds: string[]): TProject {
 	return {
-		film: { camera: { pitch: 1.15 } },
-		music: { marbles: [{ id: 'lane', name: 'Melody', hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }] },
-		entities: [
-			{ id: 'marble', components: { marble: { marbleId: 'lane', radius: 0.012 } } },
-			...hitIds.map((id) => ({ id: `piece-${id}`, components: { piece: { type: 'platform', params: {} }, hitLink: { marbleId: 'lane', hitId: id, angle: 0, contactAt: 0.5 } } }))
-		]
+		film: { camera: { tilt: 1.15 } },
+		marbles: [{ id: 'marble', name: 'Melody', radius: 0.012, hits: hitIds.map((id, index) => ({ id, time: index + 1 })) }],
+		track: { pieces: hitIds.map((id) => ({ id: `piece-${id}`, type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId: 'marble', hitId: id, contactAt: 0.5 } })) }
 	} as unknown as TProject;
 }
 
@@ -23,9 +20,9 @@ function run(pieces: TResolvedPiece[], contacts: { time: number; other: string; 
 	return {
 		duration: 10,
 		pieces,
-		marbles: [{ entityId: 'marble', marbleId: 'lane', radius: 0.012, samples: [] }],
+		marbles: [{ entityId: 'marble', marbleId: 'marble', radius: 0.012, samples: [] }],
 		contacts: contacts.map((contact) => ({ time: contact.time, marbleEntityId: 'marble', otherEntityId: contact.other, kind: 'piece', position: { x: 0, y: 0 }, speed: contact.speed ?? 1 })),
-		hits: Object.entries(times).map(([hitId, time]) => ({ marbleId: 'lane', hitId, targetTime: time, pieceEntityId: `piece-${hitId}`, dot: { x: 0, y: 0 }, velocity: null, actualTime: time, error: 0, status: 'onTime' }))
+		hits: Object.entries(times).map(([hitId, time]) => ({ marbleId: 'marble', hitId, targetTime: time, pieceEntityId: `piece-${hitId}`, dot: { x: 0, y: 0 }, velocity: null, actualTime: time, error: 0, status: 'onTime' }))
 	} as unknown as TSimulationResult;
 }
 
@@ -81,11 +78,11 @@ describe('rollingHits function', () => {
 		const base = project(['a', 'b']);
 		const samples = Array.from({ length: 200 }, (_, index) => ({ time: index / 120, position: { x: 0, y: 0.006 + 0.012 + heightOf(Math.max(0, index / 120 - 1)) } }));
 		const piece = platform('piece-a', 0, 0);
-		base.entities.forEach((entity) => {
-			if (entity.id === 'piece-a' && entity.components.piece != null) entity.components.piece.type = type;
+		base.track.pieces.forEach((entity) => {
+			if (entity.id === 'piece-a') entity.type = type;
 		});
 		const result = run([piece], [{ time: 1, other: 'piece-a' }], { a: 1, b: 1.5 });
-		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', marbleId: 'lane', radius: 0.012, samples }] } as unknown as TSimulationResult };
+		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', marbleId: 'marble', radius: 0.012, samples }] } as unknown as TSimulationResult };
 	}
 
 	it('should name a marble that stays on its platform after the note', () => {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { projectToFrame, type TCameraTrack, filmCamera } from '@/modules/camera';
-import { parseProject, serializeProject, type TDecor, type TProject, toDecorKey, toMadeInBlenderKey } from '@/modules/project';
+import { parseProject, serializeProject, type TDecor, type TProject, toDecorKey, toMadeInBlenderKey, tieOf } from '@/modules/project';
 import { buildSceneDescription } from './scene-builder';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
@@ -75,7 +75,7 @@ describe('Decor', () => {
 			if (!isOk) throw err;
 			expect(parsed.film.decor).toEqual(withDecor.film.decor);
 			expect(parsed.film.madeInBlender).toEqual([{ name: 'Tree', in: 1, out: 2, hidden: true }]);
-			expect(parsed.$schema).toBe('marble-project@5');
+			expect(parsed.$schema).toBe('marble-project@6');
 			expect(project.film.decor).toEqual([]);
 		});
 
@@ -355,7 +355,7 @@ function isInFrameAt(camera: TCameraTrack, frame: number, point: { x: number; y:
 describe('Film Layers', () => {
 	it('should open with the marbles and Decor closed, and Track open, each toggled the other way by hand', () => {
 		const project = createStaircaseProject();
-		const marbleId = project.music.marbles[0]?.id as string;
+		const marbleId = project.marbles[0]?.id as string;
 		expect(collapsedGroups(project, 'film', [])).toEqual(expect.arrayContaining([marbleId, DECOR_KEY]));
 		expect(collapsedGroups(project, 'track', [])).toEqual([]);
 		expect(collapsedGroups(project, 'film', [marbleId])).not.toContain(marbleId);
@@ -367,8 +367,8 @@ describe('Film Layers', () => {
 
 	it('should name the group a selection made elsewhere opens', () => {
 		const project = createStaircaseProject();
-		const piece = project.entities.find((entity) => entity.components.hitLink != null);
-		expect(groupsOfSelection(project, [piece?.id as string])).toEqual([piece?.components.hitLink?.marbleId]);
+		const piece = project.track.pieces.find((entity) => tieOf(entity) != null);
+		expect(groupsOfSelection(project, [piece?.id as string])).toEqual([tieOf(piece)?.marbleId]);
 		expect(groupsOfSelection(project, ['decor:1'])).toEqual([DECOR_KEY]);
 		expect(groupsOfSelection(project, ['wall'])).toEqual([]);
 	});

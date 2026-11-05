@@ -163,11 +163,11 @@ describe('scene', () => {
 
 describe('step loop', () => {
 	const project = createProject();
-	const marble = project.music.marbles[0];
+	const marble = project.marbles[0];
 	if (marble == null) throw new Error('missing marble');
 	marble.hits = [0.4, 0.8, 1.2].map((time, index) => ({ id: `h${index + 1}`, time }));
 	const placed = createLinkedPiece('platform', marble.id, 'h1', 0.3, { id: 'p1' });
-	project.entities.push(placed);
+	project.track.pieces.push(placed);
 
 	const hit = (hitId: string, time: number, status: THitResult['status']): THitResult => ({
 		marbleId: marble.id,

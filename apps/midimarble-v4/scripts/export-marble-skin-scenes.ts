@@ -18,7 +18,7 @@ if (packageDir == null) throw new Error('Usage: export-marble-skin-scenes <packa
 const [isProjectOk, projectErr, parsed] = parseProject(readFileSync(new URL('../fixtures/two-marbles.marble.json', import.meta.url), 'utf8'));
 if (!isProjectOk) throw projectErr;
 const project: TProject = { ...parsed, film: { ...parsed.film, theme: 'brass', decor: [], camera: { ...parsed.film.camera, distance: 0.5 } } };
-const [first, second] = project.entities.filter((entity) => entity.components.marble != null).map((entity) => entity.id);
+const [first, second] = project.marbles.map((entity) => entity.id);
 if (first == null || second == null) throw new Error('The fixture needs two marbles');
 
 const simulator = await createSimulator();
@@ -45,12 +45,12 @@ const tile = (entityId: string, skinId: string): TProjectCommand[] => builtInSki
 const scenes: Record<string, TProjectCommand[]> = {
 	default: [],
 	'agent-glass-metal': agent([
-		{ type: 'applySkin', assetId: 'marble:glass', entityIds: [first] },
-		{ type: 'applySkin', assetId: 'marble:metal', entityIds: [second] }
+		{ type: 'applySkin', assetId: 'marble:glass', ids: [first] },
+		{ type: 'applySkin', assetId: 'marble:metal', ids: [second] }
 	]),
 	'agent-magic-library': agent([
-		{ type: 'applySkin', assetId: 'marble:magic', entityIds: [first] },
-		{ type: 'applySkin', assetId: 'marble-test-glass', entityIds: [second] }
+		{ type: 'applySkin', assetId: 'marble:magic', ids: [first] },
+		{ type: 'applySkin', assetId: 'marble-test-glass', ids: [second] }
 	]),
 	'tiles-glass-metal': [...tile(first, 'marble:glass'), ...tile(second, 'marble:metal')],
 	steady: agent([{ type: 'updateFilm', film: { camera: { sway: 0 }, wall: { kind: 'plain', color: '#ffefc8' } } } as unknown as TAgentCommand])

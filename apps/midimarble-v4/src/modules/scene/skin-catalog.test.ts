@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { TSkinComponent, TThemeParts } from '@/modules/project';
+import type { TSkin, TThemeParts } from '@/modules/project';
 import { catalogSkin, catalogSkins, resolveSkinLook, sharedSkinProperties, SKIN_ELEMENTS, skinElement, themeDefaultSkin, type TSkinElement } from './skin-catalog';
 
 const cases = JSON.parse(readFileSync(new URL('../../../blender/tests/skin_look_cases.json', import.meta.url), 'utf8')) as {
@@ -8,7 +8,7 @@ const cases = JSON.parse(readFileSync(new URL('../../../blender/tests/skin_look_
 	base: string;
 	element: TSkinElement;
 	parts?: TThemeParts;
-	component?: TSkinComponent;
+	component?: TSkin;
 	expected: Record<string, unknown>;
 }[];
 
@@ -46,7 +46,7 @@ describe('skin catalog', () => {
 	});
 
 	it('should show only what a selection shares', () => {
-		const look = (element: TSkinElement, component?: TSkinComponent) => ({ element, look: resolveSkinLook('brass', null, element, component) });
+		const look = (element: TSkinElement, component?: TSkin) => ({ element, look: resolveSkinLook('brass', null, element, component) });
 		const platforms = sharedSkinProperties([look('platform'), look('platform', { assetId: 'platform:device' })]);
 		expect(platforms.colorSources).toEqual(['skin', 'marble', 'note']);
 		expect(platforms.onHit).toEqual(['none', 'press', 'wobble', 'glow']);

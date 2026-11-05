@@ -1,6 +1,6 @@
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary, type TProblemSummary } from '../export-preflight';
 import type { TProject, TProjectCommand } from '@/modules/project';
-import { parseHitKey } from '@/modules/project';
+import { parseHitKey, tieOf } from '@/modules/project';
 import { answerSettle, changedEntities } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
 import type { TGroupRunOutcome } from './run-group';
@@ -30,7 +30,7 @@ function standing(project: TProject, result: TSimulationResult): TProblemSummary
 }
 
 function hitWords(project: TProject, hitId: string): { marbleId: string; hitId: string; number: number; name: string } | null {
-	for (const marble of project.music.marbles) {
+	for (const marble of project.marbles) {
 		const index = marble.hits.findIndex((hit) => hit.id === hitId);
 		if (index >= 0) return { marbleId: marble.id, hitId, number: index + 1, name: marble.name };
 	}
@@ -42,7 +42,7 @@ function namedHit(project: TProject, ids: readonly string[]): { marbleId: string
 	for (const id of ids) {
 		const hit = parseHitKey(id);
 		if (hit != null) return hit;
-		const link = project.entities.find((entity) => entity.id === id)?.components.hitLink;
+		const link = tieOf(project.track.pieces.find((entity) => entity.id === id));
 		if (link != null) return { marbleId: link.marbleId, hitId: link.hitId };
 	}
 	return null;
@@ -74,9 +74,9 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	const after = outcome.project;
 	// The next platforms take up the change, as a local edit does; the track after them stays where it was
 	const { answer } = answerSettle(sim, { before, after }, null);
-	const settled = answer.entities.length > 0 ? { ...after, entities: after.entities.map((entity) => answer.entities.find((item) => item.id === entity.id) ?? entity) } : after;
+	const settled = answer.entities.length > 0 ? { ...after, track: { ...after.track, pieces: after.track.pieces.map((entity) => answer.entities.find((item) => item.id === entity.id) ?? entity) } } : after;
 	const settledRun = standing(settled, sim.simulate(settled));
-	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.entities.map((entity) => ({ type: 'upsertEntity' as const, entity }))], movedAfter: 0 };
+	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.entities.map((entity) => ({ type: 'addPiece' as const, piece: entity }))], movedAfter: 0 };
 	// Or everything after it moves with the marble, staying on time, which is said
 	const freeResult = sim.simulate(after);
 	const freeRun = standing(after, freeResult);

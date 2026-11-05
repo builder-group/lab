@@ -125,8 +125,8 @@ function isSame(a: unknown, b: unknown): boolean {
 /** The selection keys of what changed from `before` to `after`, so the window can mark them. A removed layer has no row or outline left to mark. */
 export function touchedKeys(before: TProject, after: TProject): string[] {
 	const keys: string[] = [];
-	const entities = new Map(before.entities.map((entity) => [entity.id, entity]));
-	for (const entity of after.entities) {
+	const entities = new Map(layersOf(before).map((entity) => [entity.id, entity]));
+	for (const entity of layersOf(after)) {
 		const previous = entities.get(entity.id);
 		if (previous !== entity && (previous == null || !isSame(previous, entity))) keys.push(entity.id);
 	}
@@ -148,6 +148,16 @@ export function touchedKeys(before: TProject, after: TProject): string[] {
 	const changedShots = isCamera.shots.filter((shot) => !isSame(shots.get(shot.id), shot));
 	for (const shot of changedShots) keys.push(toShotKey(shot.id));
 	if (!changedShots.length && !isSame(wasCamera, isCamera)) keys.push(CAMERA_KEY);
-	if (!isSame(before.music.sources, after.music.sources)) keys.push(SONG_KEY);
+	if (!isSame(songFiles(before), songFiles(after))) keys.push(SONG_KEY);
 	return keys;
+}
+
+/** What has a row of its own in Layers: a marble without its notes, which are shown on their own */
+function layersOf(project: TProject): { id: string }[] {
+	return [...project.marbles.map(({ hits: _hits, ...marble }) => marble), ...project.track.pieces, ...project.film.titles];
+}
+
+/** What says a song changed: not its notes, which are shown on their own */
+function songFiles(project: TProject): unknown[] {
+	return project.songs.map(({ id, name, kind, path, start }) => [id, name, kind, path, start]);
 }

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { SoundBankLoader } from 'spessasynth_core';
 import { describe, expect, it } from 'vitest';
-import type { TLane } from '@/modules/project';
+import type { TMarble } from '@/modules/project';
 import { createBackingEvents, createMarbleEvents, mixAudioSource, renderMarbles, type TStereoAudio } from './synthesize';
 
 const sampleRate = 22050;
@@ -129,12 +129,14 @@ describe('mixAudioSource function', () => {
 	});
 });
 
-function marble(id: string, instrument: number, times: number[]): TLane {
+function marble(id: string, instrument: number, times: number[]): TMarble {
 	return {
 		id,
 		name: id,
-		color: '#000000',
-		instrument,
+		labelColor: '#000000',
+		sound: instrument,
+		radius: 0.012,
+		start: { position: { x: 0, y: 0 }, time: 0 },
 		hits: times.map((time, index) => ({ id: `${id}-${index}`, time, pitch: 76 }))
 	};
 }

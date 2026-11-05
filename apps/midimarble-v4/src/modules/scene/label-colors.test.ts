@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { TEntity, TProject } from '@/modules/project';
+import type { TPiece, TProject } from '@/modules/project';
 import { draftPieceColors, PLAIN_PIECE_COLOR } from './draft-look';
 import { pieceLabelColor, trackPieceColors } from './label-colors';
 
 const MARBLE = '#3478f6';
 const OWN = '#e0622e';
 
-function project(entities: Partial<TEntity>[]): TProject {
-	return { entities, music: { marbles: [{ id: 'lane', color: MARBLE, hits: [] }] } } as unknown as TProject;
+function project(entities: Partial<TPiece>[]): TProject {
+	return { track: { pieces: entities, groups: [] }, marbles: [{ id: 'marble', labelColor: MARBLE, hits: [] }] } as unknown as TProject;
 }
 
-const played = { id: 'a', components: { piece: { type: 'platform' }, hitLink: { marbleId: 'lane', hitId: 'h' } } } as unknown as TEntity;
-const free = { id: 'b', components: { piece: { type: 'platform' } } } as unknown as TEntity;
+const played: TPiece = { id: 'a', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId: 'marble', hitId: 'h', contactAt: 0.5 } };
+const free: TPiece = { id: 'b', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } };
 
 describe('pieceLabelColor function', () => {
 	it('should prefer its own color, then its marble\'s, then none', () => {

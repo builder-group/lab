@@ -1,4 +1,4 @@
-import type { TEntity, TProject } from '@/modules/project';
+import type { TPiece, TProject } from '@/modules/project';
 import { gravityOf, platformDefinition, createLinkedPiece, rollingHits } from '@/modules/simulation';
 import type { TSimulator, TMarbleSample, TSimulationResult } from '@/modules/simulation';
 
@@ -68,7 +68,7 @@ export type TBarIssue = 'late' | 'resting' | 'restrike' | 'stray' | 'rolls';
 
 export interface TBarsFit {
 	project: TProject;
-	entities: TEntity[];
+	entities: TPiece[];
 	bars: TBar[];
 	sims: number;
 	center: number;
@@ -80,7 +80,7 @@ interface TVelocity {
 }
 
 interface TTrial {
-	entity: TEntity;
+	entity: TPiece;
 	project: TProject;
 	result: TSimulationResult;
 	x: number;
@@ -95,7 +95,7 @@ interface TTrial {
 
 export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
 	const gravity = Math.abs(gravityOf(base));
-	const marble = base.music.marbles.find((item) => item.id === marbleId);
+	const marble = base.marbles.find((item) => item.id === marbleId);
 	if (marble == null) throw new Error(`Marble ${marbleId} does not exist`);
 	const times = new Map(marble.hits.map((hit) => [hit.id, hit.time]));
 	const length = shape.barLength ?? BAR_LENGTH;
@@ -108,7 +108,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	};
 	let project = base;
 	const bars: TBar[] = [];
-	const entities: TEntity[] = [];
+	const entities: TPiece[] = [];
 	const first = times.get(hitIds[0] ?? '') ?? 0;
 	let result = run(project, first + 0.03);
 	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time - 1e-6);
@@ -123,7 +123,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	const center = shape.center ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
 	const dotX = (index: number): number => (shape.kind === 'zigzag' ? center + (sideOf(index) * span) / 2 : center + index * firstSide * shape.width);
 	const total = shape.stopBefore === true ? hitIds.length - 1 : hitIds.length;
-	const radius = base.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components.marble?.radius ?? 0.012;
+	const radius = base.marbles.find((item) => item.id === marbleId)?.radius ?? 0.012;
 	const heights: number[] = [];
 	const planned = shape.drop != null ? plannedDrops(gravity, hitIds.slice(1).map((id, index) => (times.get(id) as number) - (times.get(hitIds[index] as string) as number)), shape.drop, Math.abs(firstArrival.velocity.y)) : [];
 
@@ -176,7 +176,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 					}
 					continue;
 				}
-				if (contact.time > time + 0.004 && project.entities.find((item) => item.id === contact.otherEntityId)?.components.piece?.type === 'platform') {
+				if (contact.time > time + 0.004 && project.track.pieces.find((item) => item.id === contact.otherEntityId)?.type === 'platform') {
 					out.push('stray');
 					break;
 				}
@@ -339,20 +339,18 @@ export function isOffColumn(bar: TBar): boolean {
 	return Math.abs(bar.errX) > COLUMN_CLOSE;
 }
 
-function barEntity(marbleId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number, depth = platformDefinition.params['depth']?.default ?? 0.09): TEntity {
+function barEntity(marbleId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number, depth = platformDefinition.params['depth']?.default ?? 0.09): TPiece {
 	const entity = createLinkedPiece('platform', marbleId, hitId, angle, { id: `bar-${hitId}`, contactAt });
-	const piece = entity.components.piece;
-	if (piece != null) piece.params = { length, thickness: BAR_THICKNESS, depth, bounce, entryDelay: 0 };
-	return entity;
+	return { ...entity, params: { length, thickness: BAR_THICKNESS, depth, bounce, entryDelay: 0 } };
 }
 
 /** The project with this entity in place of its old self, without the checks of a command: the solver's trials stay fast */
-export function withEntity(project: TProject, entity: TEntity): TProject {
-	const index = project.entities.findIndex((item) => item.id === entity.id);
-	if (index < 0) return { ...project, entities: [...project.entities, entity] };
-	const entities = [...project.entities];
+export function withEntity(project: TProject, entity: TPiece): TProject {
+	const index = project.track.pieces.findIndex((item) => item.id === entity.id);
+	if (index < 0) return { ...project, track: { ...project.track, pieces: [...project.track.pieces, entity] } };
+	const entities = [...project.track.pieces];
 	entities[index] = entity;
-	return { ...project, entities };
+	return { ...project, track: { ...project.track, pieces: entities } };
 }
 
 /** Rough bounce: restitution on the normal, friction limited loss on the tangent. Only a guess and a Jacobian; the simulator decides */

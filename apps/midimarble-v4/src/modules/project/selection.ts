@@ -1,6 +1,6 @@
-import type { TProject } from './schema';
+import { tieOf, type TProject } from './schema';
 
-// Selection holds entity IDs, hit keys, shot marker keys, the Song and Camera track keys and the Wall and light
+// Selection holds marble, piece and title IDs, hit keys, shot marker keys, the Song and Camera track keys and the Wall and light
 // layer keys. Hit keys carry their marble so one list can mix them.
 
 /**
@@ -65,7 +65,7 @@ export function parseShotKey(key: string): string | null {
  */
 export function stepHitTarget(project: TProject, selection: readonly string[], playhead: number, direction: 1 | -1, isTrack: boolean): { marbleId: string; hitId: string; time: number } | null {
 	const focus = isTrack ? stepFocus(project, selection) : null;
-	const marbles = focus == null ? project.music.marbles : project.music.marbles.filter((marble) => marble.id === focus.marbleId);
+	const marbles = focus == null ? project.marbles : project.marbles.filter((marble) => marble.id === focus.marbleId);
 	const hits = marbles.flatMap((marble) => marble.hits.map((hit) => ({ marbleId: marble.id, hitId: hit.id, time: hit.time }))).sort((a, b) => a.time - b.time);
 	const from = focus?.time ?? playhead;
 	return (direction === 1 ? hits.find((hit) => hit.time > from + 1e-4) : [...hits].reverse().find((hit) => hit.time < from - 1e-4)) ?? null;
@@ -74,10 +74,11 @@ export function stepHitTarget(project: TProject, selection: readonly string[], p
 function stepFocus(project: TProject, selection: readonly string[]): { marbleId: string; time: number | null } | null {
 	for (const key of selection) {
 		const parsed = parseHitKey(key);
-		const entity = project.entities.find((item) => item.id === key);
-		const hitId = parsed?.hitId ?? entity?.components.hitLink?.hitId;
-		const marbleId = parsed?.marbleId ?? entity?.components.hitLink?.marbleId ?? entity?.components.marble?.marbleId;
-		const marble = project.music.marbles.find((item) => item.id === marbleId);
+		const tie = project.track.pieces.find((item) => item.id === key);
+		const place = tie == null ? null : tieOf(tie);
+		const hitId = parsed?.hitId ?? place?.hitId;
+		const marbleId = parsed?.marbleId ?? place?.marbleId ?? key;
+		const marble = project.marbles.find((item) => item.id === marbleId);
 		if (marble != null) return { marbleId: marble.id, time: marble.hits.find((hit) => hit.id === hitId)?.time ?? null };
 	}
 	return null;

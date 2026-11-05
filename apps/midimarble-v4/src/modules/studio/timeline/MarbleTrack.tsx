@@ -3,7 +3,7 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
 import { findMarbleConflicts, MIN_HIT_GAP } from '@/modules/music';
-import type { THit, TLane } from '@/modules/project';
+import type { THit, TMarble } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName, toHitKey } from '@/modules/project';
 import { hitMenu, marbleMenu } from '../menus';
@@ -17,7 +17,7 @@ import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT } from './timeline-layout';
  * The instruction itself, like GarageBand's empty track, not behind a ?, with the recording's suggested hits as a link
  * while the marble has none
  */
-const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TLane; top: number }> = (props) => {
+const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TMarble; top: number }> = (props) => {
 	const { cx, marble, top } = props;
 	useFeatureState(cx.sources.$analysis);
 	const suggested = suggestedHits(cx, marble).length;
@@ -94,7 +94,7 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 
 interface TMarbleTrackProps {
 	cx: StudioCx;
-	marble: TLane;
+	marble: TMarble;
 	zoom: number;
 	width: number;
 	selection: string[];
@@ -128,7 +128,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	const isSelected = selection.includes(key);
 	// Hits of selected pieces are outlined, like keyframes of the selected object in Blender
 	const isLinked = status?.pieceEntityId != null && selection.includes(status.pieceEntityId);
-	const pieceEntity = status?.pieceEntityId == null ? undefined : cx.project?.entities.find((entity) => entity.id === status.pieceEntityId);
+	const pieceEntity = status?.pieceEntityId == null ? undefined : cx.project?.track.pieces.find((entity) => entity.id === status.pieceEntityId);
 	const piece = pieceEntity?.name;
 	const project = cx.project;
 	const unreachable = status?.status === 'open' && project != null ? unreachableStatus(project, cx.simulation.$result.get(), status) : null;
@@ -143,7 +143,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 			data-state={timing.state}
 			data-conflict={isConflict}
 			data-linked={isLinked}
-			style={{ ...style, ['--row-color' as string]: marble.color }}
+			style={{ ...style, ['--row-color' as string]: marble.labelColor }}
 			title={hitTitle(index, hit, timing, isConflict, status?.error ?? null)}
 			onPointerDown={(event) => {
 				if (event.button !== 0) return;
@@ -169,7 +169,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 
 interface THitButtonProps {
 	cx: StudioCx;
-	marble: TLane;
+	marble: TMarble;
 	hit: THit;
 	index: number;
 	selection: string[];
@@ -181,7 +181,7 @@ interface THitButtonProps {
 }
 
 /** Time-range marquee on a track: dragging on empty space selects the hits it spans, Shift adds */
-function useMarquee(cx: StudioCx, marble: TLane, zoom: number, selection: string[], timeAt: (clientX: number) => number, top: number): TMarquee {
+function useMarquee(cx: StudioCx, marble: TMarble, zoom: number, selection: string[], timeAt: (clientX: number) => number, top: number): TMarquee {
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
 	const isMarbleSelected = selection.some((key) => key.startsWith(`hit:${marble.id}:`));
 

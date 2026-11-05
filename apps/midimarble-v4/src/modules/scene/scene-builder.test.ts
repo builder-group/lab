@@ -3,19 +3,14 @@ import { createProject, type TProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation';
 import { buildSceneDescription, encodeRecords, lastStruckTime, MOTION_FOLDER } from './scene-builder';
 
-function fixture(): { project: TProject; result: TSimulationResult; marbleEntityId: string; marbleId: string } {
+function fixture(): { project: TProject; result: TSimulationResult; marbleId: string } {
 	const project = createProject({ title: 'Song', id: 'project-1' });
-	const marble = project.music.marbles[0];
-	const marbleEntity = project.entities[0];
-	if (marble == null || marbleEntity == null) throw new Error('Missing default marble or marble');
-	project.entities.push({
+	const marble = project.marbles[0];
+	if (marble == null) throw new Error('Missing default marble');
+	project.track.pieces.push({
 		id: 'piece-1',
 		name: 'Platform 1',
-		components: {
-			piece: { type: 'platform', params: { length: 0.08 } },
-			transform: { position: { x: 0.1, y: 0.2 }, angle: 0.3 },
-			hitLink: { marbleId: marble.id, hitId: 'hit-1', angle: 0.3, contactAt: 0.5 }
-		}
+		type: 'platform', params: { length: 0.08 }, angle: 0.3, place: { kind: 'plays', marbleId: marble.id, hitId: 'hit-1', contactAt: 0.5 }
 	});
 	const hit = (overrides: Partial<THitResult>): THitResult => ({
 		marbleId: marble.id,
@@ -34,7 +29,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleEntity
 		duration: 2,
 		marbles: [
 			{
-				entityId: marbleEntity.id,
+				entityId: marble.id,
 				marbleId: marble.id,
 				radius: 0.008,
 				samples: [0, 1, 2].map((index) => ({
@@ -67,7 +62,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleEntity
 		],
 		stats: { computeMs: 1, reusedUntil: 0, steps: 480 }
 	};
-	return { project, result, marbleEntityId: marbleEntity.id, marbleId: marble.id };
+	return { project, result, marbleId: marble.id };
 }
 
 function firstPiece(result: TSimulationResult): TSimulationResult['pieces'][number] {
@@ -83,18 +78,18 @@ function decode(bytes: Uint8Array): number[] {
 
 describe('buildSceneDescription', () => {
 	it.each(['marble:glass', 'marble:metal', 'marble:magic'])("carries a marble's built-in skin %s, without an asset", (assetId) => {
-		const { project, result, marbleEntityId } = fixture();
-		const marble = project.entities.find((entity) => entity.id === marbleEntityId);
-		if (marble != null) marble.components.skin = { assetId };
+		const { project, result, marbleId } = fixture();
+		const marble = project.marbles.find((item) => item.id === marbleId);
+		if (marble != null) marble.skin = { assetId };
 		const [described] = buildSceneDescription(project, result, { fps: 30 }).description.marbles;
 		expect(described?.skin?.assetId).toBe(assetId);
 		expect(described?.assetPath).toBeUndefined();
 	});
 
 	it("carries the asset of a marble's library skin", () => {
-		const { project, result, marbleEntityId } = fixture();
-		const marble = project.entities.find((entity) => entity.id === marbleEntityId);
-		if (marble != null) marble.components.skin = { assetId: 'green-glass' };
+		const { project, result, marbleId } = fixture();
+		const marble = project.marbles.find((item) => item.id === marbleId);
+		if (marble != null) marble.skin = { assetId: 'green-glass' };
 		expect(buildSceneDescription(project, result, { fps: 30 }).description.marbles[0]?.assetPath).toBe('assets/green-glass/asset.blend');
 	});
 
@@ -106,10 +101,10 @@ describe('buildSceneDescription', () => {
 	});
 
 	it('writes one [time, x, y, angle] record per marble sample', () => {
-		const { project, result, marbleEntityId } = fixture();
+		const { project, result, marbleId } = fixture();
 		const { description, motionFiles } = buildSceneDescription(project, result, { fps: 60 });
 		const marble = description.marbles[0];
-		expect(marble?.motionPath).toBe(`${MOTION_FOLDER}/${marbleEntityId}.bin`);
+		expect(marble?.motionPath).toBe(`${MOTION_FOLDER}/${marbleId}.bin`);
 		expect(marble?.sampleCount).toBe(3);
 		expect(motionFiles).toHaveLength(1);
 		const file = motionFiles[0];
@@ -145,10 +140,10 @@ describe('buildSceneDescription', () => {
 	});
 
 	it('collects merged contact starts per piece and marks music pieces', () => {
-		const { project, result, marbleEntityId } = fixture();
+		const { project, result, marbleId } = fixture();
 		const contact = (time: number, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
 			time,
-			marbleEntityId: marbleEntityId,
+			marbleEntityId: marbleId,
 			otherEntityId,
 			kind,
 			position: { x: 0, y: 0 }
@@ -171,15 +166,12 @@ describe('buildSceneDescription', () => {
 		expect(rail?.musical).toBe(false);
 	});
 
-	it('uses the resolved pose of a free piece, not its transform', () => {
+	it('uses the resolved pose of a free piece, not its stored position', () => {
 		const { project, result } = fixture();
-		project.entities.push({
+		project.track.pieces.push({
 			id: 'rail-1',
 			name: 'Rail 1',
-			components: {
-				piece: { type: 'rail', params: {} },
-				transform: { position: { x: 0.4, y: 0.4 }, angle: 0.5 }
-			}
+			type: 'rail', params: {}, angle: 0.5, place: { kind: 'free', position: { x: 0.4, y: 0.4 } }
 		});
 		const path = [
 			{ x: 0.1, y: 0.3 },
@@ -214,7 +206,7 @@ describe('buildSceneDescription', () => {
 			frame: { width: 9, height: 16 },
 			theme: 'pegboard'
 		});
-		const marbleColor = project.music.marbles.find((marble) => marble.id === marbleId)?.color;
+		const marbleColor = project.marbles.find((marble) => marble.id === marbleId)?.labelColor;
 		expect(description.pieces[0]?.color).toBe(marbleColor);
 	});
 });

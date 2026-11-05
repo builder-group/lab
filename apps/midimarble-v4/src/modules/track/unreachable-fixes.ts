@@ -12,7 +12,7 @@ import { canMakeBacking, hitReach, moveHitLaterFix, type TReleaseFix } from '@/m
 export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TReleaseFix | null): TNoticeAction[] {
 	const project = studio.project;
 	if (project == null) return [];
-	const marble = (): string => studio.project?.music.marbles.find((marble) => marble.id === hit.marbleId)?.name ?? 'The marble';
+	const marble = (): string => studio.project?.marbles.find((marble) => marble.id === hit.marbleId)?.name ?? 'The marble';
 	const actions: TNoticeAction[] = [];
 	// Fixed from the inspector, the notice that explained the problem goes too
 	if (fix != null) {
@@ -22,7 +22,7 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 				studio.dismissNotice();
 				if (!studio.execute(fix.commands)) return;
 				const command = fix.commands[0];
-				const time = command?.type === 'setComponent' && command.component.name === 'release' ? command.component.value.time : null;
+				const time = command?.type === 'updateMarble' ? (command.patch.start?.time ?? null) : null;
 				if (time != null) studio.notifyEdit(`${marble()} now starts at ${formatTime(time)}`);
 			}
 		});

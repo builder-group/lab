@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { createId, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withEntities, type TSimulateFn } from './assists';
 import { gravityOf } from './geometry';
 import { descentPace, paceAt } from './pace';
@@ -58,7 +58,7 @@ interface TGapPieceOptions {
 }
 
 export interface TGapPieceProposal {
-	entity: TEntity;
+	entity: TPiece;
 	commands: TProjectCommand[];
 	entryTime: number;
 	length: number;
@@ -164,7 +164,7 @@ function gapProposal(plan: TGapSearchPlan, candidate: TGapTry, check: TGapPieceC
 		: gapEntity(plan.type === 'tunnel' ? 'tunnel' : 'rail', plan.id, plan.count, plan.marbleId, plan.fromHitId, entryDelay, candidate as TGapCandidate);
 	return {
 		entity,
-		commands: [{ type: 'upsertEntity', entity }],
+		commands: [{ type: 'addPiece', piece: entity }],
 		entryTime: candidate.entryTime,
 		length: hasTurns ? candidate.width : (candidate as TGapCandidate).length,
 		slope: candidate.slope,
@@ -257,7 +257,7 @@ function prepareGapPiece(
 	toHitId: string,
 	options: TGapPieceOptions
 ): TResult<TGapSearch, Error> {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const from = marble?.hits.find((hit) => hit.id === fromHitId);
 	const to = marble?.hits.find((hit) => hit.id === toHitId);
 	if (marble == null || from == null || to == null)
@@ -270,10 +270,10 @@ function prepareGapPiece(
 	// Replaces an earlier gap piece on the same hit
 	const replaced = findGapPiece(project, marbleId, fromHitId);
 	const id = replaced?.id ?? options.id ?? createId('piece');
-	const count = project.entities.filter(
-		(entity) => entity.components.piece?.type === type && entity.id !== replaced?.id
+	const count = project.track.pieces.filter(
+		(entity) => entity.type === type && entity.id !== replaced?.id
 	).length;
-	const build = (candidate: TGapCandidate): TEntity =>
+	const build = (candidate: TGapCandidate): TPiece =>
 		gapEntity(type, id, count, marbleId, fromHitId, candidate.entryTime - from.time, candidate);
 
 	// Candidates: how far below the bounce apex the marble enters, whether the piece runs with the
@@ -407,7 +407,7 @@ function gapEntity(
 	hitId: string,
 	entryDelay: number,
 	candidate: TGapCandidate
-): TEntity {
+): TPiece {
 	const { downhill, length, catchLength, slope } = candidate;
 	const definition = getPieceDefinition(type);
 	const delay = Math.round(entryDelay * 1000) / 1000;
@@ -418,16 +418,16 @@ function gapEntity(
 	return {
 		id,
 		name: `${definition?.label ?? type} ${count + 1}`,
-		components: {
-			piece: { type, params },
-			path: {
-				points: [
-					{ x: round(-downhill * catchLength * scale), y: 0 },
-					{ x: 0, y: 0 },
-					{ x: round(downhill * length * scale), y: 0 }
-				]
-			},
-			hitLink: { marbleId, hitId, angle: -downhill * slope, contactAt: 0.5 }
+		type,
+		params,
+		angle: -downhill * slope,
+		place: { kind: 'follows', marbleId, hitId },
+		path: {
+			points: [
+				{ x: round(-downhill * catchLength * scale), y: 0 },
+				{ x: 0, y: 0 },
+				{ x: round(downhill * length * scale), y: 0 }
+			]
 		}
 	};
 }
@@ -479,11 +479,11 @@ function checkGapPiece(
 }
 
 /** The rail or tunnel linked to a hit of the marble, if any */
-function findGapPiece(project: TProject, marbleId: string, hitId: string): TEntity | undefined {
-	return project.entities.find((entity) => {
-		const { piece, hitLink } = entity.components;
-		if (piece == null || hitLink?.marbleId !== marbleId || hitLink.hitId !== hitId) return false;
-		const kind = layoutOf(piece.type);
+function findGapPiece(project: TProject, marbleId: string, hitId: string): TPiece | undefined {
+	return project.track.pieces.find((entity) => {
+		const hitLink = tieOf(entity);
+		if (entity == null || hitLink?.marbleId !== marbleId || hitLink.hitId !== hitId) return false;
+		const kind = layoutOf(entity.type);
 		return kind === 'path' || kind === 'tube';
 	});
 }
@@ -587,7 +587,7 @@ function prepareTurns(
 	toHitId: string,
 	options: TGapPieceOptions
 ): TResult<TGapSearch, Error> {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
 	const from = marble?.hits.find((hit) => hit.id === fromHitId);
 	const to = marble?.hits.find((hit) => hit.id === toHitId);
 	if (marble == null || from == null || to == null)
@@ -595,8 +595,7 @@ function prepareTurns(
 	if (to.time <= from.time) return Err(new Error('The gap must end after it starts'));
 	const samples = result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	const marbleRadius =
-		project.entities.find((entity) => entity.components.marble?.marbleId === marbleId)?.components
-			.marble?.radius ?? 0.008;
+		project.marbles.find((item) => item.id === marbleId)?.radius ?? 0.008;
 	// A new switchback may reach over another marble, as long as nothing touches, with the frame as the limit
 	const band = frameBand(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
 	const marbleBand = frameBand(project, marbleId);
@@ -620,12 +619,12 @@ function prepareTurns(
 	const replaced = findGapPiece(project, marbleId, fromHitId);
 	const isMending = hitOwners(project, marbleId).has(to.id);
 	const id = replaced?.id ?? options.id ?? createId('piece');
-	const count = project.entities.filter(
-		(entity) => entity.components.piece?.type === 'rail' && entity.id !== replaced?.id
+	const count = project.track.pieces.filter(
+		(entity) => entity.type === 'rail' && entity.id !== replaced?.id
 	).length;
 	const defaults = resolvePieceParams('rail', railLayoutInfo[layout].defaults);
 	const defaultWidth = resolvePieceParams('rail', {})['width'] ?? 0.15;
-	const build = (candidate: TTurnsCandidate): TEntity =>
+	const build = (candidate: TTurnsCandidate): TPiece =>
 		turnsEntity(layout, id, count, marbleId, fromHitId, candidate.entryTime - from.time, candidate);
 
 	const entryTimes =
@@ -755,7 +754,7 @@ function prepareTurns(
  * before the gap ends
  */
 /** Platforms the marble strikes again on its way across the gap, since a path back past them finds them as readily as a hit */
-function strikesOnTheWay(project: TProject, trial: TSimulationResult, entity: TEntity, from: number): number {
+function strikesOnTheWay(project: TProject, trial: TSimulationResult, entity: TPiece, from: number): number {
 	return extraStrikes(withEntities(project, [entity]), trial).filter((strike) => strike.time > from + HIT_TOLERANCE).length;
 }
 
@@ -797,20 +796,12 @@ function turnsEntity(
 	hitId: string,
 	entryDelay: number,
 	candidate: TTurnsCandidate
-): TEntity {
+): TPiece {
 	const params = railParams(layout, { entryDelay: Math.round(entryDelay * 1000) / 1000, ...turnsParams(layout, candidate) });
 	return {
 		id,
 		name: `${getPieceDefinition('rail')?.label ?? 'Rail'} ${count + 1}`,
-		components: {
-			piece: { type: 'rail', layout, params },
-			hitLink: {
-				marbleId,
-				hitId,
-				angle: round(-candidate.downhill * candidate.slope),
-				contactAt: candidate.contactAt
-			}
-		}
+		type: 'rail', layout: layout, params: params, angle: round(-candidate.downhill * candidate.slope), place: { kind: 'follows', marbleId: marbleId, hitId: hitId, contactAt: candidate.contactAt }
 	};
 }
 

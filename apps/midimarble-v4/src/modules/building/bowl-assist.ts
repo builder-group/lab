@@ -1,7 +1,7 @@
 import { BOWL_TAIL, lastPlayingMarbles, projectSongEnd } from '@/modules/music';
-import type { TEntity, TProject, TProjectCommand } from '@/modules/project';
+import type { TPiece, TProject, TProjectCommand } from '@/modules/project';
 import { BOWL_TYPE, bowlCatch, bowlOfMarble, getPieceDefinition, nextPieceName, type TBowlCatch, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime } from '@/modules/project';
+import { formatTime, tieOf } from '@/modules/project';
 import { withEntity } from './attach-edit';
 
 // Add Bowl: a Bowl on a marble's fall after its last hit, found by what-if runs. Each try anchors a Bowl to
@@ -24,7 +24,7 @@ export interface TBowlDeps {
 }
 
 export interface TBowlPlacement {
-	entity: TEntity;
+	entity: TPiece;
 	commands: TProjectCommand[];
 	/** The run of the try that passed, over the trial length */
 	run: TSimulationResult;
@@ -35,7 +35,7 @@ export interface TBowlPlacement {
 
 export interface TBowlOptions {
 	/** Keeps this entity's ID and name, for Place Bowl Again */
-	entity?: TEntity;
+	entity?: TPiece;
 }
 
 /**
@@ -49,19 +49,19 @@ export async function findBowl(
 	deps: TBowlDeps,
 	options: TBowlOptions = {}
 ): Promise<TBowlPlacement | { error: string }> {
-	const marble = project.music.marbles.find((item) => item.id === marbleId);
-	const marbleEntity = marble?.name ?? 'The marble';
+	const marble = project.marbles.find((item) => item.id === marbleId);
+	const marbleName = marble?.name ?? 'The marble';
 	const last =
 		marble?.hits.reduce<(typeof marble.hits)[number] | null>(
 			(best, hit) => (best == null || hit.time > best.time ? hit : best),
 			null
 		) ?? null;
 	if (marble == null || last == null)
-		return { error: `${marbleEntity} has no notes yet, so there is nothing to collect` };
+		return { error: `${marbleName} has no notes yet, so there is nothing to collect` };
 	const existing = options.entity ?? bowlOfMarble(project, marbleId);
 	const without: TProject = {
 		...project,
-		entities: project.entities.filter((entity) => entity.id !== existing?.id)
+		track: { ...project.track, pieces: project.track.pieces.filter((entity) => entity.id !== existing?.id) }
 	};
 	const trial: TProject = {
 		...without,
@@ -71,16 +71,16 @@ export async function findBowl(
 	const hit = base.hits.find((item) => item.marbleId === marbleId && item.hitId === last.id);
 	if (hit?.pieceEntityId == null || hit.actualTime == null)
 		return {
-			error: `${marbleEntity}'s last note has no platform yet. Add Bowl once ${marbleEntity} plays it.`
+			error: `${marbleName}'s last note has no platform yet. Add Bowl once ${marbleName} plays it.`
 		};
 	const samples = base.marbles.find((track) => track.marbleId === marbleId)?.samples ?? [];
 	const dotY =
 		hit.dot?.y ?? samples.find((sample) => sample.time >= hit.targetTime)?.position.y ?? null;
-	if (dotY == null) return { error: `${marbleEntity} has no run after its last note` };
+	if (dotY == null) return { error: `${marbleName} has no run after its last note` };
 	const definition = getPieceDefinition(BOWL_TYPE);
 	const params: Record<string, number> = {};
 	for (const [name, spec] of Object.entries(definition?.params ?? {})) params[name] = spec.default;
-	for (const [name, value] of Object.entries(existing?.components.piece?.params ?? {}))
+	for (const [name, value] of Object.entries(existing?.params ?? {}))
 		params[name] = value;
 	const tried = new Set<number>();
 	let reason = '';
@@ -100,20 +100,14 @@ export async function findBowl(
 		// The center lies on the side the marble moves toward; the other side second
 		const toward = at.velocity.x < 0 ? 1 : 0;
 		for (const mirror of [toward, 1 - toward]) {
-			const entity: TEntity = {
+			const entity: TPiece = {
 				id: existing?.id ?? `bowl-${marbleId}`.slice(0, 64),
-				name: existing?.name ?? nextPieceName(BOWL_TYPE, without.entities),
-				components: {
-					...(existing?.components.skin != null ? { skin: existing.components.skin } : {}),
-					piece: { type: BOWL_TYPE, params: { ...params, mirror, entryDelay } },
-					hitLink: {
-						marbleId,
-						hitId: last.id,
-						angle: 0,
-						contactAt: 0.5,
-						anchored: true
-					}
-				}
+				name: existing?.name ?? nextPieceName(BOWL_TYPE, without.track.pieces),
+				type: BOWL_TYPE,
+				params: { ...params, mirror, entryDelay },
+				angle: 0,
+				place: { kind: 'follows', marbleId, hitId: last.id },
+				...(existing?.skin != null ? { skin: existing.skin } : {})
 			};
 			const next = withEntity(trial, entity);
 			const run = await deps.simulate(next);
@@ -121,8 +115,8 @@ export async function findBowl(
 			if (caught.status !== 'caught') {
 				reason ||=
 					caught.status === 'blocked'
-						? `${marbleEntity}'s run passes through every spot below its last note`
-						: `${marbleEntity} bounces out of every Bowl tried`;
+						? `${marbleName}'s run passes through every spot below its last note`
+						: `${marbleName} bounces out of every Bowl tried`;
 				continue;
 			}
 			const broken = newlyBroken(base.hits, run.hits);
@@ -141,15 +135,15 @@ export async function findBowl(
 			const placed = { ...entity, id };
 			return {
 				entity: placed,
-				commands: [{ type: 'upsertEntity', entity: placed }],
+				commands: [{ type: 'addPiece', piece: placed }],
 				run,
 				catch: caught,
-				message: `${placed.name ?? 'Bowl'} ${existing != null ? 'placed again' : 'added'}: ${marbleEntity} lands in it at ${formatTime(caught.enterTime ?? at.time)}`
+				message: `${placed.name ?? 'Bowl'} ${existing != null ? 'placed again' : 'added'}: ${marbleName} lands in it at ${formatTime(caught.enterTime ?? at.time)}`
 			};
 		}
 	}
 	return {
-		error: `No Bowl catches ${marbleEntity} after its last note: ${reason || `${marbleEntity} leaves the track too soon`}. Drop one on its fall by hand.`
+		error: `No Bowl catches ${marbleName} after its last note: ${reason || `${marbleName} leaves the track too soon`}. Drop one on its fall by hand.`
 	};
 }
 
@@ -170,8 +164,7 @@ export function hitKeyOf(hit: Pick<THitResult, 'marbleId' | 'hitId'>): string {
 
 /** Whether a marble other than the Bowl's own touches it */
 function isTouchedByOthers(run: TSimulationResult, entityId: string, marbleId: string): boolean {
-	const own = run.marbles.find((track) => track.marbleId === marbleId)?.entityId;
-	return run.contacts.some((contact) => contact.otherEntityId === entityId && contact.marbleEntityId !== own && contact.time <= run.duration);
+	return run.contacts.some((contact) => contact.otherEntityId === entityId && contact.marbleEntityId !== marbleId && contact.time <= run.duration);
 }
 
 /** Whether the marble of `marbleId` touches another marble's piece after `from` */
@@ -181,23 +174,24 @@ function touchesOtherMarbles(
 	marbleId: string,
 	from: number
 ): boolean {
-	const marble = run.marbles.find((track) => track.marbleId === marbleId)?.entityId;
 	const marbleOf = new Map<string, string>();
-	for (const entity of project.entities)
-		if (entity.components.hitLink != null) marbleOf.set(entity.id, entity.components.hitLink.marbleId);
+	for (const entity of project.track.pieces) {
+		const tie = tieOf(entity);
+		if (tie != null) marbleOf.set(entity.id, tie.marbleId);
+	}
 	return run.contacts.some((contact) => {
-		if (contact.marbleEntityId !== marble || contact.time <= from) return false;
+		if (contact.marbleEntityId !== marbleId || contact.time <= from) return false;
 		if (contact.kind === 'marble') return true;
 		const other = marbleOf.get(contact.otherEntityId);
 		return other != null && other !== marbleId;
 	});
 }
 
-function createBowlId(project: TProject, id: string, existing: TEntity | undefined): string {
+function createBowlId(project: TProject, id: string, existing: TPiece | undefined): string {
 	if (existing != null) return existing.id;
-	if (!project.entities.some((entity) => entity.id === id)) return id;
+	if (!project.track.pieces.some((entity) => entity.id === id)) return id;
 	let index = 2;
-	while (project.entities.some((entity) => entity.id === `${id}-${index}`)) index++;
+	while (project.track.pieces.some((entity) => entity.id === `${id}-${index}`)) index++;
 	return `${id}-${index}`;
 }
 
@@ -223,7 +217,7 @@ export async function withBowls(project: TProject, deps: TBowlDeps, options: TBo
 			continue;
 		}
 		messages.push(placed.message);
-		current = { ...current, entities: [...current.entities, placed.entity] };
+		current = { ...current, track: { ...current.track, pieces: [...current.track.pieces, placed.entity] } };
 	}
 	// A film that would end before the catch is lengthened; a longer one stays what it is
 	const end = projectSongEnd(current);
@@ -235,11 +229,11 @@ export async function withBowls(project: TProject, deps: TBowlDeps, options: TBo
  * a what-if run passes, keeping the Bowl's ID, name and skin; or why none does
  */
 export async function bowlFix(project: TProject, result: TSimulationResult, entityId: string, deps: TBowlDeps): Promise<{ commands: TProjectCommand[] | null; message: string }> {
-	const entity = project.entities.find((item) => item.id === entityId);
-	const marbleId = entity?.components.hitLink?.marbleId;
+	const entity = project.track.pieces.find((item) => item.id === entityId);
+	const marbleId = tieOf(entity)?.marbleId;
 	const name = entity?.name ?? 'Bowl';
 	if (entity == null || marbleId == null) return { commands: null, message: `${name} follows no marble. Drop it on a marble's fall after its last note.` };
-	const marble = project.music.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
+	const marble = project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
 	const caught = bowlCatch(result, entityId);
 	if (caught.status === 'caught' && !isTouchedByOthers(result, entityId, marbleId)) return { commands: null, message: `${name} already catches ${marble}` };
 	const placed = await findBowl(project, marbleId, deps, { entity });

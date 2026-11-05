@@ -1,5 +1,5 @@
 import { hasSong } from '@/modules/music';
-import { BACKING_ID, type TProject, type TProjectCommand } from '@/modules/project';
+import { type TProject, type TProjectCommand, backingOf } from '@/modules/project';
 import { songSource } from './SourcesCx';
 
 /**
@@ -24,24 +24,19 @@ export function songLayerName(project: TProject): string {
  */
 export function deleteSongCommands(project: TProject): TProjectCommand[] {
 	if (!hasSongLayer(project)) return [];
-	const { sources, backing, backingInstrument } = project.music;
-	return [
-		...sources.map((source) => ({ type: 'removeSource' as const, sourceId: source.id })),
-		...(backing.length > 0 ? [{ type: 'removeHits' as const, marbleId: BACKING_ID, hitIds: backing.map((hit) => hit.id) }] : []),
-		...(backingInstrument != null ? [{ type: 'setBackingInstrument' as const, instrument: null }] : [])
-	];
+	return project.songs.map((song) => ({ type: 'removeSong', songId: song.id }));
 }
 
 /** The confirmation before deleting the Song layer, only when Backing notes would be lost with it */
 export function deleteSongQuestion(project: TProject): string | null {
-	const count = project.music.backing.length;
+	const count = backingOf(project).length;
 	if (count === 0) return null;
 	return `Delete ${songLayerName(project)} and its ${backingNotes(count)}?`;
 }
 
 /** The notice after deleting the Song layer, with Undo beside it */
 export function deleteSongNotice(project: TProject): string {
-	const count = project.music.backing.length;
+	const count = backingOf(project).length;
 	const name = songLayerName(project);
 	return count > 0 ? `Deleted ${name} and its ${backingNotes(count)}. The marbles keep their hits.` : `Deleted ${name}. The marbles keep their hits.`;
 }
