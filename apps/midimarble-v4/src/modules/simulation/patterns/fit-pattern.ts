@@ -5,7 +5,7 @@ import { soundsHit } from '../pieces';
 import type { TSimulator } from '../simulate';
 import { extraStrikes, LONG_FALL, rollingHits, touchingPairs } from '../track-problems';
 import type { TSimulationResult } from '../types';
-import { BAR_LENGTH, COLUMN_PROBLEM, fitBars, isOffColumn, MAX_TILT, sampleAt, type TBar, type TBarIssue, type TBarShape, type TBarsFit } from './fit-bars';
+import { BAR_LENGTH, COLUMN_PROBLEM, fitBars, isOffColumn, MAX_TILT, sampleAt, ZIGZAG_WIDTH, type TBar, type TBarIssue, type TBarShape, type TBarsFit } from './fit-bars';
 import { fitLongRail } from './fit-rail';
 
 /** Notes closer than this count as the next hop; a longer gap is left for a rail, where a marble must not free fall (`building-a-track`) */
@@ -171,7 +171,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	const next = lane.hits.find((hit) => hit.time > last.time);
 	const isNextClose = next != null && next.time - last.time < LONG_GAP;
 	const ids = isNextClose ? [...hitIds, next.id] : hitIds;
-	const asked = request.width ?? (kind === 'zigzag' ? 0.14 : 0.09);
+	const asked = request.width ?? (kind === 'zigzag' ? ZIGZAG_WIDTH : 0.09);
 	const askedDrop = request.bounce != null ? null : (request.drop ?? (kind === 'zigzag' ? 0.08 : 0.12));
 
 	const shape: TBarShape = {
