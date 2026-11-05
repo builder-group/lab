@@ -75,7 +75,7 @@ describe('buildTrack function', () => {
 		// How it looks: nothing touches as the film shows it, each platform is struck once
 		expect(touchingPairs(outcome.project, outcome.result)).toEqual([]);
 		expect(extraStrikes(outcome.project, outcome.result)).toEqual([]);
-	}, 20 * MINUTES);
+	}, 10 * MINUTES);
 
 	it('builds one marble with long gaps and a tapped list with irregular gaps', async () => {
 		const songs = [
@@ -119,5 +119,5 @@ describe('buildTrack function', () => {
 		const first = await buildTrack(withHitIds(project, 'lane 0 sorts first'), localBuildDeps(simulator));
 		const second = await buildTrack(withHitIds(project, 'last lane sorts first'), localBuildDeps(simulator));
 		expect(piecesByOrder(second.project)).toEqual(piecesByOrder(first.project));
-	}, 20 * MINUTES);
+	}, 10 * MINUTES);
 });

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createBareRunProject } from '@/modules/simulation/fixture-projects';
+import { startRailId } from '@/modules/simulation';
 import { createSimulator } from '@/modules/simulation/simulate';
-import { startRailId, startRailPlan, withStartRails } from './start-rail';
+import { startRailPlan, withStartRails } from './start-rail';
 
 const G = 9.81 * 0.5;
 

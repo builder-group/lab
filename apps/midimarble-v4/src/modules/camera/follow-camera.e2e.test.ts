@@ -118,19 +118,13 @@ describe('follow camera on whole songs', () => {
 				.sort((a, b) => (a.hitTime ?? 0) - (b.hitTime ?? 0))
 				.slice(0, 3);
 			const releases = result.marbles.map((marble) => required(marble.samples[0]).position);
-			// Every release inside the opening frame with a margin of 10 % of it, and the first pieces at the frame's bottom
-			// edge at worst, since a marble's start rail takes up the room: they come in as it falls
-			for (const { x, y } of releases) {
+			// Every one inside the opening frame with a margin of 10 % of it
+			for (const { x, y } of [...firstPieces.map((piece) => piece.position), ...releases]) {
 				const [u, v] = project(track, 0, x, y);
 				expect(Math.min(u, v)).toBeGreaterThan(0.1);
 				expect(Math.max(u, v)).toBeLessThan(0.9);
 			}
-			for (const { x, y } of firstPieces.map((piece) => piece.position)) {
-				const [u, v] = project(track, 0, x, y);
-				expect(Math.min(u, v)).toBeGreaterThan(-0.02);
-				expect(Math.max(u, v)).toBeLessThan(1.02);
-			}
-			// And the marbles stay inside until the first hit, the one still on its start rail at most at the frame's edge
+			// And the marbles stay inside with a margin of 5 % until the first hit
 			const firstHit = Math.min(...result.hits.map((hit) => hit.actualTime ?? Infinity));
 			for (let frame = 0; frame <= pyRound(firstHit * 30); frame++) {
 				for (const marble of result.marbles) {
@@ -138,8 +132,8 @@ describe('follow camera on whole songs', () => {
 						marble.samples.find((item) => item.time >= frame / 30) ?? marble.samples[0]
 					);
 					const [u, v] = project(track, frame, sample.position.x, sample.position.y);
-					expect(Math.min(u, v)).toBeGreaterThan(-0.03);
-					expect(Math.max(u, v)).toBeLessThan(1.03);
+					expect(Math.min(u, v)).toBeGreaterThan(0.05);
+					expect(Math.max(u, v)).toBeLessThan(0.95);
 				}
 			}
 		}

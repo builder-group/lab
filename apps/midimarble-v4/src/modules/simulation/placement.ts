@@ -71,6 +71,17 @@ export interface TFrameBand {
  * neither that marble nor its pieces, which the assists check by simulation. Without it the band covering every lane
  * is returned, the limit every placement stays inside so the run stays in frame.
  */
+/** The ID of the Rail a marble starts on: Build Track makes it, tied to no hit, and it stays the marble's in Layers */
+export function startRailId(laneId: string): string {
+	return `start-rail-${laneId}`.slice(0, 64);
+}
+
+/** The Rail this marble starts on, if it still has one */
+export function startRailOf(project: TProject, laneId: string): TEntity | undefined {
+	const id = startRailId(laneId);
+	return project.entities.find((entity) => entity.id === id);
+}
+
 export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	const aspect = project.frame.width / project.frame.height;
 	const distance = project.design.camera.distance;
@@ -78,7 +89,7 @@ export function frameBand(project: TProject, laneId?: string): TFrameBand {
 	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its lane lies there
 	const releaseX = (entity: TEntity): number => {
 		const x = entity.components.release?.position.x ?? 0;
-		const rail = project.entities.find((item) => item.id === `start-rail-${entity.components.marble?.laneId ?? ''}`)?.components;
+		const rail = startRailOf(project, entity.components.marble?.laneId ?? '')?.components;
 		return rail?.transform != null && Math.abs(rail.transform.position.x - x) < 0.02 ? x + (rail.piece?.params['laneOffset'] ?? 0) : x;
 	};
 	const marbles = project.entities.filter(

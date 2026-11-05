@@ -4,7 +4,7 @@ import { preflightExport } from '@/modules/design/export-preflight';
 import { findLongGaps } from './assists';
 import { bowlCatch, bowlOfLane } from './bowl';
 import { paceAt } from './pace';
-import { frameBand } from './placement';
+import { frameBand, startRailId } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TMarbleSample, type TSimulationResult } from './types';
 import { loadFixture } from '@/modules/project/test-helpers';
@@ -200,10 +200,9 @@ describe('fixtures', () => {
 		expect(played.filter((contact) => contact.kind === 'marble')).toHaveLength(0);
 		const laneOf = (id: string): string | undefined => {
 			const entity = project.entities.find((item) => item.id === id);
-			return entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId;
+			return entity?.components.hitLink?.laneId ?? entity?.components.marble?.laneId ?? project.music.lanes.find((lane) => startRailId(lane.id) === id)?.id;
 		};
-		// Start rails are tied to nothing
-		for (const contact of played.filter((item) => item.kind === 'piece' && !item.otherEntityId.startsWith('start-rail')))
+		for (const contact of played.filter((item) => item.kind === 'piece'))
 			expect(laneOf(contact.otherEntityId), contact.otherEntityId).toBe(laneOf(contact.marbleEntityId));
 		// The dots keep to the shared descent pace, so one camera frames both marbles: at most two end beyond
 		// the limit, where the build had to rotate a piece by hand, and none by more than 0.15 m

@@ -116,6 +116,8 @@ PUSH_FOCUS = 0.7
 # seconds after the first hit, so the film opens on the track rather than on marbles over an empty wall
 OPENING_PIECES = 3
 OPENING_EASE = 1.5
+# Seconds after the first hit over which the opening's zoom eases back: slower than its frame, as the zoom never pumps
+OPENING_ZOOM_EASE = 6.0
 OPENING_STEPS = 3
 # The opening box fits within this share of the readable maximum, as its marbles fall while it holds: Two Marbles' box
 # needs 0.96 of it and lost both marbles at the top of its first frame
@@ -535,6 +537,11 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
     # slowly, so the frame neither pulls back to a survey nor jumps back in when it switches to one marble
     group_distance = np.clip(need, base, upper * wide)
     distance = critically_damped(group_distance[:, None], fps, DISTANCE_TAU)[:, 0]
+    # The slow zoom would flatten a need that lasts only for the opening, so the opening stands where it needs most
+    if opening is not None:
+        furthest = np.max(group_distance[times <= opening['first']], initial=0.0)
+        share = opening['fit'] * (1.0 - smoothstep((times - opening['first']) / OPENING_ZOOM_EASE))
+        distance = distance + share * np.maximum(furthest - distance, 0.0)
     # A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away and
     # as far as the group needs within its wider maximum
     distance = np.maximum(np.clip(distance, base, upper * wide) * np.minimum(scale, 1.0), base * scale)
@@ -627,7 +634,7 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes, limit):
         need[index] = widest_around(x, y)
         fits[index] = 1.0 if need[index] <= limit * OPENING_ROOM else 0.0
     eased = np.clip(critically_damped(fits[:, None], fps, GROUP_EASE / 3)[:, 0], 0.0, 1.0)
-    return {'point': point, 'need': need, 'weight': eased * ramp}
+    return {'first': first, 'point': point, 'need': need, 'weight': eased * ramp, 'fit': eased}
 
 
 def keep_clear_of_edges(marbles, motions, times, sample, target, distance, axes, shares, lens, aspect, fps):

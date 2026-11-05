@@ -70,6 +70,8 @@ const FINISHED_WEIGHT = 0.001;
 const OPENING_PIECES = 3;
 /** Seconds after the first hit over which the opening frame eases into the follow */
 const OPENING_EASE = 1.5;
+/** Seconds after the first hit over which the opening's zoom eases back: slower than its frame, as the zoom never pumps */
+const OPENING_ZOOM_EASE = 6.0;
 /** Steps that centre the opening box in the image */
 const OPENING_STEPS = 3;
 /**
@@ -846,6 +848,15 @@ function groupFraming(
 	// fits, slowly, so the frame neither pulls back to a survey nor jumps back in when it switches to one marble
 	const groupDistance = need.map((value, index) => clamp(value, base, upper * (wide[index] ?? 1)));
 	const distance = criticallyDamped(groupDistance, fps, DISTANCE_TAU);
+	// The slow zoom would flatten a need that lasts only for the opening, so the opening stands where it needs most
+	if (opening != null) {
+		let furthest = 0;
+		for (let index = 0; index < count && (times[index] ?? 0) <= opening.first; index++) furthest = Math.max(furthest, groupDistance[index] ?? 0);
+		for (let index = 0; index < count; index++) {
+			const share = (opening.fit[index] ?? 0) * (1.0 - smoothstep(((times[index] ?? 0) - opening.first) / OPENING_ZOOM_EASE));
+			distance[index] = (distance[index] ?? 0) + share * Math.max(furthest - (distance[index] ?? 0), 0.0);
+		}
+	}
 	// A closer shot scales the automatic distance; a Wide shot stands at least its scale of the rig distance away and
 	// as far as the group needs within its wider maximum
 	for (let index = 0; index < count; index++) {
@@ -903,7 +914,7 @@ function openingFrame(
 	fps: number,
 	axes: TAxes[],
 	limit: number
-): { point: [Float64Array, Float64Array]; need: Float64Array; weight: Float64Array } | null {
+): { first: number; point: [Float64Array, Float64Array]; need: Float64Array; weight: Float64Array; fit: Float64Array } | null {
 	const pieces = settings.opening;
 	if (pieces == null || !pieces.length) return null;
 	const first = Math.min(...pieces.map((piece) => piece.time));
@@ -978,10 +989,10 @@ function openingFrame(
 		fits[index] = widest <= limit * OPENING_ROOM ? 1.0 : 0.0;
 	}
 	const eased = criticallyDamped(fits, fps, GROUP_EASE / 3);
+	const fit = eased.map((value) => clamp(value, 0.0, 1.0));
 	const weight = new Float64Array(count);
-	for (let index = 0; index < count; index++)
-		weight[index] = clamp(eased[index] ?? 0, 0.0, 1.0) * (ramp[index] ?? 0);
-	return { point: [pointX, pointY], need, weight };
+	for (let index = 0; index < count; index++) weight[index] = (fit[index] ?? 0) * (ramp[index] ?? 0);
+	return { first, point: [pointX, pointY], need, weight, fit };
 }
 
 /**

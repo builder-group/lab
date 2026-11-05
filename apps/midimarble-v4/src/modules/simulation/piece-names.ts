@@ -1,4 +1,5 @@
 import type { TEntity, TProject } from '@/modules/project';
+import { startRailOf } from './placement';
 import { getPieceDefinition } from './pieces';
 
 /**
@@ -21,13 +22,15 @@ export function nextPieceName(type: string, entities: TEntity[]): string {
 
 /**
  * Renames every piece to its type label and a number in the order the Layers list shows them: each marble's
- * pieces in hit order, marble after marble, then the free pieces. Each type counts on its own, so a project
+ * start rail, then its pieces in hit order, marble after marble, then the free pieces. Each type counts on its own, so a project
  * reads "Platform 1…n" and "Rail 1…n" in time order. Only `name` changes.
  */
 export function namePiecesInOrder(project: TProject): TProject {
 	const ordered: TEntity[] = [];
 	for (const lane of project.music.lanes) {
 		const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
+		const startRail = startRailOf(project, lane.id);
+		if (startRail != null) ordered.push(startRail);
 		ordered.push(
 			...project.entities
 				.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id)

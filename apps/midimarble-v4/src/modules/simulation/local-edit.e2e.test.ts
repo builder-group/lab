@@ -45,8 +45,9 @@ describe('small edits on Jingle Bells', () => {
 
 				// Assert: what a later session opens is what the settle promised
 				const broken = run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked');
-				// A break holds what comes later, one per marble, as each lane that breaks waits in turn
-				for (const lane of project.music.lanes) expect(broken.filter((hit) => hit.laneId === lane.id).length, `${id} by ${by}° on ${lane.name}`).toBeLessThanOrEqual(1);
+				// One break holds what comes later; only marbles that strike each other break one each
+				const hasCollided = run.contacts.some((contact) => contact.kind === 'marble');
+				expect(broken.length, `${id} by ${by}°`).toBeLessThanOrEqual(hasCollided ? project.music.lanes.length : 1);
 				const near = new Set([id, ...settled.answer.absorbedBy]);
 				const shifts = run.hits.flatMap((hit) => {
 					const was = before.hits.find((item) => item.hitId === hit.hitId);

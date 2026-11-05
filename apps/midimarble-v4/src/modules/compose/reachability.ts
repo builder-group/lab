@@ -1,6 +1,5 @@
-import { startRailId } from './start-rail';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { gravityOf, IMPACT_SPEED, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, IMPACT_SPEED, startRailOf, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 
 // Why an open hit has no place for a platform, read from the marble's release and its simulated run, so
@@ -94,7 +93,7 @@ export function releaseFollowsFirstHit(before: TProject, after: TProject, comman
 		const was = firstTime(before, laneId);
 		if (first == null || first === was) return entity;
 		// A marble on a start rail keeps the time the rail takes
-		const hasRail = was != null && after.entities.some((item) => item.id === startRailId(laneId));
+		const hasRail = was != null && startRailOf(after, laneId) != null;
 		const time = Math.round(Math.max(0, first - (hasRail ? was - release.time : RELEASE_LEAD)) * 10000) / 10000;
 		return time === release.time ? entity : { ...entity, components: { ...entity.components, release: { ...release, time } } };
 	});

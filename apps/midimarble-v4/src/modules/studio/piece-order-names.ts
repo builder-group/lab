@@ -1,9 +1,9 @@
 import type { TEntity, TProject } from '@/modules/project';
-import { getPieceDefinition } from '@/modules/simulation';
+import { getPieceDefinition, startRailOf } from '@/modules/simulation';
 
 /**
  * After an edit that adds a piece, renumbers the pieces that still carry a default name ("Platform 4") in the
- * order Layers shows them: each marble's pieces in hit order, marble after marble, then the free pieces. A new
+ * order Layers shows them: each marble's start rail, then its pieces in hit order, marble after marble, then the free pieces. A new
  * project's platform for Hit 1 then reads Platform 1 however the platforms were placed. Custom names stay, and
  * each type counts on its own. It also runs when an edit leaves two pieces with the same default name, such as a
  * refinement that arrives with the name the piece had before the renumbering.
@@ -37,6 +37,8 @@ function piecesInLayersOrder(project: TProject): TEntity[] {
 	for (const lane of project.music.lanes) {
 		const order = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
 		const tied = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id);
+		const startRail = startRailOf(project, lane.id);
+		if (startRail != null) ordered.push(startRail);
 		ordered.push(...tied.map((entity, index) => ({ entity, index, time: tieTime(entity, order) })).sort((a, b) => a.time - b.time || a.index - b.index).map((item) => item.entity));
 	}
 	const placed = new Set(ordered);

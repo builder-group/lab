@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TEntity, TProject } from '@/modules/project';
+import { startRailId } from '@/modules/simulation';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from './selection';
 
@@ -24,6 +25,14 @@ function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { i
 }
 
 describe('buildOutline function', () => {
+	it('should list a marble\'s start rail first under it, not under Track Pieces', () => {
+		const rows = buildOutline(project({ entities: [piece('p-a', { laneId: 'lane-1', hitId: 'a' }), piece('free-1'), piece(startRailId('lane-1'))] }), { workspace: 'compose' });
+		const rail = rows.find((row) => row.id === startRailId('lane-1'));
+
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, 'marble-1', startRailId('lane-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
+		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', laneId: 'lane-1', depth: 1 });
+	});
+
 	it('should order Song, marbles with their pieces in hit order, Pieces, Wall, Lights, Camera with shots and Titles', () => {
 		const title = { id: 'title-1', components: { wallText: { text: 'Jingle Bells' } } } as unknown as TEntity;
 		const rows = buildOutline(

@@ -1,6 +1,7 @@
 import { decorList, type TBlenderObject } from '@/modules/design/decor';
 import { addedLights } from '@/modules/design/scene-layers';
 import type { TDecor, TEntity, TLane, TLight, TProject, TShot, TSource } from '@/modules/project';
+import { startRailOf } from '@/modules/simulation';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toLightKey, toMadeInBlenderKey, toShotKey, WALL_KEY } from './selection';
 import { hasSongLayer, SONG_LAYER_LABEL } from './song-layer';
 import { songSource } from './SourcesCx';
@@ -8,8 +9,8 @@ import type { TWorkspace } from './StudioCx';
 
 /**
  * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow:
- * the Scene in both workspaces, the Song while the project has one, each marble with the pieces it plays or that follow it in hit order, Pieces
- * (those no marble plays or follows), the Wall, the Lights, the Camera with its shots, Titles and Decor, a fixed order by
+ * the Scene in both workspaces, the Song while the project has one, each marble with the Rail it starts on and the pieces it plays or that follow it in hit order, Pieces
+ * (those no marble plays, follows or starts on), the Wall, the Lights, the Camera with its shots, Titles and Decor, a fixed order by
  * kind. Compose is the performance and shows only the Song and the marbles with their pieces; Film is the
  * presentation and shows every layer. Rows of a collapsed group leave out
  * their children. The timeline shows only what changes over time: the Song, the marbles, and in Film the Camera and Titles.
@@ -30,7 +31,8 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	}
 
 	// Newest first, like Figma's layer list
-	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null).reverse();
+	const startRails = new Set(project.music.lanes.map((lane) => startRailOf(project, lane.id)));
+	const free = project.entities.filter((entity) => entity.components.piece != null && entity.components.hitLink == null && !startRails.has(entity)).reverse();
 	if (free.length > 0) {
 		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
 		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, label: PIECES_GROUP_LABEL, help: PIECES_GROUP_HELP, groupKey: FREE_PIECES_KEY, childIds: free.map((piece) => piece.id), isOpen });
@@ -95,7 +97,7 @@ export function collapsedGroups(project: TProject, workspace: 'compose' | 'desig
 export function groupsOfSelection(project: TProject, selection: readonly string[]): string[] {
 	return selection.flatMap((key) => {
 		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
-		const laneId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.laneId;
+		const laneId = project.entities.find((entity) => entity.id === key)?.components.hitLink?.laneId ?? project.music.lanes.find((lane) => startRailOf(project, lane.id)?.id === key)?.id;
 		return laneId != null ? [laneId] : [];
 	});
 }
@@ -170,10 +172,12 @@ export function isSelectableRow(row: TOutlineRow): boolean {
 	return row.kind !== 'group';
 }
 
-/** Pieces linked or anchored to a lane's hits, in hit order */
+/** The Rail the lane's marble starts on, then the pieces linked or anchored to its hits, in hit order */
 function lanePieces(project: TProject, lane: TLane): TEntity[] {
 	const order = new Map(lane.hits.map((hit, index) => [hit.id, index]));
-	return project.entities
+	const startRail = startRailOf(project, lane.id);
+	const tied = project.entities
 		.filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === lane.id)
 		.sort((a, b) => (order.get(a.components.hitLink?.hitId ?? '') ?? 0) - (order.get(b.components.hitLink?.hitId ?? '') ?? 0));
+	return startRail != null ? [startRail, ...tied] : tied;
 }

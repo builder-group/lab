@@ -1,5 +1,5 @@
 import type { TEntity, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, nextPieceName, railLayoutInfo, resolvePieceParams } from '@/modules/simulation';
+import { gravityOf, nextPieceName, railLayoutInfo, resolvePieceParams, startRailId } from '@/modules/simulation';
 
 // Start on a Rail: Build Track puts a short rail at each marble's release, so the marble rolls into its first hit
 // instead of dropping. It is a normal Rail tied to nothing, which anyone can delete. The marble then falls as long as one
@@ -26,10 +26,6 @@ const STOP_DRIFT = 0.02;
 const CLEARANCE = 0.0005;
 /** Rolling acceleration of a ball on a slope, g · sin(slope) times this */
 const ROLLING = 5 / 7;
-
-export function startRailId(laneId: string): string {
-	return `start-rail-${laneId}`.slice(0, 64);
-}
 
 /** How long a rail at `slope` takes to roll the marble off */
 function rollTime(slope: number, gravity: number): number {

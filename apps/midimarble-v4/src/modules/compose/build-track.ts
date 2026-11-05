@@ -15,6 +15,7 @@ import {
 	frameBand,
 	isMusicalPiece,
 	resolvePieceParams,
+	startRailId,
 	touchingPairs,
 	type TAutoPlaceAnswer,
 	type TContinueAnswer,
@@ -27,7 +28,7 @@ import {
 import { checkFraming } from '@/modules/design/export-preflight';
 import { BOWL_TYPE, bowlOfLane } from '@/modules/simulation';
 import { withBowls } from './bowl-assist';
-import { startRailId, withStartRails } from './start-rail';
+import { withStartRails } from './start-rail';
 import { openHits } from './step-loop';
 import { hitReach } from './reachability';
 
@@ -41,18 +42,19 @@ import { hitReach } from './reachability';
 // it does what a person tries next: turn the lane's previous platform, turn the other marble's platform in the way,
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
-// few millimetres over, as a person would, until `SEARCHES_PER_HIT` searches per hit are spent; the attempt that got
+// few millimetres over, as a person would: what a stuck hit tries costs more than a song's first hits, so a release
+// ends at the first hit nothing solves. That goes on until `SEARCHES_PER_HIT` searches per hit are spent; the attempt that got
 // furthest then bowls past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
 // so every choice follows from the project and the same project always gets the same track.
 
 const DEGREE = Math.PI / 180;
 /** Release shifts tried in turn, in metres */
-const RELEASE_SHIFTS = [0, 0.01, -0.01, 0.005, -0.005, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
+const RELEASE_SHIFTS = [0, 0.005, -0.005, 0.01, -0.01, 0.015, -0.015, 0.02, -0.02, 0.025, -0.025, 0.03, -0.03, 0.04, -0.04];
 /**
  * Auto place and gap piece searches per hit of the song, over every attempt, before the build stops looking for a clean
- * run. A search is nearly all of a build's time, about half a second each: Jingle Bells takes 2.2 per hit.
+ * run. A search is nearly all of a build's time, about half a second each: Jingle Bells takes 1.6 per hit from a release that goes well.
  */
-const SEARCHES_PER_HIT = 9;
+const SEARCHES_PER_HIT = 6;
 /** What the attempt that goes on past a stuck hit may search on top, per hit; once spent, each hit gets one plain step */
 const FORCED_SEARCHES_PER_HIT = 2;
 /** What one attempt may search per hit, so a release that goes badly leaves room for the next: Jingle Bells takes about 2 when it goes well */
@@ -231,6 +233,8 @@ interface TBuildState {
 	gapPiece: TBuildGapPreference | null;
 	/** Trying a choice ahead, which doesn't try choices of its own */
 	isLooking: boolean;
+	/** Taking a gap piece that ends beyond the pace limit, once nothing else solves the hit: the run seldom recovers from one */
+	mayLeavePace: boolean;
 	/** Searches made and allowed, over every attempt */
 	searches: TSearchBudget;
 	runs: WeakMap<TProject, Promise<TSimulationResult>>;
@@ -246,7 +250,7 @@ function emptyCounts(): TBuildCounts {
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, searches, runs: new WeakMap() };
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.entities.filter((entity) => entity.components.piece != null).map((entity) => entity.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
 }
 
 const hitKey = (laneId: string, hitId: string): string => `${laneId}/${hitId}`;
@@ -542,6 +546,10 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 				reject(state, `the ${type} ends ${Math.abs(answer.check.paceError ?? 0).toFixed(2)} m from the pace`);
 				continue;
 			}
+			if (!state.mayLeavePace && Math.abs(answer?.check?.paceError ?? 0) > (result.pace?.limit ?? Infinity)) {
+				reject(state, `the ${type} ends ${Math.abs(answer?.check?.paceError ?? 0).toFixed(2)} m from the pace`);
+				continue;
+			}
 			// The hit after the gap piece is placed by construction wherever the marble arrives
 			const accepted = answer != null ? await accept(state, current, answer.commands, laneId, false) : null;
 			if (accepted == null) continue;
@@ -627,6 +635,8 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		if (leaned == null) continue;
 		const dot = nextOpenPerLane(state, await run(state, leaned)).get(laneId)?.dot;
 		const offset = dot == null ? 0 : Math.abs(dot.x - band.centerX);
+		// A lean that throws the marble out of its lane only moves the trouble: it lands among the other marble's pieces
+		if (offset > band.halfWidth) continue;
 		if (best == null || offset < best.offset - 1e-6) best = { project: leaned, angle: degrees, offset };
 	}
 	if (best == null) return null;
@@ -736,6 +746,15 @@ async function rewind(state: TBuildState, current: TProject, target: THitResult)
 	return null;
 }
 
+/** A gap piece far from the pace, when nothing else solves the hit */
+async function stepLeavingPace(state: TBuildState, current: TProject, target: THitResult): Promise<TProject | null> {
+	if (!findLongGaps(current, target.laneId).some((gap) => gap.toHitId === target.hitId && gap.bridgedBy == null)) return null;
+	state.mayLeavePace = true;
+	const next = await buildStep(state, current, target, false);
+	state.mayLeavePace = false;
+	return next;
+}
+
 /** Everything the build tries for one hit before it counts as stuck */
 async function solveHit(state: TBuildState, current: TProject, target: THitResult): Promise<TProject | null> {
 	state.reasons.length = 0;
@@ -746,6 +765,7 @@ async function solveHit(state: TBuildState, current: TProject, target: THitResul
 		(!shouldStopLooking(state) ? await unblock(state, current, target) : null) ??
 		(!shouldStopLooking(state) ? await buildStep(state, current, target, true) : null) ??
 		(!shouldStopLooking(state) ? await rewind(state, current, target) : null) ??
+		(!shouldStopLooking(state) ? await stepLeavingPace(state, current, target) : null) ??
 		// A piece that was there before the build turns only when nothing else solves the hit
 		(target.dot != null && state.canTurnOwn && !shouldStopLooking(state) ? await backtrack(state, current, target, true) : null) ??
 		(state.canTurnOwn && !shouldStopLooking(state) ? await unblock(state, current, target, true) : null)
@@ -1239,7 +1259,8 @@ async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProjec
 		if (isCancelled(state)) return stopped();
 		if (next == null && !canForce) {
 			deps.onLog?.(`  ${target.hitId}: nothing solves it at ${target.targetTime.toFixed(2)} s (${state.reasons.join('; ') || 'no assist found a piece'})`);
-			if (await wentBack({ laneId: target.laneId, from: target.targetTime - progress.backUps * STUCK_REACH })) continue;
+			// With another release to try, that comes cheaper than backing up: a song's first hits take few searches, a stuck hit dozens
+			if (build.bareLanes.size === 0 && (await wentBack({ laneId: target.laneId, from: target.targetTime - progress.backUps * STUCK_REACH }))) continue;
 			return { project: current, reached: target.targetTime };
 		}
 		progress.current = next ?? (await forceHit(state, current, target));

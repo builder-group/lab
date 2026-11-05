@@ -822,9 +822,44 @@ Build Track now tries a release for at most 3 searches per hit and 9 in all, whe
 
 Checks: `typecheck`, `lint` (7 warnings, none new), `test` 854, `test:e2e` 38 (run whole, then the 5 that failed against the old track adapted and rerun), `camera:check`, `blender:check` 139, `cargo test`. Adapted e2e tests, each tied to the old track: the opening's margins, since Melody brushes the top edge at about 0:00.6 while still on its rail; Fix Hits recovers after 6 notes on this track and not after 7, the other way round; the windmill test now sits where the melody is furthest; a stable edit may hold one break per marble, as `local-edit` does. `the_bundled_starter` in `cargo test` was already stale against the Starter Pack and is updated. Insert and a Rail's inspector looked at in the browser. A Draft film not rendered.
 
-Left: Build Track takes 8 to 10 minutes on Jingle Bells, three to five times what it did; Melody at the top edge at the start.
-
 Next: Keys, then the reference short.
+
+## Build Track speed
+
+**Cause.** Not the rail itself, and not budget. A lean by hand, Build Track's last resort before backing up, picked the tilt whose next dot lay closest to the lane, however far that was: 0.15 to 0.39 m from the centre, into the other marble's lane. The attempt then spent the rest of its budget at 11 to 16 s on hits blocked or crossing Melody's pieces, and each stuck hit costs dozens of searches. The releases tried first all did this; +5 mm happened not to lean, and took 180 searches.
+
+First pass of 8 releases, searches to get through or give up (345 was the limit per release):
+
+| Release | Before | Lean kept in lane |
+| --- | --- | --- |
+| 0 mm | 246, stuck at 15.5 s | 164, stuck at 15 s |
+| +5 mm | 180, through | 180, through |
+| -5 mm | 58, stuck at 12.5 s | 345, reaches 15 s |
+| +10 mm | 345, stuck at 13 s | 347, reaches 25 s |
+| -10 mm | 345, stuck at 14.5 s | 346, reaches 30 s |
+
+Without a rail, the same code: 236 s, through at the second release, so the rail is kept and no shorter or steeper one measured.
+
+**Changes in `build-track.ts`.** A lean must keep the next dot within the lane. A gap piece beyond the pace limit is taken only when nothing else solves the hit. A release ends at the first hit nothing solves, since the first 10 s cost about 30 searches and a stuck hit up to 75; backing up from a stuck hit stays for a build with no other release to try. Releases are tried by size, smallest first. Budget back to 6 searches per hit, from 9.
+
+**Jingle Bells, imported, Node**
+
+| | Before | After |
+| --- | --- | --- |
+| One thread | 460 to 633 s, 804 s under load | 222 s |
+| Pool of 6 | not measured | 77 s |
+| Attempts | 4 and the one that goes on | 2 |
+| Searches | about 1100 | 371 |
+
+Where the 77 s goes, by release: 0 mm 46 s to 14.5 s (simulate 10.5, Auto place 15, gap pieces 16.6, Continue 3.5); +5 mm 31 s through (simulate 7, Auto place 11.6, gap pieces 9.2, Continue 2.5). One thread: 136 s and 86 s. Same searches in both, so the pool picks the same track. 115/115, preflight clean but for the song, no rolls, no double strikes, nothing touching. The first release still gets stuck, so this is about 30 s from the 60 s hoped for, and +5 mm going well is one song's luck: other songs may need more releases.
+
+**Layers.** A start rail is the first row under its marble and counts first among the Rails, in `namePiecesInOrder` and `renumberDefaultNames` alike.
+
+**Melody at the top edge.** At 0:00.6 Melody and Bass were each 0.96 of a half frame out, each pushing the frame the other way. The opening asked for 1.155 m and the slow zoom smoothed that to 1.01 m. The opening now stands at the furthest it needs, in both cameras, easing back over 6 s so the zoom stays within 6 cm a second. Melody peaks at 0.91 of the frame, was 1.02.
+
+**E2E tests the rail work had loosened.** Back as they were: the opening's margins (10 %, 5 %), the preflight's "The camera follows Melody there", a stable edit's one break, except where two marbles strike each other, which breaks one each (Piece 1-2 by 1°), and the build's time limits. A start rail's contact now has to be its own marble's. Left as adapted: the windmill test sits where Melody is furthest, as at 20 s the windmill moves Melody by 3 microns before the strike; Fix Hits recovers after 6 notes and not after 7, which belongs to this track.
+
+Checks: `typecheck`, `lint` (7 warnings, none new), `test` 856, `camera:check`, `test:e2e` whole: 36 of 38, the 2 being the windmill and the stable edit above, those two files rerun after the change. Not run: Blender checks other than `camera:check`, `cargo test`, a build in the app.
 
 ## Decided, not built
 
