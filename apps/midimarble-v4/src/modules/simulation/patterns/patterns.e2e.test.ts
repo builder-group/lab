@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, type TEntity, type TProject, type TProjectCommand } from '@/modules/project';
 import { createSimulator, type TSimulator } from '../simulate';
-import { extraStrikes, rollingHits, touchingPairs } from '../track-look';
+import { extraStrikes, rollingHits, touchingPairs } from '../track-problems';
 import type { TSimulationResult } from '../types';
 import { measurePattern } from './measures';
 import { runGroupChange } from './run-group';

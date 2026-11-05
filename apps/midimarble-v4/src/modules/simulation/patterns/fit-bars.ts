@@ -3,7 +3,7 @@ import { gravityOf } from '../geometry';
 import { platformDefinition } from '../pieces';
 import { createLinkedPiece } from '../placement';
 import type { TSimulator } from '../simulate';
-import { rollingHits } from '../track-look';
+import { rollingHits } from '../track-problems';
 import type { TMarbleSample, TSimulationResult } from '../types';
 
 // Zigzag and Staircase: decide the shape first, then solve each bar's tilt, and optionally its bounce, against the real
@@ -16,6 +16,7 @@ const COLUMN_CLOSE = 0.003;
 export const COLUMN_PROBLEM = 0.01;
 
 export const BAR_LENGTH = 0.03;
+/** The steepest a bar tilts unless asked otherwise */
 export const MAX_TILT = 40;
 
 export interface TBarShape {
@@ -92,6 +93,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 	const times = new Map(lane.hits.map((hit) => [hit.id, hit.time]));
 	const length = shape.barLength ?? BAR_LENGTH;
 	const maxTilt = (shape.maxTilt ?? MAX_TILT) * DEGREE;
+	const scanTilt = Math.floor((shape.maxTilt ?? MAX_TILT) / 4) * 4;
 	let sims = 0;
 	const run = (next: TProject, until: number): TSimulationResult => {
 		sims++;
@@ -239,8 +241,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 			for (const seed of seeds.map((item) => clamp(item, 0.1, 0.95))) {
 				let previous: TTrial | null = null;
 				const roots: TTrial[] = [];
-				for (let step = -40; step <= 40; step += 4) {
-					if (Math.abs(step) * DEGREE > maxTilt) continue;
+				for (let step = -scanTilt; step <= scanTilt; step += 4) {
 					const item = trial(step * DEGREE, seed);
 					keep(item);
 					if (previous != null && !previous.why.length && !item.why.length && previous.errX * item.errX <= 0) {

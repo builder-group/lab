@@ -3,7 +3,8 @@ import { applyProjectCommands, createProject, type TProject, type TProjectComman
 import { createSimulator, type TSimulator } from '../simulate';
 import { fitPattern } from './fit-pattern';
 import { measurePattern } from './measures';
-import { dropForBounce, runGroupChange } from './run-group';
+import { startRailId } from '../placement';
+import { dropForBounce, flattenCommands, patternOfPiece, runGroupChange } from './run-group';
 
 // Real fits of a few hits, which an otherwise busy machine runs several times slower
 vi.setConfig({ testTimeout: 30_000 });
@@ -80,6 +81,20 @@ describe('fitPattern function', () => {
 		expect(fit.problems.every((problem) => problem.hitId.length > 0 && /[a-z]/.test(problem.words) && !problem.words.includes('undefined'))).toBe(true);
 	});
 
+	it('should build the Width asked, tilt past the usual limit only when asked, and offer a Width that fits in words', () => {
+		const project = smallProject([1, 1.14, 1.28, 1.42, 1.56]);
+		const usual = fitPattern({ project, laneId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, offersNearestWidth: true }, { sim });
+		const steep = fitPattern({ project, laneId: LANE, hitIds: ids(1, 5), kind: 'zigzag', width: 0.3, drop: 0.08, maxTilt: 70 }, { sim });
+		const steepest = (fit: typeof usual): number => Math.max(...fit.entities.map((entity) => Math.abs(entity.components.hitLink?.angle ?? 0) * (180 / Math.PI)));
+
+		expect(usual.width).toBe(0.3);
+		expect(steep.width).toBe(0.3);
+		expect(steepest(usual)).toBeLessThanOrEqual(40.01);
+		expect(steepest(steep)).toBeGreaterThan(40);
+		expect(steep.notes[0]).toContain('past the usual 40°');
+		expect(usual.problems.some((problem) => problem.words.includes('of tilt') && !problem.words.includes('limit'))).toBe(true);
+	});
+
 	it('should fill a long silence with a Long Rail that lets go in time for the next note', () => {
 		const project = smallProject([1, 2.2]);
 		const placed = fitPattern({ project, laneId: LANE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
@@ -122,6 +137,52 @@ describe('runGroupChange function', () => {
 		expect(next.groups?.[0]).toMatchObject({ name: 'Zigzag', kind: 'zigzag', from: 1, to: 2.2, width: 0.14 });
 		expect(next.groups?.[0]?.pieceIds).toHaveLength(4);
 		expect(outcome.measures?.onTime).toBe(4);
+	});
+
+	it('should keep skins when a Group runs again', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2]);
+		const made = apply(project, runGroupChange(project, change, { sim }).commands);
+		const group = made.groups?.[0];
+		const [bar] = made.entities.filter((entity) => group?.pieceIds.includes(entity.id));
+		const dressed = apply(made, [{ type: 'upsertEntity', entity: { ...bar!, components: { ...bar!.components, skin: { assetId: 'platform:gift' } } } }]);
+		const again = apply(dressed, runGroupChange(dressed, { ...change, groupId: group!.id, width: 0.16 }, { sim }).commands);
+
+		expect(again.entities.find((entity) => entity.id === bar!.id)?.components.skin?.assetId).toBe('platform:gift');
+		expect(again.groups?.[0]?.width).toBe(0.16);
+	});
+
+	it('should open a track on a Long Rail before the first note, from a release at the start of the range', () => {
+		const project = smallProject([2, 2.4]);
+		const outcome = runGroupChange(project, { ...change, kind: 'longRail', from: 0.5, to: 1.95 }, { sim });
+		const next = apply(project, outcome.commands);
+		const result = sim.simulate(next);
+		const marble = next.entities.find((entity) => entity.components.marble != null);
+
+		expect(outcome.problems).toEqual([]);
+		expect(marble?.components.release?.time).toBe(0.5);
+		expect(next.groups?.[0]?.pieceIds).toEqual([startRailId(LANE)]);
+		expect((marble?.components.release?.position.y ?? 0) - (result.hits[0]?.dot?.y ?? 0)).toBeLessThan(0.6);
+	});
+
+	it('should report a long fall inside a range', () => {
+		const project = { ...smallProject([1, 1.25, 1.5, 2.14, 2.38]), physics: { gravityScale: 1 } };
+		const outcome = runGroupChange(project, { ...change, to: 2.38 }, { sim });
+
+		expect(outcome.problems.some((problem) => /falls [\d.]+ m/.test(problem.words) && problem.words.includes('Long Rail'))).toBe(true);
+	});
+
+	it('should flatten to plain pieces that later Groups leave alone', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
+		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
+		const firstGroup = first.groups?.[0];
+		expect(patternOfPiece(first, firstGroup?.pieceIds[0] ?? '')?.id).toBe(firstGroup?.id);
+		const flat = apply(first, flattenCommands(firstGroup!));
+
+		expect(flat.groups).toBeUndefined();
+		expect(flat.entities).toHaveLength(first.entities.length);
+		expect(patternOfPiece(flat, firstGroup?.pieceIds[0] ?? '')).toBeNull();
+		const next = apply(flat, runGroupChange(flat, { ...change, from: 2.2, to: 3 }, { sim }).commands);
+		expect(next.entities.filter((entity) => firstGroup?.pieceIds.includes(entity.id))).toEqual(flat.entities.filter((entity) => firstGroup?.pieceIds.includes(entity.id)));
 	});
 
 	it('should refuse a Long Rail over notes and a Zigzag over silence, in words', () => {

@@ -370,8 +370,11 @@ export const SGroup = z.strictObject({
 	width: z.number().positive(),
 	bounce: z.number().min(0).max(1),
 	pieceIds: z.array(SId),
-	// What the last run used and couldn't do, shown beside the tiles
+	// The steepest a bar may tilt, in degrees, when asked for; absent is the usual limit
+	maxTilt: z.number().positive().optional(),
+	// Written by older runs, when a Width could be changed silently; nothing reads it
 	widthUsed: z.number().positive().optional(),
+	// What the last run couldn't do, shown beside the tiles
 	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
 });
 

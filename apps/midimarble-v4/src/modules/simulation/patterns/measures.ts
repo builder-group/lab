@@ -1,5 +1,5 @@
 import type { TProject } from '@/modules/project';
-import { extraStrikes, rollingHits, touchingPairs } from '../track-look';
+import { extraStrikes, rollingHits, touchingPairs } from '../track-problems';
 import type { TSimulationResult } from '../types';
 
 const DEGREE = Math.PI / 180;
