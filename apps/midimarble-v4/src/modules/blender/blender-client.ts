@@ -141,7 +141,7 @@ export const blender = {
 			'render_film',
 			{
 				preset: options.preset,
-				engine: options.engine ?? 'eevee',
+				engine: 'eevee',
 				outputPath: options.outputPath,
 				audioPath: options.audioPath ?? null,
 				...(options.jobId != null ? { jobId: options.jobId } : {}),
@@ -341,16 +341,14 @@ export interface TInspectResult {
 	fps: number;
 }
 
-export type TRenderPreset = 'draft' | 'fast' | 'balanced' | 'best';
+export type TRenderPreset = 'draft' | 'balanced';
 
 /** Engine a film renders with; the draft preset always uses Workbench */
 export type TFilmEngine = 'eevee' | 'cycles' | 'workbench';
 
 export interface TRenderFilmOptions {
-	/** Draft 720p 30 fps in Workbench, Fast 720p 30 fps, Balanced 1080p 30 fps, Best 1080p 60 fps; short side for portrait frames */
+	/** Draft 720p 30 fps in Workbench, Final (`balanced`) 1080p 30 fps in Eevee; short side for portrait frames */
 	preset: TRenderPreset;
-	/** Eevee by default; Cycles for final quality. Ignored by the draft preset, which renders with Workbench. */
-	engine?: 'eevee' | 'cycles';
 	/** Package-relative `.mp4` path */
 	outputPath: string;
 	/** Package-relative WAV muxed as AAC */

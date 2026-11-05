@@ -120,7 +120,6 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.zoom100' },
 			{ command: 'view.fitAll' },
 			{ command: 'view.fitSelection' },
-			{ command: 'view.fitFrame' },
 			'separator',
 			{ command: 'view.snap' },
 			{ command: 'view.showHitboxes' },

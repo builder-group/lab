@@ -68,6 +68,8 @@ export interface TScatterPanel {
 	seed: number;
 	/** How many items the latest scatter placed */
 	count: number;
+	/** Scatter stopped at the most items it places */
+	isAtMost: boolean;
 	/** The undo step the panel's scatters fold into; null until the first scatter */
 	group: number | null;
 }
@@ -102,7 +104,7 @@ export function openScatterPanel(cx: StudioCx, sources?: string[]): void {
 	if (cx.project == null) return;
 	cx.$workspace.set('design');
 	const offered = new Set(scatterItems(cx).map((item) => item.id));
-	const panel: TScatterPanel = { sources: sources ?? readScatterChoice().filter((source) => offered.has(source)), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, group: null };
+	const panel: TScatterPanel = { sources: sources ?? readScatterChoice().filter((source) => offered.has(source)), density: DEFAULT_SCATTER_DENSITY, seed: 1, count: 0, isAtMost: false, group: null };
 	$scatterPanel.set(panel);
 	if (sources != null && sources.length > 0) runScatter(cx, panel);
 }
@@ -119,14 +121,15 @@ export function runScatter(cx: StudioCx, panel: TScatterPanel): void {
 		const resolved = resolveDecorSource(cx, source);
 		return resolved != null ? [resolved] : [];
 	});
-	const count = scatter(cx, items, panel.density, panel.seed, panel.group);
-	if (count == null) return;
+	const placed = scatter(cx, items, panel.density, panel.seed, panel.group);
+	if (placed == null) return;
+	const { count, isAtMost } = placed;
 	rememberScatterChoice(panel.sources);
-	$scatterPanel.set({ ...panel, count, group: panel.group ?? cx.editGroup });
+	$scatterPanel.set({ ...panel, count, isAtMost, group: panel.group ?? cx.editGroup });
 }
 
 /** Replaces what Scatter Decor placed; the number of items placed, null when the run or its camera isn't there */
-export function scatter(cx: StudioCx, items: readonly TDecorSource[], density: number, seed: number, group: number | null = null): number | null {
+export function scatter(cx: StudioCx, items: readonly TDecorSource[], density: number, seed: number, group: number | null = null): { count: number; isAtMost: boolean } | null {
 	const project = cx.project;
 	const result = cx.simulation.$result.get();
 	const track = project != null && result != null ? filmCamera(project, result).track : null;
@@ -134,10 +137,10 @@ export function scatter(cx: StudioCx, items: readonly TDecorSource[], density: n
 		cx.notify('The track is still updating. Try Scatter Decor again in a moment');
 		return null;
 	}
-	const { commands, count } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: $blenderObjects.get() });
+	const { commands, count, isAtMost } = scatterDecorCommands(project, result, track, { items, density, seed, blenderObjects: $blenderObjects.get() });
 	if (group != null && cx.editGroup === group) cx.execute(commands, { group });
 	else cx.execute(commands);
-	return count;
+	return { count, isAtMost };
 }
 
 function resolveDecorSource(cx: StudioCx, source: string): TDecorSource | null {

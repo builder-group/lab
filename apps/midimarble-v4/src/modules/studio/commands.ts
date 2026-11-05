@@ -318,7 +318,6 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.zoomOut', workspace: 'compose', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomBy(0.5) },
 	{ id: 'view.zoom100', workspace: 'compose', title: 'Zoom to 100%', section: 'View', shortcut: '⌘0', keywords: 'actual size reset real', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.zoomTo100() },
 	{ id: 'view.fitAll', workspace: 'compose', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all whole run overview everything', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitAll() },
-	{ id: 'view.fitFrame', workspace: 'compose', title: 'Zoom to Film Frame', section: 'View', shortcut: '⇧3', keywords: 'frame film width follow marble', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.fitFrame() },
 	{ id: 'view.fitSelection', workspace: 'compose', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => compose(cx)?.fitSelection() },
 	{
 		id: 'view.snap',
@@ -716,7 +715,6 @@ export type TCommandId =
 	| 'view.zoom100'
 	| 'view.fitAll'
 	| 'view.fitSelection'
-	| 'view.fitFrame'
 	| 'view.showHitboxes'
 	| 'view.follow'
 	| 'view.audioScrubbing'

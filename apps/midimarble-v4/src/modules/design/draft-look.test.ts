@@ -210,7 +210,7 @@ describe('previewScreenTitleLayout function', () => {
 	it('should draw a 4.7 % Song Name under 6 % of the preview frame for a 9 by 16 project', () => {
 		// The project frame is an aspect, not pixels: a 4.7 % title must not grow to the encoder's 8 px minimum of a 16 px film
 		const frame = { width: 318, height: 566 };
-		for (const preset of ['draft', 'fast', 'balanced', 'best'] as const) {
+		for (const preset of ['draft', 'balanced'] as const) {
 			const layout = previewScreenTitleLayout(
 				'songName',
 				0.047,

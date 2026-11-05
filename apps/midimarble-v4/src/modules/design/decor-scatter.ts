@@ -96,7 +96,7 @@ export function scatterPlacements(project: TProject, result: TSimulationResult, 
 }
 
 /** Replaces what Scatter Decor placed before with a new scatter, as one edit */
-export function scatterDecorCommands(project: TProject, result: TSimulationResult, track: TCameraTrack, options: TScatterOptions): { commands: TProjectCommand[]; count: number } {
+export function scatterDecorCommands(project: TProject, result: TSimulationResult, track: TCameraTrack, options: TScatterOptions): { commands: TProjectCommand[]; count: number; isAtMost: boolean } {
 	const kept = decorList(project.design).filter((item) => item.scattered !== true);
 	const names = kept.map((item) => item.name);
 	const placed = scatterPlacements(project, result, track, options).map((placement): TDecor => {
@@ -104,7 +104,7 @@ export function scatterDecorCommands(project: TProject, result: TSimulationResul
 		names.push(decor.name);
 		return { ...decor, scale: placement.scale, rotation: placement.rotation, scattered: true };
 	});
-	return { commands: setDecorList([...kept, ...placed]), count: placed.length };
+	return { commands: setDecorList([...kept, ...placed]), count: placed.length, isAtMost: placed.length >= MAX_ITEMS };
 }
 
 /** Everything a scatter keeps its distance from besides runs and pieces: the user's decor, titles on the wall and Blender's objects */

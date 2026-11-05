@@ -329,7 +329,7 @@ export const SDesign = z.strictObject({
 	// The Decor layers
 	decor: z.array(SDecor),
 	madeInBlender: z.array(SMadeInBlender),
-	renderPreset: z.enum(['draft', 'fast', 'balanced', 'best']),
+	renderPreset: z.enum(['draft', 'balanced']),
 	camera: z.strictObject({
 		mode: z.enum(['rig', 'manual']),
 		distance: z.number().positive(),

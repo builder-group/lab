@@ -36,7 +36,6 @@ export async function renderFilm(
 	const outputPath = options.outputPath ?? `renders/film-${preset}.mp4`;
 	const [isStartedOk, startedErr, started] = await blender.startRenderFilm(packagePath, {
 		preset,
-		engine: options.engine,
 		outputPath,
 		audioPath: SOUNDTRACK_PATH,
 		samples: options.samples
@@ -88,7 +87,7 @@ function pollWait(ms: number): Promise<void> {
 	});
 }
 
-export interface TRenderFilmHelperOptions extends Partial<Pick<TRenderFilmOptions, 'preset' | 'engine' | 'samples'>> {
+export interface TRenderFilmHelperOptions extends Partial<Pick<TRenderFilmOptions, 'preset' | 'samples'>> {
 	resolveSourceUrl: TResolveSourceUrl;
 	/** The project as the soundtrack hears it, with muted Parts left out (`soundtrackProject`); defaults to `project` */
 	soundtrack?: TProject;

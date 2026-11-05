@@ -2,7 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, defaultTitleColor, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/design/design-commands';
-import { filmFileName, getRenderPreset } from '@/modules/design/export-estimate';
+import { filmFileName } from '@/modules/design/export-estimate';
 import { framingProblemAt, preflightExport } from '@/modules/design/export-preflight';
 import { addShotCommands, shotKinds } from '@/modules/design/shots';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
@@ -37,7 +37,7 @@ const PROJECT_EXECUTE = 'project.execute';
 const EDIT_SELECT = 'edit.select';
 const REMOVE_PACK = 'design.removePack';
 /** The export sheet's words for the presets, which `export_film` takes as well as their ids */
-const QUALITY_WORDS: Record<string, 'draft' | 'fast' | 'balanced' | 'best'> = { draft: 'draft', fast: 'fast', standard: 'fast', balanced: 'balanced', high: 'balanced', best: 'best' };
+const QUALITY_WORDS: Record<string, 'draft' | 'balanced'> = { draft: 'draft', final: 'balanced', balanced: 'balanced' };
 
 /** Commands that ask a person through a panel, with what they need instead */
 const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
@@ -227,13 +227,12 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	},
 
 	export_film: async (cx, args) => {
-		const { quality: word, path } = z.object({ quality: z.enum(['draft', 'fast', 'standard', 'balanced', 'high', 'best']).optional(), path: SPath.optional() }).parse(args);
+		const { quality: word, path } = z.object({ quality: z.enum(['draft', 'final', 'balanced']).optional(), path: SPath.optional() }).parse(args);
 		const quality = word != null ? QUALITY_WORDS[word] : undefined;
 		if (cx.project == null) return noProject(cx);
 		if (quality != null && !cx.film.isRunning) {
 			await settled(cx);
 			cx.film.updateSettings({ preset: quality, ...(path != null ? { fileName: filmFileName(path), chosenPath: path } : {}) });
-			if (getRenderPreset(quality).engine !== 'workbench') cx.film.updateSettings({ engine: 'eevee' });
 			void cx.film.start();
 			await sleep(50);
 		}

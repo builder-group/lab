@@ -2134,7 +2134,6 @@ export class ComposeCx {
 				return true;
 			case 'fit':
 				if (action.target === 'all') this.fitAll();
-				else if (action.target === 'frame') this.fitFrame();
 				else this.fitSelection();
 				return true;
 			case 'tool':

@@ -4,10 +4,10 @@ import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
-import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
+import type { TRenderPreset } from '@/modules/blender';
 import { mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
-import { estimateExport, filmEngine, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate, type TRenderEngine } from './export-estimate';
+import { estimateExport, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate } from './export-estimate';
 import { ExportPreflight, useExportPreflight } from './ExportPreflight';
 import type { TExportJob } from './FilmExportCx';
 
@@ -78,9 +78,8 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 
 	const duration = result?.duration ?? project.end;
 	const preset = getRenderPreset(settings.preset);
-	const isFlat = preset.engine === 'workbench';
 	const size = filmSize(project.frame, settings.preset);
-	const estimate = estimateExport({ duration, frame: project.frame, preset: settings.preset, engine: settings.engine, measured: measured[filmEngine(settings.preset, settings.engine)], preview });
+	const estimate = estimateExport({ duration, frame: project.frame, preset: settings.preset, measured: measured[preset.engine], preview });
 
 	return (
 		<>
@@ -108,33 +107,6 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 						cx.execute([{ type: 'setDesign', design: { renderPreset: value as TRenderPreset } }]);
 					}}
 				/>
-				<span className="mm-form-label">Lighting</span>
-				<div className="flex items-center gap-1.5">
-					<div className="mm-segmented" role="radiogroup" aria-label="Lighting">
-						{engines.map((engine) => (
-							<button
-								key={engine.id}
-								role="radio"
-								aria-checked={!isFlat && settings.engine === engine.id}
-								data-active={!isFlat && settings.engine === engine.id}
-								disabled={isFlat}
-								onClick={() => cx.film.updateSettings({ engine: engine.id })}
-								title={engine.tooltip}
-								type="button"
-							>
-								{engine.label}
-							</button>
-						))}
-					</div>
-					<HelpTip
-						side="right"
-						text={
-							isFlat
-								? 'Draft uses flat colours to check motion. Standard and up can use Fast or Realistic'
-								: 'Fast: quick light. Realistic: light as a camera sees it, much slower'
-						}
-					/>
-				</div>
 				<label htmlFor="export-name">Save As</label>
 				<div className="flex gap-1.5">
 					<input
@@ -164,7 +136,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					{estimate.basis === 'none' ? (
 						<HelpTip side="left" text="Shows once Blender has drawn a preview" />
 					) : (
-						<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, filmEngine(settings.preset, settings.engine))}</span>
+						<span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span>
 					)}
 				</div>
 			</div>
@@ -279,11 +251,6 @@ const SheetHeader: React.FC<{ title: string; subtitle?: string; icon?: React.Rea
 	);
 };
 
-const engines: { id: TRenderEngine; label: string; tooltip: string }[] = [
-	{ id: 'eevee', label: 'Fast', tooltip: 'Materials and light, quick to render (Blender Eevee)' },
-	{ id: 'cycles', label: 'Realistic', tooltip: 'Light as a camera sees it, much slower (Blender Cycles)' }
-];
-
 /** One line for the export's state, shared by the sheet and the toolbar activity view */
 export function exportStatusLabel(job: TExportJob): string {
 	switch (job.phase) {
@@ -304,10 +271,10 @@ export function exportStatusLabel(job: TExportJob): string {
 	}
 }
 
-function basisLabel(basis: TExportEstimate['basis'], engine: TFilmEngine): string {
-	if (basis === 'measured') return `From your last ${engine === 'eevee' ? 'Fast' : engine === 'cycles' ? 'Realistic' : 'Draft'} export`;
+function basisLabel(basis: TExportEstimate['basis'], preset: TRenderPreset): string {
+	if (basis === 'measured') return `From your last ${getRenderPreset(preset).label} export`;
 	if (basis === 'typical') return 'Typical Draft speed';
-	return engine === 'cycles' ? 'Rough guess from the preview' : 'From the playhead preview';
+	return 'From the playhead preview';
 }
 
 function folderOf(path: string): string {

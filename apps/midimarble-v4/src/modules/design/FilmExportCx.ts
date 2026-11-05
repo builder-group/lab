@@ -4,7 +4,7 @@ import { blender, renderFilm, type TFilmEngine, type TRenderFilmResult, type TRe
 import { soundtrackProject, type TResolveSourceUrl, type TSongMix } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import type { DesignCx } from './DesignCx';
-import { filmFileName, type TMeasuredRender, type TRenderEngine } from './export-estimate';
+import { filmFileName, type TMeasuredRender } from './export-estimate';
 
 const MEASURED_KEY = 'midimarble-v4:measured-render';
 const RENDERS_FOLDER = 'renders';
@@ -15,7 +15,7 @@ const RENDERS_FOLDER = 'renders';
  */
 export class FilmExportCx {
 	readonly $isSheetOpen = createState(false);
-	readonly $settings = createState<TExportSettings>({ preset: 'balanced', engine: 'eevee', fileName: 'Film.mp4', chosenPath: null });
+	readonly $settings = createState<TExportSettings>({ preset: 'balanced', fileName: 'Film.mp4', chosenPath: null });
 	readonly $job = createState<TExportJob>(IDLE_JOB);
 	/** Per-frame times of earlier film renders by engine, for the estimate */
 	readonly $measured = createState<Partial<Record<TFilmEngine, TMeasuredRender>>>(readMeasured());
@@ -89,7 +89,6 @@ export class FilmExportCx {
 			resolveSourceUrl: this.source.resolveSourceUrl,
 			soundtrack: soundtrackProject(project, this.source.getMix()),
 			preset: settings.preset,
-			engine: settings.engine,
 			outputPath: output.relativePath,
 			// The worker writes inside the package; a location outside it receives a copy when the film is done
 			destinationPath: output.outsidePackage ? (settings.chosenPath ?? undefined) : undefined,
@@ -152,7 +151,6 @@ export interface TFilmExportSource {
 
 export interface TExportSettings {
 	preset: TRenderPreset;
-	engine: TRenderEngine;
 	/** File name of the film, ending in `.mp4` */
 	fileName: string;
 	/** Absolute path from the save panel, if one was chosen */

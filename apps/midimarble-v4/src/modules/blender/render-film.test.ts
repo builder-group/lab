@@ -67,7 +67,7 @@ describe('renderFilm function', () => {
 
 		const [isOk, , film] = await renderFilm('/tmp/Song.marble', project, {
 			resolveSourceUrl: () => null,
-			preset: 'fast',
+			preset: 'draft',
 			pollIntervalMs: 0,
 			onProgress: (value) => seen.push(value.progress)
 		});
@@ -76,7 +76,7 @@ describe('renderFilm function', () => {
 		expect(film).toEqual(result);
 		expect(write).toHaveBeenCalledWith('/tmp/Song.marble', SOUNDTRACK_PATH, new Uint8Array([1, 2, 3]));
 		expect(start).toHaveBeenCalledWith('/tmp/Song.marble', {
-			preset: 'fast',
+			preset: 'draft',
 			engine: undefined,
 			outputPath: 'renders/film-fast.mp4',
 			audioPath: SOUNDTRACK_PATH,
@@ -94,7 +94,7 @@ describe('renderFilm function', () => {
 
 		const [isOk, , film] = await renderFilm('/tmp/Song.marble', project, {
 			resolveSourceUrl: () => null,
-			preset: 'fast',
+			preset: 'draft',
 			outputPath: 'renders/Song.mp4',
 			destinationPath: '/Users/me/Movies/Song.mp4',
 			pollIntervalMs: 0

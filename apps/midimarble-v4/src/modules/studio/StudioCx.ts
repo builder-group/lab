@@ -94,7 +94,7 @@ export class StudioCx {
 	/** The revision the last undo or redo landed on, whose run no notice speaks about */
 	readonly $historyReveal = createState<{ revision: number } | null>(null);
 	// `agent` is the chat's panel, unmounted since MCP became the main path (design-language.md, Round 9); nothing opens it
-	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true, agent: false });
+	readonly $panels = createState<Record<TStudioPanel, boolean>>({ sidebar: true, inspector: true, timeline: true });
 	// Zero fits the timeline to its lanes until the user drags it to a height of their own
 	readonly $timelineHeight = createState(readNumber(TIMELINE_HEIGHT_KEY, 0));
 	readonly $paletteOpen = createState(false);
@@ -115,8 +115,6 @@ export class StudioCx {
 	readonly $showHitboxes = createState(false);
 	/** Dragging the playhead on the ruler plays the song where it is, like Logic's Scrub. Remembered on this Mac. */
 	readonly $audioScrubbing = createState(readText(AUDIO_SCRUBBING_KEY) !== 'off');
-	/** Text and mentions the unmounted chat's composer takes over once */
-	readonly $agentDraft = createState<TAgentDraft | null>(null);
 	readonly sources = new SourcesCx(this);
 	readonly hints = new HintsCx(this);
 	readonly simulation = new SimulationCx(this);
@@ -1100,13 +1098,7 @@ function hasFix(notice: TNotice): boolean {
 }
 
 export type TWorkspace = 'compose' | 'design';
-export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline' | 'agent';
-
-/** A message the agent composer starts with; `mentionIds` are layer ids or `scene` */
-export interface TAgentDraft {
-	text: string;
-	mentionIds: string[];
-}
+export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline';
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';
 const OPEN_PROJECT_KEY = 'midimarble-v4:open-project';

@@ -16,7 +16,7 @@ export interface TDescentPace {
 	limit: number;
 }
 
-/** Hard limit of a dot's distance from y* that the assists accept */
+/** How far from y* the assists place a dot by default; a person's edit may go anywhere */
 export const PACE_LIMIT = 0.25;
 /**
  * Highest a bounce may rise above its takeoff at Earth's gravity before the gap counts as long and needs a
@@ -25,8 +25,9 @@ export const PACE_LIMIT = 0.25;
  * bounce at half gravity rose through the two pieces above it.
  */
 export const MAX_BOUNCE_RISE = 0.4;
-const MIN_RATE = 0.15;
-const MAX_RATE = 0.8;
+// The range of descent, in metres per second, Next and Build Track aim for: only what they aim at, never a limit on a person's edit
+const MIN_DEFAULT_RATE = 0.15;
+const MAX_DEFAULT_RATE = 0.8;
 // Intervals longer than this are long notes, not the rhythm
 const RHYTHM_INTERVAL = 0.8;
 const DEFAULT_INTERVAL = 0.3;
@@ -70,7 +71,7 @@ export function paceRate(project: TProject): number {
 		(((1 - bounce) / (1 + bounce)) * g * median) / 2,
 		marbles > 1 ? columnRate(median, g) : 0
 	);
-	return Math.min(MAX_RATE, Math.max(MIN_RATE, rate));
+	return Math.min(MAX_DEFAULT_RATE, Math.max(MIN_DEFAULT_RATE, rate));
 }
 
 /**

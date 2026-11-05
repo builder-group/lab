@@ -50,7 +50,7 @@ export const ScatterPanel: React.FC<{ cx: StudioCx }> = (props) => {
 			<div className="flex items-center gap-1.5">
 				<Wand2 size={13} strokeWidth={1.8} />
 				<span className="flex-1 font-medium">Scatter Decor</span>
-				<span className="text-[11px] text-[var(--text-secondary)]">{panel.sources.length === 0 ? 'Pick items' : !hasScattered ? '' : panel.count === 1 ? '1 item' : `${panel.count} items`}</span>
+				<span className="text-[11px] text-[var(--text-secondary)]">{panel.sources.length === 0 ? 'Pick items' : !hasScattered ? '' : panel.isAtMost ? `${panel.count} items, the most` : panel.count === 1 ? '1 item' : `${panel.count} items`}</span>
 				<button className="mm-icon-button !h-5 !w-5" onClick={() => $scatterPanel.set(null)} title="Done (esc)" aria-label="Done" type="button">
 					<X size={11} strokeWidth={2} />
 				</button>

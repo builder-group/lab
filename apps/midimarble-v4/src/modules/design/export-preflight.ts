@@ -7,6 +7,7 @@ import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
 import { $blenderObjects, decorOverlaps, overlapLabel, type TBlenderObject } from './decor';
+import { getRenderPreset } from './export-estimate';
 import { addWideShotCommands } from './shots';
 
 /**
@@ -681,7 +682,7 @@ const framings = new WeakMap<TSimulationResult['marbles'], Map<string, TFraming 
 export function checkFraming(project: TProject, result: TSimulationResult): TFraming | null {
 	if (project.design.camera.mode === 'manual') return null;
 	// `renderFps`: the film's frame rate, which the Draft Preview's camera uses too
-	const fps = project.design.renderPreset === 'best' ? 60 : 30;
+	const { fps } = getRenderPreset(project.design.renderPreset);
 	const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${result.duration}`;
 	let byKey = framings.get(result.marbles);
 	if (byKey == null) {

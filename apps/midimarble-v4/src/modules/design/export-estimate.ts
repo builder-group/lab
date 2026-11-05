@@ -1,44 +1,34 @@
 import type { TFilmEngine, TRenderPreset } from '@/modules/blender';
 
-/** Renderer chosen in the export sheet; the draft preset renders with Workbench instead */
-export type TRenderEngine = 'eevee' | 'cycles';
-
 export interface TRenderPresetInfo {
 	id: TRenderPreset;
 	label: string;
 	/** Short side of the film in pixels; the long side follows the project frame */
 	shortSide: number;
 	fps: number;
-	/** Engine the preset always renders with, whatever renderer is chosen */
-	engine?: TFilmEngine;
+	engine: TFilmEngine;
 	/** What sets the preset apart in the picker, beside its size: `Flat Light`, `60 fps` */
 	detail?: string;
 }
 
 /**
- * Export qualities from words.md: Draft, Standard, High, Best; the ids are older names kept in saved projects.
- * No 4K. Draft and Standard share a size; Draft renders flat colours without lighting (Workbench).
+ * Export qualities from words.md: Draft to check motion in seconds, in flat colours without lighting (Workbench), and
+ * Final for the film (Eevee). `balanced` is Final's id in saved projects and in the Blender worker. Blender itself is
+ * there for other renderers and sizes.
  */
 export const renderPresets: readonly TRenderPresetInfo[] = [
 	{ id: 'draft', label: 'Draft', shortSide: 720, fps: 30, engine: 'workbench', detail: 'Flat Light' },
-	{ id: 'fast', label: 'Standard', shortSide: 720, fps: 30 },
-	{ id: 'balanced', label: 'High', shortSide: 1080, fps: 30 },
-	{ id: 'best', label: 'Best', shortSide: 1080, fps: 60, detail: '60 fps' }
+	{ id: 'balanced', label: 'Final', shortSide: 1080, fps: 30, engine: 'eevee' }
 ];
 
 export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {
-	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[2] as TRenderPresetInfo);
+	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[1] as TRenderPresetInfo);
 }
 
-/** Quality picker entry: `Draft · 720p · Flat Light`, `High · 1080p`, `Best · 1080p · 60 fps` */
+/** Quality picker entry: `Draft · 720p · Flat Light`, `Final · 1080p` */
 export function renderPresetOption(preset: TRenderPresetInfo): string {
 	const size = `${preset.label} · ${preset.shortSide}p`;
 	return preset.detail != null ? `${size} · ${preset.detail}` : size;
-}
-
-/** Engine a film renders with: the preset's own engine, or the chosen renderer */
-export function filmEngine(preset: TRenderPreset, engine: TRenderEngine): TFilmEngine {
-	return getRenderPreset(preset).engine ?? engine;
 }
 
 /** Film size in pixels for a frame aspect, with even sides as video encoders expect */
@@ -74,8 +64,6 @@ export interface TExportEstimate {
 	basis: 'measured' | 'preview' | 'typical' | 'none';
 }
 
-// Note: Cycles per-frame time is guessed from Eevee previews; a measured Cycles render replaces the guess
-const CYCLES_FACTOR = 12;
 // Encoding and muxing after the last frame, relative to the render time
 const ENCODE_OVERHEAD = 0.05;
 // Draft (Workbench) films at 720x1280 measured 53 ms per frame for reference-20 and 70 ms for Jingle Bells
@@ -91,13 +79,12 @@ export function estimateExport(options: {
 	duration: number;
 	frame: { width: number; height: number };
 	preset: TRenderPreset;
-	engine: TRenderEngine;
 	measured?: TMeasuredRender | null;
 	preview?: { renderMs: number; width: number; height: number } | null;
 }): TExportEstimate {
 	const { preset, measured, preview } = options;
-	const engine = filmEngine(preset, options.engine);
-	const frames = filmFrameCount(options.duration, getRenderPreset(preset).fps);
+	const { engine, fps } = getRenderPreset(preset);
+	const frames = filmFrameCount(options.duration, fps);
 	const size = filmSize(options.frame, preset);
 	const pixels = size.width * size.height;
 	let msPerFrame: number | null = null;
@@ -109,7 +96,7 @@ export function estimateExport(options: {
 		msPerFrame = WORKBENCH_TYPICAL_MS * (pixels / WORKBENCH_TYPICAL_PIXELS);
 		basis = 'typical';
 	} else if (preview != null && preview.renderMs > 0 && preview.width * preview.height > 0) {
-		msPerFrame = preview.renderMs * (pixels / (preview.width * preview.height)) * (engine === 'cycles' ? CYCLES_FACTOR : 1);
+		msPerFrame = preview.renderMs * (pixels / (preview.width * preview.height));
 		basis = 'preview';
 	}
 	const seconds = msPerFrame == null ? null : ((frames * msPerFrame) / 1000) * (1 + ENCODE_OVERHEAD);

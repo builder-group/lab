@@ -5,6 +5,7 @@ import { blender, buildSceneDescription, type TApplySceneResult, type TPreviewFr
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { $blenderObjects } from './decor';
+import { getRenderPreset } from './export-estimate';
 import { sceneSignature } from './live-preview';
 import { LivePreviewCx } from './LivePreviewCx';
 
@@ -307,7 +308,7 @@ export interface TDesignPreview {
 }
 
 export function renderFps(project: TProject): number {
-	return project.design.renderPreset === 'best' ? 60 : 30;
+	return getRenderPreset(project.design.renderPreset).fps;
 }
 
 export interface TDesignLink {
