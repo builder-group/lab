@@ -192,13 +192,27 @@ describe('checkPattern function', () => {
 		const built = { ...apply(project, made.commands), track: { ...apply(project, made.commands).track, groups: [] } };
 		const dotOf = (next: TProject, hitId: string) => sim.simulate(next).hits.find((hit) => hit.hitId === hitId)?.dot;
 
-		const check = checkPattern(built, { marbleId: MARBLE, from: 1.8, to: 2.6, kind: 'staircase' }, { sim });
+		const check = checkPattern(built, { marbleId: MARBLE, from: 1.8, to: 2.6, kind: 'zigzag' }, { sim });
 		const after = apply(built, check.commands);
 
 		expect(check.refusal).toBeNull();
 		expect(check.movedAfter).toBe(0);
 		for (const hitId of ['h7', 'h8']) expect(Math.hypot((dotOf(after, hitId)?.x ?? 0) - (dotOf(built, hitId)?.x ?? 0), (dotOf(after, hitId)?.y ?? 0) - (dotOf(built, hitId)?.y ?? 0))).toBeLessThan(0.01);
 		expect(sim.simulate(after).hits.every((hit) => hit.status === 'onTime')).toBe(true);
+	});
+
+	it('should say how many pieces move with the marble when it can not follow the track', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3, 3.4, 3.8]);
+		const made = checkPattern(project, { marbleId: MARBLE, from: 1, to: 3.8, kind: 'zigzag', width: 0.14 }, { sim });
+		const built = { ...apply(project, made.commands), track: { ...apply(project, made.commands).track, groups: [] } };
+		const dotOf = (next: TProject, hitId: string) => sim.simulate(next).hits.find((hit) => hit.hitId === hitId)?.dot;
+
+		const check = checkPattern(built, { marbleId: MARBLE, from: 1.8, to: 2.6, kind: 'staircase', width: 0.14 }, { sim });
+
+		if (check.refusal != null) return;
+		const after = apply(built, check.commands);
+		const moved = Math.hypot((dotOf(after, 'h8')?.x ?? 0) - (dotOf(built, 'h8')?.x ?? 0), (dotOf(after, 'h8')?.y ?? 0) - (dotOf(built, 'h8')?.y ?? 0));
+		expect(check.movedAfter > 0).toBe(moved > 0.005);
 	});
 
 	it('should keep a rail that already holds a silence, changing nothing else', () => {

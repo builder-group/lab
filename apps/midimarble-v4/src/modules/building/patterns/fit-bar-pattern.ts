@@ -121,6 +121,11 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 		const end = along?.dots.get(ender?.id ?? last.id);
 		const hops = ids.length - 1;
 		const sideOf = (x: number): number => Math.sign(x - start.position.x) || 1;
+		const secondDot = along?.dots.get(ids[1] ?? '');
+		const center = frameBand(world.project).centerX;
+		// A Zigzag crosses the way the track does; a Staircase goes where the end is if that's far, and otherwise stays in frame
+		const firstSide = secondDot != null ? -sideOf(secondDot.x) : end != null ? -sideOf(end.x) : 1;
+		const stairs = end != null && Math.abs(end.x - start.position.x) > (shape.width * hops) / 2 ? sideOf(end.x) : sideOf(center);
 		const keptRail = along != null && following != null ? railOn(made.project, marbleId, last.id) : null;
 		const leave = ender == null ? along?.leaves.get(last.id) : undefined;
 		const done = made.bars.length;
@@ -133,7 +138,7 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 				endAt: end,
 				// The shape keeps the height the track has now, and a marble landing in the column nearer the end crosses toward it first
 				drop: Math.max(0.03, ((start.position.y - end.y) / hops) * dropShare),
-				dir: shape.kind === 'staircase' ? sideOf(end.x) : (along?.side ?? -sideOf(end.x))
+				dir: shape.kind === 'staircase' ? stairs : (along?.side ?? firstSide)
 			} : {})
 		}, (bar) => onBar(done + bar, total));
 		made.project = fit.project;

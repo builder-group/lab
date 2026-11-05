@@ -188,19 +188,18 @@ function attemptsOf(project: TProject, ask: TPatternAsk, sim: TSimulator): TAtte
 	return attempts.slice(0, MAX_ATTEMPTS);
 }
 
-/** Without a Width asked: what the track's own hops span, then the usual one and a little wider, and a Staircase's steps stay in frame */
+/** Without a Width asked: for a Zigzag what the track's own hops span, then the usual one and a little wider; for a Staircase steps that stay in frame */
 function widthsOf(project: TProject, kind: string, hits: readonly { id: string }[], course: ReadonlyMap<string, TVec2>, nextId: string | null, usual: number): number[] {
-	const { halfWidth } = frameBand(project);
-	const inFrame = kind === 'staircase' ? Math.max(MIN_STEP, Math.min(usual, (halfWidth * 2) / Math.max(1, hits.length))) : usual;
+	if (kind === 'staircase') {
+		const inFrame = Math.max(MIN_STEP, Math.min(usual, (frameBand(project).halfWidth * 2) / Math.max(1, hits.length)));
+		return [inFrame, Math.max(MIN_STEP, inFrame * 0.7)];
+	}
+	if (kind !== 'zigzag') return [usual];
 	const dots = [...hits.map((hit) => hit.id), ...(nextId != null ? [nextId] : [])].flatMap((id) => course.get(id) ?? []);
-	const own = (): number | null => {
-		if (dots.length < 2) return null;
-		const hops = dots.slice(1).map((dot, index) => Math.abs(dot.x - (dots[index]?.x ?? dot.x))).sort((a, b) => a - b);
-		const hop = hops[Math.floor(hops.length / 2)] ?? 0;
-		return kind === 'zigzag' ? Math.max(usual * 0.8, hop + BAR_LENGTH / 2) : Math.max(MIN_STEP, hop);
-	};
-	const followed = own();
-	return [...new Set([...(followed != null ? [Math.round(followed * 100) / 100] : []), inFrame, ...(kind === 'zigzag' ? [usual + 0.02, usual + 0.04] : [Math.max(MIN_STEP, inFrame * 0.7)])])];
+	const hops = dots.slice(1).map((dot, index) => Math.abs(dot.x - (dots[index]?.x ?? dot.x))).sort((a, b) => a - b);
+	const hop = hops[Math.floor(hops.length / 2)];
+	const own = hop != null ? Math.round(Math.max(usual * 0.8, hop + BAR_LENGTH / 2) * 100) / 100 : null;
+	return [...new Set([...(own != null ? [own] : []), usual, usual + 0.02, usual + 0.04])];
 }
 
 /** Where the marble is now at each note a piece plays, and how it leaves it: until a rail after the note takes over, or a moment after */
@@ -310,8 +309,9 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	// The next platforms take up the change, as a local edit does; the track after them stays where it was
 	const { answer } = answerSettle(sim, { before, after }, null);
 	const settled = answer.pieces.length > 0 ? { ...after, track: { ...after.track, pieces: after.track.pieces.map((piece) => answer.pieces.find((item) => item.id === piece.id) ?? piece) } } : after;
-	const settledRun = standing(settled, sim.simulate(settled));
-	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.pieces.map((piece) => ({ type: 'addPiece' as const, piece }))], movedAfter: 0 };
+	const settledResult = sim.simulate(settled);
+	const settledRun = standing(settled, settledResult);
+	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.pieces.map((piece) => ({ type: 'addPiece' as const, piece }))], movedAfter: changedPlaces(before, settled, sim, settledResult) };
 	// Or everything after it moves with the marble, staying on time, which is said
 	const freeResult = sim.simulate(after);
 	const freeRun = standing(after, freeResult);
@@ -325,7 +325,7 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	return refused({ marbleId: named?.marbleId ?? marbleId, hitId: named?.hitId ?? null, words: `${label} would break what follows: ${first?.title ?? 'a later hit no longer plays'}. Nothing changed.` });
 }
 
-/** How many pieces after the Pattern stand somewhere else in the run */
+/** How many pieces outside the Pattern stand somewhere else in the run */
 function changedPlaces(before: TProject, after: TProject, sim: TSimulator, result: TSimulationResult): number {
 	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.entityId, piece.position]));
 	const made = new Set(changedPieces(before, after).map((piece) => piece.id));

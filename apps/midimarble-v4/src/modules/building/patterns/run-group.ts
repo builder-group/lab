@@ -1,6 +1,6 @@
 import { isPatternGroup, type THit, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import type { TSimulationResult, TSimulator } from '@/modules/simulation';
-import { gravityOf, LONG_FALL, soundsHit, touchingPairs } from '@/modules/simulation';
+import { gravityOf, LONG_FALL, soundsHit, startRailOf, touchingPairs } from '@/modules/simulation';
 import { RELEASE_LEAD } from '../reachability';
 import { arrivalAt } from './arrival';
 import type { THitVerdict, TPatternCourse, TPatternMoment } from './contract';
@@ -197,7 +197,8 @@ function hasPiecesBefore(project: TProject, marble: TMarble, time: number, excep
 function startFor(project: TProject, marble: TMarble, hit: THit): number | null {
 	const lead = hit.time - marble.start.time;
 	const fall = (Math.abs(gravityOf(project)) * lead * lead) / 2;
-	if (lead >= MIN_LEAD && fall < LONG_FALL) return null;
+	// A start rail holds the marble through most of its lead, and sets out from a release of its own
+	if (lead >= MIN_LEAD && (fall < LONG_FALL || startRailOf(project, marble.id) != null)) return null;
 	const before = [...marble.hits].reverse().find((item) => item.time < hit.time)?.time ?? -Infinity;
 	return Math.max(0, Math.min(hit.time - MIN_LEAD, Math.max(hit.time - RELEASE_LEAD, before + 0.01)));
 }
