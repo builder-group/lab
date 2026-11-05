@@ -1,6 +1,7 @@
 """Flat Light frames show the theme's colours: the median colour of a Flat Light frame, which is the wall's, stays
 close to the Fast frame's in every built-in theme and in project themes with a changed Wall colour, and is the same at
-two points of the film whatever the camera does. Live Preview's Flat Light and the Draft export share these settings.
+two points of the film whatever the camera does. The Draft export renders with these settings; Live Preview's Eevee
+frame is the Fast one.
 
 Expects the package `blender:preview` writes (`tsx scripts/export-blender-fixture.ts jingle-bells .local/preview/package brass 30`).
 
@@ -15,16 +16,17 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mm_worker.live_preview import FAST_SAMPLES, FLAT_SAMPLES  # noqa: E402
+from mm_worker.live_preview import SAMPLES as FAST_SAMPLES  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.preview import temporary  # noqa: E402
-from mm_worker.render import engine_settings  # noqa: E402
+from mm_worker.render import PRESETS, engine_settings  # noqa: E402
 
 OUT = Path(__file__).resolve().parents[2] / '.local' / 'preview'
 PACKAGE = OUT / 'package'
 VARIANT = '.cache/flat-check.json'
 # Channels of 8-bit display colour; the Fast wall is mottled and its grid or peg holes move the median a little
 TOLERANCE = 12
+FLAT_SAMPLES = PRESETS['draft']['workbench']
 FRAMES = (300, 760)
 WIDTH, HEIGHT = 360, 640
 CASES = (
