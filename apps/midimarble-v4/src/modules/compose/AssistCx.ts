@@ -551,7 +551,7 @@ export class AssistCx {
 					expected = this.studio.project?.revision ?? expected;
 					if (hit != null && !this.studio.$playing.get()) {
 						this.studio.$playhead.set(hit.targetTime);
-						this.studio.$reveal.set({ ids: [toHitKey(hit.laneId, hit.hitId)] });
+						this.studio.$reveal.set({ ids: [toHitKey(hit.laneId, hit.hitId)], isZoomKept: from != null });
 					}
 					return true;
 				},
@@ -580,15 +580,28 @@ export class AssistCx {
 		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
 		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
-		const report = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
+		await this.studio.lengthenForCatch();
+		const built = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
+		const end = this.studio.project?.end ?? project.end;
+		const report = end !== project.end ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {
 			const broken = brokenHits(result.hits).length;
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [this.fixAction()] : [], { details: report.details });
 		} else this.studio.notify(report.message);
-		// A person's build ends with its result in view; an agent's leaves their view alone
-		if (!this.studio.isInAgentStep) this.studio.$compose.get()?.fitOnceSimulated();
+		// A person's build ends with its result in view and the song from the top; a rebuild keeps the zoom, back at the
+		// hit it started from. An agent's leaves their view alone
+		if (!this.studio.isInAgentStep && !this.studio.$playing.get()) {
+			if (from == null) {
+				this.studio.$playhead.set(0);
+				this.studio.$compose.get()?.fitOnceSimulated();
+			} else {
+				const at = project.music.lanes.find((lane) => lane.id === from.laneId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+				if (at != null) this.studio.$playhead.set(at);
+				this.studio.$reveal.set({ ids: [toHitKey(from.laneId, from.hitId)], isZoomKept: true });
+			}
+		}
 		return outcome;
 	}
 
@@ -890,7 +903,7 @@ export class AssistCx {
 
 	/**
 	 * Add Bowl: a Bowl on the marble's fall after its last note, which what-if runs found to catch it, break no
-	 * hit and touch no other marble or its pieces, as one undo step. The film length follows when it follows the song.
+	 * hit and touch no other marble or its pieces, as one undo step. A film that would end before the catch is lengthened.
 	 */
 	async addBowl(laneId: string): Promise<void> {
 		const project = this.studio.project;
@@ -907,7 +920,8 @@ export class AssistCx {
 			}
 			if (!this.studio.execute(placed.commands)) return;
 			this.studio.$selection.set([placed.entity.id]);
-			this.studio.notifyEdit(placed.message);
+			const lengthened = await this.studio.lengthenForCatch();
+			this.studio.notifyEdit(lengthened != null ? `${placed.message} The film now runs to ${formatTime(lengthened)}, to show the catch.` : placed.message);
 		} catch (error) {
 			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
 		} finally {

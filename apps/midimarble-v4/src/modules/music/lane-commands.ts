@@ -181,51 +181,8 @@ export function fitsSong(project: TProject): boolean {
 }
 
 /**
- * The length after an edit of the hits or the Bowls, while it follows the song: the last hit plus `filmTail`, so
- * a tapped project ends with its last hit instead of filming 8 s of empty wall, and a Bowl added for the last
- * marble lengthens the film to show the catch. A measured Bowl tail carries over until the next measurement.
- * `before` is the project the edit started from; a length the user set, an edit without notes and an edit that keeps
- * the length give null.
- */
-export function autoEnd(before: TProject, after: TProject): number | null {
-	if (!isAutoEnd(before)) return null;
-	const last = lastHitTime(after);
-	if (last == null) return null;
-	const lastBefore = lastHitTime(before);
-	const measured = endsOnBowl(before) && endsOnBowl(after) && lastBefore != null ? before.end - lastBefore : null;
-	const fitted = measured != null && measured > BOWL_TAIL_MIN - 0.005 && measured < BOWL_TAIL_MAX + 0.005 ? songEnd(last, measured) : songEnd(last, filmTail(after));
-	const end = Math.max(fitted, startingLength(after, before.end));
-	return Math.abs(end - after.end) < 1e-6 ? null : end;
-}
-
-/**
- * The length a project without a song or a Bowl keeps whatever its hits do, so tapping never shrinks the film: only Fit
- * to Song takes it in. Else 0, and the tail rule decides.
- */
-export function startingLength(project: TProject, current: number): number {
-	return project.music.sources.length > 0 || endsOnBowl(project) ? 0 : current;
-}
-
-/** Whether an edit changes notes without setting the length itself, so the length may follow the song (`autoEnd`) */
-export function changesHitsOnly(commands: readonly TProjectCommand[]): boolean {
-	if (commands.some((command) => command.type === 'setEnd')) return false;
-	return commands.some((command) => HIT_COMMANDS.has(command.type));
-}
-
-/**
- * Whether an edit that does not set the length changes the film's tail, by adding or removing the Bowl of a marble
- * that plays last, so the length may follow the song (`autoEnd`)
- */
-export function changesTail(commands: readonly TProjectCommand[], before: TProject, after: TProject): boolean {
-	if (commands.some((command) => command.type === 'setEnd')) return false;
-	return filmTail(before) !== filmTail(after);
-}
-
-const HIT_COMMANDS = new Set<TProjectCommand['type']>(['upsertLane', 'removeLane', 'upsertHits', 'removeHits', 'assignHits']);
-
-/**
- * Fit to Song to offer where the user set the length: the fitted length when the song ends more than
- * `FIT_OFFER_GAP` before it, or after it, so its last hits are cut off. Null while the length follows the song.
+ * Fit to Song to offer: the fitted length when the song ends more than `FIT_OFFER_GAP` before the film, or after it, so
+ * its last hits are cut off. Null for a new project's untouched length, which nothing has asked to be anything.
  */
 export function fitToSongOffer(project: TProject): number | null {
 	const end = projectSongEnd(project);

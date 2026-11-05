@@ -177,7 +177,7 @@ export class PatternsCx {
 		const width = nearestWidth != null && settings.width !== nearestWidth ? nearestWidth : null;
 		const actions = width != null ? [{ label: `Try Width ${Math.round(width * 100)} cm`, title: 'The nearest Width with no problems', run: () => void this.apply(target, kind, { ...settings, width }) }] : [];
 		this.studio.notify(words, 'error', { actions });
-		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.laneId, refusal.hitId)] });
+		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.laneId, refusal.hitId)], isZoomKept: true });
 	}
 
 	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */

@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, startingLength, type TAudioEngine, type TSongMix } from '@/modules/music';
+import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, type TAudioEngine, type TSongMix } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -30,7 +30,6 @@ import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 import { shownRepeatRange, toggledRepeatRange, type TRepeatRange, type TRepeatSpan } from './repeat-range';
 import { fittedSongEnd } from '@/modules/camera/bowl-exit';
-import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
@@ -90,7 +89,6 @@ export class StudioCx {
 	composeView: { projectId: string; view: TView } | null = null;
 	/** The playback T started: whether the length followed the song then, and whether a tap added a hit */
 	private tapSession: { isAutoEnd: boolean; hasTapped: boolean } | null = null;
-	private tailTimer: ReturnType<typeof setTimeout> | null = null;
 	readonly $notice = createState<TNotice | null>(null);
 	/**
 	 * Selection keys and an optional wall point the Compose canvas should bring into view, set by lists
@@ -362,7 +360,6 @@ export class StudioCx {
 			this.$selection.set(target.ids);
 			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
 		}
-		// After the selection, which moves the playhead to a selected piece's own hit
 		if (target.time != null) this.$playhead.set(target.time);
 	}
 
@@ -664,6 +661,7 @@ export class StudioCx {
 		this.$save.set('saved');
 		this.$selection.set([]);
 		this.$hidden.set([]);
+		this.hiddenByMarble.clear();
 		this.$locked.set([]);
 		this.$playhead.set(0);
 		this.$workspace.set('compose');
@@ -691,13 +689,7 @@ export class StudioCx {
 			return false;
 		}
 		// Default piece names follow time order, so a new piece for an earlier hit takes the lower number
-		let named = releaseFollowsFirstHit(history.present, renumberDefaultNames(history.present, edited), commands);
-		// While the length follows the song, it ends with the last hit, or with the catch once the last marble has a
-		// Bowl; taps fit it once tapping stops
-		if (this.tapSession == null && (changesHitsOnly(commands) || changesTail(commands, history.present, named))) {
-			const end = autoEnd(history.present, named);
-			if (end != null) named = { ...named, end };
-		}
+		const named = releaseFollowsFirstHit(history.present, renumberDefaultNames(history.present, edited), commands);
 		if (this.agentStep != null) this.agentStep.didEdit = true;
 		const next = options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group ?? this.agentStep?.group);
 		if (this.agentStep == null && options.amend !== true && !this.stepLabels.has(next.groups.present)) {
@@ -706,7 +698,6 @@ export class StudioCx {
 		}
 		this.$history.set(next);
 		this.scheduleSave();
-		if (this.tapSession == null && changesBowlEnding(commands)) this.measureBowlTail();
 		return true;
 	}
 
@@ -808,26 +799,22 @@ export class StudioCx {
 	}
 
 	/**
-	 * While the length follows the song and ends on a Bowl, an edit of the notes or the Bowl measures the tail in a
-	 * what-if run shortly after and folds the length into that edit's undo step, so the length needs no run to be
-	 * known at the edit itself. A newer edit restarts it.
+	 * The film length stays what it was typed, dragged or fitted to, with one need: a Bowl just built has to be seen to
+	 * catch. A film that would end first is lengthened, in the same undo step, and never shortened.
 	 */
-	private measureBowlTail(): void {
-		if (this.tailTimer != null) clearTimeout(this.tailTimer);
-		this.tailTimer = setTimeout(() => {
-			this.tailTimer = null;
-			const project = this.project;
-			const client = this.simulation.assists;
-			if (project == null || client == null || !endsOnBowl(project) || !isAutoEnd(project)) return;
-			void fittedSongEnd(project, (trial) => client.simulateAssist(trial)).then((end) => {
-				if (end == null || this.project !== project || Math.abs(end - project.end) < 0.005) return;
-				// The length following the song is no new edit, so the notice of the edit stays
-				this.isRefittingEnd = true;
-				this.execute([{ type: 'setEnd', end }], { amend: true });
-				this.isRefittingEnd = false;
-			});
-		}, TAIL_MEASURE_DELAY);
+	async lengthenForCatch(): Promise<number | null> {
+		const project = this.project;
+		const client = this.simulation.assists;
+		if (project == null || client == null || !endsOnBowl(project)) return null;
+		const end = await fittedSongEnd(project, (trial) => client.simulateAssist(trial));
+		if (end == null || this.project !== project || end <= project.end + 0.005) return null;
+		// The length is no new edit, so the notice of the edit stays
+		this.isRefittingEnd = true;
+		this.execute([{ type: 'setEnd', end }], { amend: true });
+		this.isRefittingEnd = false;
+		return end;
 	}
+
 
 	/** The undo group of the latest edit, for folding later commands into it or binding a notice's Undo to it */
 	get editGroup(): number | null {
@@ -847,9 +834,24 @@ export class StudioCx {
 		return marble.id;
 	}
 
+	/** The pieces a marble's eye hid, which its eye shows again; one hidden by its own eye stays hidden, like Blender's Outliner */
+	private hiddenByMarble = new Map<string, string[]>();
+
 	toggleHidden(id: string): void {
-		this.$hidden.set((ids) => toggleItem(ids, id));
-		if (this.$hidden.get().includes(id)) this.$selection.set(this.$selection.get().filter((item) => item !== id));
+		const hidden = this.$hidden.get();
+		const laneId = this.project?.entities.find((entity) => entity.id === id)?.components.marble?.laneId;
+		const isHiding = !hidden.includes(id);
+		const pieces = isHiding && laneId != null ? (this.project?.entities ?? []).filter((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === laneId && !hidden.includes(entity.id)).map((entity) => entity.id) : (this.hiddenByMarble.get(id) ?? []);
+		if (isHiding) {
+			this.hiddenByMarble.set(id, pieces);
+			this.$hidden.set([...hidden, id, ...pieces]);
+			const gone = new Set([id, ...pieces]);
+			this.$selection.set(this.$selection.get().filter((item) => !gone.has(item)));
+			return;
+		}
+		const shown = new Set([id, ...pieces]);
+		this.hiddenByMarble.delete(id);
+		this.$hidden.set(hidden.filter((item) => !shown.has(item)));
 	}
 
 	toggleLocked(id: string): void {
@@ -970,18 +972,15 @@ export class StudioCx {
 		if (project != null) this.$repeatRange.set({ projectId: project.id, isOn: true, ...range });
 	}
 
-	/** After tapping stops, a length that follows the song ends with the last hit, folded into the last tap's undo step */
+	/** After tapping stops, a film the taps ran past ends with the last hit, folded into the last tap's undo step */
 	private finishTapSession(): void {
 		const session = this.tapSession;
 		this.tapSession = null;
 		const project = this.project;
 		if (session?.hasTapped === true) this.$fitFirstHits.set(true);
-		if (session == null || !session.hasTapped || !session.isAutoEnd || project == null) return;
+		if (session == null || !session.hasTapped || project == null) return;
 		const fitted = projectSongEnd(project);
-		if (fitted == null) return;
-		const end = Math.max(fitted, startingLength(project, project.end));
-		if (Math.abs(end - project.end) > 1e-6) this.execute([{ type: 'setEnd', end }], { amend: true });
-		this.measureBowlTail();
+		if (fitted != null && fitted > project.end + 1e-6) this.execute([{ type: 'setEnd', end: fitted }], { amend: true });
 	}
 
 	undo(): void {
@@ -1158,16 +1157,8 @@ export class StudioCx {
 	}
 }
 
-/** Seconds after an edit before its Bowl tail is measured, so a burst of edits measures once */
-const TAIL_MEASURE_DELAY = 0.4 * 1000;
 // Seconds a T on an existing hit lands after it, while stopped
 const TAP_STEP = 0.5;
-
-/** Whether an edit can move when the last marble leaves the frame: it changes the notes or a Bowl, and not the length */
-function changesBowlEnding(commands: readonly TProjectCommand[]): boolean {
-	if (commands.some((command) => command.type === 'setEnd')) return false;
-	return changesHitsOnly(commands) || commands.some((command) => (command.type === 'upsertEntity' && command.entity.components.piece?.type === BOWL_TYPE) || command.type === 'removeEntities');
-}
 
 /** A notice that offers a fix, or details to read, stays until it is used or closed, or the next edit */
 function hasFix(notice: TNotice): boolean {
