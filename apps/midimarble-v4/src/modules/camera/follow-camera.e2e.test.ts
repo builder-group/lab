@@ -303,7 +303,7 @@ describe('follow camera on whole songs', () => {
 				}
 			}
 		});
-		const held = required(followCameraTrack(withShot(), result, 30));
+		const held = required(followCameraTrack(withShot(2), result, 30));
 		expect(at(held.distance, 7.5 * 30)).toBeLessThan(rig * 0.85);
 		expect(at(held.distance, 11 * 30)).toBeCloseTo(rig, 2);
 		const open = required(followCameraTrack(withShot(0), result, 30));
