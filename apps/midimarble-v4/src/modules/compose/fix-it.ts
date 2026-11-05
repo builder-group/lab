@@ -238,7 +238,7 @@ export async function fixPiece(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
-	deps: Pick<TFixDeps, 'simulate' | 'autoPlace'> & Partial<Pick<TFixDeps, 'gapPiece'>>
+	deps: Pick<TFixDeps, 'simulate' | 'autoPlace'> & Partial<Pick<TFixDeps, 'gapPiece' | 'settle'>>
 ): Promise<TPieceFix> {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const link = entity?.components.hitLink;
@@ -312,17 +312,17 @@ export function problemPieces(project: TProject, result: TSimulationResult): str
 
 /**
  * The Fix of a platform its marble strikes twice or rolls on or of a piece touching another, each try kept only when its what-if clears
- * the piece, breaks no hit, adds no problem and leaves no more pieces touching or struck twice than before. In order of how
- * little they change: for a touching platform a shorter length, which changes nothing in the run, or its strike further
- * along it; then a small turn of the platform, then of the one before it, which sets where the marble arrives; then Auto
- * place for both.
+ * the piece, breaks no hit, adds no problem and moves no problem onto another piece. In order of how little they change:
+ * for a touching platform a shorter length, which changes nothing in the run, or its strike further along it; then a
+ * small turn of the platform, then of the one before it, which sets where the marble arrives; then Auto place for both;
+ * then the small turns again with the next platforms taking up the change, as they do after a turn by hand.
  */
 async function fixProblemPiece(
 	project: TProject,
 	result: TSimulationResult,
 	entityId: string,
 	check: (commands: TProjectCommand[]) => Promise<{ run: TSimulationResult; broken: number; added: TPreflightIssue[] }>,
-	deps: Pick<TFixDeps, 'autoPlace'>
+	deps: Pick<TFixDeps, 'autoPlace'> & Partial<Pick<TFixDeps, 'settle'>>
 ): Promise<TPieceFix> {
 	const name = pieceName(project, entityId);
 	const entity = project.entities.find((item) => item.id === entityId);
@@ -333,9 +333,7 @@ async function fixProblemPiece(
 		.sort((a, b) => b.targetTime - a.targetTime)
 		.slice(0, 2)
 		.flatMap((hit) => project.entities.find((item) => item.id === hit.pieceEntityId) ?? []);
-	const touching = touchingPairs(project, result).length;
-	const strikes = extraStrikes(project, result).length;
-	const rolls = rollingHits(project, result).length;
+	const problemsBefore = new Set(problemPieces(project, result));
 	const isStruck = extraStrikes(project, result).some((strike) => strike.entityId === entityId);
 	const isRolled = rollingHits(project, result).some((roll) => roll.entityId === entityId);
 	const tryCommands = async (commands: TProjectCommand[], did: string): Promise<TPieceFix | null> => {
@@ -343,7 +341,8 @@ async function fixProblemPiece(
 		const what = await check(commands);
 		if (what.broken > 0 || what.added.length > 0) return null;
 		const next = withCommands(project, commands);
-		if (problemPieces(next, what.run).includes(entityId) || touchingPairs(next, what.run).length > touching || extraStrikes(next, what.run).length > strikes || rollingHits(next, what.run).length > rolls) return null;
+		const problemsAfter = problemPieces(next, what.run);
+		if (problemsAfter.includes(entityId) || problemsAfter.some((id) => !problemsBefore.has(id))) return null;
 		return { commands, run: what.run, message: `${did}: ${isStruck ? `the marble now hits ${name} once` : isRolled ? `the marble now bounces off ${name}` : `${name} now stands clear`}` };
 	};
 	const piece = entity?.components.piece;
@@ -380,6 +379,20 @@ async function fixProblemPiece(
 		}
 		const fixed = await tryCommands(replaceCommands(project, placed), `Placed ${pieceName(project, platform.id)} again`);
 		if (fixed != null) return fixed;
+	}
+	const { settle } = deps;
+	if (settle != null) {
+		for (const platform of platforms) {
+			const platformLink = platform.components.hitLink;
+			if (platformLink == null) continue;
+			for (const degrees of SMALL_TURNS) {
+				const value = { ...platformLink, angle: round4(platformLink.angle + degrees * DEGREE) };
+				const turn: TProjectCommand = { type: 'setComponent', entityId: platform.id, component: { name: 'hitLink', value } };
+				const taken = await settle(project, withCommands(project, [turn]));
+				const fixed = await tryCommands([turn, ...taken.map((taker): TProjectCommand => ({ type: 'upsertEntity', entity: taker }))], `Turned ${pieceName(project, platform.id)} by ${degrees}°`);
+				if (fixed != null) return fixed;
+			}
+		}
 	}
 	// Every marble's later hits follow each tilt, so what is left is to build them again from the hit before this one
 	const hits = project.music.lanes.find((lane) => lane.id === link?.laneId)?.hits ?? [];
@@ -519,6 +532,8 @@ export interface TFixDeps {
 	autoPlace: (project: TProject, hit: THitResult, entity: TEntity) => Promise<TEntity>;
 	/** A new rail or tunnel for a long gap, replacing `entityId`; rejects when none fits */
 	gapPiece: (project: TProject, gap: TLongGap, type: TGapPieceType, entityId: string) => Promise<TEntity>;
+	/** The pieces that take up an edit so the rest of the run stays as it was (`settleEdit`) */
+	settle?: (before: TProject, after: TProject) => Promise<TEntity[]>;
 	/** Applies one step's commands; the first step starts the undo step, later ones join it. Null stops. */
 	commit: (project: TProject, commands: TProjectCommand[], isFirst: boolean) => TProject | null;
 	/** `done` of `total` broken hits are fixed and `fraction` (0 to 1) is how far through the song the work is */
@@ -960,9 +975,9 @@ async function fixScenery(fixing: TFixing): Promise<boolean> {
 
 /** With nothing else wrong, what remains is pieces struck twice, rolled on or touching: each gets its own Fix, kept when it passes. False when stopped. */
 async function fixPieces(fixing: TFixing): Promise<boolean> {
-	const { project, result, deps } = fixing;
-	if (brokenHits(result.hits).length > 0 || blockedScenery(project, result).length > 0) return true;
-	for (const entityId of problemPieces(project, result)) {
+	const { deps } = fixing;
+	if (brokenHits(fixing.latest.hits).length > 0 || blockedScenery(fixing.current, fixing.latest).length > 0) return true;
+	for (const entityId of problemPieces(fixing.current, fixing.latest)) {
 		if (isCancelled(fixing)) return false;
 		if (!problemPieces(fixing.current, fixing.latest).includes(entityId)) continue;
 		const fixed = await fixPiece(fixing.current, fixing.latest, entityId, deps);

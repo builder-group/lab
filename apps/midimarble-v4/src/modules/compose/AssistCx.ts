@@ -660,7 +660,7 @@ export class AssistCx {
 	}
 
 	/** The worker calls Fix and Add Bowl need: runs, Auto place and a new bridge for a long gap */
-	private fixDeps(isCancelled?: () => boolean): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece'> | null {
+	private fixDeps(isCancelled?: () => boolean): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'settle'> | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
 		const options = isCancelled != null ? { isCancelled } : undefined;
@@ -668,7 +668,8 @@ export class AssistCx {
 			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
 			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, options)).entity,
-			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity
+			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity,
+			settle: async (before, after) => (await client.settle({ before, after })).entities
 		};
 	}
 
@@ -690,11 +691,21 @@ export class AssistCx {
 	async fix(entityId?: string): Promise<void> {
 		const project = this.studio.project;
 		const result = this.currentResult();
-		if (project == null || result == null || this.fixRun != null || this.buildRun != null) return;
+		if (project == null || this.fixRun != null || this.buildRun != null) return;
+		if (result == null) {
+			this.studio.notify('The run is still being checked. Press Fix again in a moment.');
+			return;
+		}
 		if (project.entities.some((entity) => entity.components.hitLink?.held != null)) await this.fixHeld(project);
 		else if (entityId != null) await this.fixOnePiece(project, result, entityId);
 		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
-		else this.studio.notify('Nothing to fix');
+		else this.studio.notify(this.nothingToFixWords(project, result));
+	}
+
+	/** With problems Fix doesn't mend left, says which needs a hand instead of "Nothing to fix" */
+	private nothingToFixWords(project: TProject, result: TSimulationResult): string {
+		const [first] = problemSummary(preflightExport(project, { ...result, revision: project.revision })).problems;
+		return first != null ? `Fix mends broken hits, double hits, rolls and touching pieces. ${first.title} needs moving by hand.` : 'Nothing to fix';
 	}
 
 	private async fixOnePiece(project: TProject, result: TSimulationResult, entityId: string): Promise<void> {

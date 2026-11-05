@@ -2,7 +2,8 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { assignNotesCommands } from '@/modules/music';
 import { applyProjectCommands, BACKING_ID, createProject, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
+import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
 import { newlyBroken } from './bowl-assist';
@@ -361,4 +362,113 @@ describe('addedProblems function', () => {
 		expect(added.map((issue) => issue.title)).toEqual(['Bass hits Rail 6 of Melody']);
 		expect(ahead).toEqual([]);
 	});
+});
+
+describe('Fix on a small project', () => {
+	let simulator: TSimulator;
+	let track: TProject;
+	const simulate = (project: TProject): TSimulationResult => simulator.simulate(project);
+	const deps = (): TFixDeps => ({
+		simulate: async (project) => simulate(project),
+		autoPlace: async (project, target, entity) => {
+			const [isOk, error, placement] = autoPlace(project, simulate(project), target.laneId, target.hitId, { simulate, type: entity.components.piece?.type });
+			if (!isOk) throw error;
+			return placement.entity;
+		},
+		gapPiece: async () => {
+			throw new Error('No gaps here');
+		},
+		settle: async (before, after) => answerSettle(simulator, { before, after }, null).answer.entities,
+		commit: (project, commands) => {
+			const [isOk, error, next] = applyProjectCommands(project, commands);
+			if (!isOk) throw error;
+			return next;
+		}
+	});
+
+	beforeAll(async () => {
+		simulator = await createSimulator();
+		track = createBareRunProject({ id: 'small', title: 'Small', end: 5, marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.3, 0.45, 8) }] });
+		const lane = track.music.lanes[0];
+		if (lane == null) throw new Error('The project has a lane');
+		for (const [index, note] of lane.hits.entries()) {
+			const entity = createLinkedPiece('platform', lane.id, note.id, index % 2 === 0 ? -0.4 : 0.4, { id: `piece-${index}` });
+			const placed = withCommands(track, [{ type: 'upsertEntity', entity }]);
+			const [isOk, error, placement] = autoPlace(placed, simulate(placed), lane.id, note.id, { simulate, type: 'platform' });
+			if (!isOk) throw error;
+			track = withCommands(placed, [{ type: 'upsertEntity', entity: { ...placement.entity, id: entity.id } }]);
+		}
+	});
+
+	/** The track with one bar tilted, the first way that shows a problem */
+	function tiltedUntil(isShown: (project: TProject, run: TSimulationResult) => boolean): TProject {
+		for (const entity of track.entities) {
+			const link = entity.components.hitLink;
+			if (link == null) continue;
+			for (let angle = -1.3; angle <= 1.3; angle += 0.1) {
+				const next = withCommands(track, [{ type: 'setComponent', entityId: entity.id, component: { name: 'hitLink', value: { ...link, angle } } }]);
+				if (isShown(next, simulate(next))) return next;
+			}
+		}
+		throw new Error('No tilt shows the problem');
+	}
+
+	const cases: [string, () => TProject][] = [
+		['a double hit', () => tiltedUntil((project, run) => extraStrikes(project, run).length > 0)],
+		['a roll', () => tiltedUntil((project, run) => rollingHits(project, run).length > 0)],
+		['a touching pair', () => tiltedUntil((project, run) => touchingPairs(project, run).length > 0)],
+		['a missed hit', () => tiltedUntil((_project, run) => brokenHits(run.hits).length > 0)]
+	];
+
+	it.each(cases)('should clear %s across the whole run', async (_name, make) => {
+		// Prepare
+		const broken = make();
+		const run = simulate(broken);
+		expect(hasFixes(broken, run)).toBe(true);
+
+		// Act
+		const outcome = await fixTrack(broken, run, deps());
+
+		// Assert
+		const after = simulate(outcome.project);
+		expect(brokenHits(after.hits)).toEqual([]);
+		expect(problemPieces(outcome.project, after)).toEqual([]);
+	}, 60_000);
+
+	it('should keep the rest of the run with the next platforms taking up a turn', async () => {
+		// Prepare
+		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
+		const run = simulate(broken);
+		const rolled = rollingHits(broken, run)[0]?.entityId ?? '';
+
+		// Act
+		const withoutSettle = await fixPiece(broken, run, rolled, { simulate: deps().simulate, autoPlace: deps().autoPlace });
+		const fix = await fixPiece(broken, run, rolled, deps());
+
+		// Assert
+		expect(withoutSettle.commands).toBeNull();
+		expect(withoutSettle.message).toContain('Rebuild From Here');
+		const next = withCommands(broken, fix.commands ?? []);
+		const after = simulate(next);
+		expect(problemPieces(next, after)).not.toContain(rolled);
+		expect(newlyBroken(run.hits, after.hits)).toEqual([]);
+	}, 60_000);
+
+	it('should say why when nothing is kept, and never swap one problem for another', async () => {
+		// Prepare
+		const broken = tiltedUntil((project, run) => extraStrikes(project, run).length > 0);
+		const run = simulate(broken);
+		const before = new Set(problemPieces(broken, run));
+
+		for (const entityId of before) {
+			// Act
+			const fix = await fixPiece(broken, run, entityId, deps());
+
+			// Assert
+			expect(fix.message.length).toBeGreaterThan(0);
+			if (fix.commands == null) continue;
+			const next = withCommands(broken, fix.commands);
+			expect(problemPieces(next, simulate(next)).every((id) => before.has(id) && id !== entityId)).toBe(true);
+		}
+	}, 60_000);
 });
