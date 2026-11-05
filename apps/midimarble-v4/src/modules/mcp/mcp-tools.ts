@@ -4,7 +4,6 @@ import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, preflightExport } from '@/modules/building';
-import type { TrackCx } from '@/modules/track';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
@@ -70,15 +69,14 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const project = cx.project;
 		if (project == null) return text(cx, { project: null, note: 'No project is open. Call add_song, or run_command with file.new or file.open.' });
 		const references = cx.$references.get();
-		const assist = cx.$trackCx.get()?.assist;
 		return text(
 			cx,
 			projectState(project, cx.simulation.$result.get(), {
 				path: cx.$path.get(),
 				workspace: cx.$workspace.get(),
 				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
-				building: assist?.$building.get(),
-				lastBuild: assist?.$lastBuild.get(),
+				building: cx.assist.$building.get(),
+				lastBuild: cx.assist.$lastBuild.get(),
 				blenderObjects: cx.film.$blenderObjects.get(),
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
@@ -144,7 +142,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			// The call answers at once, but the agent is still at work until the build ends
 			const end = cx.mcp.presence.begin('Building Track');
 			void editStep(cx, command.title, () => startBuild(cx, command, from ?? undefined, gapPreference(commandArgs))).finally(end);
-			await waitFor(() => cx.$trackCx.get()?.assist.isBuilding === true, 1500);
+			await waitFor(() => cx.assist.isBuilding, 1500);
 			return text(cx, { started: true, note: 'Building. get_state shows building and, when done, lastBuild; build.stop stops it.' });
 		}
 		// What Undo and Redo take back, named beforehand since the step is gone afterward
@@ -273,10 +271,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	// Like build.track, this answers when the build is done, so the reply reports the finished track
 	'build.rebuildFrom': async (cx) => {
 		const stopEpoch = cx.mcp.presence.stopEpoch;
-		const trackCx = await openTrack(cx, 'Rebuild From Here');
-		const from = trackCx.assist.rebuildTarget;
+		openTrack(cx);
+		const from = cx.assist.rebuildTarget;
 		if (from == null) throw new Error('Rebuild From Here needs a hit, or a piece that plays one: select it with args.select.');
-		if (cx.mcp.presence.stopEpoch === stopEpoch) await trackCx.assist.buildTrack(from);
+		if (cx.mcp.presence.stopEpoch === stopEpoch) await cx.assist.buildTrack(from);
 	},
 	'film.addText': async (cx, args) => {
 		addTitle(cx, args);
@@ -417,20 +415,20 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const project = cx.project;
 	if (project == null) return noProject(cx);
 	if (!project.music.lanes.some((lane) => lane.id === laneId)) return fail(cx, `No marble has lane ${laneId}. get_state lists them.`);
-	const trackCx = await openTrack(cx, 'Apply Pattern');
+	openTrack(cx);
 	const stop = cx.mcp.presence.stopEpoch;
 	const settings = { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) };
 	const existing = project.groups?.filter(isPatternGroup).find((group) => group.laneId === laneId && group.kind === kind && Math.abs(group.from - from) < 1e-3 && Math.abs(group.to - to) < 1e-3);
 	const target = { laneId, from, to, ...(existing != null ? { group: existing } : {}) };
-	const report = (answer: Awaited<ReturnType<typeof trackCx.patterns.apply>>): Record<string, unknown> =>
+	const report = (answer: Awaited<ReturnType<typeof cx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
 			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
-		let answer: Awaited<ReturnType<typeof trackCx.patterns.dryRun>> = null;
+		let answer: Awaited<ReturnType<typeof cx.patterns.dryRun>> = null;
 		await cx.runAgentStep('Agent: Try Pattern', async () => {
-			answer = await trackCx.patterns.dryRun(target, kind, settings);
+			answer = await cx.patterns.dryRun(target, kind, settings);
 		});
 		return text(cx, { changed: false, dryRun: true, ...report(answer) });
 	}
@@ -438,7 +436,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	cx.mcp.presence.relabel(label ?? `Fitting ${kind === 'longRail' ? 'Long Rail' : kind === 'zigzag' ? 'Zigzag' : 'Staircase'}`);
 	let reply: Record<string, unknown> = {};
 	return editStep(cx, label ?? 'Apply Pattern', async () => {
-		reply = report(await trackCx.patterns.apply(target, kind, settings));
+		reply = report(await cx.patterns.apply(target, kind, settings));
 	}, {}, () => reply);
 }
 
@@ -499,19 +497,13 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 /** Build Track, which answers when it is done: opens Track first, as `invoke` does */
 async function startBuild(cx: StudioCx, command: TCommand, from?: { laneId: string; hitId: string }, gapPiece?: 'rail' | 'switchback' | 'chain'): Promise<void> {
 	const stopEpoch = cx.mcp.presence.stopEpoch;
-	const trackCx = await openTrack(cx, command.title);
-	if (cx.mcp.presence.stopEpoch === stopEpoch) await trackCx.assist.buildTrack(from, gapPiece);
+	openTrack(cx);
+	if (cx.mcp.presence.stopEpoch === stopEpoch) await cx.assist.buildTrack(from, gapPiece);
 }
 
-async function openTrack(cx: StudioCx, title: string): Promise<TrackCx> {
-	if (cx.$workspace.get() !== 'track') {
-		cx.$workspace.set('track');
-		await waitFor(() => cx.$trackCx.get() != null, 1500);
-	}
-	await sleep(50);
-	const trackCx = cx.$trackCx.get();
-	if (trackCx == null) throw new Error(`${title} needs Track, which didn't open.`);
-	return trackCx;
+/** Shows Track, for the person watching; Assist and Patterns don't wait for its canvas */
+function openTrack(cx: StudioCx): void {
+	cx.$workspace.set('track');
 }
 
 /** `gapPiece` of `build.track`: the piece tried first across a long gap */
@@ -526,13 +518,12 @@ function buildFrom(cx: StudioCx, args: Record<string, unknown>): { laneId: strin
 	if (hitId == null) return null;
 	const lane = cx.project?.music.lanes.find((item) => item.hits.some((hit) => hit.id === hitId));
 	if (lane == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
-	if (cx.$trackCx.get()?.assist.isBuilding === true) return buildRefusal(cx);
+	if (cx.assist.isBuilding) return buildRefusal(cx);
 	return { laneId: lane.id, hitId };
 }
 
 function buildRefusal(cx: StudioCx): string {
-	const assist = cx.$trackCx.get()?.assist;
-	if (assist?.isBuilding === true) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
+	if (cx.assist.isBuilding) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
 	if (cx.project?.music.lanes.some((lane) => lane.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
 	return 'Every hit already has a platform.';
 }
@@ -599,7 +590,7 @@ async function waitUntilFree(cx: StudioCx): Promise<string | null> {
 }
 
 export function busyReason(cx: StudioCx): string | null {
-	if (cx.$trackCx.get()?.assist.isBuilding === true) return 'Build Track is running. get_state shows how far it is; build.stop stops it.';
+	if (cx.assist.isBuilding) return 'Build Track is running. get_state shows how far it is; build.stop stops it.';
 	if (cx.mcp.isPointerDown) return 'The person is in the middle of a drag in MidiMarble. Try again in a moment.';
 	if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return 'MidiMarble is waiting for the person to answer a question. Try again in a moment.';
 	if (cx.sources.$midiImport.get() != null) return 'The person has the Import Song sheet open. Try again in a moment.';
@@ -619,7 +610,7 @@ export async function settled(cx: StudioCx): Promise<void> {
 			since = Date.now();
 		}
 		const isRunCurrent = cx.project == null || cx.simulation.$result.get()?.revision === current;
-		const isAssistFree = !cx.simulation.isSettling && cx.$trackCx.get()?.assist.isAnswering !== true;
+		const isAssistFree = !cx.simulation.isSettling && !cx.assist.isAnswering;
 		if (isRunCurrent && isAssistFree && Date.now() - since >= SETTLE_MS) return;
 		if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return;
 	}

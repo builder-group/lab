@@ -152,7 +152,7 @@ export function hitMenu(cx: StudioCx, lane: TLane, hitId: string): TMenuEntry[] 
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
-		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.$trackCx.get()?.assist.isBuilding === true, onSelect: () => void cx.$trackCx.get()?.assist.buildTrack({ laneId: lane.id, hitId }) },
+		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ laneId: lane.id, hitId }) },
 		'separator',
 		...playedByMenu(cx, moving),
 		'separator',

@@ -44,6 +44,7 @@ export class AssistCx {
 	constructor(private readonly studio: StudioCx) {}
 
 	mount(): () => void {
+		this.forget();
 		this.isMounted = true;
 		const unlisten = [
 			this.studio.simulation.$result.listen(() => {
@@ -67,7 +68,25 @@ export class AssistCx {
 		return () => {
 			this.isMounted = false;
 			for (const stop of unlisten) stop();
+			this.forget();
 		};
+	}
+
+	/** What the canvas's edits built up, which the next time Track opens starts without. A run under way goes on */
+	private forget(): void {
+		this.$ghosts.set(initialGhostState);
+		this.$queuedNext.set(0);
+		this.$lastBuild.set(null);
+		this.continueKey = null;
+		this.pendingContinue = null;
+		this.stuckGap = null;
+		this.queuedNext = null;
+		this.previewKey = null;
+		this.previewRun += 1;
+		this.baseline = null;
+		this.lastGood.clear();
+		this.lastGoodProjectId = null;
+		this.lastFixRevision = null;
 	}
 
 	get hasGhosts(): boolean {

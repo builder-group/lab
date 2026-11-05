@@ -17,7 +17,7 @@ import type { THitFlash } from '@/modules/canvas';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { TrackCx } from '@/modules/track';
-import { withWholePatterns } from '@/modules/track';
+import { AssistCx, PatternsCx, withWholePatterns } from '@/modules/track';
 import { earliestHitTime, releaseFollowsFirstHit, preflightExport, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
@@ -125,6 +125,9 @@ export class StudioCx {
 		resolveSourceUrl: (source) => this.resolveSourceUrl(source),
 		film: this.film
 	});
+	/** Next, Build Track and Fix, whichever workspace is open; the Track canvas attaches their listeners while it's up */
+	readonly assist = new AssistCx(this);
+	readonly patterns = new PatternsCx(this);
 	readonly mcp = new McpCx(this);
 	/** The command registry, for the features and MCP, which don't import the shell */
 	readonly commands = {
@@ -967,9 +970,8 @@ export class StudioCx {
 
 	undo(): void {
 		// While a Pattern fits nothing has changed yet, so ⌘Z stops it
-		const patterns = this.$trackCx.get()?.patterns;
-		if (patterns?.$isRunning.get() === true) {
-			patterns.stop();
+		if (this.patterns.$isRunning.get()) {
+			this.patterns.stop();
 			return;
 		}
 		const history = this.$history.get();

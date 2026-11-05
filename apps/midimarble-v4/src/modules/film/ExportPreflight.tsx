@@ -1,7 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import { ChevronRight, CircleCheck, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 import React from 'react';
-import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/project';
 import { preflightExport, type TExportPreflight, type TPreflightIssue } from '@/modules/building';

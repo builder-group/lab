@@ -1,3 +1,4 @@
+export * from './AssistCx';
 export * from './InsertLibrary';
 export * from './PatternInspector';
 export * from './PatternsCx';

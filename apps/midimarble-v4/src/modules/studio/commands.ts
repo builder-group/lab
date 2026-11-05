@@ -327,7 +327,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.filmExport.openSheet() },
 
 	// MARK: - Edit
-	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0 || cx.$trackCx.get()?.patterns.$isRunning.get() === true, run: (cx) => cx.undo() },
+	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0 || cx.patterns.$isRunning.get(), run: (cx) => cx.undo() },
 	{ id: 'edit.redo', title: 'Redo', section: 'Edit', shortcut: '⇧⌘Z', isEnabled: (cx) => (cx.$history.get()?.future.length ?? 0) > 0, run: (cx) => cx.redo() },
 	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', shortcut: 'F2', isEnabled: (cx) => cx.renameTarget() != null, run: (cx) => cx.renameSelection() },
 	{
@@ -361,7 +361,7 @@ export const commands: readonly TCommand[] = [
 		isEnabled: (cx) => trackCx(cx) != null && selectedPattern(cx) != null,
 		run: (cx) => {
 			const group = selectedPattern(cx);
-			if (group != null) trackCx(cx)?.patterns.flatten(group);
+			if (group != null) cx.patterns.flatten(group);
 		}
 	},
 	{
@@ -502,33 +502,32 @@ export const commands: readonly TCommand[] = [
 		section: 'Track',
 		shortcut: '⇧N',
 		keywords: 'whole song all hits auto build everything bowl solve assist',
-		isEnabled: (cx) => trackCx(cx) != null && trackCx(cx)?.assist.isBuilding !== true && trackCx(cx)?.assist.hasOpenHits === true,
-		run: (cx) => void trackCx(cx)?.assist.buildTrack()
+		isEnabled: (cx) => trackCx(cx) != null && !cx.assist.isBuilding && cx.assist.hasOpenHits,
+		run: (cx) => void cx.assist.buildTrack()
 	},
 	{
 		id: 'build.rebuildFrom',
 		title: 'Rebuild From Here',
 		section: 'Track',
 		keywords: 'build track again rest later after this hit platform steer keep before',
-		isEnabled: (cx) => trackCx(cx) != null && trackCx(cx)?.assist.isBuilding !== true && trackCx(cx)?.assist.rebuildTarget != null,
+		isEnabled: (cx) => trackCx(cx) != null && !cx.assist.isBuilding && cx.assist.rebuildTarget != null,
 		run: (cx) => {
-			const assist = trackCx(cx)?.assist;
-			const from = assist?.rebuildTarget;
-			if (from != null) void assist?.buildTrack(from);
+			const from = cx.assist.rebuildTarget;
+			if (from != null) void cx.assist.buildTrack(from);
 		}
 	},
-	{ id: 'build.stop', title: 'Stop Building Track', section: 'Track', keywords: 'cancel build track', isEnabled: (cx) => trackCx(cx)?.assist.isBuilding === true, run: (cx) => trackCx(cx)?.assist.stopBuild() },
+	{ id: 'build.stop', title: 'Stop Building Track', section: 'Track', keywords: 'cancel build track', isEnabled: (cx) => cx.assist.isBuilding, run: (cx) => cx.assist.stopBuild() },
 	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Track', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.step('repeat') },
 	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Track', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.step('mirror') },
-	{ id: 'build.continue', title: 'Continue Pattern', section: 'Track', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => trackCx(cx)?.assist.hasGhosts === true, run: (cx) => trackCx(cx)?.assist.acceptGhosts() },
+	{ id: 'build.continue', title: 'Continue Pattern', section: 'Track', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => trackCx(cx) != null && cx.assist.hasGhosts, run: (cx) => cx.assist.acceptGhosts() },
 	{
 		id: 'build.fix',
 		title: 'Fix',
 		section: 'Track',
 		shortcut: 'A',
 		keywords: 'place again re-place replace repair auto place solve tilt platforms blocked missed stopped broken on time move clear release',
-		isEnabled: (cx) => trackCx(cx) != null && trackCx(cx)?.assist.isFixing !== true && !isOnlyOnTimePiece(cx),
-		run: (cx) => trackCx(cx)?.assist.fixSelection()
+		isEnabled: (cx) => trackCx(cx) != null && !cx.assist.isFixing && !isOnlyOnTimePiece(cx),
+		run: (cx) => cx.assist.fixSelection()
 	},
 	{
 		id: 'build.addBowl',
@@ -538,7 +537,7 @@ export const commands: readonly TCommand[] = [
 		isEnabled: (cx) => trackCx(cx) != null && bowlLane(cx) != null,
 		run: (cx) => {
 			const laneId = bowlLane(cx);
-			if (laneId != null) void trackCx(cx)?.assist.addBowl(laneId);
+			if (laneId != null) void cx.assist.addBowl(laneId);
 		}
 	},
 	{
@@ -554,7 +553,7 @@ export const commands: readonly TCommand[] = [
 	},
 	{ id: 'piece.follow', title: 'Follow a Marble…', section: 'Track', keywords: 'anchor attach tie follows nearest marble', isEnabled: (cx) => hasPieces(cx) && canFollow(cx), run: (cx) => openFollowMenu(cx) },
 	{ id: 'piece.detach', title: 'Detach', section: 'Track', keywords: 'unlink unanchor untie free none', isEnabled: (cx) => hasPieces(cx) && hasTiedSelection(cx), run: (cx) => detachSelection(cx) },
-	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Track', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => trackCx(cx)?.assist.hasGhosts === true, run: (cx) => trackCx(cx)?.assist.dismiss() },
+	{ id: 'build.dismiss', title: 'Dismiss Suggestions', section: 'Track', shortcut: '⎋', keywords: 'ghosts escape', isEnabled: (cx) => trackCx(cx) != null && cx.assist.hasGhosts, run: (cx) => cx.assist.dismiss() },
 
 	// MARK: - Film
 	{ id: 'film.editInBlender', title: 'Open in Blender', section: 'Film', keywords: 'edit blender window scene', isEnabled: canRunBlender, run: (cx) => void cx.film.openInBlender() },

@@ -62,14 +62,14 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 							step={0.01}
 							unit="cm"
 							format={(value) => (value * 100).toFixed(0)}
-							onCommit={(width) => void trackCx.patterns.apply(target, group.kind, { width })}
+							onCommit={(width) => void trackCx.studio.patterns.apply(target, group.kind, { width })}
 						/>
-						<SliderField id="pattern-bounce" label="Bounce" value={group.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.patterns.apply(target, group.kind, { bounce })} />
-						<SliderField id="pattern-tilt" label="Tilt limit" value={group.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.patterns.apply(target, group.kind, { maxTilt })} />
+						<SliderField id="pattern-bounce" label="Bounce" value={group.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.studio.patterns.apply(target, group.kind, { bounce })} />
+						<SliderField id="pattern-tilt" label="Tilt limit" value={group.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.studio.patterns.apply(target, group.kind, { maxTilt })} />
 					</div>
 				) : null}
 				<TiltNote project={project} group={group} />
-				<button className="mm-button" onClick={() => trackCx.patterns.flatten(group)} title="Keep these pieces as they are, as a plain Group, and remove the Pattern" type="button">
+				<button className="mm-button" onClick={() => trackCx.studio.patterns.flatten(group)} title="Keep these pieces as they are, as a plain Group, and remove the Pattern" type="button">
 					Flatten
 				</button>
 			</TilesPanel>
@@ -127,9 +127,9 @@ const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPa
 						data-applied={applied === kind}
 						onPointerEnter={() => {
 							const [first] = targets;
-							if (first != null) trackCx.patterns.hover(first, kind);
+							if (first != null) trackCx.studio.patterns.hover(first, kind);
 						}}
-						onPointerLeave={() => trackCx.patterns.endHover()}
+						onPointerLeave={() => trackCx.studio.patterns.endHover()}
 						onClick={() => void applyAll(trackCx, targets, kind)}
 						title={TILE_TITLES[kind]}
 						type="button"
@@ -149,12 +149,12 @@ const TilesPanel: React.FC<{ cx: StudioCx; targets: TPatternTarget[]; kinds: TPa
 
 /** Several marbles work one by one for now: each gets its own Group, and a run says if pieces touch */
 async function applyAll(trackCx: TrackCx, targets: TPatternTarget[], kind: TPatternKind): Promise<void> {
-	for (const target of targets) await trackCx.patterns.apply(target, kind);
+	for (const target of targets) await trackCx.studio.patterns.apply(target, kind);
 }
 
 const PatternProblems: React.FC<{ trackCx: TrackCx; failureKey: string; problems: TPatternProblem[] }> = (props) => {
 	const { trackCx, failureKey, problems } = props;
-	const failure = useFeatureState(trackCx.patterns.$failure);
+	const failure = useFeatureState(trackCx.studio.patterns.$failure);
 	const shown = failure != null && failure.key === failureKey ? failure.problems : problems;
 	const [first] = shown;
 	if (first == null) return null;
@@ -209,7 +209,7 @@ const PatternGlyph: React.FC<{ kind: TPatternKind }> = (props) => {
 /** The ghost of the tile the pointer rests on, as Continue's ghosts look */
 export const PatternGhost: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const { trackCx } = props;
-	const preview = useFeatureState(trackCx.patterns.$preview);
+	const preview = useFeatureState(trackCx.studio.patterns.$preview);
 	const camera = useFeatureState(trackCx.$camera);
 	useFeatureState(trackCx.$viewport);
 	if (preview == null) return null;

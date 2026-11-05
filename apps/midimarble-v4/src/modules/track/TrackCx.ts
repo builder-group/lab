@@ -8,8 +8,7 @@ import { anchorHit, findLongGaps, frameBand, gravityOf, layoutOf, linkPieceToHit
 import { patternOfPiece, dotClickAction, ANCHOR_LEAD, asAnchored, asFree, canLink, clearRotorPosition, createFreePiece, displayPiece, isPathPieceType, KEEP_PLAYS_REACH, piecePose, playsDrop, railPath, rotateResolved, withEntity, withSnap, type TPlaysDrop, type TPose, type TSnap, rebaseNodes, withNodeHandle, withNodePoint, lanesWithoutBowl, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
-import { groupSelection, PatternsCx, withWholeGroups } from './PatternsCx';
-import { AssistCx } from './AssistCx';
+import { groupSelection, withWholeGroups } from './PatternsCx';
 import { TrackRenderer, MARBLE_Z, type TTrackCamera } from '@/modules/canvas';
 import { trackKeyAction, toolPieceType, type TTrackKeyAction, type TTrackTool, type TPathType } from './keys';
 import { insertTool, type TInsertItem } from './library';
@@ -58,8 +57,6 @@ export class TrackCx {
 	readonly $placing = createState<TResolvedPiece | null>(null);
 	/** What a drop does, beside the piece dragged in from the Insert library */
 	readonly $insertSnap = createState<{ position: TVec2; snap: TSnap | null } | null>(null);
-	readonly assist: AssistCx;
-	readonly patterns: PatternsCx;
 	/**
 	 * Follow, like Logic's Catch Playhead: the Wall view glides with the focused marble as the playhead moves. Off by
 	 * default and remembered per project on this device; panning or zooming by hand turns it off.
@@ -85,10 +82,7 @@ export class TrackCx {
 	/** Project whose remembered Follow choice `$follow` holds */
 	private followProjectId: string | null = null;
 
-	constructor(readonly studio: StudioCx) {
-		this.assist = new AssistCx(studio);
-		this.patterns = new PatternsCx(studio);
-	}
+	constructor(readonly studio: StudioCx) {}
 
 	get project(): TProject | null {
 		return this.studio.project;
@@ -129,8 +123,9 @@ export class TrackCx {
 			})
 		);
 
-		cleanups.push(this.assist.mount());
-		cleanups.push(this.patterns.mount());
+		// Their listeners run only while the canvas is up, so Film does none of their work
+		cleanups.push(this.studio.assist.mount());
+		cleanups.push(this.studio.patterns.mount());
 
 		// 3D and Camera cover this canvas with their own; the view keeps moving under them, since 3D stands on `$camera`
 		renderer.setPaused(!this.isFlatShown());
@@ -330,7 +325,7 @@ export class TrackCx {
 			const angle = guess.components.hitLink?.angle ?? 0;
 			this.$placing.set(displayPiece(guess, { pose: { position: hit.dot, angle }, dot: hit.dot, velocity: hit.velocity }, this.marbleRadius(hit.laneId)));
 		}
-		void this.assist.place(hit, 'platform').finally(() => this.$placing.set(null));
+		void this.studio.assist.place(hit, 'platform').finally(() => this.$placing.set(null));
 	}
 
 	/** Grip and pivot of the selected piece's rotation handle in screen space */
@@ -1046,7 +1041,7 @@ export class TrackCx {
 	/** A press on a live Pattern's piece selects its Group, as Blender's Array modifier has no pieces of its own to grab */
 	private pressLivePiece(group: TPatternGroup, kind: string, point: TVec2, isShift: boolean): void {
 		if (kind !== 'piece') {
-			this.patterns.tellLocked(group);
+			this.studio.patterns.tellLocked(group);
 			return;
 		}
 		const whole = groupSelection(group);
@@ -1117,7 +1112,7 @@ export class TrackCx {
 				return;
 			}
 			case 'livePiece':
-				if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4) this.patterns.tellLocked(drag.group);
+				if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4) this.studio.patterns.tellLocked(drag.group);
 				return;
 			case 'click': {
 				// A placed hit's dot sits on its platform: pressing there and dragging still moves the platform
@@ -1237,7 +1232,7 @@ export class TrackCx {
 	private onClick(target: TPick | null, point: TVec2, shiftKey: boolean): void {
 		const tool = this.$tool.get();
 		if (target?.kind === 'ghost') {
-			this.assist.acceptGhosts();
+			this.studio.assist.acceptGhosts();
 			return;
 		}
 		if (target?.kind === 'dot') {
@@ -1286,22 +1281,22 @@ export class TrackCx {
 		const project = this.project;
 		const result = this.result;
 		if (project == null || result == null) return;
-		if (this.assist.isPreviewing(hit.laneId, hit.hitId)) {
-			this.assist.acceptGhosts();
+		if (this.studio.assist.isPreviewing(hit.laneId, hit.hitId)) {
+			this.studio.assist.acceptGhosts();
 			return;
 		}
 		const action = dotClickAction(project, result, hit, this.longGapKeys(project).get(`${hit.laneId}:${hit.hitId}`));
 		switch (action.kind) {
 			case 'explain':
-				this.assist.cancelPreview();
-				this.assist.explainUnreachable(project, result, hit);
+				this.studio.assist.cancelPreview();
+				this.studio.assist.explainUnreachable(project, result, hit);
 				return;
 			case 'bridge':
-				this.assist.previewGap(hit, action.fromHitId);
+				this.studio.assist.previewGap(hit, action.fromHitId);
 				return;
 			case 'preview':
 				if (isArmed) this.placePlatform(hit);
-				else this.assist.preview(hit, action.type);
+				else this.studio.assist.preview(hit, action.type);
 		}
 	}
 
@@ -1310,7 +1305,7 @@ export class TrackCx {
 		const found = pick(point, this.pickScene());
 		// The armed piece's own ghost under the pointer isn't there to pick: a click goes to what lies below it
 		const picked = found?.kind === 'piece' && this.project?.entities.some((entity) => entity.id === found.entityId) !== true ? null : found;
-		const ghost = this.assist.clickableGhost;
+		const ghost = this.studio.assist.clickableGhost;
 		if (ghost != null && picked?.kind !== 'dot' && this.$tool.get() === 'select' && isOnGhost(point, this.screenOutline(ghost))) return { kind: 'ghost' };
 		if (picked != null || !this.isSceneryTool()) return picked;
 		// Windmills can also start anywhere on a trajectory, not only at a hit
@@ -1360,7 +1355,7 @@ export class TrackCx {
 		const bowlLane = item === 'bowl' && this.project != null ? lanesWithoutBowl(this.project)[0] : undefined;
 		if (bowlLane != null) {
 			this.$libraryOpen.set(false);
-			void this.assist.addBowl(bowlLane);
+			void this.studio.assist.addBowl(bowlLane);
 			return;
 		}
 		const { tool, pathType } = insertTool(item);
@@ -2019,7 +2014,7 @@ export class TrackCx {
 		const targets = this.tiltTargets(project);
 		const ids = targets.filter((id) => patternOfPiece(project, id) == null);
 		const live = targets.map((id) => patternOfPiece(project, id)).find((group) => group != null);
-		if (live != null) this.patterns.tellLocked(live);
+		if (live != null) this.studio.patterns.tellLocked(live);
 		if (live != null && !ids.length) return true;
 		const angles = new Map<string, number>();
 		for (const entity of project.entities) {
@@ -2126,7 +2121,7 @@ export class TrackCx {
 			hasPieces: project != null && (selectedPieceIds(project, selection).length > 0 || project.entities.some((entity) => selection.includes(entity.id) && entity.components.marble != null)),
 			// A selected Song or Camera track is no Next target, so Return keeps its timeline meaning there
 			hasSelection: selection.some((key) => key !== SONG_KEY && key !== CAMERA_KEY),
-			hasGhosts: this.assist.hasGhosts,
+			hasGhosts: this.studio.assist.hasGhosts,
 			canTilt: project != null && this.tiltTargets(project).length > 0,
 			isDrawing: this.$pen.get() != null,
 			hasNotes: selection.length > 0 && selection.every((key) => parseHitKey(key) != null)
@@ -2164,10 +2159,10 @@ export class TrackCx {
 				this.next();
 				return true;
 			case 'buildTrack':
-				void this.assist.buildTrack();
+				void this.studio.assist.buildTrack();
 				return true;
 			case 'acceptGhosts':
-				return this.assist.acceptGhosts();
+				return this.studio.assist.acceptGhosts();
 			case 'escape':
 				this.escape();
 				return true;
@@ -2182,7 +2177,7 @@ export class TrackCx {
 				this.step('mirror');
 				return true;
 			case 'fix':
-				this.assist.fixSelection();
+				this.studio.assist.fixSelection();
 				return true;
 			case 'finishPath':
 				this.finishPen();
@@ -2196,7 +2191,7 @@ export class TrackCx {
 	/** Return and N */
 	next(): void {
 		const before = this.studio.$selection.get();
-		this.assist.next(this.placementType());
+		this.studio.assist.next(this.placementType());
 		const after = this.studio.$selection.get();
 		if (after !== before) this.revealSelection();
 	}
@@ -2226,8 +2221,8 @@ export class TrackCx {
 	escape(): void {
 		if (this.$playNoteFor.get() != null) {
 			this.$playNoteFor.set(null);
-		} else if (this.assist.$queuedNext.get() > 0) {
-			this.assist.clearQueuedNext();
+		} else if (this.studio.assist.$queuedNext.get() > 0) {
+			this.studio.assist.clearQueuedNext();
 		} else if (this.insertDrag != null) {
 			this.endInsertDrag(false);
 		} else if (this.$libraryOpen.get()) {
@@ -2239,7 +2234,7 @@ export class TrackCx {
 			this.syncMarbles();
 		} else if (this.$pen.get() != null) {
 			this.cancelPen();
-		} else if (this.assist.dismiss()) {
+		} else if (this.studio.assist.dismiss()) {
 			return;
 		} else if (this.$tool.get() !== 'select') {
 			this.$tool.set('select');

@@ -1,5 +1,5 @@
 import { buildSceneDescription, type TSceneBuild, renderFps } from '@/modules/scene';
-import { bakeFollowCamera, followCameraInput, verticalFov, type TCameraPose, type TCameraTrack } from './follow-camera';
+import { bakeFollowCamera, followCameraInput, type TCameraTrack } from './follow-camera';
 import type { TProject, TProjectCommand } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 

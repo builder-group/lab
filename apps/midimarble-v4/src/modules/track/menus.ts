@@ -16,7 +16,7 @@ export function dotMenu(trackCx: TrackCx, laneId: string, hitId: string): TMenuE
 	const pitch = lane?.hits[index]?.pitch;
 	const gap = trackCx.longGapKeys(project).get(`${laneId}:${hitId}`);
 	const bridge = (type: 'switchback' | 'chain' | 'rail' | 'tunnel'): void => {
-		if (gap != null) trackCx.assist.suggestGapPiece(type, laneId, gap.fromHitId, hitId, { accept: true });
+		if (gap != null) trackCx.studio.assist.suggestGapPiece(type, laneId, gap.fromHitId, hitId, { accept: true });
 	};
 
 	return tidyMenu([
@@ -41,7 +41,7 @@ export function canvasMenu(trackCx: TrackCx): TMenuEntry[] {
 		cx.commands.item('build.track'),
 		cx.commands.item('build.repeat'),
 		cx.commands.item('build.mirror'),
-		trackCx.assist.hasGhosts ? cx.commands.item('build.continue') : null,
+		trackCx.studio.assist.hasGhosts ? cx.commands.item('build.continue') : null,
 		'separator',
 		cx.commands.item('view.fitAll'),
 		'separator',

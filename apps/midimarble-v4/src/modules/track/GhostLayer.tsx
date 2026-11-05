@@ -10,7 +10,7 @@ import { pieceKind } from '@/modules/scene';
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */
 export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
 	const { trackCx } = props;
-	const state = useFeatureState(trackCx.assist.$ghosts);
+	const state = useFeatureState(trackCx.studio.assist.$ghosts);
 	const camera = useFeatureState(trackCx.$camera);
 	const viewport = useFeatureState(trackCx.$viewport);
 	const project = useFeatureState(trackCx.studio.$history)?.present;
@@ -85,7 +85,7 @@ const GhostDot: React.FC<{ position: TVec2; color: string }> = (props) => {
  */
 export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
 	const { trackCx } = props;
-	const state = useFeatureState(trackCx.assist.$ghosts);
+	const state = useFeatureState(trackCx.studio.assist.$ghosts);
 	// The hint is placed at a screen position, so it moves with the view
 	useFeatureState(trackCx.$camera);
 	const viewport = useFeatureState(trackCx.$viewport);
@@ -120,7 +120,7 @@ const HintContent: React.FC<{ trackCx: TrackCx; ghost: TGhost }> = (props) => {
 	const { trackCx, ghost } = props;
 	const count = acceptableCount(ghost);
 	const accept = (): void => {
-		trackCx.assist.acceptGhosts();
+		trackCx.studio.assist.acceptGhosts();
 	};
 	if (ghost.kind === 'place') {
 		const { type, isOk } = ghost.answer;

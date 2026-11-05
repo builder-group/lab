@@ -1,5 +1,4 @@
 import { useFeatureState } from 'feature-react/state';
-import { createState } from 'feature-state';
 import { Anchor, ChevronDown, ChevronsRight, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
@@ -9,6 +8,7 @@ import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
 import { mapNodes, nodesPathData } from '@/modules/building';
+import type { AssistCx } from './AssistCx';
 import { TrackCx, noteLabel, type TTrackDrag } from './TrackCx';
 import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@/modules/canvas';
 import { Track3DView, TrackViewSwitch } from './Track3DView';
@@ -886,9 +886,9 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const drag = useFeatureState(trackCx.$drag);
 	const pen = useFeatureState(trackCx.$pen);
 	const tool = useFeatureState(trackCx.$tool);
-	const ghosts = useFeatureState(trackCx.assist.$ghosts);
-	const queued = useFeatureState(trackCx.assist.$queuedNext);
-	const building = useFeatureState(trackCx.assist.$building);
+	const ghosts = useFeatureState(trackCx.studio.assist.$ghosts);
+	const queued = useFeatureState(trackCx.studio.assist.$queuedNext);
+	const building = useFeatureState(trackCx.studio.assist.$building);
 	// The bar sits at screen positions, so it moves with the view
 	useFeatureState(trackCx.$camera);
 	const viewport = useFeatureState(trackCx.$viewport);
@@ -940,13 +940,13 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
 				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
 			</AssistButton>
-			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Bowl" shortcut="⇧N" onClick={() => void trackCx.assist.buildTrack()} isText>
+			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Bowl" shortcut="⇧N" onClick={() => void trackCx.studio.assist.buildTrack()} isText>
 				Build Track
 			</AssistButton>
 			{continueCount > 0 ? (
 				<>
 					<div className="mm-assist-divider" />
-					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => trackCx.assist.acceptGhosts()} isText>
+					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => trackCx.studio.assist.acceptGhosts()} isText>
 						<ChevronsRight size={14} strokeWidth={1.8} />
 						Continue Pattern ({continueCount})
 					</AssistButton>
@@ -957,7 +957,7 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 };
 
 /** Screen boxes of the ghost pieces and dots on show, which the build bar keeps clear of */
-function ghostRects(trackCx: TrackCx, ghost: ReturnType<TrackCx['assist']['$ghosts']['get']>['ghost']): TScreenRect[] {
+function ghostRects(trackCx: TrackCx, ghost: ReturnType<AssistCx['$ghosts']['get']>['ghost']): TScreenRect[] {
 	if (ghost == null) return [];
 	const pieces = ghost.kind === 'continue' ? ghost.answer.suggestions.map((item) => item.piece) : [ghost.answer.piece];
 	const dots = ghost.kind === 'gap' ? [ghost.answer.track.at(-1)] : ghost.kind === 'place' ? [ghost.answer.nextDot] : ghost.answer.suggestions.map((item) => item.dot);
@@ -1065,7 +1065,6 @@ const ZoomMenu: React.FC<{ trackCx: TrackCx }> = (props) => {
 	);
 };
 
-const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 
 /**
  * Says the run is being checked after an edit, or fixed while Fix runs, fading in only when it
@@ -1074,8 +1073,7 @@ const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const computing = useFeatureState(cx.simulation.$computing);
-	const trackCx = useFeatureState(cx.$trackCx);
-	const fixing = useFeatureState(trackCx?.assist.$fixing ?? NO_FIXING);
+	const fixing = useFeatureState(cx.assist.$fixing);
 	if (!computing && fixing == null) return null;
 	return (
 		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">

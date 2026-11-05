@@ -62,6 +62,8 @@ export class PatternsCx {
 	constructor(readonly studio: StudioCx) {}
 
 	mount(): () => void {
+		this.$preview.set(null);
+		this.$failure.set(null);
 		const unlisten = [
 			this.studio.$history.listen(({ value }) => {
 				if (this.$preview.get() != null && this.$preview.get()?.revision !== value?.present.revision) this.$preview.set(null);

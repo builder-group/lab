@@ -4,7 +4,7 @@ import React from 'react';
 import { HelpTip, InspectorHeader, Panel, ScrubField, SelectField, StateRow, TextField } from '@/components';
 import { shotLength, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, shotKindLabel, shotKinds, updateShotCommands, type TShotKind, songDisplayName, titleSpan, withTitleTime } from '@/modules/scene';
 import { PieceIcon, cameraAngles, MAX_TILT_DEGREES } from '@/modules/canvas';
-import type { TDesign, TEntity, TProject, TProjectCommand, TShot } from '@/modules/project';
+import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime, parseTime } from '@/modules/project';

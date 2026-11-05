@@ -1,5 +1,5 @@
 import type { TLibraryItem } from '@/modules/scene';
-import { createId, type TDesign, type TEntity, type TProject, type TProjectCommand, type TSkinComponent, type TVec2 } from '@/modules/project';
+import { createId, type TEntity, type TProject, type TProjectCommand, type TSkinComponent, type TVec2 } from '@/modules/project';
 import { sampleCameraTrack, filmCamera } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { imageToWall } from './image-to-wall';

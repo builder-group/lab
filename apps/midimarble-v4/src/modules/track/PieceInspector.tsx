@@ -1,5 +1,4 @@
 import { useFeatureState } from 'feature-react/state';
-import { createState } from 'feature-state';
 import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
@@ -161,9 +160,9 @@ interface TPieceInspectorProps {
 export const FixButton: React.FC<{ cx: StudioCx; entityId: string }> = (props) => {
 	const { cx, entityId } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
-	const fixing = useFeatureState(trackCx?.assist.$fixing ?? NO_FIXING);
+	const fixing = useFeatureState(cx.assist.$fixing);
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void trackCx?.assist.fix(entityId)} title="Try to clear this problem without breaking a hit" type="button">
+		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(entityId)} title="Try to clear this problem without breaking a hit" type="button">
 			<WandSparkles size={12} strokeWidth={1.9} />
 			Fix
 		</button>
@@ -188,7 +187,6 @@ function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | unde
 	return { tone: 'warn', label: first.label ?? first.title, detail: look?.map((issue) => `${issue.title}. ${issue.detail ?? ''}`.trim()).join('\n') ?? '' };
 }
 
-const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 
 /** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `None` */
 function tieLabel(project: TProject, entity: TEntity): string {

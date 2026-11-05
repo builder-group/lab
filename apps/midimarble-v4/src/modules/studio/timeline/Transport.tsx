@@ -1,6 +1,4 @@
 import { useFeatureState } from 'feature-react/state';
-import type { TBuildProgress } from '@/modules/building';
-import { createState } from 'feature-state';
 import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
 import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '@/modules/building';
@@ -65,9 +63,8 @@ interface TTransportProps {
  */
 const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const trackCx = useFeatureState(cx.$trackCx);
-	const fixing = useFeatureState(trackCx?.assist.$fixing ?? NO_FIXING);
-	const building = useFeatureState(trackCx?.assist.$building ?? NO_BUILDING);
+	const fixing = useFeatureState(cx.assist.$fixing);
+	const building = useFeatureState(cx.assist.$building);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const preflight = useRunPreflight(cx, project);
@@ -106,8 +103,6 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	);
 };
 
-const NO_FIXING = createState<{ done: number; total: number } | null>(null);
-const NO_BUILDING = createState<TBuildProgress | null>(null);
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {

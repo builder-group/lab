@@ -2,7 +2,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, type TApplySceneResult, type TPreviewFrameResult } from '@/modules/blender';
-import { buildSceneDescription, getRenderPreset, renderFps } from '@/modules/scene';
+import { buildSceneDescription, renderFps } from '@/modules/scene';
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import type { TCameraAngles } from '@/modules/camera';

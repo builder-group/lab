@@ -243,7 +243,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 
 	function addPlatform(): void {
 		if (openHit == null) return;
-		if (trackCx != null) void trackCx.assist.place(openHit, 'platform');
+		if (trackCx != null) void cx.assist.place(openHit, 'platform');
 		else placeAtHit(cx, openHit, 'platform');
 	}
 
@@ -463,7 +463,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 						onPreview={(value) => cx.simulation.startPreview(withSpeed(value))}
 						onCommit={(value) => {
 							const trackCx = cx.$trackCx.get();
-							if (trackCx != null) void trackCx.patterns.setGravity(value);
+							if (trackCx != null) void cx.patterns.setGravity(value);
 							else cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
 							cx.simulation.endPreview();
 						}}

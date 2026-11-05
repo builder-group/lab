@@ -178,7 +178,8 @@ describe('MCP tools', () => {
 		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (bowlBuild = () => resolve(null))));
 		const key = `hit:${laneId}:${hitId}`;
 		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { laneId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
-		cx.$trackCx.set({ assist } as never);
+		Object.assign(cx, { assist });
+		cx.$trackCx.set({} as never);
 		cx.$workspace.set('track');
 
 		const missing = await runTool(cx, 'run_command', { id: 'build.rebuildFrom' });
@@ -201,7 +202,7 @@ describe('MCP tools', () => {
 	it('should show the running build and its result in get_state', async () => {
 		const { cx } = studio();
 		const lastBuild = { message: 'Built' };
-		cx.$trackCx.set({ assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } } as never);
+		Object.assign(cx, { assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.building).toEqual({ done: 2, total: 5 });
 		expect(state.lastBuild).toEqual(lastBuild);

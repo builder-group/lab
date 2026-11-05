@@ -86,7 +86,7 @@ export function mountNativeMenu(cx: StudioCx): () => void {
 	const watchTrack = (): void => {
 		for (const stop of stopTrack) stop();
 		const trackCx = cx.$trackCx.get();
-		stopTrack = trackCx != null ? [trackCx.$tool.listen(schedule), trackCx.$follow.listen(schedule), trackCx.$pathType.listen(schedule), trackCx.assist.$ghosts.listen(schedule)] : [];
+		stopTrack = trackCx != null ? [trackCx.$tool.listen(schedule), trackCx.$follow.listen(schedule), trackCx.$pathType.listen(schedule), cx.assist.$ghosts.listen(schedule)] : [];
 		schedule();
 	};
 	watchTrack();

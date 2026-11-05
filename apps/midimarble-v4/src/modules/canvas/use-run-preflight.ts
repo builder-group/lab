@@ -1,12 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
-import { createState } from 'feature-state';
 import React from 'react';
-import type { TBuildProgress } from '@/modules/building';
 import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { preflightExport, type TExportPreflight } from '@/modules/building';
-
-const NOT_BUILDING = createState<TBuildProgress | null>(null);
 
 /**
  * The checked preflight for what stays on screen around the wall, or null until the run has caught up with the
@@ -17,7 +13,7 @@ export function useRunPreflight(cx: StudioCx, project: TProject | undefined): TE
 	const result = useFeatureState(cx.simulation.$result);
 	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
 	const isPreviewing = useFeatureState(cx.simulation.$previewing);
-	const isBuilding = useFeatureState(useFeatureState(cx.$trackCx)?.assist.$building ?? NOT_BUILDING) != null;
+	const isBuilding = useFeatureState(cx.assist.$building) != null;
 	return React.useMemo(() => {
 		if (project == null || isBuilding) return null;
 		const held = isPreviewing ? lastPreflight.get(cx) : undefined;

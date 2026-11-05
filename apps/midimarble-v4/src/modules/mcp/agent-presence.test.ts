@@ -223,7 +223,7 @@ describe('Stop and edits through McpCx', () => {
 	it('should end an agent build on Stop and keep what it built, leaving a person\'s own build alone', async () => {
 		const cx = studio();
 		const assist = { stopBuild: vi.fn(), isBuilding: true };
-		cx.$trackCx.set({ assist, patterns: { stop: vi.fn() } } as never);
+		Object.assign(cx, { assist, patterns: { stop: vi.fn() } });
 		cx.mcp.stop();
 		expect(assist.stopBuild).not.toHaveBeenCalled();
 		let bowl: () => void = () => undefined;
