@@ -56,6 +56,9 @@ LEAD_LIMIT = 0.0235
 FRAME_KEEP = 0.55
 # Time constant in seconds of that pull: a fast one would stand out as a lurch against the frame's steady scroll
 KEEP_EASE = 0.3
+# Past this share of the half frame, in a free fall that outruns that pull, a fast one takes over
+FRAME_LIMIT = 0.7
+LIMIT_EASE = 0.08
 # Width over height of the framing box; portrait films are 9:16
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
@@ -631,16 +634,18 @@ def follow_target(framing, settings, fps, times):
     target = critically_damped(follow, fps, tau)
     # Smoothing averages accelerating motion such as a free fall, so the target can fall behind; pull it back
     # wherever the marble would leave the inner part of the frame, then smooth the correction lightly
-    reach = distance * SENSOR / 2 / settings['lens'] * FRAME_KEEP
-    for _ in range(8):
-        offset = current - target
-        excess = np.maximum(np.abs(offset) - reach[:, None] * np.array([ASPECT_GUESS, 1.0]), 0.0) * np.sign(offset)
-        if not np.any(excess):
-            break
-        target = target + critically_damped(excess, fps, KEEP_EASE) * 1.3
+    half_frame = distance * SENSOR / 2 / settings['lens']
+    for share, ease in ((FRAME_KEEP, KEEP_EASE), (FRAME_LIMIT, LIMIT_EASE)):
+        reach = half_frame * share
+        for _ in range(8):
+            offset = current - target
+            excess = np.maximum(np.abs(offset) - reach[:, None] * np.array([ASPECT_GUESS, 1.0]), 0.0) * np.sign(offset)
+            if not np.any(excess):
+                break
+            target = target + critically_damped(excess, fps, ease) * 1.3
     # Safety net for extreme motion: never let a marble leave the frame
     offset = current - target
-    hard = reach[:, None] * np.array([ASPECT_GUESS, 1.0]) * 1.5
+    hard = half_frame[:, None] * FRAME_KEEP * np.array([ASPECT_GUESS, 1.0]) * 1.5
     target = target + np.maximum(np.abs(offset) - hard, 0.0) * np.sign(offset)
     # Run direction from the smoothed target over one second, then smoothed again for slow heading changes
     window = max(1, int(round(0.5 * fps)))

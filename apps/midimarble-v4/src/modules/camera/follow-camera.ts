@@ -25,6 +25,9 @@ const LEAD_LIMIT = 0.0235;
 const FRAME_KEEP = 0.55;
 /** Time constant in seconds of the pull that keeps the marble in frame: a fast one would stand out as a lurch against the frame's steady scroll */
 const KEEP_EASE = 0.3;
+/** Past this share of the half frame, in a free fall that outruns that pull, a fast one takes over */
+const FRAME_LIMIT = 0.7;
+const LIMIT_EASE = 0.08;
 const ASPECT_GUESS = 0.56;
 const SHOT_EASE = 0.8;
 const LENS = 85;
@@ -928,30 +931,34 @@ function followTarget(
 	const targetX = criticallyDamped(followX, fps, tau);
 	const targetY = criticallyDamped(followY, fps, tau);
 	// Pull the target back wherever the marble would leave the inner part of the frame
-	const reach = new Float64Array(count);
+	const halfFrame = new Float64Array(count);
 	for (let index = 0; index < count; index++)
-		reach[index] = (((distance[index] ?? 0) * CAMERA_SENSOR) / 2 / settings.lens) * FRAME_KEEP;
-	for (let iteration = 0; iteration < 8; iteration++) {
-		const excessX = new Float64Array(count);
-		const excessY = new Float64Array(count);
-		let isAny = false;
-		for (let index = 0; index < count; index++) {
-			excessX[index] = excess(
-				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(reach[index] ?? 0) * ASPECT_GUESS
-			);
-			excessY[index] = excess(
-				(currentY[index] ?? 0) - (targetY[index] ?? 0),
-				(reach[index] ?? 0) * 1.0
-			);
-			if (excessX[index] !== 0 || excessY[index] !== 0) isAny = true;
-		}
-		if (!isAny) break;
-		const smoothX = criticallyDamped(excessX, fps, KEEP_EASE);
-		const smoothY = criticallyDamped(excessY, fps, KEEP_EASE);
-		for (let index = 0; index < count; index++) {
-			targetX[index] = (targetX[index] ?? 0) + (smoothX[index] ?? 0) * 1.3;
-			targetY[index] = (targetY[index] ?? 0) + (smoothY[index] ?? 0) * 1.3;
+		halfFrame[index] = ((distance[index] ?? 0) * CAMERA_SENSOR) / 2 / settings.lens;
+	const reach = new Float64Array(count);
+	for (const [share, ease] of [[FRAME_KEEP, KEEP_EASE], [FRAME_LIMIT, LIMIT_EASE]] as const) {
+		for (let index = 0; index < count; index++) reach[index] = (halfFrame[index] ?? 0) * share;
+		for (let iteration = 0; iteration < 8; iteration++) {
+			const excessX = new Float64Array(count);
+			const excessY = new Float64Array(count);
+			let isAny = false;
+			for (let index = 0; index < count; index++) {
+				excessX[index] = excess(
+					(currentX[index] ?? 0) - (targetX[index] ?? 0),
+					(reach[index] ?? 0) * ASPECT_GUESS
+				);
+				excessY[index] = excess(
+					(currentY[index] ?? 0) - (targetY[index] ?? 0),
+					(reach[index] ?? 0) * 1.0
+				);
+				if (excessX[index] !== 0 || excessY[index] !== 0) isAny = true;
+			}
+			if (!isAny) break;
+			const smoothX = criticallyDamped(excessX, fps, ease);
+			const smoothY = criticallyDamped(excessY, fps, ease);
+			for (let index = 0; index < count; index++) {
+				targetX[index] = (targetX[index] ?? 0) + (smoothX[index] ?? 0) * 1.3;
+				targetY[index] = (targetY[index] ?? 0) + (smoothY[index] ?? 0) * 1.3;
+			}
 		}
 	}
 	// Safety net for extreme motion: never let a marble leave the frame
@@ -960,11 +967,11 @@ function followTarget(
 			(targetX[index] ?? 0) +
 			excess(
 				(currentX[index] ?? 0) - (targetX[index] ?? 0),
-				(reach[index] ?? 0) * ASPECT_GUESS * 1.5
+				(halfFrame[index] ?? 0) * FRAME_KEEP * ASPECT_GUESS * 1.5
 			);
 		targetY[index] =
 			(targetY[index] ?? 0) +
-			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (reach[index] ?? 0) * 1.0 * 1.5);
+			excess((currentY[index] ?? 0) - (targetY[index] ?? 0), (halfFrame[index] ?? 0) * FRAME_KEEP * 1.0 * 1.5);
 	}
 	// Run direction from the smoothed target over one second, then smoothed again for slow heading changes
 	const window = Math.max(1, pyRound(0.5 * fps));

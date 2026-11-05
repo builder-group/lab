@@ -26,7 +26,7 @@ Film dresses the run without changing a single hit. Make the environment fit the
 | `side` | 1.66 (95°) | Turn: how far around the marbles the camera stands, 0 to 2π radians |
 | `lead` | 0.15 | Seconds the view looks ahead of the marbles, 0 to 2 |
 | `smoothing` | 0.6 | 0 to 1, larger follows more calmly |
-| `sway` | 1 | 0 to 1, how much the view turns and rolls on its own, by up to about 40° with the run and 16° over time. 0 holds `side` and keeps the wall upright, so a vertical line stays vertical |
+| `sway` | 1 | 0 to 1, how much the view turns and rolls on its own, by up to about 40° with the run and 8° over time. 0 holds `side` and keeps the wall upright, so a vertical line stays vertical |
 | `focusMarbleId` | first marble | The marble kept when they don't all fit |
 | `shots` | none | Moves at given times |
 
