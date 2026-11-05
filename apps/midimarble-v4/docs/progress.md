@@ -37,7 +37,6 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall. Build Track fills no blocks in the strip, though the decision asks for it.
 - No Problem for a missing asset: only Blender knows, and only while open
 - Flat Light reads paler than Fast on the Christmas look. Draft Preview draws no lights, shadows or metal.
-- Python's `render.py` still lists `fast` and `best`, and `balanced` remains Final's id
 - Skin: Cat's-Eye reads weakly when the platform behind has its hue
 
 ## Next steps

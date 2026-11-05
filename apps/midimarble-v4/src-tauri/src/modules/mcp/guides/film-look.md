@@ -41,4 +41,4 @@ Then `play_range(from, to)` for the person, and ask them.
 
 ## Export
 
-`export_film({ quality: 'draft' })` is flat and quick, for testing. `final` is 1080p with the real look and takes longer; stills from `preview_frame` are the quick way to judge a look. `get_state.renderPreset` holds the choice by its ids, `draft` and `balanced` (Final), which `setDesign { renderPreset }` takes too. It answers within seconds with progress; call `export_film()` with no quality to check. Without `path` the film lands in the project's `renders` folder.
+`export_film({ quality: 'draft' })` is flat and quick, for testing. `final` is 1080p with the real look and takes longer; stills from `preview_frame` are the quick way to judge a look. `get_state.renderPreset` holds the choice by its ids, `draft` and `final`, which `setDesign { renderPreset }` takes too. It answers within seconds with progress; call `export_film()` with no quality to check. Without `path` the film lands in the project's `renders` folder.
