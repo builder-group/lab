@@ -4,7 +4,7 @@ import type { TAssetManifest } from './asset-manifest';
 
 // What a Pack and a library item are, with nothing that talks to the host: the Starter Pack, its origin line and a theme as a Pack stores it.
 
-export type TLibraryScope = 'project' | 'global';
+export type TLibraryScope = 'project' | 'pack';
 
 export interface TLibraryItem {
 	id: string;
@@ -16,7 +16,7 @@ export interface TLibraryItem {
 	manifestError: string | null;
 	hasAsset: boolean;
 	previewUrl: string | null;
-	/** The imported Pack it lives in, null once in a project or for a kept item */
+	/** The imported Pack it lives in, null once in a project */
 	packId: string | null;
 }
 

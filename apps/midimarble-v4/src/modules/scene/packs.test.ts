@@ -89,13 +89,12 @@ describe('Packs', () => {
 		expect(packContents(pack([]))).toBe('Nothing yet');
 	});
 
-	it('should list a Pack\'s item until the project holds the Pack\'s copy, without a star', () => {
-		const inPack = item('a', 'decoration', { scope: 'global', packId: 'christmas' }, 'Christmas');
-		const before = libraryEntries([], [], [pack([inPack])]);
-		expect(before).toEqual([{ item: inPack, isKept: false }]);
+	it('should list a Pack\'s item until the project holds the Pack\'s copy', () => {
+		const inPack = item('a', 'decoration', { scope: 'pack', packId: 'christmas' }, 'Christmas');
+		expect(libraryEntries([], [pack([inPack])])).toEqual([inPack]);
 		const copy = item('a-2', 'decoration', {}, 'Christmas');
 		copy.manifest = { ...(copy.manifest as NonNullable<TLibraryItem['manifest']>), label: 'a' };
-		expect(libraryEntries([copy], [], [pack([inPack])]).map((entry) => entry.item.id)).toEqual(['a-2']);
+		expect(libraryEntries([copy], [pack([inPack])]).map((entry) => entry.id)).toEqual(['a-2']);
 	});
 
 	it('should hold every offered skin, wall and theme and Particles in the Starter Pack, and never lose it', () => {

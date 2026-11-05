@@ -266,7 +266,7 @@ fn read_pack(dir: &Path, id: &str) -> Result<PackDto, String> {
             let path = dir.join(THEMES_FOLDER).join(format!("{}.json", item.id));
             themes_json.push(fs::read_to_string(path).map_err(|error| error.to_string())?);
         } else {
-            let mut listed = store::item(&dir.join(ASSETS_FOLDER).join(&item.id), &item.id, LibraryScope::Global);
+            let mut listed = store::item(&dir.join(ASSETS_FOLDER).join(&item.id), &item.id, LibraryScope::Pack);
             listed.pack_id = Some(id.to_string());
             items.push(listed);
         }

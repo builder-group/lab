@@ -64,16 +64,6 @@ describe('film commands', () => {
 		expect(skinTargetIds(next, { kind: 'pieces', entityIds: [marble.id] })).toEqual([marble.id]);
 	});
 
-	it('should show a kept project item once and kept items from other projects', () => {
-		const item = (id: string, scope: 'project' | 'global'): TLibraryItem => ({ id, scope, path: id, manifest: null, manifestError: null, hasAsset: true, packId: null, previewUrl: null });
-		const entries = libraryEntries([item('a', 'project'), item('b', 'project')], [item('b', 'global'), item('c', 'global')]);
-		expect(entries.map((entry) => [entry.item.id, entry.item.scope, entry.isKept])).toEqual([
-			['a', 'project', false],
-			['b', 'project', true],
-			['c', 'global', true]
-		]);
-	});
-
 	it('should set the theme once and skip an unchanged theme', () => {
 		const project = createStaircaseProject();
 		expect(themeCommands(project, project.film.theme.base)).toEqual([]);

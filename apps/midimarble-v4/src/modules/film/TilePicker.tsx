@@ -1,4 +1,4 @@
-import { Box, ChevronDown, Search, Star } from 'lucide-react';
+import { Box, ChevronDown, Search } from 'lucide-react';
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { openContextMenu, type TMenuEntry } from '@/components';
@@ -38,8 +38,6 @@ export interface TPickerTile {
 	onApply: (toAll: boolean) => void;
 	onMenu?: () => TMenuEntry[];
 	onDragStart?: (event: React.DragEvent) => void;
-	isKept?: boolean;
-	onKeep?: () => void;
 	/** Takes the label's place while the tile is renamed */
 }
 
@@ -137,7 +135,7 @@ const PickerPanel: React.FC<{ heading: string; label: string; anchor: React.RefO
 
 const PickerTile: React.FC<{ tile: TPickerTile; onPick: (toAll: boolean) => void; onDragBegin: () => void; onDragEnd: () => void }> = (props) => {
 	const { tile, onPick, onDragBegin, onDragEnd } = props;
-	const { onDragStart, onMenu, onKeep, isKept } = tile;
+	const { onDragStart, onMenu } = tile;
 	return (
 		<div className="mm-tile-wrap" role="option" aria-selected={tile.isCurrent}>
 			<button
@@ -165,19 +163,6 @@ const PickerTile: React.FC<{ tile: TPickerTile; onPick: (toAll: boolean) => void
 				</span>
 				{tile.detail != null && tile.detail !== '' ? <TileDetail text={tile.detail} onClick={tile.onDetail} /> : null}
 			</button>
-			{onKeep != null ? (
-				<button
-					className="mm-tile-star"
-					data-kept={isKept === true}
-					aria-pressed={isKept === true}
-					aria-label="Keep in Library"
-					title={isKept === true ? 'Kept in the library for every project' : 'Keep in Library to use it in every project'}
-					onClick={onKeep}
-					type="button"
-				>
-					<Star size={11} strokeWidth={2} fill={isKept === true ? 'currentColor' : 'none'} />
-				</button>
-			) : null}
 		</div>
 	);
 };

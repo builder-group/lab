@@ -1,14 +1,14 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Lightbulb, Package, Star, Type } from 'lucide-react';
+import { Box, Lightbulb, Package, Type } from 'lucide-react';
 import React from 'react';
 import { addedBuiltInDecor, addedPacks } from '@/modules/library';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import { InsertPopover } from '@/modules/canvas';
 import type { StudioCx } from '@/modules/studio';
-import { builtInSource, type TDecorSource, DECOR_HELP, listedDecorItems, usedDecorSources } from '@/modules/scene';
+import { builtInSource, type TDecorSource, type TLibraryItem, DECOR_HELP, listedDecorItems, usedDecorSources } from '@/modules/scene';
 import { libraryDecorSource, placeDecor, placeLibraryDecor } from './decor-actions';
 import { TileDetail } from './TilePicker';
-import { libraryEntries, libraryItemKey, notAddedPackAction, libraryItemLabel, libraryItemOrigin, type TLibraryEntry } from './FilmLibraryCx';
+import { libraryEntries, libraryItemKey, notAddedPackAction, libraryItemLabel, libraryItemOrigin } from './FilmLibraryCx';
 import type { TTitleStyle } from './film-commands';
 
 /** MIME type of a library item dragged onto the preview or the inspector */
@@ -42,7 +42,7 @@ export function dropTitle(event: React.DragEvent, cx: StudioCx): boolean {
 }
 
 /**
- * Film's Insert popover, only what Film is for: Decor with its origin line and the Keep in Library star on what an agent
+ * Film's Insert popover, only what Film is for: Decor with its origin line on what an agent
  * made or you imported, titles and a light, with Packs… at its foot. Marbles and pieces are Track's. A click adds the item, a drag onto the viewer places it. How the selection looks, its
  * skins and the theme, is in the inspector.
  */
@@ -91,12 +91,11 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 	const status = useFeatureState(cx.library.$status);
 	const error = useFeatureState(cx.library.$error);
 	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
 	const packs = useFeatureState(addedPacks);
 	const history = useFeatureState(cx.$history);
 	const [isDragging, setIsDragging] = React.useState(false);
 	const close = React.useCallback(() => cx.library.$insertOpen.set(false), [cx]);
-	const entries = React.useMemo(() => libraryEntries(projectItems, globalItems, packs).filter((entry) => entry.item.manifest?.role === 'decoration'), [projectItems, globalItems, packs]);
+	const items = React.useMemo(() => libraryEntries(projectItems, packs).filter((item) => item.manifest?.role === 'decoration'), [projectItems, packs]);
 
 	// Escape closes it before it reaches the studio shortcuts
 	React.useEffect(() => {
@@ -154,8 +153,8 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 						{...drag(DECOR_DRAG_TYPE, item.id)}
 					/>
 				))}
-				{entries.map((entry) => (
-					<LibraryTile key={libraryItemKey(entry.item)} cx={cx} entry={entry} onAdd={add} drag={drag} />
+				{items.map((item) => (
+					<LibraryTile key={libraryItemKey(item)} cx={cx} item={item} onAdd={add} drag={drag} />
 				))}
 			</InsertSection>
 			<InsertSection title="Titles">
@@ -230,19 +229,15 @@ interface TInsertTileProps {
 	onContextMenu?: (event: React.MouseEvent) => void;
 }
 
-/** What the agent made or you imported: its origin line and the Keep in Library star */
-const LibraryTile: React.FC<{ cx: StudioCx; entry: TLibraryEntry; onAdd: (action: () => void) => void; drag: (type: string, data: string) => Pick<TInsertTileProps, 'onDragStart' | 'onDragEnd'> }> = (props) => {
-	const { cx, entry, onAdd, drag } = props;
-	const { item } = entry;
+/** What the agent made or you imported, with its origin line */
+const LibraryTile: React.FC<{ cx: StudioCx; item: TLibraryItem; onAdd: (action: () => void) => void; drag: (type: string, data: string) => Pick<TInsertTileProps, 'onDragStart' | 'onDragEnd'> }> = (props) => {
+	const { cx, item, onAdd, drag } = props;
 	const label = libraryItemLabel(item);
 	const pack = addedPacks.get().find((candidate) => candidate.id === item.packId);
 	const menu = (): TMenuEntry[] =>
 		pack != null
 			? [{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
-			: [
-					{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
-					{ label: 'Remove', onSelect: () => void removeLibraryEntry(cx, entry) }
-				];
+			: [{ label: 'Remove', onSelect: () => void cx.library.remove(item) }];
 	return (
 		<div className="mm-tile-wrap">
 			<InsertTile
@@ -255,24 +250,6 @@ const LibraryTile: React.FC<{ cx: StudioCx; entry: TLibraryEntry; onAdd: (action
 				onContextMenu={(event) => openContextMenu(event, menu())}
 				{...drag(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope, packId: item.packId }))}
 			/>
-			{pack != null ? null : <button
-				className="mm-tile-star"
-				data-kept={entry.isKept}
-				aria-pressed={entry.isKept}
-				aria-label="Keep in Library"
-				title={entry.isKept ? 'Kept in the library for every project' : 'Keep in Library to use it in every project'}
-				onClick={() => void cx.library.setKept(entry, !entry.isKept)}
-				type="button"
-			>
-				<Star size={11} strokeWidth={2} fill={entry.isKept ? 'currentColor' : 'none'} />
-			</button>}
 		</div>
 	);
 };
-
-/** Takes an item out of the library: its kept copy, and the project's. A Pack's item leaves with Remove Pack. */
-export async function removeLibraryEntry(cx: StudioCx, entry: TLibraryEntry): Promise<void> {
-	if (entry.item.packId != null) return;
-	if (entry.isKept) await cx.library.setKept(entry, false);
-	if (entry.item.scope === 'project') await cx.library.remove(entry.item);
-}

@@ -326,7 +326,6 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; piec
 export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSkinned[] }> = (props) => {
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
 	const links = useFeatureState(cx.film.$links);
 
 	const first = pieces[0] as TSkinned;
@@ -344,7 +343,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSki
 	const name = isSingle ? (first.name ?? typeLabel) : pieceCountLabel(pieces);
 
 	function applyToAll(assetId: string): void {
-		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === assetId);
+		const item = projectItems.find((candidate) => candidate.id === assetId);
 		if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
 		else cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, assetId));
 	}

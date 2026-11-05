@@ -21,14 +21,13 @@ const FROM_THEME = '__theme__';
 export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; pieces: TSkinned[] }> = (props) => {
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
 	const looks = pieces.map((piece) => {
 		const element = skinElementOf(piece);
 		return { piece, element, look: resolveElementLook(project.film, element, piece.skin) };
 	});
 	const shared = sharedSkinProperties(looks);
 	const ids = pieces.map((piece) => piece.id);
-	const extras = sharedExtras(project, pieces, [...projectItems, ...globalItems]);
+	const extras = sharedExtras(project, pieces, projectItems);
 
 	function set(patch: TSkinPropertyPatch): void {
 		cx.execute(skinPropertyCommands(project, ids, patch));

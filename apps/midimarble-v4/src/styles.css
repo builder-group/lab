@@ -1366,32 +1366,6 @@ button.mm-hit-summary:hover {
 	width: 100%;
 }
 
-.mm-tile-star {
-	position: absolute;
-	top: 7px;
-	right: 7px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 18px;
-	height: 18px;
-	border-radius: 5px;
-	background: rgb(0 0 0 / 0.4);
-	color: #fff;
-	opacity: 0;
-	transition: opacity 120ms;
-}
-
-.mm-tile-wrap:hover .mm-tile-star,
-.mm-tile-star:focus-visible,
-.mm-tile-star[data-kept='true'] {
-	opacity: 1;
-}
-
-.mm-tile-star[data-kept='true'] {
-	color: var(--accent-strong);
-}
-
 /* Text button like a link in a macOS inspector */
 .mm-link {
 	color: var(--text-secondary);
