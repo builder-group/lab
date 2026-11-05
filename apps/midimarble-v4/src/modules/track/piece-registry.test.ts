@@ -45,7 +45,8 @@ function missingParts(type: string): string[] {
 
 describe('piece registry', () => {
 	it.each(PIECE_TYPES)('should have every part of a piece type: %s', (type) => {
-		expect(missingParts(type), `Piece type '${type}' is incomplete. See "Add a piece type" in docs/architecture.md.`).toEqual([]);
+		const missing = missingParts(type);
+		expect(missing.join('; '), `Piece type '${type}' is incomplete: ${missing.join('; ')}. See "Add a piece type" in docs/architecture.md.`).toBe('');
 	});
 
 	it('should know no skin element or builder without a piece type', () => {

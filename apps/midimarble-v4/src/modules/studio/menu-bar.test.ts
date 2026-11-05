@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PIECE_TYPES, pieceDefinitions } from '@/modules/simulation';
 import { getCommand } from './commands';
 import { buildMenuBar, changedMenuItems, findCommandLine, isCommandLine, menuItemId, menuItemStates, menuLayout, parseMenuItemId, readMenuItem, toAccelerator } from './menu-bar';
 import type { StudioCx } from './StudioCx';
@@ -109,7 +110,7 @@ describe('Playback and Piece menus', () => {
 
 	it('should mirror + in Insert by plain nouns, and leave the agent items out of Help', () => {
 		const titles = menuLayout.find((item) => item.title === 'Insert')?.items.filter(isCommandLine).map((line) => line.title);
-		expect(titles).toEqual(['Marble', 'Platform', 'Rail', 'Tunnel', 'Windmill', 'Bowl', 'Decor…', 'Title', 'Light', 'Shot']);
+		expect(titles).toEqual(['Marble', ...PIECE_TYPES.map((type) => pieceDefinitions[type].label), 'Decor…', 'Title', 'Light', 'Shot']);
 		expect(section('Help')).toEqual(['help.quickHelp', 'help.resetHints']);
 	});
 

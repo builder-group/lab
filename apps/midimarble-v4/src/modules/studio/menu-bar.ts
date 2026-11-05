@@ -1,5 +1,6 @@
 import type { THostRecentProject, specta } from '@/environment';
-import { commandTitle, getCommand, isCommandEnabled, type TCommandId } from './commands';
+import { PIECE_TYPES, pieceDefinitions } from '@/modules/simulation';
+import { commandTitle, getCommand, isCommandEnabled, pieceToolId, type TCommandId } from './commands';
 import type { StudioCx, TStudioPanel } from './StudioCx';
 
 // The macOS menu bar, laid out from the command registry so its titles, keys and states match the palette and
@@ -96,11 +97,7 @@ export const menuLayout: readonly TMenuSection[] = [
 		items: [
 			// The same as + in each workspace, by the same plain nouns
 			{ command: 'marble.add', title: 'Marble', showsKey: true },
-			{ command: 'tool.platform', title: 'Platform', showsKey: true },
-			{ command: 'tool.path', title: 'Rail', showsKey: true },
-			{ command: 'tool.tunnel', title: 'Tunnel', showsKey: true },
-			{ command: 'tool.windmill', title: 'Windmill', showsKey: true },
-			{ command: 'tool.bowl', title: 'Bowl', showsKey: true },
+			...PIECE_TYPES.map((type) => ({ command: pieceToolId(type), title: pieceDefinitions[type].label, showsKey: true })),
 			'separator',
 			{ command: 'decor.add', title: 'Decor…' },
 			{ command: 'film.addText', title: 'Title', showsKey: true },

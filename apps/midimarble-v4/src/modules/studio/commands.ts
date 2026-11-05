@@ -311,6 +311,11 @@ function toolCommand(tool: Exclude<TTrackTool, 'marble'>, title: string, keyword
 	};
 }
 
+/** The id of the command that arms a piece's tool */
+export function pieceToolId(type: TPieceType): TCommandId {
+	return type === 'rail' ? 'tool.path' : `tool.${type}`;
+}
+
 /** The command that arms a piece's tool: Rail and Tunnel share the path tool */
 function pieceToolCommand(type: TPieceType): TCommand {
 	const { label, tile } = pieceDefinitions[type];
@@ -822,9 +827,7 @@ export type TCommandId =
 	| 'play.nextHit'
 	| 'play.repeat'
 	| 'play.tap'
-	| 'tool.select'
-	| 'tool.hand'
-	| 'tool.path'
+	| `tool.${Exclude<TTrackTool, 'marble'>}`
 	| 'view.snap'
 	| 'view.track3d'
 	| 'view.trackCamera'
@@ -858,10 +861,7 @@ export type TCommandId =
 	| 'layer.camera'
 	| 'layer.song'
 	| 'marble.speed'
-	| 'tool.platform'
 	| 'tool.tunnel'
-	| 'tool.windmill'
-	| 'tool.bowl'
 	| 'build.addBowl'
 	| 'tool.insert'
 	| 'help.quickHelp'
