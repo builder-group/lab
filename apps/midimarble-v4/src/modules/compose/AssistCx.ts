@@ -547,7 +547,7 @@ export class AssistCx {
 				commit: (commands, isFirst, hit) => {
 					// Another edit since the last step stops the build rather than folding into it
 					if (this.studio.project?.revision !== expected) return false;
-					if (!this.studio.execute(commands, { amend: !isFirst })) return false;
+					if (!this.studio.execute(commands, { amend: !isFirst, label: 'Build Track' })) return false;
 					expected = this.studio.project?.revision ?? expected;
 					if (hit != null && !this.studio.$playing.get()) {
 						this.studio.$playhead.set(hit.targetTime);

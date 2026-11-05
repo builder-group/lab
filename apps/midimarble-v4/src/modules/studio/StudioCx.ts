@@ -25,6 +25,7 @@ import {
 	type TSource,
 	type TVec2
 } from '@/modules/project';
+import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 import { shownRepeatRange, toggledRepeatRange, type TRepeatRange, type TRepeatSpan } from './repeat-range';
 import { fittedSongEnd } from '@/modules/camera/bowl-exit';
@@ -150,7 +151,7 @@ export class StudioCx {
 	private audioEngine: TAudioEngine | null = null;
 	private agentStep: { group: number; notices: TAgentStepNotice[]; didEdit: boolean } | null = null;
 	private agentSteps = 0;
-	/** Names of the agent's Undo steps by their history group */
+	/** Names of the Undo steps by their history group: an agent's, and a person's from what the edit changed */
 	private readonly stepLabels = new Map<number, string>();
 
 	private isRestoring = false;
@@ -646,6 +647,7 @@ export class StudioCx {
 		if (this.$isTemporary.get() && previous != null && previous !== path) host.discardTemporaryProject(previous);
 		this.$isTemporary.set(isTemporary);
 		this.savedRevision = project.revision;
+		this.stepLabels.clear();
 		this.$history.set(createHistory(project));
 		this.$mix.set(EMPTY_MIX);
 		this.$path.set(path);
@@ -668,9 +670,10 @@ export class StudioCx {
 	 * Applies commands as one undoable edit and schedules an autosave. `amend` folds them into the
 	 * latest edit instead, for refinements that arrive a moment after the edit they belong to. `group`
 	 * folds them into the latest edit only while it is the edit of that group (see `editGroup`), so a
-	 * multi-step edit stays one undo step and never swallows an edit the user made in between.
+	 * multi-step edit stays one undo step and never swallows an edit the user made in between. `label` names the step in
+	 * Edit > Undo; without it the name comes from what changed (`editLabel`), and a step keeps its first name.
 	 */
-	execute(commands: TProjectCommand[], options: { amend?: boolean; group?: number } = {}): boolean {
+	execute(commands: TProjectCommand[], options: { amend?: boolean; group?: number; label?: string } = {}): boolean {
 		const history = this.$history.get();
 		if (history == null || !commands.length) return false;
 		const [isEditOk, editErr, edited] = applyProjectCommands(history.present, commands);
@@ -687,7 +690,12 @@ export class StudioCx {
 			if (end != null) named = { ...named, end };
 		}
 		if (this.agentStep != null) this.agentStep.didEdit = true;
-		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group ?? this.agentStep?.group));
+		const next = options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group ?? this.agentStep?.group);
+		if (this.agentStep == null && options.amend !== true && !this.stepLabels.has(next.groups.present)) {
+			const label = options.label ?? editLabel(history.present, named, commands);
+			if (label != null) this.stepLabels.set(next.groups.present, label);
+		}
+		this.$history.set(next);
 		this.scheduleSave();
 		if (this.tapSession == null && changesBowlEnding(commands)) this.measureBowlTail();
 		return true;
@@ -722,13 +730,13 @@ export class StudioCx {
 		return this.agentStep != null;
 	}
 
-	/** The agent's name for the step Undo would take back, null for a person's */
+	/** The name of the step Undo would take back, null without one */
 	get undoLabel(): string | null {
 		const present = this.$history.get()?.groups.present;
 		return present != null ? (this.stepLabels.get(present) ?? null) : null;
 	}
 
-	/** The agent's name for the step Redo would bring back, null for a person's */
+	/** The name of the step Redo would bring back, null without one */
 	get redoLabel(): string | null {
 		const next = this.$history.get()?.groups.future[0];
 		return next != null ? (this.stepLabels.get(next) ?? null) : null;

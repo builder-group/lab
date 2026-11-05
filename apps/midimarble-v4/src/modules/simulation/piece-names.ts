@@ -57,7 +57,7 @@ export function namePiecesInOrder(project: TProject): TProject {
 	};
 }
 
-function pieceLabel(type: string): string {
+export function pieceLabel(type: string): string {
 	return getPieceDefinition(type)?.label ?? type;
 }
 

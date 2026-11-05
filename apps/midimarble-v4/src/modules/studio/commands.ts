@@ -135,7 +135,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 	const decorIds = inDesign(cx) ? selectedDecorIds(cx.$selection.get()) : [];
 	if (decorIds.length > 0) {
 		const copies = duplicateDecorCommands(project, decorIds);
-		if (cx.execute(copies.commands)) cx.$selection.set(copies.decorIds.map(toDecorKey));
+		if (cx.execute(copies.commands, { label: 'Duplicate' })) cx.$selection.set(copies.decorIds.map(toDecorKey));
 		return;
 	}
 	const ids = selectedPieceIds(project, cx.$selection.get());
@@ -170,7 +170,7 @@ async function duplicateSelection(cx: StudioCx): Promise<void> {
 		cx.notify('These track pieces have no place on the track yet, so there is nothing to copy');
 		return;
 	}
-	if (!cx.execute(placed.commands)) return;
+	if (!cx.execute(placed.commands, { label: 'Duplicate' })) return;
 	const named = cx.project?.entities.filter((entity) => placed.copies.some((copy) => copy.id === entity.id)) ?? placed.copies;
 	cx.$selection.set(named.map((entity) => entity.id));
 	const tied = ids.some((id) => project.entities.find((entity) => entity.id === id)?.components.hitLink != null);

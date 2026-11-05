@@ -240,7 +240,8 @@ export function readMenuItem(cx: StudioCx, line: TCommandLine, isTextFocused: bo
 		const isShown = cx.$panels.get()[line.panel];
 		return { title: `${isShown ? 'Hide' : 'Show'} ${command.title}`, enabled: isCommandEnabled(cx, command), checked: null };
 	}
-	const title = line.title ?? agentStepTitle(cx, line.command) ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : commandTitle(cx, command));
+	// In a text field Undo and Redo take back typing, not the named step
+	const title = line.title ?? (line.text != null && isTextFocused ? null : stepTitle(cx, line.command)) ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : commandTitle(cx, command));
 	return {
 		title: line.showsKey === true && command.shortcut != null ? `${title}\t${command.shortcut}` : title,
 		enabled: (line.text != null && isTextFocused) || isCommandEnabled(cx, command),
@@ -248,8 +249,8 @@ export function readMenuItem(cx: StudioCx, line: TCommandLine, isTextFocused: bo
 	};
 }
 
-/** Undo and Redo name an agent's step: "Undo Agent: Place Platform" */
-function agentStepTitle(cx: StudioCx, command: TCommandId): string | null {
+/** Undo and Redo name their step: "Undo Move Platform", "Undo Agent: Place Platform" */
+function stepTitle(cx: StudioCx, command: TCommandId): string | null {
 	if (command === 'edit.undo' && cx.undoLabel != null) return `Undo ${cx.undoLabel}`;
 	if (command === 'edit.redo' && cx.redoLabel != null) return `Redo ${cx.redoLabel}`;
 	return null;

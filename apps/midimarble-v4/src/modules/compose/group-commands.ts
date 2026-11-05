@@ -72,7 +72,7 @@ export function groupSelected(cx: StudioCx): void {
 	}
 	if (!pieces.length) return;
 	const { commands, group } = groupCommands(project, pieces, createId('group'));
-	if (cx.execute(commands)) cx.$selection.set(groupSelection(group));
+	if (cx.execute(commands, { label: 'Group' })) cx.$selection.set(groupSelection(group));
 }
 
 /** ⇧⌘G, like Figma's: the pieces stay, selected. A Pattern is Flatten's to take apart */

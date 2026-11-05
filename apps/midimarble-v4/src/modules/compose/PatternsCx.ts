@@ -151,7 +151,7 @@ export class PatternsCx {
 			this.studio.notify(answer.problems[0]?.words ?? `${PATTERN_LABELS[kind]} can't fit here.`, 'error');
 			return answer;
 		}
-		if (!this.studio.execute(answer.commands)) return null;
+		if (!this.studio.execute(answer.commands, { label: PATTERN_LABELS[kind] })) return null;
 		const group = this.studio.project?.groups?.find((item) => item.id === answer.groupId);
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
@@ -164,7 +164,7 @@ export class PatternsCx {
 	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */
 	flatten(group: TPatternGroup): void {
 		this.endHover();
-		if (!this.studio.execute(flattenCommands(group))) return;
+		if (!this.studio.execute(flattenCommands(group), { label: 'Flatten' })) return;
 		this.studio.$selection.set(group.pieceIds);
 		this.studio.notifyEdit(`Flattened ${group.name}`);
 	}

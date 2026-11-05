@@ -137,13 +137,13 @@ describe('MCP tools', () => {
 		expect(readMenuItem(cx, { command: 'edit.undo' }, false).title).toBe('Undo');
 	});
 
-	it('should leave a person\'s edits unnamed and in their own steps', async () => {
+	it('should keep a person\'s edits in their own steps, named by what changed', async () => {
 		const { cx } = studio();
 		await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setEnd', end: 9 }] } });
 		const steps = cx.$history.get()?.past.length ?? 0;
 		cx.execute([{ type: 'setEnd', end: 8 }]);
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);
-		expect(cx.undoLabel).toBeNull();
+		expect(cx.undoLabel).toBe('Change Length');
 	});
 
 	it('should refuse an invalid batch without changing the project', async () => {
