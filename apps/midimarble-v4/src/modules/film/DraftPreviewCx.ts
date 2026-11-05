@@ -1,9 +1,9 @@
 import { createState } from 'feature-state';
-import type { TScenePiece } from '@/modules/scene';
+import type { TSceneDescription, TScenePiece } from '@/modules/scene';
 import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose, FilmCameraCache, type TFilmCamera } from '@/modules/camera';
 import { TrackRenderer, MARBLE_Z, type TRenderPiece, pickPiece, pieceScreenOutline, hitboxOutlines } from '@/modules/canvas';
-import { isPointInPolygon, marblePositionAt, pieceAngleAt, blenderObjectBox, decorBox, decorList, madeInBlenderLayer, decorExtent, decorItem, isFrameEffect, type TDecorItem, snowfallOf, snowFlakes, type TFlake, distanceToBox, type TWallBox, appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme, wallKindOverride, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
-import { marbleFilmColor, type TVec2, toDecorKey, toMadeInBlenderKey, WALL_KEY } from '@/modules/project';
+import { isPointInPolygon, marblePositionAt, pieceOutline, pieceAngleAt, blenderObjectBox, decorBox, decorList, madeInBlenderLayer, decorExtent, decorItem, isFrameEffect, pieceKind, type TDecorItem, snowfallOf, snowFlakes, type TFlake, distanceToBox, type TWallBox, appliedOverrides, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme, wallKindOverride, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
+import { marbleFilmColor, type TProject, type TVec2, toDecorKey, toMadeInBlenderKey, WALL_KEY } from '@/modules/project';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { imageToWall } from './image-to-wall';
@@ -26,6 +26,8 @@ export class DraftPreviewCx {
 	private pose: TCameraPose | null = null;
 	private wallTheme: string | null = null;
 	private readonly scratchPose = createCameraPose();
+	private look: TDraftLook | null = null;
+	private shown: TResolvedPiece[] = [];
 
 	constructor(readonly studio: StudioCx) {}
 
@@ -82,22 +84,26 @@ export class DraftPreviewCx {
 		return this.size.height / 2 / (halfFrame * Math.max(this.pose.focus, 1e-3));
 	}
 
-	/** Scene description entry of a piece, for its theme colors */
-	scenePiece(entityId: string): TScenePiece | undefined {
-		return this.cameras.base?.build.description.pieces.find((piece) => piece.id === entityId);
+	/** The theme and each piece's colors, worked out once per film and scene: every piece asks for them every frame */
+	private lookOf(film: TProject['film']): TDraftLook {
+		const description = this.cameras.base?.build.description;
+		if (this.look?.film !== film || this.look.description !== description) {
+			this.look = { film, description, theme: resolveTheme(film), scenes: new Map(description?.pieces.map((piece) => [piece.id, piece])), colors: new Map() };
+		}
+		return this.look;
 	}
 
 	/** Theme colors of a piece in the draft */
 	colorsOf(piece: TResolvedPiece): TDraftColors {
-		const project = this.studio.project;
-		const scene = this.scenePiece(piece.pieceId);
-		const theme = project != null ? resolveTheme(project.film) : null;
-		return draftPieceColors(
-			theme?.base ?? DEFAULT_THEME,
-			scene ?? { type: piece.type, color: '#c8b89a', skin: null },
-			theme?.overrides,
-			theme?.projectTheme?.parts
-		);
+		const film = this.studio.project?.film;
+		if (film == null) return draftPieceColors(DEFAULT_THEME, { type: piece.type, color: '#c8b89a', skin: null });
+		const { theme, scenes, colors } = this.lookOf(film);
+		let known = colors.get(piece.pieceId);
+		if (known == null) {
+			known = draftPieceColors(theme.base, scenes.get(piece.pieceId) ?? { type: piece.type, color: '#c8b89a', skin: null }, theme.overrides, theme.projectTheme?.parts);
+			colors.set(piece.pieceId, known);
+		}
+		return known;
 	}
 
 	/**
@@ -107,8 +113,8 @@ export class DraftPreviewCx {
 	skinMarks(piece: TResolvedPiece): { id: string; points: TVec2[]; color: string }[] {
 		const project = this.studio.project;
 		if (piece.type !== 'platform' || project == null) return [];
-		const theme = resolveTheme(project.film);
-		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.pieceId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
+		const { theme, scenes } = this.lookOf(project.film);
+		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: scenes.get(piece.pieceId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
 		if (!marks.length) return [];
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
 		const [length, thickness, depth] = [piece.params['length'] ?? 0.06, piece.params['thickness'] ?? 0.008, shownDepth(piece)];
@@ -123,6 +129,27 @@ export class DraftPreviewCx {
 	pieces(): TResolvedPiece[] {
 		const hidden = this.studio.$hidden.get();
 		return (this.studio.simulation.$result.get()?.pieces ?? []).filter((piece) => !hidden.includes(piece.pieceId));
+	}
+
+	/** The pieces the last draw found in the frame, for what the overlays draw over it: most of a run is out of it at any moment */
+	shownPieces(): TResolvedPiece[] {
+		return this.shown;
+	}
+
+	private isInFrame(piece: TResolvedPiece): boolean {
+		const { minX, maxX, minY, maxY } = wallReach(piece);
+		let [left, right, top, bottom] = [Infinity, -Infinity, Infinity, -Infinity];
+		for (const z of [0, Math.max(this.pathZ(), shownDepth(piece))]) {
+			for (const x of [minX, maxX]) {
+				for (const y of [minY, maxY]) {
+					const at = this.toScreen({ x, y }, z);
+					// Past the camera's reach it can't say, so it stays
+					if (!Number.isFinite(at.x) || !Number.isFinite(at.y)) return true;
+					[left, right, top, bottom] = [Math.min(left, at.x), Math.max(right, at.x), Math.min(top, at.y), Math.max(bottom, at.y)];
+				}
+			}
+		}
+		return right >= -FRAME_MARGIN && left <= this.size.width + FRAME_MARGIN && bottom >= -FRAME_MARGIN && top <= this.size.height + FRAME_MARGIN;
 	}
 
 	/** Titles with their frame position, on-screen size and angle and their opacity at the playhead */
@@ -170,7 +197,7 @@ export class DraftPreviewCx {
 			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
 			if (opacity <= 0 || isFrameEffect(decor)) return [];
 			const extent = decorExtent(decor);
-			const matrix = this.wallMatrix(decor.position, decor.rotation, decor.scale);
+			const matrix = this.wallMatrix(decor.position, decor.rotation, decor.scale, Math.hypot(extent.x, extent.y));
 			if (matrix == null) return [];
 			const asset = decorItem(decor.source) == null ? this.studio.library.$projectItems.get().find((item) => decor.source === `assets/${item.id}/asset.blend`) : undefined;
 			return [{ key: toDecorKey(decor.id), item: decorItem(decor.source), matrix, opacity, extent: { x: extent.x / decor.scale, y: extent.y / decor.scale }, previewUrl: asset?.previewUrl ?? null }];
@@ -261,14 +288,16 @@ export class DraftPreviewCx {
 		].map(([x = 0, y = 0]) => this.toScreen({ x: box.x + x * cos - y * sin, y: box.y + x * sin + y * cos }, 0));
 	}
 
-	/** SVG matrix from a decoration's own meters (x right, y down) to CSS pixels, through the film camera at its spot */
-	private wallMatrix(center: TVec2, angle: number, scale: number): string | null {
+	/** SVG matrix from a decoration's own meters (x right, y down) to CSS pixels, through the film camera at its spot; null when `reach` in meters around it stays out of the frame */
+	private wallMatrix(center: TVec2, angle: number, scale: number, reach: number): string | null {
 		const step = 0.01;
 		const [cos, sin] = [Math.cos(angle), Math.sin(angle)];
 		const origin = this.toScreen(center, 0);
 		const along = this.toScreen({ x: center.x + cos * step, y: center.y + sin * step }, 0);
 		const up = this.toScreen({ x: center.x - sin * step, y: center.y + cos * step }, 0);
 		if (![origin.x, origin.y, along.x, along.y, up.x, up.y].every(Number.isFinite)) return null;
+		const pixels = (Math.max(Math.hypot(along.x - origin.x, along.y - origin.y), Math.hypot(up.x - origin.x, up.y - origin.y)) / step) * reach + FRAME_MARGIN;
+		if (origin.x < -pixels || origin.x > this.size.width + pixels || origin.y < -pixels || origin.y > this.size.height + pixels) return null;
 		const a = ((along.x - origin.x) / step) * scale;
 		const b = ((along.y - origin.y) / step) * scale;
 		const c = (-(up.x - origin.x) / step) * scale;
@@ -280,7 +309,7 @@ export class DraftPreviewCx {
 	marbles(): TPlacedMarble[] {
 		const project = this.studio.project;
 		if (project == null) return [];
-		const theme = resolveTheme(project.film);
+		const { theme } = this.lookOf(project.film);
 		const result = this.studio.simulation.$result.get();
 		const hidden = this.studio.$hidden.get();
 		const playhead = this.studio.$playhead.get();
@@ -308,7 +337,7 @@ export class DraftPreviewCx {
 	glows(): boolean {
 		const project = this.studio.project;
 		if (project == null) return false;
-		const theme = resolveTheme(project.film);
+		const { theme } = this.lookOf(project.film);
 		return draftGlows(theme.parts.platform.skin === 'platform:neon' ? 'neon' : theme.base);
 	}
 
@@ -356,7 +385,8 @@ export class DraftPreviewCx {
 		const renderer = this.renderer;
 		const project = this.studio.project;
 		if (renderer == null || project == null) return;
-		const theme = resolveTheme(project.film);
+		const track = this.filmCamera()?.track ?? null;
+		const { theme } = this.lookOf(project.film);
 		const overrides = appliedOverrides(project.film);
 		const wallKind = wallKindOverride(project.film);
 		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
@@ -365,19 +395,54 @@ export class DraftPreviewCx {
 			this.wallTheme = wallKey;
 		}
 		const playhead = this.studio.$playhead.get();
-		const track = this.filmCamera()?.track ?? null;
 		this.pose = track != null ? sampleCameraTrack(track, playhead, this.scratchPose) : null;
 		renderer.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
 		renderer.setFilm(this.pose != null ? { pose: this.pose, aspect: this.aspect(), frame: { x: 0, y: 0, ...this.size } } : null);
 
-		const items: TRenderPiece[] = this.pieces().map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece), pathZ: this.pathZ() }));
+		const pieces = this.pieces();
+		const items: TRenderPiece[] = pieces.map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece), pathZ: this.pathZ() }));
 		renderer.setPieces(items);
 		renderer.setMarbles(
 			this.marbles().map(({ entityId, body, radius, position }) => ({ entityId, color: body, radius, position, z: this.pathZ() }))
 		);
 		renderer.render();
+		this.shown = this.pose != null ? pieces.filter((piece) => this.isInFrame(piece)) : pieces;
 		this.$frame.set((value) => value + 1);
 	}
+}
+
+/** CSS pixels past the frame's edge an overlay shape still draws, for its line widths and a soft edge */
+const FRAME_MARGIN = 40;
+
+interface TDraftLook {
+	film: TProject['film'];
+	description: TSceneDescription | undefined;
+	theme: ReturnType<typeof resolveTheme>;
+	scenes: Map<string, TScenePiece>;
+	colors: Map<string, TDraftColors>;
+}
+
+const wallReaches = new WeakMap<TResolvedPiece, { minX: number; maxX: number; minY: number; maxY: number }>();
+
+/** How far a piece can reach on the wall at any angle; a run's pieces never change in place, so once per piece */
+function wallReach(piece: TResolvedPiece): { minX: number; maxX: number; minY: number; maxY: number } {
+	const known = wallReaches.get(piece);
+	if (known != null) return known;
+	const outline = pieceOutline(piece);
+	const { x, y } = piece.position;
+	// A bar can turn, so around its center. A rail stays where it lies.
+	const turns = pieceKind(piece) === 'box';
+	const radius = turns ? Math.max(0, ...outline.map((corner) => Math.hypot(corner.x - x, corner.y - y))) : 0;
+	const reach = turns
+		? { minX: x - radius, maxX: x + radius, minY: y - radius, maxY: y + radius }
+		: {
+				minX: Math.min(x, ...outline.map((corner) => corner.x)),
+				maxX: Math.max(x, ...outline.map((corner) => corner.x)),
+				minY: Math.min(y, ...outline.map((corner) => corner.y)),
+				maxY: Math.max(y, ...outline.map((corner) => corner.y))
+			};
+	wallReaches.set(piece, reach);
+	return reach;
 }
 
 type TPlacedMarble = TDraftMarble & { entityId: string; radius: number; position: TVec2 };

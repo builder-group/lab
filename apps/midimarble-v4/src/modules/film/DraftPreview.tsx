@@ -138,7 +138,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	useFeatureState(draft.$frame);
 	const scale = draft.screenScale();
 	const titles = draft.titles();
-	const pieces = draft.pieces();
+	const pieces = draft.shownPieces();
 	const glows = draft.glows();
 	const playhead = draft.studio.$playhead.get();
 
