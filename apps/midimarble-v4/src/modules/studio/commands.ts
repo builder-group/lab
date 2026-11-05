@@ -337,7 +337,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.film.openSheet() },
 
 	// MARK: - Edit
-	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0, run: (cx) => cx.undo() },
+	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0 || cx.$compose.get()?.patterns.$isRunning.get() === true, run: (cx) => cx.undo() },
 	{ id: 'edit.redo', title: 'Redo', section: 'Edit', shortcut: '⇧⌘Z', isEnabled: (cx) => (cx.$history.get()?.future.length ?? 0) > 0, run: (cx) => cx.redo() },
 	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', shortcut: 'F2', isEnabled: (cx) => cx.renameTarget() != null, run: (cx) => cx.renameSelection() },
 	{

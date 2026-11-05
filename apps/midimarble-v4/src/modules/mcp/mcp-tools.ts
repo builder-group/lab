@@ -429,7 +429,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const report = (answer: Awaited<ReturnType<typeof compose.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
-			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
+			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
 		let answer: Awaited<ReturnType<typeof compose.patterns.dryRun>> = null;

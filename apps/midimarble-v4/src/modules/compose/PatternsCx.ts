@@ -52,6 +52,8 @@ export class PatternsCx {
 	private client: TPatternClient | null = null;
 	private hoverTimer: ReturnType<typeof setTimeout> | undefined;
 	private hoverKey: string | null = null;
+	/** `$failure` is only what the ghost's one shape showed, gone with the hover */
+	private isHoverFailure = false;
 	/** The run on its way, which an edit ends; `isReplaced` when a newer click takes its place, which says nothing */
 	private run: { key: string; isReplaced: boolean } | null = null;
 
@@ -91,6 +93,12 @@ export class PatternsCx {
 				.then((answer) => {
 					if (this.hoverKey !== key || this.studio.project?.revision !== project.revision) return;
 					this.$preview.set({ revision: project.revision, kind, key, laneId: change.laneId, pieces: answer.pieces, ms: performance.now() - startedAt });
+					// The ghost is one shape, so a click may still find a better one: what's wrong with it is only said to be likely
+					const [blocking] = answer.blocking;
+					if (blocking != null) {
+						this.isHoverFailure = true;
+						this.$failure.set({ key: failureKey(target), problems: [{ ...blocking, words: `May not fit: ${blocking.words}` }] });
+					}
 					// Notes in free fall lie far below the view: a ghost nobody sees previews nothing, so the view pans to it, keeping the zoom
 					const middle = answer.pieces[Math.floor(answer.pieces.length / 2)];
 					if (middle != null) this.studio.$reveal.set({ ids: [], point: middle.position });
@@ -105,6 +113,8 @@ export class PatternsCx {
 		this.hoverKey = null;
 		clearTimeout(this.hoverTimer);
 		if (this.$preview.get() != null) this.$preview.set(null);
+		if (this.isHoverFailure) this.$failure.set(null);
+		this.isHoverFailure = false;
 	}
 
 	stop(): void {
@@ -125,7 +135,7 @@ export class PatternsCx {
 		if (project == null) return;
 		this.isStopped = false;
 		for (const group of project.music.lanes.flatMap((lane) => groupsOfLane(project, lane.id)[0] ?? [])) {
-			const answer = await this.fit(changeFor({ laneId: group.laneId, from: group.from, to: group.to, group }, group.kind));
+			const answer = await this.fit(changeFor({ laneId: group.laneId, from: group.from, to: group.to, group }, group.kind), false);
 			if (answer == null) {
 				if (this.isStopped) this.studio.undo();
 				return;
@@ -145,13 +155,11 @@ export class PatternsCx {
 		const change = changeFor(target, kind, settings);
 		const answer = await this.fit(change);
 		if (answer == null) return null;
-		const failureKey = target.group != null ? toGroupKey(target.group.id) : toRangeKey(target.laneId, target.from, target.to);
 		if (!answer.commands.length || answer.groupId == null) {
-			this.$failure.set({ key: failureKey, problems: answer.problems });
-			this.studio.notify(answer.problems[0]?.words ?? `${PATTERN_LABELS[kind]} can't fit here.`, 'error');
+			this.refuse(target, kind, settings, answer);
 			return answer;
 		}
-		if (!this.studio.execute(answer.commands, { label: PATTERN_LABELS[kind] })) return null;
+		if (!this.studio.simulation.landWorkedOut(answer.commands, { label: PATTERN_LABELS[kind] })) return null;
 		const group = this.studio.project?.groups?.find((item) => item.id === answer.groupId);
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
@@ -159,6 +167,17 @@ export class PatternsCx {
 		this.studio.$compose.get()?.revealOnceSimulated(pieceIds, true);
 		this.tell(answer, madeWords(target, kind, settings, answer.name));
 		return answer;
+	}
+
+	/** Nothing changed: the notice says which hit and why, the wall shows it, the tiles keep saying it */
+	private refuse(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings, answer: TPatternAnswer): void {
+		const { refusal, nearestWidth } = answer;
+		const words = refusal?.words ?? answer.problems[0]?.words ?? `${PATTERN_LABELS[kind]} can't fit here.`;
+		this.$failure.set({ key: failureKey(target), problems: [{ hitId: refusal?.hitId ?? answer.problems[0]?.hitId ?? '', words }] });
+		const width = nearestWidth != null && settings.width !== nearestWidth ? nearestWidth : null;
+		const actions = width != null ? [{ label: `Try Width ${Math.round(width * 100)} cm`, title: 'The nearest Width with no problems', run: () => void this.apply(target, kind, { ...settings, width }) }] : [];
+		this.studio.notify(words, 'error', { actions });
+		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.laneId, refusal.hitId)] });
 	}
 
 	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */
@@ -194,7 +213,7 @@ export class PatternsCx {
 		return this.client;
 	}
 
-	private async fit(change: TGroupChange): Promise<TPatternAnswer | null> {
+	private async fit(change: TGroupChange, isChecked = true): Promise<TPatternAnswer | null> {
 		const project = this.studio.project;
 		if (project == null) return null;
 		if (this.run != null) this.run.isReplaced = true;
@@ -208,7 +227,7 @@ export class PatternsCx {
 			const answer = await this.clientNow().run(project, change, (progress) => {
 				const steps = progress.steps > 1 ? ` · ${progress.step} of ${progress.steps} Groups` : '';
 				this.studio.updateNotice(noticeId, { message: `Fitting ${progress.name}${steps}`, progress: progress.fraction });
-			});
+			}, isChecked);
 			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
 			return answer;
 		} catch (error) {
@@ -242,10 +261,16 @@ export class PatternsCx {
 		const details = lines.length > 0 ? lines.join(' ') : undefined;
 		const parts = [answer.later.length > 0 ? `${answer.name} and ${answer.later.length === 1 ? answer.later[0]?.name : `${answer.later.length} later Groups`} fitted, so everything stays on time` : made];
 		if (answer.problems.length > 0) parts.push(`${answer.problems.length} ${answer.problems.length === 1 ? 'problem' : 'problems'}`);
+		if (answer.movedAfter > 0) parts.push(`the ${answer.movedAfter === 1 ? 'piece' : `${answer.movedAfter} pieces`} after it moved with the marble`);
 		if (answer.laterLateHits > 0) parts.push(`${answer.laterLateHits} later ${answer.laterLateHits === 1 ? 'hit is' : 'hits are'} no longer on time`);
 		if (answer.otherMarbleTouches.length > 0) parts.push('it touches another marble’s pieces');
 		this.studio.notifyEdit(parts.join(' · '), [], details != null ? { details } : {});
 	}
+}
+
+/** Where the tiles say why a Pattern doesn't fit */
+function failureKey(target: TPatternTarget): string {
+	return target.group != null ? toGroupKey(target.group.id) : toRangeKey(target.laneId, target.from, target.to);
 }
 
 function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TGroupChange {

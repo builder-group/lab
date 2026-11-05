@@ -14,7 +14,7 @@ export class PatternCanceledError extends Error {
 
 export interface TPatternClient {
 	/** Runs a Group change for real, ending whatever runs now */
-	run: (project: TProject, change: TGroupChange, onProgress?: (progress: TGroupRunProgress) => void) => Promise<TPatternAnswer>;
+	run: (project: TProject, change: TGroupChange, onProgress?: (progress: TGroupRunProgress) => void, isChecked?: boolean) => Promise<TPatternAnswer>;
 	/** Asks for the ghost of a change. Only the newest waiting one runs; older ones reject as canceled */
 	preview: (project: TProject, change: TGroupChange) => Promise<TPatternAnswer>;
 	/** Ends what runs and what waits */
@@ -26,6 +26,7 @@ interface TJob {
 	project: TProject;
 	change: TGroupChange;
 	isPreview: boolean;
+	isChecked: boolean;
 	onProgress?: ((progress: TGroupRunProgress) => void) | undefined;
 	resolve: (answer: TPatternAnswer) => void;
 	reject: (error: Error) => void;
@@ -68,7 +69,7 @@ export function createPatternClient(): TPatternClient {
 	function start(job: TJob): void {
 		const id = ++nextId;
 		current = { ...job, id, startedAt: performance.now() };
-		const request: TPatternWorkerRequest = { id, project: job.project, change: job.change, isPreview: job.isPreview };
+		const request: TPatternWorkerRequest = { id, project: job.project, change: job.change, isPreview: job.isPreview, isChecked: job.isChecked };
 		ensureWorker().postMessage(request);
 	}
 
@@ -93,14 +94,14 @@ export function createPatternClient(): TPatternClient {
 	}
 
 	return {
-		run(project, change, onProgress) {
+		run(project, change, onProgress, isChecked = true) {
 			dropWaiting();
 			endCurrent();
-			return new Promise((resolve, reject) => start({ project, change, isPreview: false, onProgress, resolve, reject }));
+			return new Promise((resolve, reject) => start({ project, change, isPreview: false, isChecked, onProgress, resolve, reject }));
 		},
 		preview(project, change) {
 			return new Promise((resolve, reject) => {
-				const job: TJob = { project, change, isPreview: true, resolve, reject };
+				const job: TJob = { project, change, isPreview: true, isChecked: false, resolve, reject };
 				dropWaiting();
 				if (current == null) return start(job);
 				if (!current.isPreview) return reject(new PatternCanceledError());

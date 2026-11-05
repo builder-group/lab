@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import type { TEntity, TProject, TProjectHistory, TVec2 } from '@/modules/project';
+import type { TEntity, TProject, TProjectCommand, TProjectHistory, TVec2 } from '@/modules/project';
 import { createSimulationClient, isSuperseded, laneEdits, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
@@ -181,9 +181,15 @@ export class SimulationCx {
 
 	/** Lands what a settle found, in the edit's undo step or as its own */
 	landSettled(entities: TEntity[], isAmend: boolean): void {
+		this.landWorkedOut(entities.map((entity) => ({ type: 'upsertEntity', entity })), { amend: isAmend });
+	}
+
+	/** Lands an edit that already worked out how the run goes on, so nothing folds into it: a settle would decide again */
+	landWorkedOut(commands: TProjectCommand[], options: { amend?: boolean; label?: string }): boolean {
 		this.isLanding = true;
+		let isDone = false;
 		try {
-			if (entities.length > 0) this.studio.execute(entities.map((entity) => ({ type: 'upsertEntity', entity })), { amend: isAmend });
+			isDone = commands.length > 0 && this.studio.execute(commands, options);
 		} finally {
 			this.isLanding = false;
 		}
@@ -191,6 +197,7 @@ export class SimulationCx {
 		this.settled = history;
 		this.seenHistory = history;
 		this.stopSettling();
+		return isDone;
 	}
 
 	private stopSettling(): void {

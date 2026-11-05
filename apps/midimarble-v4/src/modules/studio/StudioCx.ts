@@ -985,6 +985,12 @@ export class StudioCx {
 	}
 
 	undo(): void {
+		// While a Pattern fits nothing has changed yet, so ⌘Z stops it
+		const patterns = this.$compose.get()?.patterns;
+		if (patterns?.$isRunning.get() === true) {
+			patterns.stop();
+			return;
+		}
 		const history = this.$history.get();
 		if (history == null || !history.past.length) return;
 		this.stepHistory(history, undoHistory(history));

@@ -65,6 +65,10 @@ export interface TFitPatternResult {
 	drop: number | null;
 	/** Why it can't fit, in plain words; empty when it fits */
 	problems: TPatternProblem[];
+	/** The problems that keep a hit from playing cleanly, so the Pattern isn't made there; a bar off its column isn't one */
+	blocking: TPatternProblem[];
+	/** The nearest Width with no problems, when one was looked for and found */
+	nearestWidth: number | null;
 	/** What's worth saying that isn't wrong, such as bars steeper than usual */
 	notes: string[];
 	/** The project with `commands` applied */
@@ -109,7 +113,7 @@ function exitOf(result: TSimulationResult, laneId: string, time: number): TPatte
 }
 
 function nothing(request: TFitPatternRequest, problems: TPatternProblem[], sims = 0): TFitPatternResult {
-	return { commands: [], entities: [], removedIds: [], exit: null, width: request.width ?? 0, drop: request.drop ?? null, problems, notes: [], project: request.project, sims, tries: 0 };
+	return { commands: [], entities: [], removedIds: [], exit: null, width: request.width ?? 0, drop: request.drop ?? null, problems, blocking: problems, nearestWidth: null, notes: [], project: request.project, sims, tries: 0 };
 }
 
 function fitRail(request: TFitPatternRequest, options: TFitPatternOptions): TFitPatternResult {
@@ -142,6 +146,8 @@ function fitRail(request: TFitPatternRequest, options: TFitPatternOptions): TFit
 		width: fit.width,
 		drop: null,
 		problems,
+		blocking: problems,
+		nearestWidth: null,
 		notes: [],
 		project: fit.project,
 		sims: fit.sims,
@@ -224,6 +230,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 	}
 	const result = sim.simulate({ ...chosen.project, end: (next?.time ?? last.time + 0.3) + 0.01 });
 	const entities = chosen.entities;
+	const blocking = [...problemsOf(chosen, lane.hits), ...longFalls(result, ids, lane.hits)];
 	return {
 		commands: [...(removedIds.length > 0 ? [{ type: 'removeEntities' as const, entityIds: removedIds }] : []), ...entities.map((entity) => ({ type: 'upsertEntity' as const, entity }))],
 		entities,
@@ -231,7 +238,9 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 		exit: exitOf(result, laneId, next?.time ?? last.time + 0.3),
 		width: chosen.width,
 		drop: chosen.drop,
-		problems: [...problemsOf(chosen, lane.hits, shape.maxTilt ?? MAX_TILT), ...longFalls(result, ids, lane.hits), ...(nearest != null ? [{ hitId: hitIds[0] ?? '', words: `Width ${formatCm(nearest)} fits this range.` }] : [])],
+		problems: [...blocking, ...columnProblems(chosen, shape.maxTilt ?? MAX_TILT), ...(nearest != null ? [{ hitId: hitIds[0] ?? '', words: `Width ${formatCm(nearest)} fits this range.` }] : [])],
+		blocking,
+		nearestWidth: nearest,
 		notes: tiltNotes(chosen),
 		project: chosen.project,
 		sims,
@@ -254,7 +263,7 @@ function scoreFit(sim: TSimulator, fit: TBarsFit, laneId: string, ids: string[],
 	return { ...fit, width, drop, score: short + late.length * 100 + strikes.length * 20 + rolls.length * 20 + touching.length * 5 + off * 3 + failures, late, strikes, rolls, touching };
 }
 
-function problemsOf(fit: TScoredFit, hits: readonly { id: string; time: number }[], maxTilt: number): TPatternProblem[] {
+function problemsOf(fit: TScoredFit, hits: readonly { id: string; time: number }[]): TPatternProblem[] {
 	const when = (hitId: string): string => wordsForHitTime(hits.find((hit) => hit.id === hitId)?.time ?? 0);
 	const problems: TPatternProblem[] = [];
 	const seen = new Set<string>();
@@ -265,14 +274,22 @@ function problemsOf(fit: TScoredFit, hits: readonly { id: string; time: number }
 	};
 	if (!fit.bars.length) add(hits[0]?.id ?? '', 'The marble has not reached this range, so nothing can be fitted here yet.');
 	for (const hitId of fit.late) add(hitId, `The note at ${when(hitId)} can't be reached on time.`);
-	for (const bar of fit.bars) {
-		for (const issue of bar.why) add(bar.hitId, `${issueWords(issue, fit.width)} (${when(bar.hitId)})`);
-		if (Math.abs(bar.errX) > COLUMN_PROBLEM) add(bar.hitId, columnWords(bar, fit.width, maxTilt));
-	}
+	for (const bar of fit.bars) for (const issue of bar.why) add(bar.hitId, `${issueWords(issue, fit.width)} (${when(bar.hitId)})`);
 	for (const hitId of fit.strikes) add(hitId, `The marble strikes a bar twice at ${when(hitId)}.`);
 	for (const hitId of fit.rolls) add(hitId, `The marble rolls along a bar at ${when(hitId)} instead of bouncing. Try a higher Bounce.`);
 	for (const hitId of fit.touching) add(hitId, `Two pieces touch on the wall at ${when(hitId)}. Try another Width or Bounce.`);
 	return problems;
+}
+
+/** Bars off their column: the hits still play, only the shape isn't what was asked */
+function columnProblems(fit: TScoredFit, maxTilt: number): TPatternProblem[] {
+	const words = new Set<string>();
+	return fit.bars.flatMap((bar) => {
+		const said = columnWords(bar, fit.width, maxTilt);
+		if (Math.abs(bar.errX) <= COLUMN_PROBLEM || words.has(said)) return [];
+		words.add(said);
+		return [{ hitId: bar.hitId, words: said }];
+	});
 }
 
 function issueWords(issue: TBarIssue, width: number): string {

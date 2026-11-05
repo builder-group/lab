@@ -68,6 +68,10 @@ export interface TGroupRunOutcome {
 	groupId: string | null;
 	name: string;
 	problems: TPatternProblem[];
+	/** Of the Group and the later ones, the problems that keep a hit from playing cleanly */
+	blocking: TPatternProblem[];
+	/** The nearest Width with no problems, when one was found */
+	nearestWidth: number | null;
 	/** Later Groups that were fitted again */
 	later: TLaterGroupOutcome[];
 	/** Hits after the Group, in no Group, that are no longer on time: nothing fits those again */
@@ -175,7 +179,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	const lane = project.music.lanes.find((item) => item.id === change.laneId);
 	const existing = change.groupId != null ? project.groups?.filter(isPatternGroup).find((group) => group.id === change.groupId) : undefined;
 	let name = existing != null && existing.kind === change.kind ? existing.name : nextGroupName(project.groups ?? [], change.kind);
-	const refuse = (problems: TPatternProblem[]): TGroupRunOutcome => ({ commands: [], groupId: null, name, problems, later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], measures: null, entities: [], project });
+	const refuse = (problems: TPatternProblem[]): TGroupRunOutcome => ({ commands: [], groupId: null, name, problems, blocking: problems, nearestWidth: null, later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], measures: null, entities: [], project });
 	if (lane == null) return refuse([{ hitId: '', words: 'That marble is gone.' }]);
 	const target = targetOf(lane, change);
 	if (target.problem != null) return refuse([target.problem]);
@@ -237,6 +241,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 
 	const groups = new Map<string, TPatternGroup>([[group.id, group]]);
 	const outcomes: TLaterGroupOutcome[] = [];
+	const blocking = [...fit.blocking];
 	const exitAfter = later[0] != null && !isPreview ? marbleAt(sim, working, lane.id, later[0].from) : null;
 	if (refitBefore != null) groups.set(refitBefore.group.id, { ...refitBefore.group, pieceIds: refitBefore.fit.entities.map((entity) => entity.id) });
 	if (!sameExit(exitBefore, exitAfter)) {
@@ -245,12 +250,14 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 		later.forEach((item, index) => {
 			const laterTarget = targetOf(lane, item);
 			if (laterTarget.problem != null) {
+				blocking.push(laterTarget.problem);
 				groups.set(item.id, { ...item, pieceIds: [], problems: [laterTarget.problem] });
 				outcomes.push({ groupId: item.id, name: item.name, problems: [laterTarget.problem] });
 				return;
 			}
 			const laterFit = askFit(laterTarget.hitIds, item, index + 2, item.name, item.pieceIds);
 			working = laterFit.project;
+			blocking.push(...laterFit.blocking);
 			const { problems: _old, ...plain } = item;
 			groups.set(item.id, { ...plain, pieceIds: laterFit.entities.map((entity) => entity.id), ...(laterFit.problems.length > 0 ? { problems: laterFit.problems } : {}) });
 			outcomes.push({ groupId: item.id, name: item.name, problems: laterFit.problems });
@@ -279,6 +286,8 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 		groupId,
 		name,
 		problems: fit.problems,
+		blocking,
+		nearestWidth: fit.nearestWidth,
 		later: outcomes,
 		laterLateHits,
 		otherMarbleTouches: [...new Set(otherMarbleTouches)],
