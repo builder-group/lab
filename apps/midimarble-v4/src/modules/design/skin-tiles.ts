@@ -14,16 +14,16 @@ export const THEME_DEFAULT_TILE = 'theme-default';
 export interface TLookTile {
 	id: string;
 	label: string;
-	/** Quiet second line: the skin Theme Default stands for, or where the item comes from */
+	/** Quiet second line: where the item comes from */
 	detail: string;
 	previewUrl: string | null;
 	isCurrent: boolean;
 }
 
 /**
- * Theme Default, then every other built-in skin of the element, a hidden one only while `usedSkins` names it. Choosing
- * the theme's own skin follows the theme (`builtInSkinCommands`), so Theme Default stands for that skin and it has no
- * second tile.
+ * The theme's skin, such as "Theme: Gold Plate", then every other built-in skin of the element, a hidden one only while
+ * `usedSkins` names it. Choosing the theme's own skin follows the theme (`builtInSkinCommands`), so it has no second tile.
+ * The first tile gives the selection back to its theme, properties too.
  */
 export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TEntity[], usedSkins?: ReadonlySet<string>): TLookTile[] {
 	const theme = resolveTheme(design);
@@ -35,11 +35,15 @@ export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: T
 	const shown = themeSkinShown(theme, element, entities[0]);
 	const hasEntities = entities.length > 0;
 	return [
-		{ id: THEME_DEFAULT_TILE, label: 'Theme Default', detail: shown?.label ?? '', previewUrl: shown?.previewUrl ?? null, isCurrent: hasEntities && owns.every((own) => own == null || own === part) },
+		{ id: THEME_DEFAULT_TILE, label: themeTileLabel(shown?.label), detail: '', previewUrl: shown?.previewUrl ?? null, isCurrent: hasEntities && owns.every((own) => own == null || own === part) },
 		...catalogSkins(element, usedSkins)
 			.filter((skin) => skin.id !== part)
 			.map((skin) => ({ id: skin.id, label: skin.label, detail: skin.origin, previewUrl: skin.previewUrl, isCurrent: hasEntities && owns.every((own) => own === skin.id) }))
 	];
+}
+
+function themeTileLabel(skin: string | undefined): string {
+	return skin != null ? `Theme: ${skin}` : 'Theme';
 }
 
 /** Every skin the project wears or one of its themes names, which keeps a hidden skin on the tiles */
@@ -66,7 +70,7 @@ export function wallTiles(design: Parameters<typeof wallLayer>[0]): TWallTile[] 
 	const wall = wallLayer(design);
 	const themeKind = wall.theme.kind;
 	return [
-		{ id: THEME_DEFAULT_TILE, kind: null, shownKind: themeKind, label: 'Theme Default', detail: wallKindLabel(themeKind), previewUrl: null, isCurrent: wall.own.kind == null || wall.own.kind === themeKind },
+		{ id: THEME_DEFAULT_TILE, kind: null, shownKind: themeKind, label: themeTileLabel(wallKindLabel(themeKind)), detail: '', previewUrl: null, isCurrent: wall.own.kind == null || wall.own.kind === themeKind },
 		...WALL_KINDS.filter((item) => item.kind !== themeKind).map((item) => ({ id: item.kind, kind: item.kind, shownKind: item.kind, label: item.label, detail: STARTER_ORIGIN, previewUrl: null, isCurrent: wall.own.kind === item.kind }))
 	];
 }

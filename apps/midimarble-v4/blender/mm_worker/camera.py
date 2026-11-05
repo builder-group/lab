@@ -13,7 +13,7 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    0.04 + 0.5 * smoothing seconds), so the camera neither lags nor overshoots. Where smoothing still lets a marble
    drift toward the frame edge (free falls accelerate), the target is pulled along.
 3. Placement: the camera stands `distance` from the target at `pitch` from the wall normal, above and to the side
-   of the run (SIDE_ANGLE from straight below, following the run direction by SIDE_FOLLOW). Seen from there the
+   of the run (the Turn, `side`, by default SIDE_ANGLE from straight below, following the run direction by SIDE_FOLLOW). Seen from there the
    bars show their long sides and tops, the wall recedes like a floor and the two columns run diagonally.
 4. Roll: image up is the wall's up direction turned by a slow function of the run direction plus a slow drift
    (ROLL_DRIFT over ROLL_PERIOD), so the columns turn between diagonal and near vertical. Shot markers scale the
@@ -142,6 +142,7 @@ def settings_from(description_camera, theme_settings):
         'pitch': number('pitch', 0.7, 0.0, 1.45),
         'lead': number('lead', 0.15, 0.0, 2.0),
         'smoothing': number('smoothing', 0.6, 0.0, 1.0),
+        'side': number('side', SIDE_ANGLE, 0.0, 2.0 * math.pi),
         'sway': number('sway', 1.0, 0.0, 1.0),
         'lens': number('lens', LENS, 10.0, 300.0),
         'shots': shots,
@@ -327,10 +328,10 @@ def drift_times(times, hold):
     return np.minimum(times, hold) + HOLD_EASE * (1.0 - np.exp(-past / HOLD_EASE))
 
 
-def view_turn(times, heading, hold, sway=1.0):
-    """Side angle around the target and image roll per frame, from the run direction and the slow drift. Sway scales
-    them: at 0 the wall's up stays straight up in the image, whatever the run does."""
-    side = math.pi + sway * (SIDE_ANGLE - math.pi + SIDE_FOLLOW * heading)
+def view_turn(times, heading, hold, base_side=SIDE_ANGLE, sway=1.0):
+    """Side angle around the target and image roll per frame, from the Turn, the run direction and the slow drift.
+    Sway scales what moves on its own: at 0 the side holds the Turn and the wall's up stays straight up in the image."""
+    side = base_side + sway * SIDE_FOLLOW * heading
     drift = ROLL_DRIFT * np.sin(2 * math.pi * drift_times(times, hold) / ROLL_PERIOD)
     roll = sway * (np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + drift)
     return side, roll
@@ -438,7 +439,7 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     shot_distance = shot_values(times, settings['distance'], settings['shots'])
     scale = shot_distance / settings['distance']
     base = settings['distance']
-    side, roll = view_turn(times, heading, hold, settings['sway'])
+    side, roll = view_turn(times, heading, hold, settings['side'], settings['sway'])
     axes = view_axes(side, roll, settings['pitch'])
     raw = spread_need(marbles, motions, sample, centre if aim is None else aim, settings['lens'], axes)
     # The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its centre would widen it again
@@ -709,7 +710,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     current, depth, distance = framing['current'], framing['depth'], framing['distance']
     # The camera stands below and to the side of the target, looking up along the run; the side follows the run
     # direction so the view keeps looking along it, and the image rolls slowly on its own and with the run
-    side, roll = view_turn(times, heading, settings.get('hold'), settings['sway'])
+    side, roll = view_turn(times, heading, settings.get('hold'), settings['side'], settings['sway'])
     pitch = settings['pitch']
     locations = np.empty((len(frames), 3))
     rotations = np.empty((len(frames), 3))

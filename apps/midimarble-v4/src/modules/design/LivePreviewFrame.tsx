@@ -1,7 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import React from 'react';
 import type { StudioCx } from '@/modules/studio/StudioCx';
-import { framePath, framesAhead, lookupFrame, type TLivePreviewLevel } from './live-preview';
+import { framePath, framesAhead, lookupFrame } from './live-preview';
 import type { LivePreviewCx } from './LivePreviewCx';
 import { PreviewImageCache } from './preview-image-cache';
 
@@ -11,11 +11,11 @@ const HOLD_SECONDS = 0.25;
 const PRELOAD_SECONDS = 1;
 
 /**
- * Blender's background preview frame at the playhead, drawn over the Draft Preview. It follows the playhead
- * outside React so playback does not re-render the tree, and fades out where no frame is rendered yet.
+ * Blender's background frame at the playhead, drawn over the Draft Preview. It follows the playhead outside React so
+ * playback does not re-render the tree, and fades out where no frame is rendered yet.
  */
 export const LivePreviewFrame: React.FC<TLivePreviewFrameProps> = (props) => {
-	const { live, studio, onLevelChange } = props;
+	const { live, studio } = props;
 	const canvasRef = React.useRef<HTMLCanvasElement>(null);
 	const [cache] = React.useState(() => new PreviewImageCache());
 
@@ -23,15 +23,14 @@ export const LivePreviewFrame: React.FC<TLivePreviewFrameProps> = (props) => {
 		const canvas = canvasRef.current;
 		const context = canvas?.getContext('2d');
 		if (canvas == null || context == null) return;
-		let shown: TLivePreviewLevel | null = null;
+		let isShown = false;
 		let drawnTime: number | null = null;
 		let drawnUrl: string | null = null;
 
-		function show(level: TLivePreviewLevel | null): void {
-			if (canvas == null || level === shown) return;
-			shown = level;
-			canvas.style.opacity = level != null ? '1' : '0';
-			onLevelChange(level);
+		function show(isVisible: boolean): void {
+			if (canvas == null || isVisible === isShown) return;
+			isShown = isVisible;
+			canvas.style.opacity = isVisible ? '1' : '0';
 		}
 
 		function draw(): void {
@@ -39,14 +38,14 @@ export const LivePreviewFrame: React.FC<TLivePreviewFrameProps> = (props) => {
 			const frames = live.$frames.get();
 			if (frames == null || frames.folder === '' || !live.$enabled.get()) {
 				drawnTime = null;
-				show(null);
+				show(false);
 				return;
 			}
-			for (const ahead of framesAhead(frames, time, PRELOAD_SECONDS)) cache.load(convertFileSrc(framePath(frames.folder, ahead.index, ahead.level)), onReady);
+			for (const ahead of framesAhead(frames, time, PRELOAD_SECONDS)) cache.load(convertFileSrc(framePath(frames.folder, ahead)), onReady);
 			const hit = lookupFrame(frames, time);
-			const url = hit != null ? convertFileSrc(framePath(frames.folder, hit.index, hit.level)) : null;
+			const url = hit != null ? convertFileSrc(framePath(frames.folder, hit)) : null;
 			const image = url != null ? cache.get(url) : null;
-			if (hit != null && url != null && image != null) {
+			if (url != null && image != null) {
 				if (url !== drawnUrl && canvas != null && context != null) {
 					if (canvas.width !== image.naturalWidth || canvas.height !== image.naturalHeight) {
 						canvas.width = image.naturalWidth;
@@ -56,12 +55,12 @@ export const LivePreviewFrame: React.FC<TLivePreviewFrameProps> = (props) => {
 					drawnUrl = url;
 				}
 				drawnTime = time;
-				show(hit.level);
+				show(true);
 				return;
 			}
 			if (url != null) cache.load(url, onReady);
 			// Keep the last frame briefly while the next one decodes, so playback does not flicker to the draft
-			if (drawnTime == null || Math.abs(time - drawnTime) > HOLD_SECONDS) show(null);
+			if (drawnTime == null || Math.abs(time - drawnTime) > HOLD_SECONDS) show(false);
 		}
 
 		function onReady(): void {
@@ -73,9 +72,8 @@ export const LivePreviewFrame: React.FC<TLivePreviewFrameProps> = (props) => {
 		return () => {
 			for (const stop of stops) stop();
 			cache.clear();
-			onLevelChange(null);
 		};
-	}, [cache, live, studio, onLevelChange]);
+	}, [cache, live, studio]);
 
 	return (
 		<canvas
@@ -90,6 +88,4 @@ export const LivePreviewFrame: React.FC<TLivePreviewFrameProps> = (props) => {
 interface TLivePreviewFrameProps {
 	live: LivePreviewCx;
 	studio: StudioCx;
-	/** The level of the frame shown, or null while the Draft Preview shows through; keep it stable, like a state setter */
-	onLevelChange: (level: TLivePreviewLevel | null) => void;
 }

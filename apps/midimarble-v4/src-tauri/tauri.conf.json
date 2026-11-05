@@ -49,6 +49,7 @@
 		"resources": {
 			"../blender/worker.py": "blender/worker.py",
 			"../blender/render_job.py": "blender/render_job.py",
+			"../blender/preview_job.py": "blender/preview_job.py",
 			"../blender/mm_worker/*.py": "blender/mm_worker/",
 			"../blender/mm_worker/*.json": "blender/mm_worker/",
 			"../packs/Starter.marblepack/pack.json": "packs/Starter.marblepack/pack.json",

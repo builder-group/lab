@@ -66,7 +66,9 @@ export interface TSceneCamera {
 	lead: number;
 	/** 0 to 1; larger follows more calmly */
 	smoothing: number;
-	/** 0 to 1; how much the view turns and rolls with the run and over time. Absent is 1; 0 keeps the wall's up straight up. */
+	/** Turn: the camera's side angle around the target in radians, 0 to 2π. Absent is 95°. */
+	side?: number;
+	/** 0 to 1; how much the view turns and rolls with the run and over time. Absent is 1; 0 holds the Turn and keeps the wall's up straight up. */
 	sway?: number;
 	shots: TSceneShot[];
 	/**

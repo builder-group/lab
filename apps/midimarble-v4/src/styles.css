@@ -470,10 +470,6 @@ textarea {
 	bottom: 0;
 	left: 0;
 	height: 2px;
-	background: color-mix(in srgb, var(--good) 65%, var(--separator));
-}
-
-.mm-render-span[data-level='fast']::after {
 	background: var(--good);
 }
 
@@ -1685,6 +1681,14 @@ button.mm-hit-summary:hover {
 	line-height: 1.4;
 	white-space: pre-wrap;
 	user-select: text;
+}
+
+[data-orbit='true'] .mm-preview {
+	cursor: grab;
+}
+
+[data-orbit='true'] .mm-preview:active {
+	cursor: grabbing;
 }
 
 .mm-preview[data-placing='true'] {

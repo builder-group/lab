@@ -188,6 +188,7 @@ export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
 		pitch: camera.pitch,
 		lead: camera.lead,
 		smoothing: camera.smoothing,
+		...(camera.side != null ? { side: camera.side } : {}),
 		sway: camera.sway,
 		shots: camera.shots.map((shot) => ({
 			time: shot.time,

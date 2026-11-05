@@ -10,12 +10,11 @@ use std::path::{Path, PathBuf};
 pub const PREVIEW_FOLDER: &str = ".cache/preview-frames";
 const MAX_TARGET_BYTES: usize = 1024 * 1024;
 
-/// Frames on disk, by level, and the job's `status.json`
+/// Frames on disk and the job's `status.json`
 #[derive(Debug, Default, PartialEq)]
 pub struct PreviewFrames {
     pub folder: PathBuf,
-    pub flat: Vec<u32>,
-    pub fast: Vec<u32>,
+    pub frames: Vec<u32>,
     pub status: Option<Value>,
 }
 
@@ -26,7 +25,7 @@ pub fn preview_folder(package: &Path, signature: &str) -> Result<PathBuf, Mailbo
     return Ok(package.join(PREVIEW_FOLDER).join(signature));
 }
 
-/// Lists `00042.jpg` (Flat Light) and `00042.fast.jpg` (Fast) frames, sorted. A missing folder has no frames.
+/// Lists `00042.jpg` frames, sorted. A missing folder has no frames.
 pub fn list_frames(package: &Path, signature: &str) -> Result<PreviewFrames, MailboxError> {
     let folder = preview_folder(package, signature)?;
     let mut frames = PreviewFrames {
@@ -38,28 +37,25 @@ pub fn list_frames(package: &Path, signature: &str) -> Result<PreviewFrames, Mai
     };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if let Some(index) = frame_index(&name, ".fast.jpg") {
-            frames.fast.push(index);
-        } else if let Some(index) = frame_index(&name, ".jpg") {
-            frames.flat.push(index);
+        if let Some(index) = frame_index(&name) {
+            frames.frames.push(index);
         }
     }
-    frames.flat.sort_unstable();
-    frames.fast.sort_unstable();
+    frames.frames.sort_unstable();
     frames.status = mailbox::read_json(&folder.join("status.json")).ok();
     return Ok(frames);
 }
 
-/// Frame number of `<digits><suffix>`, such as 42 for `00042.jpg`
-fn frame_index(name: &str, suffix: &str) -> Option<u32> {
-    let stem = name.strip_suffix(suffix)?;
+/// Frame number of `<digits>.jpg`, such as 42 for `00042.jpg`
+fn frame_index(name: &str) -> Option<u32> {
+    let stem = name.strip_suffix(".jpg")?;
     if stem.is_empty() || !stem.chars().all(|value| value.is_ascii_digit()) {
         return None;
     }
     return stem.parse().ok();
 }
 
-/// Replaces the running job's `target.json` (`{"order": [...], "refine": [...]}`); the job reads it between chunks
+/// Replaces the running job's `target.json` (`{"order": [...], "paused": false}`); the job reads it between chunks
 pub fn write_target(package: &Path, signature: &str, target_json: &str) -> Result<(), MailboxError> {
     let folder = preview_folder(package, signature)?;
     if target_json.len() > MAX_TARGET_BYTES {
@@ -96,17 +92,16 @@ mod tests {
     }
 
     #[test]
-    fn lists_frames_by_level() {
+    fn lists_frames() {
         let package = temp_package("list");
         let folder = preview_folder(&package, "abc123").unwrap();
         fs::create_dir_all(&folder).unwrap();
-        for name in ["00002.jpg", "00000.jpg", "00001.jpg", "00001.fast.jpg", ".partial-00003.jpg", "scene.blend", "x.jpg"] {
+        for name in ["00002.jpg", "00000.jpg", "00001.jpg", ".partial-00003.jpg", "scene.blend", "x.jpg"] {
             fs::write(folder.join(name), b"x").unwrap();
         }
         fs::write(folder.join("status.json"), br#"{"state":"rendering","frames":3}"#).unwrap();
         let frames = list_frames(&package, "abc123").unwrap();
-        assert_eq!(frames.flat, vec![0, 1, 2]);
-        assert_eq!(frames.fast, vec![1]);
+        assert_eq!(frames.frames, vec![0, 1, 2]);
         assert_eq!(frames.status.unwrap()["state"], "rendering");
         fs::remove_dir_all(package).unwrap();
     }
@@ -115,7 +110,7 @@ mod tests {
     fn missing_folder_has_no_frames() {
         let package = temp_package("missing");
         let frames = list_frames(&package, "nothing").unwrap();
-        assert!(frames.flat.is_empty() && frames.fast.is_empty() && frames.status.is_none());
+        assert!(frames.frames.is_empty() && frames.status.is_none());
         fs::remove_dir_all(package).unwrap();
     }
 
@@ -136,7 +131,7 @@ mod tests {
         write_target(&package, "sig", r#"{"order":[1]}"#).unwrap();
         assert!(!folder.exists());
         fs::create_dir_all(&folder).unwrap();
-        write_target(&package, "sig", r#"{"order":[3,4],"refine":[3]}"#).unwrap();
+        write_target(&package, "sig", r#"{"order":[3,4],"paused":false}"#).unwrap();
         let target: Value = serde_json::from_str(&fs::read_to_string(folder.join("target.json")).unwrap()).unwrap();
         assert_eq!(target["order"][1], 4);
         assert!(write_target(&package, "sig", "[1,2]").is_err());

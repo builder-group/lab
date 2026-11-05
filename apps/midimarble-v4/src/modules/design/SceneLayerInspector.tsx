@@ -59,12 +59,6 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject }> = (pro
 					resetTitle={`Use ${themeName}'s background colour again`}
 					commandsFor={(backgroundColor) => wallCommands(requireProject(cx), { backgroundColor })}
 				/>
-				{isOwn ? (
-					<button className="mm-button" data-span="2" onClick={() => cx.execute(wallCommands(project, { kind: null, color: null, backgroundColor: null }))} title={`Show ${themeName}'s wall and colours again`} type="button">
-						<RotateCcw size={12} strokeWidth={1.9} />
-						Reset to Theme
-					</button>
-				) : null}
 			</Panel>
 		</>
 	);
@@ -82,7 +76,20 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 	return (
 		<>
 			<InspectorHeader icon={<Sun size={16} strokeWidth={1.7} />} title="Key Light" subtitle={isOwn ? `Changed from ${themeName}` : origin} />
-			<Panel id="design.keyLight" title="Light" accessory={<HelpTip text={`The theme's main light. ${LIGHT_HELP}`} />}>
+			<Panel
+				id="design.keyLight"
+				title="Light"
+				accessory={
+					<>
+						{isOwn ? (
+							<button className="mm-icon-button" onClick={() => cx.execute(resetKeyLightCommands(requireProject(cx)))} title={`Use ${themeName}'s Key Light again`} aria-label="Use the theme's Key Light" type="button">
+								<RotateCcw size={12} strokeWidth={1.9} />
+							</button>
+						) : null}
+						<HelpTip text={`The theme's main light. ${LIGHT_HELP}`} />
+					</>
+				}
+			>
 				<ColorWell
 					cx={cx}
 					id="key-light-color"
@@ -95,12 +102,6 @@ export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = 
 					commandsFor={(color) => keyLightCommands(requireProject(cx), { color })}
 				/>
 				<LightSliders idPrefix="key-light" strength={key.strength} side={key.side} height={key.height} onChange={(patch) => cx.execute(keyLightCommands(requireProject(cx), patch))} />
-				{isOwn ? (
-					<button className="mm-button" data-span="2" onClick={() => cx.execute(resetKeyLightCommands(requireProject(cx)))} title={`Use ${themeName}'s Key Light again`} type="button">
-						<RotateCcw size={12} strokeWidth={1.9} />
-						Reset to Theme
-					</button>
-				) : null}
 			</Panel>
 		</>
 	);

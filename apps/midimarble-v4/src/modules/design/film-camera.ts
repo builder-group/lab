@@ -3,6 +3,7 @@ import { buildSceneDescription, type TSceneBuild } from '@/modules/blender/scene
 import { bakeFollowCamera, followCameraInput, verticalFov, type TCameraPose, type TCameraTrack } from '@/modules/camera';
 import type { TProject, TVec2 } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
+import type { TCameraAngles } from './camera-orbit';
 import { renderFps } from './DesignCx';
 
 /**
@@ -20,6 +21,13 @@ export function filmCamera(project: TProject, result: TSimulationResult): TFilmC
 	const isManual = build.description.camera?.mode === 'manual';
 	const description = isManual && build.description.camera != null ? { ...build.description, camera: { ...build.description.camera, mode: 'rig' as const } } : build.description;
 	return { build, track: bakeFollowCamera(followCameraInput(description, build.motionFiles)), isManual };
+}
+
+/** The same run through other angles, for a drag on the preview: the scene stays, only the camera bakes again */
+export function filmCameraAt(film: TFilmCamera, angles: TCameraAngles): TFilmCamera {
+	const { description, motionFiles } = film.build;
+	const camera = description.camera != null ? { ...description.camera, ...angles } : undefined;
+	return { ...film, track: bakeFollowCamera(followCameraInput({ ...description, ...(camera != null ? { camera } : {}) }, motionFiles)) };
 }
 
 /**

@@ -215,16 +215,22 @@ export class StudioCx {
 				void this.library.refresh();
 				void this.refreshReferences();
 			}),
-			this.$playhead.listen(({ value }) => {
-				if (inDesign()) this.design.live.follow(value);
-				if (inDesign() && !this.$playing.get()) this.design.requestPreview();
+			this.$playhead.listen(() => {
+				if (inDesign() && !this.$playing.get()) {
+					this.design.live.pauseForWork();
+					this.design.requestPreview();
+				}
 			}),
 			this.$playing.listen(({ value }) => {
-				if (inDesign()) this.design.live.follow(this.$playhead.get(), true);
+				if (inDesign()) this.design.live.pauseForWork();
 				if (inDesign() && !value) this.design.requestPreview();
 			}),
 			this.simulation.$result.listen(() => {
+				if (inDesign()) this.design.live.pauseForWork();
 				if (inDesign() && !this.$playing.get()) this.design.requestPreview(400);
+			}),
+			watchForWork(() => {
+				if (inDesign()) this.design.live.pauseForWork();
 			})
 		];
 		return () => {
@@ -1223,4 +1229,19 @@ export function focusedLane(project: TProject, selection: TSelection): TLane | u
 		if (lane != null) return lane;
 	}
 	return project.music.lanes[0];
+}
+
+/** Calls back while the person presses, drags, scrolls or types anywhere in the window */
+function watchForWork(onWork: () => void): () => void {
+	function onPointerMove(event: PointerEvent): void {
+		if (event.buttons !== 0) onWork();
+	}
+	const options = { capture: true, passive: true };
+	const events = ['pointerdown', 'keydown', 'wheel'] as const;
+	for (const name of events) window.addEventListener(name, onWork, options);
+	window.addEventListener('pointermove', onPointerMove, options);
+	return () => {
+		for (const name of events) window.removeEventListener(name, onWork, options);
+		window.removeEventListener('pointermove', onPointerMove, options);
+	};
 }

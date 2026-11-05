@@ -139,9 +139,7 @@ export type BlenderPreviewFramesDto = {
 	/**  Absolute folder of the signature's frames: `<frame>.jpg` at Flat Light, `<frame>.fast.jpg` at Fast */
 	folder: string,
 	/**  Frame numbers rendered at Flat Light, ascending */
-	flat: number[],
-	/**  Frame numbers re-rendered with Fast lighting, ascending */
-	fast: number[],
+	frames: number[],
 	/**  The job's `status.json`, if it started */
 	statusJson: string | null,
 };

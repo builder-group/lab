@@ -2,21 +2,24 @@ import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle, Type } from 'lucide-react';
 import React from 'react';
 import { isEditingTarget } from '@/lib';
+import { CAMERA_KEY } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
+import { startCameraOrbit } from './camera-orbit';
 import type { DesignCx } from './DesignCx';
 import { decorAtWall } from './decor';
 import { placeDecor, startDecorDrag } from './decor-actions';
 import { dropTitle, isInsertDrag, LIBRARY_DRAG_TYPE, readDecorDrop } from './FilmInsert';
 import { ScatterPanel } from './ScatterPanel';
 import { DraftPreview } from './DraftPreview';
-import { lookupFrame, type TLivePreviewLevel } from './live-preview';
+import { lookupFrame } from './live-preview';
 import { LivePreviewFrame } from './LivePreviewFrame';
 
 /**
- * Viewer for the Blender scene at the playhead, like the viewer of Final Cut Pro. While Blender's preview is not
- * there (the browser, Blender not installed, starting or failed) the Draft Preview draws the run through the same
- * camera in the app, like Final Cut's proxy playback. Playback and scrubbing show Blender's background preview
- * frames over the Draft Preview where they are rendered.
+ * Viewer for the Blender scene at the playhead, like the viewer of Final Cut Pro. While Blender's picture is not
+ * there (the browser, Blender not installed, starting or failed), or the View menu's Draft Preview is on, the Draft
+ * Preview draws the run through the same camera in the app, like Final Cut's proxy playback. Playback and scrubbing
+ * show Blender's background frames over the Draft Preview where they are rendered. With the Camera selected, a drag
+ * orbits it, drawn by the Draft Preview until Blender catches up.
  */
 export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	const { cx, studio, frame, onPick, onPlace, onDropAsset } = props;
@@ -26,9 +29,12 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	const placing = useFeatureState(cx.$placing);
 	const [dropTarget, setDropTarget] = React.useState(false);
 	const swallowClickRef = React.useRef(false);
-	const [liveLevel, setLiveLevel] = React.useState<TLivePreviewLevel | null>(null);
 	const isLiveEnabled = useFeatureState(cx.live.$enabled);
 	const isLiveMode = useLiveMode(cx, studio);
+	const orbit = useFeatureState(cx.$orbit);
+	const selection = useFeatureState(studio.$selection);
+	const cameraMode = useFeatureState(studio.$history)?.present.design.camera.mode;
+	const canOrbit = selection.includes(CAMERA_KEY) && cameraMode === 'rig' && placing == null;
 	const busy = status === 'starting' || status === 'syncing' || status === 'rendering';
 
 	// Escape leaves the placing mode before it reaches the studio shortcuts
@@ -58,7 +64,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	}, [studio]);
 
 	const canRunBlender = status !== 'unavailable' && status !== 'missing';
-	const isDraft = preview == null || !canRunBlender || status === 'error' || !isLiveEnabled || isLiveMode;
+	const isDraft = preview == null || !canRunBlender || status === 'error' || !isLiveEnabled || isLiveMode || orbit != null;
 	const canShowLive = isLiveEnabled && canRunBlender;
 
 	function toImage(event: React.MouseEvent<HTMLElement>): { u: number; v: number } {
@@ -109,6 +115,10 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 	return (
 		<div
 			className="relative flex h-full w-full items-center justify-center bg-[var(--canvas)] p-8"
+			data-orbit={canOrbit}
+			onPointerDownCapture={(event) => {
+				if (canOrbit && event.button === 0 && event.target instanceof Element && event.target.closest('.mm-preview') != null) startCameraOrbit(studio, event);
+			}}
 			onClick={(event) => {
 				// The surroundings of the preview are empty space, like the wall around a piece
 				if (event.target === event.currentTarget && !event.shiftKey && placing == null) studio.$selection.set([]);
@@ -119,7 +129,7 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					studio={studio}
 					frame={frame}
 					isPlacing={placing != null}
-					cover={canShowLive ? <LivePreviewFrame live={cx.live} studio={studio} onLevelChange={setLiveLevel} /> : null}
+					cover={canShowLive && orbit == null ? <LivePreviewFrame live={cx.live} studio={studio} /> : null}
 					onPick={onPick}
 					onPlace={placeTitle}
 					onDropAsset={onDropAsset}
@@ -170,19 +180,6 @@ export const DesignView: React.FC<TDesignViewProps> = (props) => {
 					<kbd className="mm-keycap">esc</kbd>
 				</div>
 			) : null}
-
-			<div className="mm-floating absolute top-3 left-3 flex items-center gap-1.5 p-[3px] text-[11px] text-[var(--text-secondary)]">
-				<div className="mm-segmented" role="radiogroup" aria-label="Preview">
-					<button role="radio" aria-checked={!canShowLive} data-active={!canShowLive} onClick={() => cx.live.setEnabled(false)} title="Draft: draws the run here, following the film's camera" type="button">
-						Draft
-					</button>
-					<button role="radio" aria-checked={canShowLive} data-active={canShowLive} disabled={!canRunBlender} onClick={() => cx.live.setEnabled(true)} title={canRunBlender ? 'Blender: renders the real look at the playhead' : status === 'missing' ? "Blender isn't installed. Install Blender 4.2 or later to preview and export films." : 'Blender connects in the desktop app'} type="button">
-						Blender
-					</button>
-				</div>
-				{busy && canShowLive ? <LoaderCircle className="animate-spin" size={11} aria-label="Blender is working" /> : null}
-				{canShowLive && liveLevel != null ? <span className="pr-1.5">{liveLevel === 'fast' ? 'Fast' : 'Flat Light'}</span> : null}
-			</div>
 
 			<ScatterPanel cx={studio} />
 

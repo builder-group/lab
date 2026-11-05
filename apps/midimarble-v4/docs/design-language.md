@@ -79,7 +79,7 @@ The inspector follows Figma UI3's properties panel. A 56 px header row holds a 3
 - Marble: in Compose a Release (X, Y), though the marble's ring drags on the wall; its label colour is chosen on its row, its film colour in its Skin
 - Scene (nothing selected): Film has the Theme row and Format; Compose has Gravity. The length is the transport's second time and the ruler's end marker. Quality is in the Export sheet
 - Song: the file and its kind, tempo and meter when known, Replace Song… and Delete Song, then Backing (its note count and the Sound it plays with)
-- Camera: Automatic or Manual with Distance, Tilt and Sway, Look Ahead and Smooth under Advanced, the framing problem at the playhead with its fix, and Reset Camera
+- Camera: Automatic or Manual with Distance, Turn, Tilt and Sway, the framing problem at the playhead with its fix, and Reset Camera
 
 Explanations sit behind a ? icon or in a tooltip, never as text in a panel. The timeline is resizable from its top edge and collapsible; its height is remembered and double-clicking the edge resets it.
 
@@ -227,7 +227,7 @@ A piece is named for what the marble does on it.
 - Pickers follow Figma's Assets panel and Final Cut's browser: tiles of square rendered previews with a name and a quiet origin line; the current one has the accent ring; In Use is a small dark badge; the Keep in Library star sits in the top-right corner, shown on hover and always when kept.
 - Blender's state is on the title bar's Blender button; an agent at work shows on the Agent button and in the notice; an export shows as a ring in Export Film… while the sheet is closed. Open in Blender is in the Blender menu and ⌘K
 - The Film inspector uses the same grid and has no prose. A piece shows its Skin section and Blender's link as one row with a dot (Detached with a reset, when it is)
-- **Draft Preview.** Wherever Blender's frames aren't there, the app draws the run through the same follow camera, like Final Cut's proxy playback, with the theme in flat colours. A Draft or Blender switch sits on the preview. Picking, title placing, drops, scrubbing and playback work the same on both
+- **Draft Preview.** Wherever Blender's frames aren't there, the app draws the run through the same follow camera, like Final Cut's proxy playback, with the theme in flat colours. View › Draft Preview keeps it on. Picking, title placing, drops, scrubbing and playback work the same on both
 - Placing a title uses a crosshair cursor and a floating hint with an esc keycap. A title's inspector has Text, Timing (In and Out as m:ss.cc text fields) and, for a Wall Title, Position
 - Sheets (Import, Export Film) drop from the title bar with AppKit-style right-aligned form labels and dialog buttons; Return runs the default button and Escape cancels
 

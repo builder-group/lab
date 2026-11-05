@@ -108,7 +108,7 @@ const DESIGN_EXAMPLES: Record<string, string> = {
 	theme: "{ type: 'setDesign', design: { theme: 'brass' } }, with pegboard, brass, neon or an id from get_state.themes",
 	wall: "{ type: 'setDesign', design: { wall: { color: '#f6e3b8', backgroundColor: '#fff2d2', kind: 'plain' } } }, with kind plain, plaster, pegboard or grid",
 	lights: "{ type: 'setDesign', design: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
-	camera: "{ type: 'setDesign', design: { camera: { distance: 1.36, pitch: 1.15, lead: 0.15, smoothing: 0.6, sway: 0, mode: 'rig' } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
+	camera: "{ type: 'setDesign', design: { camera: { distance: 1.36, pitch: 1.15, side: 1.66, lead: 0.15, smoothing: 0.6, sway: 0, mode: 'rig' } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
 	renderPreset: "{ type: 'setDesign', design: { renderPreset: 'final' } }, with draft or final",
 	decor: 'Decor is easier with placeDecor and scatterDecor',
 	themes: "A stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"
