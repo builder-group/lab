@@ -122,6 +122,21 @@ describe('preflightExport function', () => {
 		simulator = await createSimulator();
 	});
 
+	it('should tip about a long free fall in plain words, without counting it as a problem', () => {
+		const project = createTwoLaneProject();
+		const lane = project.music.lanes[0];
+		const result = simulator.simulate(project);
+		const dots = [0.4, -1.7];
+		const hits = (lane?.hits ?? []).slice(0, 2).map((hit, index) => ({ laneId: lane?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceEntityId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
+
+		const preflight = preflightExport(project, { ...result, revision: project.revision, hits }, []);
+		const tip = preflight.issues.find((issue) => issue.kind === 'fall');
+
+		expect(tip?.title).toBe(`${lane?.name} falls 2.1 m at 0:09: a Long Rail fills that gap`);
+		expect(tip?.severity).toBe('info');
+		expect(problemSummary(preflight).problems.some((issue) => issue.kind === 'fall')).toBe(false);
+	});
+
 	it('should pass clean fixtures with every hit on time', () => {
 		const project = withSongFixture('zigzag');
 

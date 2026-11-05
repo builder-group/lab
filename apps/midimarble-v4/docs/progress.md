@@ -2,6 +2,32 @@
 
 The autonomous build updates this log after every slice. Newest entries go first.
 
+## Patterns prototype
+
+**Undo it:** everything is in commits starting `#11 Patterns prototype:` after `6e1e05c`.
+
+**Shipped.** The strip above each marble's hits, tiles in the inspector (Zigzag, Staircase, Long Rail), hover ghosts, Groups with a Layers row, blocks that resize, Width and Bounce, later Groups fitted again with progress and Stop, `applyPattern` with `dryRun` for agents, and the long-fall tip. The solver is promoted from `.local/patterns/`, with a chain on the reference's hit times (`fixtures/reference-hits.json`, times only).
+
+**Chain on the reference hits,** Zigzag 0..24, Long Rail, Staircase 25..29, Zigzag 30..32, Long Rail, Zigzag 33..42, Long Rail, Zigzag 43..57, at Width 14 cm, Gravity 0.5: 58 of 58, no double hits or rolls, sideways 0.15 cm between same-column bars, 8.0 cm drop per hit, gap falls 5, 11 and 8 cm (Build Track 35, 81, 303), 19 s. Width 15 cm on the first Zigzag fits the 7 later Groups again in 24 s, still 58 of 58. It says 7 small problems, such as a 3 cm off-column hop and pieces touching at 0:13 and 0:14.
+
+**Hover.** 9 hits on real rhythm: median 316 ms, max 474 (9 windows in the e2e), first hover in the browser 595 ms with the worker starting, Staircase 305 ms, a Long Rail 662 ms. Debounced 180 ms rather than on click: it feels fine for 9 hits, slow for 25.
+
+**Tilt, measured on the whole chain.**
+
+| Gravity, Width, Bounce | On time | Median tilt | Gap falls |
+| --- | --- | --- | --- |
+| 0.5, 14 cm, 0.5 | 58/58 | 29° | 5, 11, 8 cm |
+| 0.5, 14 cm, 0.65 | 55/58 | 28° | 17, 10, 10 cm |
+| 0.5, 14 cm, 0.35 | 58/58 | 27° | 5, 13, 9 cm |
+| 1, 14 cm, 0.5 | 58/58 | 16° | 30, 11, 12 cm |
+| 1, 11 cm, 0.5 | 58/58 | 13° | 56, 11, 10 cm |
+
+Bounce doesn't help; Gravity does. The app says so in a line beside the tiles and changes nothing.
+
+**What feels wrong.** Bounce means a drop aim, not a restitution: one restitution on every bar gave 54/58, so bars still vary. Width 16 cm leaves many problems. A slider run with 7 later Groups takes 24 s with nothing moving on the wall. Hand edits on later Groups go when an earlier one moves the marble. Long-fall tips show in the checks and in `hitReport.tips`, not as a count in Compose. Blocks don't appear for Build Track's pieces (asked not to touch it).
+
+**Checks:** `typecheck`, `lint` (0 errors, 16 warnings), `test` and `camera:check` pass. `test:e2e`: 7 of 8 files passed outright; `build-track.e2e.test.ts` failed once, because the new tip caught Build Track leaving a 1.8 m fall on a 1.06 s gap, so that helper now leaves tips out and only that file was run again. Browser: seen at 1440×900, strip, hint, range, tiles, ghost, Group, block, resize, Width with progress and Stop, Undo, Delete, the silence range, `applyPattern` through `runTool`. Not run in the native window, so a real agent over MCP is unchecked.
+
 ## UX review round 9 fixes, and the tools move into Insert
 
 **Tool rail (owner).** Marble, Platform and Rail are the first tiles of Insert's Track group, with their keys; the rail keeps Move, Hand and +. Film has no Hand, since its preview follows the film camera and nothing there pans; flagged for the owner. Insert's scrollbar is gone (`overflow-x: hidden`; a classic vertical scrollbar left the 112 px previews too wide) and its tooltips sit beside the panel, positioned against it so the scrolling body can't clip them.

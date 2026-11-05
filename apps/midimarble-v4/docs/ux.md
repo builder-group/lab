@@ -136,6 +136,20 @@ Each piece type is one self-contained definition with a physics shape, a few par
 
 Each marble has a release with its own position on the wall and time on the timeline, independent of the first hit. The MIDI import releases each marble 0.5 s before its first note, a short drop, so the film does not open on a long empty fall. Like a clip in a video editor, the release can be moved earlier to leave a gap before the first hit, and that stretch can hold any pieces.
 
+### Patterns (prototype)
+
+Undo to before `#11 Patterns prototype:` removes all of this. Compose only; one marble worked out at a time. Build Track and Next don't use it.
+
+Each marble's row has a slim strip, 16 px, above its hits: nearly invisible while empty, "Drag to choose a Pattern" on hover. Two ways in, one result: select hits with the usual drag in the hits area, or drag out a range in the strip, also over silence. A strip range over notes selects those notes. The inspector shows "9 Hits" or "0.7 s" and the tiles: Zigzag and Staircase for notes, Long Rail for silence (past 1.5 s it is a solved Switchback layout).
+
+Resting on a tile shows its ghost on the wall after 180 ms, panning the view if the ghost is out of it. A click makes a Group, one Undo step. In Layers it's a closed row under the marble; in the strip a block. A click on the block or the row selects the Group with its pieces; its edges resize it, which fits it again (a Long Rail always fills its silence, so it has none). The inspector shows its tiles with Width and Bounce, like Blender's Adjust Last Operation. Using them fits it again. Hand edits to its pieces stay until then. Delete takes the Group's pieces and the Group.
+
+What can't fit is said next to the tiles in plain words, as "The 0.21 s hop needs more than 40° of tilt at Width 15 cm; the limit is 40°. Try Width 13 cm." A neighbouring Width that fits better is used and said. Nothing falls back silently. A Long Rail that can't be made leaves the project as it was.
+
+Changing a Group fits the later Groups on that marble again when the marble now leaves it differently, in one Undo step, with progress and Stop in the notice. Stop changes nothing, and an edit made meanwhile stops it. A later Group that can't fit any more is what the notice says first. A Group with several marbles' hits selected is made per marble, and the notice warns if pieces touch.
+
+Bars steeper than 20° on average below Gravity 0.9 get a line beside the tiles: Gravity 1 about halves that. Gravity is never changed for you, since it sets the whole film's pace.
+
 ### Step loop
 
 The run is built one hit at a time against a live trajectory:
@@ -223,6 +237,8 @@ A hit sounds only when the marble strikes its piece. A first contact slower than
 ### Skins in Compose
 
 Skins appear in Compose as untextured grey silhouettes so the layout matches the final film. A toggle switches between skins and physics shapes. Skins never change the physics. A skin declares the parameters it fits, such as four blades of 0.3 m, and applying it sets those physics parameters.
+
+A marble that free-falls more than a metre between two notes with no rail gets a tip in the checks: "Marble 1 falls 2.1 m at 0:09: a Long Rail fills that gap". It is no problem count, since every hit still plays (prototype).
 
 ## Physics and handoff
 
