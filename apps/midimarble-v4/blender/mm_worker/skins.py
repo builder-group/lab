@@ -699,7 +699,8 @@ def rail_spec(frame, piece):
     params = frame.params
     physics_radius = params.get('radius', 0.0025)
     gap = params.get('gap', 0.01)
-    radius = min(physics_radius, 0.0016) if frame.style == 'chrome' else physics_radius * 0.8
+    # As thick as a Rail's generated wires, and posts every `post_indices` spacing along a long straight run
+    radius = min(physics_radius, 0.0022 * frame.marble_radius / 0.008) if frame.style == 'chrome' else physics_radius * 0.8
     if frame.style == 'chrome':
         wire_material, post_material = frame.metal(themes.chrome_material()), themes.chrome_material()
     elif frame.style == 'candy':
@@ -720,10 +721,12 @@ def rail_spec(frame, piece):
         for side in (-1, 1):
             y = frame.marble_y + side * gap / 2
             builder.tube([(x, y, z) for x, z in line], radius, material=0, sides=10)
-        for index in post_indices(line):
-            x, z = line[index]
+        dense = subdivided(line)
+        under = subdivided(frame.offset_path(frame.marble_radius + physics_radius - rise - 0.006))
+        for index in post_indices(dense):
+            x, z = dense[index]
             builder.tube([(x, frame.marble_y - gap / 2, z), (x, frame.marble_y + gap / 2, z)], radius * 0.8, material=1, sides=8)
-            below = frame.offset_path(frame.marble_radius + physics_radius - rise - 0.006)[index]
+            below = under[index]
             post = rounded_polyline([
                 (below[0], frame.wall_y, below[1]),
                 (below[0], frame.marble_y, below[1]),
@@ -882,6 +885,15 @@ def wire_post_indices(wire):
     if turning:
         indices.insert(1, turning[len(turning) // 2])
     return indices
+
+
+def subdivided(line, spacing=0.02):
+    """The line with points at most `spacing` apart, so a long straight run with only two points still gets its posts"""
+    points = list(line[:1])
+    for start, end in zip(line, line[1:]):
+        count = max(1, math.ceil(math.dist(start, end) / spacing))
+        points.extend((start[0] + (end[0] - start[0]) * step / count, start[1] + (end[1] - start[1]) * step / count) for step in range(1, count + 1))
+    return points
 
 
 def post_indices(line, spacing=0.08):
