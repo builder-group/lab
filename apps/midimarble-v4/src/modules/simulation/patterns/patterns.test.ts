@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyProjectCommands, createProject, type TProject, type TProjectCommand } from '@/modules/project';
 import { createSimulator, type TSimulator } from '../simulate';
+import { BAR_LENGTH, ZIGZAG_WIDTH } from './fit-bars';
 import { fitPattern } from './fit-pattern';
 import { measurePattern } from './measures';
 import { startRailId } from '../placement';
@@ -50,6 +51,35 @@ describe('fitPattern function', () => {
 		expect(measures.columnStraightness).toBeLessThan(0.005);
 		expect(measures.dropPerHit).toBeCloseTo(fit.drop ?? 0, 2);
 		expect(fit.exit).not.toBeNull();
+	});
+
+	it('should default a Zigzag to tight columns, and build any Width asked exactly', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6, 3]);
+		const tight = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag' }, { sim });
+		const wide = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', width: 0.17 }, { sim });
+		// Where the marble strikes is what's solved: a quarter of a bar inside each bar's centre
+		const apart = (fit: typeof tight): number => {
+			const hits = sim.simulate(fit.project).hits;
+			return Math.abs((hits.find((hit) => hit.hitId === 'h2')?.dot?.x ?? 0) - (hits.find((hit) => hit.hitId === 'h3')?.dot?.x ?? 0));
+		};
+
+		expect(tight.width).toBe(ZIGZAG_WIDTH);
+		expect(tight.problems).toEqual([]);
+		expect(apart(tight)).toBeCloseTo(ZIGZAG_WIDTH - BAR_LENGTH / 2, 2);
+		expect(wide.width).toBe(0.17);
+		expect(apart(wide)).toBeCloseTo(0.17 - BAR_LENGTH / 2, 2);
+	});
+
+	it('should share the fall a longer hop needs with the hop before it, and fit the same way twice', () => {
+		// A marble can't leave a bar faster than it landed: 0.235 s hops, then 0.37 and 0.59 s, must fall about 0.36 m at Gravity 1
+		const project = { ...smallProject([1, 1.235, 1.47, 1.843, 2.43, 2.8]), physics: { gravityScale: 1 } };
+		const fit = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
+		const again = fitPattern({ project, laneId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
+		const measures = measurePattern(fit.project, sim.simulate(fit.project), LANE);
+
+		expect(measures.onTime).toBe(6);
+		expect(measures.largestDrop).toBeLessThan(0.45);
+		expect(again.commands).toEqual(fit.commands);
 	});
 
 	it('should keep Length and Depth asked for, with the strike on the bar', () => {
@@ -165,8 +195,8 @@ describe('runGroupChange function', () => {
 	});
 
 	it('should report a long fall inside a range', () => {
-		const project = { ...smallProject([1, 1.25, 1.5, 2.14, 2.38]), physics: { gravityScale: 1 } };
-		const outcome = runGroupChange(project, { ...change, to: 2.38 }, { sim });
+		const project = { ...smallProject([1, 1.25, 1.5, 2.5, 2.74]), physics: { gravityScale: 1 } };
+		const outcome = runGroupChange(project, { ...change, to: 2.74 }, { sim });
 
 		expect(outcome.problems.some((problem) => /falls [\d.]+ m/.test(problem.words) && problem.words.includes('Long Rail'))).toBe(true);
 	});

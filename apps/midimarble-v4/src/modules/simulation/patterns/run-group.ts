@@ -1,7 +1,7 @@
 import type { TEntity, TGroup, TLane, TProject, TProjectCommand } from '@/modules/project';
 import type { TSimulator } from '../simulate';
 import { touchingPairs } from '../track-problems';
-import { sampleAt } from './fit-bars';
+import { sampleAt, ZIGZAG_WIDTH } from './fit-bars';
 import { fitPattern, type TFitPatternResult, type TPatternExit, type TPatternKind, type TPatternProblem } from './fit-pattern';
 import { measurePattern, type TPatternMeasures } from './measures';
 import { wordsForHitTime } from './words';
@@ -18,7 +18,7 @@ export const PATTERN_LABELS: Record<TPatternKind, string> = { zigzag: 'Zigzag', 
 
 /** Width and Bounce a Pattern starts from */
 export const PATTERN_DEFAULTS: Record<TPatternKind, { width: number; bounce: number }> = {
-	zigzag: { width: 0.14, bounce: 0.5 },
+	zigzag: { width: ZIGZAG_WIDTH, bounce: 0.5 },
 	staircase: { width: 0.09, bounce: 0.5 },
 	longRail: { width: 0.14, bounce: 0.5 }
 };

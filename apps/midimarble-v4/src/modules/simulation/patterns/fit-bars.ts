@@ -15,7 +15,18 @@ const COLUMN_CLOSE = 0.003;
 /** Further off a column than this reads on the wall, so it is a problem */
 export const COLUMN_PROBLEM = 0.01;
 
+/** Air kept under the bar above a landing: its inner end tilts down a little */
+const CLEARING_MARGIN = 0.005;
+/** The share of its landing speed a marble is asked to keep: a bounce this high still clears, with room for the solver */
+const KEPT_SPEED = 0.85;
+
 export const BAR_LENGTH = 0.03;
+/**
+ * A Zigzag's Width unless asked: about a film-view bar, the reference's spacing. On the reference's 58 hits and Jingle
+ * Bells it leaves fewer problems than 14 cm at Gravity 0.5 and 1; below 8 cm hops start to miss their columns.
+ */
+export const ZIGZAG_WIDTH = 0.1;
+const BAR_THICKNESS = 0.012;
 /** The steepest a bar tilts unless asked otherwise */
 export const MAX_TILT = 40;
 
@@ -116,6 +127,9 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 	const centre = shape.centre ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
 	const dotX = (index: number): number => (shape.kind === 'zigzag' ? centre + (sideOf(index) * span) / 2 : centre + index * firstSide * shape.width);
 	const total = shape.stopBefore === true ? hitIds.length - 1 : hitIds.length;
+	const radius = base.entities.find((entity) => entity.components.marble?.laneId === laneId)?.components.marble?.radius ?? 0.012;
+	const heights: number[] = [];
+	const planned = shape.drop != null ? plannedDrops(gravity, hitIds.slice(1).map((id, index) => (times.get(id) as number) - (times.get(hitIds[index] as string) as number)), shape.drop, Math.abs(firstArrival.velocity.y)) : [];
 
 	for (let index = 0; index < total; index++) {
 		const id = hitIds[index] as string;
@@ -127,6 +141,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 		const here = result.hits.find((hit) => hit.hitId === id);
 		const sample = arrival(time);
 		const dot = here?.dot ?? sample?.position ?? firstDot;
+		heights.push(dot.y);
 		const incoming: TVelocity = sample?.velocity ?? { x: 0, y: -1 };
 		const toward = nextId == null && shape.exitToFrame != null ? Math.sign(shape.exitToFrame - dot.x) || 1 : shape.kind === 'zigzag' ? -sideOf(index) : firstSide;
 		const targetX = nextId != null ? dotX(index + 1) : dot.x + toward * 0.05;
@@ -135,7 +150,10 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 		const sideways = Math.abs(((nextId != null ? dotX(index + 1) : dot.x) - dot.x) / hop);
 		const guess = Math.atan2(sideways + Math.abs(incoming.x), Math.max(0.3, Math.abs(incoming.y) + 0.35));
 		const minUp = Math.max(0.12, ((shape.minTakeoff ?? 0.4) - sideways * Math.sin(guess)) / Math.cos(guess));
-		const dropHere = shape.drop != null ? Math.max(0.02, Math.min(shape.drop, (gravity * hop * hop) / 2 - minUp * hop)) : null;
+		const mostDrop = (gravity * hop * hop) / 2 - minUp * hop;
+		const above = shape.kind === 'zigzag' && index > 0 && nextId != null ? (heights[index - 1] as number) - dot.y : null;
+		const clearing = above != null ? clearingDrop(gravity, hop, Math.abs(span), length / 2 - shape.strike + radius, radius, above) : 0;
+		const dropHere = shape.drop != null ? Math.max(0.02, Math.min(Math.max(planned[index] ?? shape.drop, clearing), mostDrop)) : null;
 		const targetY = dropHere != null ? dot.y - dropHere : null;
 		const want = { x: (targetX - dot.x) / hop, y: ((targetY ?? dot.y - 0.05) - dot.y + (gravity * hop * hop) / 2) / hop };
 
@@ -237,6 +255,7 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 		// Slow path: tilt scan with the bounce held, then bisection between clean trials on either side of the column
 		if (nextId != null && (found.best == null || !isGood(found.best))) {
 			const seeds = shape.drop != null ? [0, 0.1, -0.1, 0.2, -0.2, 0.3].map((d) => bounceSeed + d) : [0, 0.08, 0.16, -0.08, 0.24, -0.16].map((d) => shape.bounce + d);
+			// Each bounce has its own root, and the one nearest the drop aimed for wins: the first found can fall many times further
 			let solved: TTrial | null = null;
 			for (const seed of seeds.map((item) => clamp(item, 0.1, 0.95))) {
 				let previous: TTrial | null = null;
@@ -266,13 +285,10 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 					previous = item;
 				}
 				if (roots.length > 0) {
-					roots.sort((a, b) => Math.abs(a.angle) - Math.abs(b.angle));
+					roots.sort((a, b) => Math.abs(a.errY) - Math.abs(b.errY) || Math.abs(a.angle) - Math.abs(b.angle));
 					const root = roots[0] as TTrial;
-					if (targetY == null || Math.abs(root.errY) < 0.02) {
-						solved = root;
-						break;
-					}
-					keep(root);
+					if (solved == null || Math.abs(root.errY) < Math.abs(solved.errY)) solved = root;
+					if (targetY == null || Math.abs(root.errY) < 0.02) break;
 				}
 			}
 			if (solved != null) found.best = solved;
@@ -288,6 +304,40 @@ export function fitBars(sim: TSimulator, base: TProject, laneId: string, hitIds:
 	return { project, entities, bars, sims, centre };
 }
 
+/**
+ * The drop to aim for on each hop. A marble can't leave a bar faster than it landed, and a hop's length sets its takeoff,
+ * so a longer hop after a shorter one must be paid for by falling: about g(T² - t²) / 8, whatever the Width or Bounce. Left
+ * alone the long hop pays it all at once; this shares it with the hop before, which keeps the largest drop down.
+ */
+function plannedDrops(gravity: number, hops: readonly number[], drop: number, arrival: number): number[] {
+	const drops = hops.map(() => drop);
+	for (let sweep = 0; sweep < 8; sweep++) {
+		hops.forEach((hop, index) => {
+			const before = hops[index - 1];
+			const landing = before != null ? (gravity * before) / 2 + (drops[index - 1] as number) / before : arrival;
+			const short = (gravity * hop) / 2 - (drops[index] as number) / hop - KEPT_SPEED * landing;
+			if (short <= 0) return;
+			const raise = short / (1 / hop + (before != null ? KEPT_SPEED / before : 0));
+			drops[index] = (drops[index] as number) + raise;
+			if (before != null) drops[index - 1] = (drops[index - 1] as number) + raise;
+		});
+	}
+	return drops;
+}
+
+/**
+ * The least drop on a Zigzag hop that lands under the bar two hits back, which hangs right above the one landed on. A slow
+ * hop comes down almost straight, so it is still high when it reaches that bar's inner end: `reach` from where it lands.
+ * Aimed for from the start, since a stray strike otherwise ends on whatever low bounce clears it, many times further down.
+ */
+function clearingDrop(gravity: number, hop: number, span: number, reach: number, radius: number, above: number): number {
+	const before = Math.min((reach * hop) / Math.max(span, 1e-3), hop / 2);
+	let drop = 0;
+	// Landing faster with more drop, which two rounds settle
+	for (let round = 0; round < 2; round++) drop = Math.max(0, BAR_THICKNESS + 2 * radius + CLEARING_MARGIN + ((gravity * hop) / 2 + drop / hop) * before - (gravity * before * before) / 2 - above);
+	return drop;
+}
+
 /** The column shape counts as held for a bar within this */
 export function isOffColumn(bar: TBar): boolean {
 	return Math.abs(bar.errX) > COLUMN_CLOSE;
@@ -296,7 +346,7 @@ export function isOffColumn(bar: TBar): boolean {
 function barEntity(laneId: string, hitId: string, angle: number, bounce: number, contactAt: number, length: number, depth = platformDefinition.params['depth']?.default ?? 0.09): TEntity {
 	const entity = createLinkedPiece('platform', laneId, hitId, angle, { id: `bar-${hitId}`, contactAt });
 	const piece = entity.components.piece;
-	if (piece != null) piece.params = { length, thickness: 0.012, depth, bounce, entryDelay: 0 };
+	if (piece != null) piece.params = { length, thickness: BAR_THICKNESS, depth, bounce, entryDelay: 0 };
 	return entity;
 }
 
