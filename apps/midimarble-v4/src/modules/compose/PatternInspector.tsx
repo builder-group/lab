@@ -13,8 +13,6 @@ import { patternTargets, type TPatternTarget } from './PatternsCx';
 
 const BAR_KINDS: TPatternKind[] = ['zigzag', 'staircase'];
 const RAIL_KINDS: TPatternKind[] = ['longRail'];
-/** Steeper than this on average reads as a cloud, not two columns (the reference sits at 10°) */
-const STEEP_TILT = 20;
 
 /** The Pattern tiles for selected hits: "9 Hits" in the header above them, one result however they were selected */
 export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -123,31 +121,23 @@ const PatternProblems: React.FC<{ compose: ComposeCx; failureKey: string; proble
 	const { compose, failureKey, problems } = props;
 	const failure = useFeatureState(compose.patterns.$failure);
 	const shown = failure != null && failure.key === failureKey ? failure.problems : problems;
-	if (!shown.length) return null;
+	const [first] = shown;
+	if (first == null) return null;
+	const words = shown.map((problem) => problem.words).join(' ');
 	return (
-		<ul className="mm-pattern-problems" aria-label="Problems">
-			{shown.slice(0, 4).map((problem) => (
-				<li key={problem.words}>{problem.words}</li>
-			))}
-			{shown.length > 4 ? <li>And {shown.length - 4} more.</li> : null}
-		</ul>
+		<p className="mm-pattern-problems" title={words}>
+			{shown.length === 1 ? first.words : `${shown.length} problems`}
+		</p>
 	);
 };
 
-/** Tilt comes from Gravity, not Bounce: measured on the reference, Gravity 1 gives about half. It's the whole film's pace, so only said */
 const TiltNote: React.FC<{ project: TProject; group: TGroup }> = (props) => {
 	const { project, group } = props;
 	const tilts = project.entities.filter((entity) => group.pieceIds.includes(entity.id) && entity.components.piece?.type === 'platform').map((entity) => Math.abs(entity.components.hitLink?.angle ?? 0) * (180 / Math.PI));
 	if (!tilts.length) return null;
-	const median = [...tilts].sort((a, b) => a - b)[Math.floor(tilts.length / 2)] ?? 0;
 	const steepest = Math.max(...tilts);
-	if (steepest > MAX_TILT + 0.5) return <p className="mm-pattern-note">Bars tilt up to {steepest.toFixed(0)}°, past the usual {MAX_TILT}°.</p>;
-	if (median < STEEP_TILT || project.physics.gravityScale >= 0.9) return null;
-	return (
-		<p className="mm-pattern-note">
-			Bars tilt {median.toFixed(0)}° on average. Gravity 1 in Scene about halves that, and changes the whole film’s pace; Bounce barely does.
-		</p>
-	);
+	if (steepest <= MAX_TILT + 0.5) return null;
+	return <p className="mm-pattern-note">Bars tilt up to {steepest.toFixed(0)}°, past the usual {MAX_TILT}°.</p>;
 };
 
 const TILE_TITLES: Record<TPatternKind, string> = {

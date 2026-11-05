@@ -3,7 +3,7 @@ import { createState } from 'feature-state';
 import { Anchor, ChevronsRight, Link2, LocateFixed, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import type { TPathNode, TProject, TVec2 } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2 } from '@/modules/project';
 import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { hitMenu, laneMenu, pieceMenu } from '@/modules/studio/menus';
@@ -190,6 +190,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 	const hidden = useFeatureState(cx.$hidden);
 	const insertSnap = useFeatureState(compose.$insertSnap);
 	const hoverPreview = useFeatureState(compose.$hoverPreview);
+	const marbleGhost = useFeatureState(compose.$marbleGhost);
 	const project = history?.present;
 	const { projection, scale, transform } = usePannedProjection(compose);
 	const nextDots = React.useMemo(() => (result != null ? nextOpenHitPerLane(result) : null), [result]);
@@ -302,6 +303,7 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf('windmill').bar} strokeWidth={2} />
 				) : null}
 				{drag?.kind === 'marquee' ? <Marquee from={drag.from} to={drag.to} /> : null}
+				{marbleGhost != null && drag == null ? <circle cx={marbleGhost.x} cy={marbleGhost.y} r={Math.max(7, DEFAULT_MARBLE_RADIUS * compose.screenScale())} fill="var(--text)" fillOpacity={0.3} stroke="var(--text)" strokeOpacity={0.6} /> : null}
 			</svg>
 			{hoveredDot != null && drag == null && hoverPreview == null ? <DotTooltip compose={compose} project={project} hit={hoveredDot} /> : null}
 			{hintDot != null && drag == null ? (
@@ -309,8 +311,14 @@ const ComposeOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 			) : null}
 			{hover?.kind === 'track' && drag == null ? (
 				<CanvasTooltip position={hover.position}>
-					<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.laneId)?.name ?? 'Marble'}</span>
-					<span className="mm-tabular ml-1 text-[var(--text-secondary)]">at {formatTime(hover.time)}</span>
+					{compose.followsAt(hover.laneId, hover.time) ? (
+						<>
+							<span className="font-medium">Follows {project.music.lanes.find((lane) => lane.id === hover.laneId)?.name ?? 'Marble'}</span>
+							<span className="mm-tabular ml-1 text-[var(--text-secondary)]">at {formatTime(hover.time)}</span>
+						</>
+					) : (
+						<span className="font-medium">None</span>
+					)}
 					<WhatIfCount compose={compose} result={result} />
 				</CanvasTooltip>
 			) : null}

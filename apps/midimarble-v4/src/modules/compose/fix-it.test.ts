@@ -7,7 +7,7 @@ import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-pr
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
 import { newlyBroken } from './bowl-assist';
-import { addedProblems, brokenHits, fixMessage, fixPiece, fixTrack, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixDeps } from './fix-it';
+import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -311,6 +311,23 @@ describe('moveClear function', () => {
 
 		// Assert
 		expect(fix.commands).toBeNull();
+	});
+});
+
+describe('fixHelps function', () => {
+	const run = (problems: number, onTime: number): { problems: unknown[]; onTime: number } => ({ problems: Array.from({ length: problems }), onTime });
+
+	it('should keep a result with fewer problems', () => {
+		expect(fixHelps(run(8, 100), run(3, 100))).toBe(true);
+	});
+
+	it('should refuse a result with more problems, even with every hit on time', () => {
+		expect(fixHelps(run(8, 100), run(17, 115))).toBe(false);
+	});
+
+	it('should keep as many problems only with more hits on time', () => {
+		expect(fixHelps(run(2, 100), run(2, 101))).toBe(true);
+		expect(fixHelps(run(2, 100), run(2, 100))).toBe(false);
 	});
 });
 

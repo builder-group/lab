@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import {
 	gapPieceReads,
 	hitOwners,
@@ -20,7 +20,7 @@ import { parseHitKey, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
-import { addedProblems, brokenHits, fixMessage, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome } from './fix-it';
+import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome } from './fix-it';
 import { findBowl } from './bowl-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
@@ -696,7 +696,7 @@ export class AssistCx {
 			this.studio.notify('The run is still being checked. Press Fix again in a moment.');
 			return;
 		}
-		if (project.entities.some((entity) => entity.components.hitLink?.held != null)) await this.fixHeld(project);
+		if (project.entities.some((entity) => entity.components.hitLink?.held != null)) await this.fixHeld(project, result);
 		else if (entityId != null) await this.fixOnePiece(project, result, entityId);
 		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
 		else this.studio.notify(this.nothingToFixWords(project, result));
@@ -731,17 +731,20 @@ export class AssistCx {
 		}
 	}
 
-	/** Runs Auto place again from the first broken hit onward as one undo step, with progress in the notice and Stop */
+	/**
+	 * Runs Auto place again from the first broken hit onward, on a copy so nothing shows until it's known to help: as one
+	 * undo step when the run ends with fewer problems, or not at all, and the notice says so. Progress and Stop in the notice.
+	 */
 	private async fixWholeRun(project: TProject, result: TSimulationResult): Promise<void> {
 		const run = { isCancelled: false };
-		let expected = project.revision;
-		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
+		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision;
 		const deps = this.fixDeps(isCancelled);
 		if (deps == null) return;
 		this.fixRun = run;
 		this.dispatch({ type: 'dismiss' });
 		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCancelled = true) };
 		const progressId = this.studio.notify('Fixing', 'info', { progress: 0, actions: [stop] });
+		const commands: TProjectCommand[] = [];
 		let furthest = 0;
 		let outcome: TFixOutcome | null = null;
 		try {
@@ -750,12 +753,11 @@ export class AssistCx {
 				result,
 				{
 					...deps,
-					commit: (_next, commands, isFirst) => {
-						// Another edit since the last step stops the run rather than folding into it
-						if (this.studio.project?.revision !== expected) return null;
-						if (!this.studio.execute(commands, { amend: !isFirst })) return null;
-						expected = this.studio.project?.revision ?? expected;
-						return this.studio.project;
+					commit: (next, step) => {
+						const [isOk, , applied] = applyProjectCommands(next, step);
+						if (!isOk) return null;
+						commands.push(...step);
+						return applied;
 					},
 					onProgress: (done, total, fraction) => {
 						this.$fixing.set({ done, total });
@@ -767,35 +769,58 @@ export class AssistCx {
 				},
 				[...this.lastGood.values()].flat()
 			);
+			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+			// Another edit while it ran makes the copy stale
+			if (outcome != null && this.studio.project?.revision === project.revision) this.landWholeRun(project, result, outcome, commands, run.isCancelled);
 		} catch (error: unknown) {
+			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 			this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
 		} finally {
 			this.fixRun = null;
 			this.$fixing.set(null);
 		}
-		if (outcome == null) return;
-		this.baseline = { projectId: project.id, revision: outcome.result.revision, hits: outcome.result.hits };
-		this.lastFixRevision = outcome.result.revision;
-		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
-		if (this.studio.project?.revision === project.revision) {
+	}
+
+	/** Lands what Fix found on its copy if it leaves the run better, and says how the run stands */
+	private landWholeRun(project: TProject, result: TSimulationResult, outcome: TFixOutcome, commands: TProjectCommand[], isStopped: boolean): void {
+		if (!commands.length) {
 			this.studio.notify('No new tilt helps these pieces without adding a problem. Turn them by hand, or undo the edit that broke them.');
 			return;
 		}
 		// How the run stands comes from the one problem model, the same as the hit summary and the export sheet
+		const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+		if (!fixHelps(before, summary)) {
+			this.studio.notifyEdit(fixWorseWords(before.problems.length, summary.problems.length), [], { isUndoFirst: true });
+			return;
+		}
 		const added = addedProblems(project, result, outcome.project, outcome.result);
+		if (!this.studio.execute(commands)) return;
+		const revision = this.studio.project?.revision ?? outcome.result.revision;
+		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
+		this.lastFixRevision = revision;
 		const message = fixMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
-		this.studio.notifyEdit(outcome.isStopped && !run.isCancelled ? `${message} · stopped by another edit` : message);
+		this.studio.notifyEdit(outcome.isStopped && !isStopped ? `${message} · stopped by another edit` : message);
 	}
 
 	/**
-	 * Fix for pieces waiting behind a break. First the marble is brought back to them, which moves nothing else. When no
-	 * tilt reaches them, Fix tries on a copy from where they wait, a limited time, and lands only if every hit plays:
-	 * a try that leaves tens of hits broken is no fix, so the pieces go on waiting and the notice says so.
+	 * Fix for pieces waiting behind a break. A note with no piece gets what Next gives it, at once. Then the marble is
+	 * brought back to the pieces, which moves nothing else. When no tilt reaches them, Fix tries on a copy from where they
+	 * wait, a limited time, and lands only if every hit plays and the run has fewer problems: a try that leaves tens of hits
+	 * broken is no fix, so the pieces go on waiting and the notice offers Rebuild From Here.
 	 */
-	private async fixHeld(project: TProject): Promise<void> {
+	private async fixHeld(project: TProject, result: TSimulationResult): Promise<void> {
 		const client = this.studio.simulation.assists;
 		if (client == null) return;
+		const open = findStepTarget(project, result, []);
+		const firstHeld = heldHit(project);
+		if (open?.dot != null && firstHeld != null && open.targetTime <= firstHeld.time) {
+			await this.place(open, this.studio.$compose.get()?.placementType() ?? 'platform');
+			const lane = project.music.lanes.find((item) => item.id === open.laneId);
+			const number = (lane?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
+			if (this.studio.project?.revision !== project.revision) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
+			return;
+		}
 		const run = { isCancelled: false };
 		const startedAt = performance.now();
 		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
@@ -805,6 +830,7 @@ export class AssistCx {
 		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCancelled = true) };
 		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
 		let fixed: TProject | null = null;
+		let isWorse = false;
 		try {
 			const back = await client.reconnect(project);
 			if (back != null) fixed = withSettled(project, back.entities);
@@ -816,12 +842,17 @@ export class AssistCx {
 						const [isOk, , applied] = applyProjectCommands(next, commands);
 						return isOk ? applied : null;
 					},
-					onProgress: (_done, _total, fraction) => {
-						this.studio.updateNotice(progressId, { progress: Math.min(1, Math.max(0, fraction)) });
+					onProgress: (done, total, fraction) => {
+						this.studio.updateNotice(progressId, { message: `Fixing the break · ${done} of ${total} hits`, progress: Math.min(1, Math.max(0, fraction)) });
 					},
 					isCancelled
 				});
-				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) fixed = outcome.project;
+				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) {
+					const before = problemSummary(preflightExport(project, { ...result, revision: project.revision }));
+					const after = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
+					if (fixHelps(before, after)) fixed = outcome.project;
+					else isWorse = true;
+				}
 			}
 		} catch (error) {
 			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -831,7 +862,10 @@ export class AssistCx {
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		if (this.studio.project?.revision !== project.revision) return;
 		if (fixed == null) {
-			this.studio.notifyEdit(run.isCancelled ? 'The pieces go on waiting where they were.' : "No tilt brings the marble back to the pieces waiting for it. Turn the platforms before the break by hand, undo the edit, or choose Rebuild From Here.", [], { isUndoFirst: true });
+			const from = firstHeld != null ? { laneId: firstHeld.laneId, hitId: firstHeld.hitId } : null;
+			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(from) }] : [];
+			const words = isWorse ? 'Fix would add problems, so nothing changed. Undo the edit, or rebuild from the break.' : run.isCancelled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.';
+			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
 			return;
 		}
 		const changed = changedEntities(project, fixed);
@@ -921,6 +955,22 @@ export class AssistCx {
 }
 
 
+/** The earliest hit whose piece waits behind a break */
+function heldHit(project: TProject): { laneId: string; hitId: string; time: number } | null {
+	const held = project.entities.flatMap((entity) => {
+		const link = entity.components.hitLink;
+		const time = link?.held != null ? project.music.lanes.find((lane) => lane.id === link.laneId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
+		return link != null && time != null ? [{ laneId: link.laneId, hitId: link.hitId, time }] : [];
+	});
+	return held.sort((a, b) => a.time - b.time)[0] ?? null;
+}
+
+/** Why a Fix didn't land: "Fix would leave 17 problems where there are 8, so nothing changed." */
+function fixWorseWords(before: number, after: number): string {
+	if (after > before) return `Fix would leave ${after} problems where there ${before === 1 ? 'is 1' : `are ${before}`}, so nothing changed. Undo the edit, or turn the pieces by hand.`;
+	return 'Fix found nothing better than the run as it is, so nothing changed. Undo the edit, or turn the pieces by hand.';
+}
+
 /** `project` with these entities in place of the ones of the same id */
 function withSettled(project: TProject, entities: TEntity[]): TProject {
 	const changed = new Map(entities.map((entity) => [entity.id, entity]));
@@ -1008,6 +1058,6 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const rebuilt = from != null ? `Rebuilt after Hit ${(fromLane?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromLane?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
-	const details = [message, ...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
+	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
 	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, bowls: outcome.bowls, attention };
 }

@@ -127,8 +127,9 @@ export class PatternsCx {
 		const group = this.studio.project?.groups?.find((item) => item.id === answer.groupId);
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
-		this.studio.$compose.get()?.revealOnceSimulated(pieceIds);
-		this.tell(answer);
+		// The zoom stays where the range was framed, like an operator's redo in Blender
+		this.studio.$compose.get()?.revealOnceSimulated(pieceIds, true);
+		this.tell(answer, madeWords(target, kind, settings, answer.name));
 		return answer;
 	}
 
@@ -199,16 +200,19 @@ export class PatternsCx {
 	}
 
 	/** One notice for the whole run: what it made, what else moved, and first of all what no longer fits */
-	private tell(answer: TPatternAnswer): void {
+	private tell(answer: TPatternAnswer, made: string): void {
 		const broken = answer.later.filter((item) => item.problems.length > 0);
 		const lines = [...answer.notes, ...answer.problems.map((problem) => `${answer.name}: ${problem.words}`), ...broken.flatMap((item) => item.problems.map((problem) => `${item.name}: ${problem.words}`)), ...answer.otherMarbleTouches];
-		const details = lines.length > 0 ? lines.join(' ') : undefined;
 		if (broken.length > 0) {
 			const first = broken[0];
-			this.studio.notify(`${first?.name} can't fit any more: ${first?.problems[0]?.words}`, 'error', details != null ? { details } : {});
+			const message = `${first?.name} can't fit any more: ${first?.problems[0]?.words}`;
+			// Details add to the line above them, never repeat it
+			const rest = lines.filter((line) => line !== `${first?.name}: ${first?.problems[0]?.words}`);
+			this.studio.notify(message, 'error', rest.length > 0 ? { details: rest.join(' ') } : {});
 			return;
 		}
-		const parts = [answer.later.length > 0 ? `${answer.name} and ${answer.later.length === 1 ? answer.later[0]?.name : `${answer.later.length} later Groups`} fitted, so everything stays on time` : `Made ${answer.name}`];
+		const details = lines.length > 0 ? lines.join(' ') : undefined;
+		const parts = [answer.later.length > 0 ? `${answer.name} and ${answer.later.length === 1 ? answer.later[0]?.name : `${answer.later.length} later Groups`} fitted, so everything stays on time` : made];
 		if (answer.problems.length > 0) parts.push(`${answer.problems.length} ${answer.problems.length === 1 ? 'problem' : 'problems'}`);
 		if (answer.laterLateHits > 0) parts.push(`${answer.laterLateHits} later ${answer.laterLateHits === 1 ? 'hit is' : 'hits are'} no longer on time`);
 		if (answer.otherMarbleTouches.length > 0) parts.push('it touches another marble’s pieces');
@@ -231,6 +235,17 @@ function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatter
 		bounce: settings.bounce ?? (isSameKind ? group.bounce : defaults.bounce),
 		...(maxTilt != null ? { maxTilt } : {})
 	};
+}
+
+/** What a click or a setting just did, so the notice names the edit its Undo takes back */
+function madeWords(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings, name: string): string {
+	const { group } = target;
+	if (group == null) return `Made ${name}`;
+	if (group.kind !== kind) return `${group.name} is now ${PATTERN_LABELS[kind]}`;
+	if (settings.width != null) return `${name}: Width ${(settings.width * 100).toFixed(0)} cm`;
+	if (settings.bounce != null) return `${name}: Bounce ${settings.bounce.toFixed(2)}`;
+	if (settings.maxTilt != null) return `${name}: Tilt limit ${settings.maxTilt.toFixed(0)}°`;
+	return target.from !== group.from || target.to !== group.to ? `${name}: new range` : `Fitted ${name} again`;
 }
 
 function stepKey(history: { past: readonly unknown[]; future: readonly unknown[] }): string {

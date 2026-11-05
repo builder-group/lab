@@ -64,6 +64,11 @@ export interface TFixStanding {
 	added: TPreflightIssue[];
 }
 
+/** A Fix keeps its result only when the run has fewer problems for it, or as many with more hits on time */
+export function fixHelps(before: { problems: unknown[]; onTime: number }, after: { problems: unknown[]; onTime: number }): boolean {
+	return after.problems.length < before.problems.length || (after.problems.length === before.problems.length && after.onTime > before.onTime);
+}
+
 /**
  * What Fix did, in words.md's form: how many hits it fixed, what it changed, then how the run stands, ending with the
  * hit summary's label and the problems the fix added: "Fixed 37 hits · placed 13 platforms again · 108 of 108 hits on time"

@@ -6,6 +6,7 @@ import type { TMenuEntry } from '@/components';
 import type { TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { deleteTheme } from '@/modules/studio/commands';
+import { draftMarble, draftPieceColors, draftWall } from './draft-look';
 import { handChangeCount, resetHandChangesCommands, themeCommands, themePresets } from './design-commands';
 import { projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, type TResolvedTheme } from './project-themes';
 import { TilePicker, type TPickerTile } from './TilePicker';
@@ -135,8 +136,32 @@ function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key'
 const ThemePicture: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
 	const preset = themePresets.find((item) => item.id === theme.base);
 	if (preset == null) return null;
+	if (theme.projectTheme != null && (theme.overrides.wallColor != null || theme.projectTheme.parts != null)) return <ThemeSketch theme={theme} />;
 	return <img alt="" src={theme.parts.platform.colour === 'note' ? preset.notePreviewUrl : preset.previewUrl} draggable={false} />;
 };
+
+/** A project theme has no rendered still of its own, so its base's would lie: its wall, bars and marble as the Draft Preview draws them */
+const ThemeSketch: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
+	const wall = draftWall(theme.base, theme.overrides).color;
+	const { bar } = draftPieceColors(theme.base, { type: 'platform', color: SKETCH_BLUE, skin: null }, false, theme.overrides, theme.projectTheme?.parts);
+	const marble = draftMarble(theme.base, SKETCH_BLUE, theme.overrides, theme.parts.marble);
+	return (
+		<svg viewBox="0 0 48 36" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden>
+			<rect width="48" height="36" fill={wall} />
+			{SKETCH_BARS.map(([x, y, angle]) => (
+				<rect key={y} x={x - 7} y={y - 1.25} width="14" height="2.5" rx="0.5" fill={bar} transform={`rotate(${angle} ${x} ${y})`} />
+			))}
+			<circle cx="24" cy="11" r="2.5" fill={marble.body} stroke={marble.rim ?? 'none'} strokeWidth="0.5" />
+		</svg>
+	);
+};
+
+const SKETCH_BLUE = '#3478f6';
+const SKETCH_BARS = [
+	[15, 9, 14],
+	[33, 19, -14],
+	[15, 29, 14]
+] as const;
 
 /** Inline rename of a project theme's tile, like Finder: Return keeps the name, Escape cancels */
 const ThemeNameField: React.FC<{ name: string; onCommit: (name: string) => void; onCancel: () => void }> = (props) => {

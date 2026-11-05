@@ -2210,6 +2210,7 @@ button.mm-layer-disclosure:hover {
 	padding: 0 8px;
 	overflow-x: hidden;
 	overflow-y: auto;
+	scrollbar-width: none;
 }
 
 .mm-library-foot {
@@ -2956,8 +2957,13 @@ button.mm-lcd-length:hover {
 	cursor: crosshair;
 }
 
-.mm-pattern-strip:hover {
+/* The row's hover shows the band a range starts in, so a drag has somewhere clear to begin */
+.mm-lane-track:hover .mm-pattern-strip {
 	background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.mm-lane-track .mm-pattern-strip:hover {
+	background: color-mix(in srgb, var(--text) 9%, transparent);
 }
 
 .mm-pattern-hint {

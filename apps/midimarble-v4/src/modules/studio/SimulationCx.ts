@@ -209,6 +209,12 @@ export class SimulationCx {
 		if (project == null || this.client == null) return;
 		const run = ++this.settleRun;
 		this.isSettling = true;
+		this.dropsLanding++;
+		// The drag's last preview must not take this drop's place in the worker's queue, which left a quick drop where it began
+		this.cancelFrame?.();
+		this.cancelFrame = null;
+		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
+		this.pauseTimer = null;
 		try {
 			const answer = await this.client.settle({ before: project, after: project, movedDot: move });
 			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
@@ -219,11 +225,20 @@ export class SimulationCx {
 			else if (limit != null) this.studio.notifyEdit(limit.notice);
 			this.sayBreak(answer, project);
 		} catch (error) {
-			if (run !== this.settleRun || isSuperseded(error)) return;
+			if (run !== this.settleRun) return;
+			if (isSuperseded(error)) {
+				if (this.studio.project?.revision === project.revision) await this.moveDot(move);
+				return;
+			}
 			this.landSettled([], false);
 			this.studio.notify(`The platform couldn't be moved: ${error instanceof Error ? error.message : String(error)}`, 'error');
+		} finally {
+			this.dropsLanding--;
 		}
 	}
+
+	/** Drops on their way to the worker, which the run of the drag's preview waits for */
+	private dropsLanding = 0;
 
 	/** A break to name, once the run of the edit shows the hit really is broken, so the notice agrees with the summary */
 	private pendingBreak: { first: TSettleAnswer['heldFrom'][number]; project: TProject; revision: number } | null = null;
@@ -245,8 +260,8 @@ export class SimulationCx {
 		const lane = project.music.lanes.find((item) => item.id === first.laneId);
 		const number = (lane?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
 		const waiting = project.entities.filter((entity) => entity.components.hitLink?.laneId === first.laneId && (lane?.hits.find((hit) => hit.id === entity.components.hitLink?.hitId)?.time ?? -1) > first.time).length;
-		const later = waiting === 1 ? 'The piece after it waits' : `The ${waiting} pieces after it wait`;
-		this.studio.notifyEdit(`This edit keeps ${lane?.name ?? 'the marble'} from Hit ${number}. ${later} where ${waiting === 1 ? 'it was' : 'they were'}.`, [], { isUndoFirst: true });
+		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
+		this.studio.notifyEdit(`${lane?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
 	}
 
 	private schedule(): void {
@@ -260,7 +275,7 @@ export class SimulationCx {
 	private run(): void {
 		const project = this.preview ?? this.studio.project;
 		const client = this.client;
-		if (project == null || client == null || (this.isSettling && this.preview == null)) return;
+		if (project == null || client == null || this.dropsLanding > 0 || (this.isSettling && this.preview == null)) return;
 		const present = this.studio.project;
 		const preview = this.preview;
 		if (preview == null || present == null || (this.previewMove == null && !laneEdits(present, preview).length)) {

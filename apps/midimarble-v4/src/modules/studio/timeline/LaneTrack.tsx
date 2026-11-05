@@ -53,7 +53,7 @@ export const LaneTrack: React.FC<TLaneTrackProps> = (props) => {
 
 	return (
 		<div
-			className="relative flex-1 border-b border-[var(--separator)]"
+			className="mm-lane-track relative flex-1 border-b border-[var(--separator)]"
 			style={{ minWidth: width, background: marquee.isLaneSelected ? 'color-mix(in srgb, var(--text) 3%, transparent)' : undefined }}
 			{...marquee.handlers}
 			onDoubleClick={(event) => {
@@ -208,6 +208,7 @@ function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[]
 			}
 			const keys = lane.hits.filter((hit) => hit.time >= from && hit.time <= to).map((hit) => toHitKey(lane.id, hit.id));
 			cx.$selection.set(event.shiftKey ? [...new Set([...selection, ...keys])] : keys);
+			if (keys.length > 0) cx.$reveal.set({ ids: keys });
 		}
 	};
 

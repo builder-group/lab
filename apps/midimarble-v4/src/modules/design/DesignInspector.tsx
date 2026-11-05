@@ -398,7 +398,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TEnt
 					<ScrubField
 						id="piece-depth"
 						label="Depth"
-						name="Depth: how far it stands out of the wall"
+						name={`Depth: how far it stands out of the wall, up to ${(depth.max * 100).toFixed(0)} cm`}
 						span={2}
 						value={sharedDepth == null ? null : Math.round(sharedDepth * 1000) / 10}
 						unit="cm"

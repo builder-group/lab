@@ -1013,6 +1013,7 @@ export class StudioCx {
 		this.agentStep?.notices.push({ message, tone });
 		const id = ++this.noticeId;
 		this.noticeShownAt = this.project?.revision ?? null;
+		this.noticeGroup = this.editGroup;
 		this.$notice.set({ id, message, tone, ...options });
 		this.scheduleNoticeEnd();
 		return id;
@@ -1058,17 +1059,24 @@ export class StudioCx {
 	private noticeId = 0;
 	/** Project revision when the notice was shown, so a later edit can retire a notice that offers a fix */
 	private noticeShownAt: number | null = null;
+	/** The undo group when the notice was shown: a later edit makes what it says, and its Undo, out of date */
+	private noticeGroup: number | null = null;
 
 	/**
 	 * A notice that carries a fix (an action besides Undo, such as Fix 45 Hits) stays until it is acted
-	 * on or another edit is made, like Mail's undo-send; this retires it on that edit
+	 * on or another edit is made, like Mail's undo-send; this retires it on that edit. Any other notice goes with the
+	 * next edit too, while refinements folded into its own edit leave it.
 	 */
 	private isRefittingEnd = false;
 
 	private retireFixNotice(): void {
 		const notice = this.$notice.get();
 		const revision = this.project?.revision ?? null;
-		if (notice == null || notice.progress != null || !hasFix(notice)) return;
+		if (notice == null || notice.progress != null) return;
+		if (!hasFix(notice)) {
+			if (this.editGroup !== this.noticeGroup) this.dismissNotice(notice.id);
+			return;
+		}
 		if (this.isRefittingEnd) {
 			this.noticeShownAt = revision;
 			return;

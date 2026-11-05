@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
 import type { TEntity, TGroup, TPathNode, TProject, TVec2 } from '@/modules/project';
 import {
+	anchorHit,
 	findLongGaps,
 	frameBand,
 	gravityOf,
@@ -30,6 +31,7 @@ import { dotClickAction } from './reachability';
 import {
 	ANCHOR_LEAD,
 	asAnchored,
+	asFree,
 	canLink,
 	clearRotorPosition,
 	createFreePiece,
@@ -277,6 +279,7 @@ export class ComposeCx {
 			// Switching tools finishes a rail in progress, like Figma's pen
 			this.$tool.listen(({ value }) => {
 				this.clearHoverPreview();
+				this.$marbleGhost.set(null);
 				if (value !== 'path' && this.$pen.get() != null) this.finishPen();
 			})
 		);
@@ -520,12 +523,14 @@ export class ComposeCx {
 
 	/** Build Track ended: Zoom to Fit once the run of its last edit has been simulated, unless the song has started */
 	/** Brings these pieces into view once the run of the edit that changed them arrives, so a new shape doesn't run off the wall */
-	revealOnceSimulated(ids: string[]): void {
+	revealOnceSimulated(ids: string[], isZoomKept = false): void {
 		this.pendingReveal = ids;
+		this.isPendingZoomKept = isZoomKept;
 		this.runPendingReveal();
 	}
 
 	private pendingReveal: string[] | null = null;
+	private isPendingZoomKept = false;
 
 	private runPendingReveal(): void {
 		const ids = this.pendingReveal;
@@ -533,7 +538,7 @@ export class ComposeCx {
 		const result = this.result;
 		if (ids == null || project == null || result == null || result.revision !== project.revision) return;
 		this.pendingReveal = null;
-		this.reveal(ids);
+		this.reveal(ids, undefined, false, this.isPendingZoomKept);
 	}
 
 	fitOnceSimulated(): void {
@@ -848,12 +853,22 @@ export class ComposeCx {
 		if (bounds == null) return;
 		const band = frameBand(project);
 		const halfWidth = band.halfWidth * 1.35;
-		this.fit({
+		const whole = {
 			minX: Math.min(band.centerX - halfWidth, bounds.minX),
 			maxX: Math.max(band.centerX + halfWidth, bounds.maxX),
 			minY: bounds.minY - 0.1,
 			maxY: bounds.maxY + 0.05
-		});
+		};
+		const viewport = this.$viewport.get();
+		if (viewport.width <= 1) return;
+		const view = fitBounds(whole, viewport, canvasPadding);
+		const scale = this.minFitScale();
+		if (view.scale >= scale) {
+			this.$camera.set((camera) => ({ ...camera, view }));
+			return;
+		}
+		// A release far above its first note would shrink the bars to nothing: the first part of the track instead, its first notes in the upper third
+		this.$camera.set((camera) => ({ ...camera, view: { scale, center: { x: band.centerX, y: bounds.minY - viewport.height / scale / 6 } } }));
 	}
 
 	/** Undo and redo pan to what they changed, like Figma, once the run for the restored revision arrives */
@@ -887,10 +902,10 @@ export class ComposeCx {
 	}
 
 	/**
-	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit.
+	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit and `isZoomKept` is off.
 	 * Hit keys reveal their dot.
 	 */
-	private reveal(ids: string[], point?: TVec2, isFramed = false): void {
+	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false): void {
 		const result = this.result;
 		if (result == null) return;
 		const points: TVec2[] = point != null ? [point] : [];
@@ -927,7 +942,7 @@ export class ComposeCx {
 		}
 		if (isBoundsVisible(camera.view, viewport, bounds, 40)) return;
 		const fitted = fitBounds(bounds, viewport, canvasPadding);
-		this.navigateTo(fitted.scale < camera.view.scale ? fitted : { scale: camera.view.scale, center: fitted.center });
+		this.navigateTo(fitted.scale < camera.view.scale && !isZoomKept ? fitted : { scale: camera.view.scale, center: fitted.center });
 	}
 
 	private onWheel(event: WheelEvent, container: HTMLElement): void {
@@ -1223,6 +1238,7 @@ export class ComposeCx {
 	}
 
 	onPointerLeave(): void {
+		this.$marbleGhost.set(null);
 		if (this.$drag.get() == null) this.$hover.set(null);
 		this.clearHoverPreview();
 		const pen = this.$pen.get();
@@ -1302,7 +1318,9 @@ export class ComposeCx {
 
 	/** What a pointer at `point` would act on, in canvas pixels */
 	pickAt(point: TVec2): TPick | null {
-		const picked = pick(point, this.pickScene());
+		const found = pick(point, this.pickScene());
+		// The armed piece's own ghost under the pointer isn't there to pick: a click goes to what lies below it
+		const picked = found?.kind === 'piece' && this.project?.entities.some((entity) => entity.id === found.entityId) !== true ? null : found;
 		const ghost = this.assist.clickableGhost;
 		if (ghost != null && picked?.kind !== 'dot' && this.$tool.get() === 'select' && isOnGhost(point, this.screenOutline(ghost))) return { kind: 'ghost' };
 		if (picked != null || !this.isSceneryTool()) return picked;
@@ -1313,6 +1331,12 @@ export class ComposeCx {
 	/** Piece type a click or Next places on a hit: always a platform, the only music piece */
 	placementType(): string {
 		return 'platform';
+	}
+
+	/** Whether a click at `time` on this marble's fall ties the armed piece to it, so the tooltip says what the click does */
+	followsAt(laneId: string, time: number): boolean {
+		const hits = this.project?.music.lanes.find((lane) => lane.id === laneId)?.hits ?? [];
+		return anchorHit(hits, time) != null;
 	}
 
 	/** True for a scenery tool (windmill, bowl), which anchors its piece where the trajectory is clicked */
@@ -1456,10 +1480,6 @@ export class ComposeCx {
 		const made = this.followerFor(laneId, time);
 		this.clearHoverPreview();
 		if (made == null) return;
-		if ('error' in made) {
-			this.studio.notify(made.error);
-			return;
-		}
 		const { entity } = made;
 		if (!this.studio.execute([{ type: 'upsertEntity', entity }])) return;
 		this.studio.$selection.set([entity.id]);
@@ -1468,13 +1488,15 @@ export class ComposeCx {
 	}
 
 	/**
-	 * The scenery piece the armed tool adds where the marble is at `time`, or why none fits. A windmill sits
-	 * beside the fall, its arms clear of every marble's path, so adding one keeps the run; dragging it into the
-	 * path afterwards makes the marble turn it. Generated rail paths are laid out against the marble, since they hold it.
+	 * The scenery piece the armed tool adds where the marble is at `time`. A windmill sits beside the fall, its arms
+	 * clear of every marble's path, so adding one keeps the run; dragging it into the path afterwards makes the marble
+	 * turn it. Generated rail paths are laid out against the marble, since they hold it. With no hit to follow, such as on
+	 * a marble without hits, the piece stays untied where it is put.
 	 */
-	private followerFor(laneId: string, time: number): { entity: TEntity; pose: TPose | null } | { error: string } | null {
+	private followerFor(laneId: string, time: number): { entity: TEntity; pose: TPose | null } | null {
 		const project = this.project;
-		const result = this.result;
+		// The run without the armed piece's own what-if, in which a Bowl has already stopped the marble
+		const result = this.studio.simulation.isPreviewing ? (this.whatIfBase ?? this.result) : this.result;
 		const type = toolPieceType[this.$tool.get()] ?? 'windmill';
 		const samples = result?.marbles.find((track) => track.laneId === laneId)?.samples ?? [];
 		const at = project != null ? trajectoryAt(samples, time, gravityOf(project)) : null;
@@ -1487,16 +1509,16 @@ export class ComposeCx {
 			const pose = { position, angle: 0 };
 			// Before the lane's first hit the piece follows the marble from its release, counted back from that hit
 			const entity = asAnchored(project, free, pose, laneId, time, at.position);
-			return entity != null ? { entity, pose } : { error: "A piece can follow this marble only after its first hit. Drop it lower on the marble's fall." };
+			return { entity: entity ?? asFree(free, pose), pose };
 		}
-		const [isOk, error, follower] = followerAt(project, laneId, type, time, at.position, at.velocity);
+		const [isOk, , follower] = followerAt(project, laneId, type, time, at.position, at.velocity);
 		if (isOk) return { entity: follower, pose: null };
 		// Laid out against the marble the way a follower is
 		const free = createFreePiece(type, { position: at.position, angle: 0 }, project.entities);
 		const met = displayPiece(free, { pose: { position: at.position, angle: 0 }, dot: at.position, velocity: at.velocity }, this.marbleRadius(laneId));
 		const pose = { position: met.position, angle: met.angle };
 		const entity = asAnchored(project, free, pose, laneId, time, at.position);
-		return entity != null ? { entity, pose } : { error: error.message };
+		return { entity: entity ?? asFree(free, pose), pose };
 	}
 
 	// MARK: - What-if
@@ -1507,6 +1529,8 @@ export class ComposeCx {
 	private hoverPreview: { key: string; entityId: string } | null = null;
 	/** Screen point of the hover what-if, where its count shows */
 	readonly $hoverPreview = createState<{ position: TVec2; label: string | null } | null>(null);
+	/** Screen point of the marble the armed Marble tool would release, like Blender's Add at the cursor */
+	readonly $marbleGhost = createState<TVec2 | null>(null);
 
 	/** Simulates `project` as a what-if in place of the run, remembering the run it is compared with */
 	private previewWhatIf(project: TProject, move: { laneId: string; hitId: string; dot: TVec2 } | null = null): void {
@@ -1533,6 +1557,7 @@ export class ComposeCx {
 		const project = this.project;
 		const result = this.result;
 		const tool = this.$tool.get();
+		this.$marbleGhost.set(tool === 'marble' && hover == null ? point : null);
 		if (project == null || result == null || this.$pen.get() != null) {
 			this.clearHoverPreview();
 			return;
@@ -1543,7 +1568,7 @@ export class ComposeCx {
 			const key = `${tool}:${hover.laneId}:${time.toFixed(3)}`;
 			if (key === this.hoverPreview?.key) return;
 			const made = this.followerFor(hover.laneId, time);
-			if (made == null || 'error' in made) return this.clearHoverPreview();
+			if (made == null) return this.clearHoverPreview();
 			const lane = project.music.lanes.find((item) => item.id === hover.laneId)?.name ?? 'Marble';
 			this.showHoverPreview(key, made.entity, made.pose, hover.kind === 'track' ? hover.position : point, hover.kind === 'dot' ? `Follows ${lane} at ${formatTime(time)}` : null);
 			return;

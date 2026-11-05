@@ -27,7 +27,8 @@ export const MIN_HEIGHT = 120;
 /** Height that shows every track with a little room, like a video editor sizing its timeline to the tracks */
 export function fittedHeight(rowsHeight: number): number {
 	const content = TRANSPORT_HEIGHT + RULER_HEIGHT + Math.max(rowsHeight, ROW_HEIGHT) + 20;
-	return Math.round(Math.min(Math.max(content, 150), window.innerHeight * 0.45));
+	// A window that opens tiny, or hidden, still keeps the transport and a row
+	return Math.round(Math.max(MIN_HEIGHT, Math.min(Math.max(content, 150), window.innerHeight * 0.45)));
 }
 
 export function clampZoom(zoom: number): number {

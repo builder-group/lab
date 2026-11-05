@@ -50,7 +50,10 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const from = Math.max(0, Math.min(range.from, range.to));
 		const to = Math.max(range.from, range.to);
 		setRange(null);
-		cx.$selection.set((to - from) * zoom < MIN_DRAG_PX ? [] : rangeSelection(project, lane.id, from, to));
+		const selected = (to - from) * zoom < MIN_DRAG_PX ? [] : rangeSelection(project, lane.id, from, to);
+		cx.$selection.set(selected);
+		// The wall comes to the range, so its ghost and its pieces are in view from the start
+		if (selected.length > 0) cx.$reveal.set({ ids: selected });
 	}
 
 	function endResize(group: TGroup): void {
@@ -64,7 +67,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		void compose.patterns.apply({ laneId: lane.id, from, to, group }, group.kind);
 	}
 
-	const isHinting = hoverX != null && range == null && selectedRange == null && !groups.length;
+	const isHinting = hoverX != null && range == null && selectedRange == null;
 	const shownRange = range ?? selectedRange;
 
 	return (
@@ -105,6 +108,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						title={`${group.name} · ${formatTime(group.from)} to ${formatTime(group.to)}`}
 						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--lane' as string]: lane.color }}
 						onPointerDown={(event) => event.stopPropagation()}
+						onPointerEnter={() => setHoverX(null)}
 						onPointerMove={(event) => event.stopPropagation()}
 						onPointerUp={(event) => event.stopPropagation()}
 						onClick={() => cx.$selection.set(groupSelection(group))}

@@ -384,14 +384,14 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 	);
 };
 
-// Pixels a note in the Song roll must move sideways before its time changes
 // The horizontal scrollbar along the timeline's bottom edge, which a row scrolled into view stays clear of
 const SCROLLBAR_ROOM = 14;
-const ROLL_TIME_DEAD_ZONE = 3;
+// Pixels a hit or a note must move sideways before its time changes, like the drag threshold of Logic's regions
+const TIME_DEAD_ZONE = 5;
 
 /**
- * Captures pointer movement for a hit drag across the whole window. Song roll drags also move in pitch, and hold the
- * time until the pointer has really moved, so a click or a straight pitch drag leaves the note's time alone.
+ * Captures pointer movement for a hit drag across the whole window. Song roll drags also move in pitch. The time holds
+ * until the pointer has really moved, so a click, a slip or a straight pitch drag leaves it alone.
  */
 const DragLayer: React.FC<{ drag: TDrag; zoom: number; onMove: (drag: TDrag) => void; onEnd: (drag: TDrag) => void }> = (props) => {
 	const { drag, zoom, onMove, onEnd } = props;
@@ -400,7 +400,7 @@ const DragLayer: React.FC<{ drag: TDrag; zoom: number; onMove: (drag: TDrag) => 
 		const deltaX = event.clientX - drag.originX;
 		return {
 			...drag,
-			delta: drag.isPitched && Math.abs(deltaX) < ROLL_TIME_DEAD_ZONE ? 0 : deltaX / zoom,
+			delta: Math.abs(deltaX) < TIME_DEAD_ZONE ? 0 : deltaX / zoom,
 			pitchDelta: drag.isPitched ? pitchDeltaFor(event.clientY - drag.originY, NOTE_ROW_HEIGHT) : 0
 		};
 	}
