@@ -74,6 +74,14 @@ def ensure_collection(name):
     return collection
 
 
+def ensure_detached_collection():
+    """Blender work whose layer or piece is gone: kept for the person to recover, never drawn in a film"""
+    collection = ensure_collection(DETACHED_COLLECTION)
+    collection.hide_render = True
+    collection.hide_viewport = True
+    return collection
+
+
 def find_collection(name):
     return bpy.data.collections.get(name)
 

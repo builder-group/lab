@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from mm_worker.bridge import Bridge  # noqa: E402
 from mm_worker.ops import Worker  # noqa: E402
 from mm_worker.scene import MARBLE_WALL_GAP  # noqa: E402
+from mm_worker import scene as worker_scene  # noqa: E402
 from mm_worker.util import DETACHED_COLLECTION, MANAGED_COLLECTION  # noqa: E402
 
 FPS = 60.0
@@ -267,20 +268,27 @@ def main():
     check(len(platform.children) == 1 and platform.children[0].name == skin_name, 'existing skin is kept')
     check(all(abs(a - b) < 1e-9 for a, b in zip(platform.children[0].location, offset)), 'manual skin offset survives re-apply')
 
-    # Removing a piece detaches its skin in place
+    # Removing a piece deletes an untouched skin; one changed in Blender is kept, detached in place and out of the film
     windmill_skin = holder('windmill-1').children[0]
     windmill_skin_name = windmill_skin.name
     world_before = windmill_skin.matrix_world.copy()
+    windmill_skin['mm_skin'] = 'mine'
     write_package(root, marble_records, hit, moved, 0.3, False)
     report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
     detached = bpy.data.collections[DETACHED_COLLECTION]
     windmill_skin = bpy.data.objects[windmill_skin_name]
     check(report['removed'] == ['windmill-1'] and holder('windmill-1') is None, 'removed piece deletes its holder')
     check(windmill_skin.name in detached.objects and windmill_skin.parent is None, 'removed piece skin moves to detached')
+    check(detached.hide_render and detached.hide_viewport, 'detached work is never drawn in a film')
     check(windmill_skin.name not in bpy.data.collections[MANAGED_COLLECTION].objects, 'detached skin leaves the managed collection')
     check(all(abs(a - b) < 1e-6 for a, b in zip(np.array(windmill_skin.matrix_world).ravel(), np.array(world_before).ravel())), 'detached skin keeps its world transform')
 
     check_themes_camera_and_render(worker, root, marble_records, hit, moved)
+
+    untouched_holder = holder('platform-1')
+    untouched_name = untouched_holder.children[0].name
+    worker_scene.detach(untouched_holder, bpy.data.collections[MANAGED_COLLECTION])
+    check(bpy.data.objects.get(untouched_name) is None, 'an untouched skin goes with its piece')
 
     # Bad requests fail cleanly
     try:

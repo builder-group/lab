@@ -22,6 +22,7 @@ from .util import (
     WorkerError,
     descendants,
     ensure_collection,
+    ensure_detached_collection,
     finite,
     link_only_to,
     resolve_package_path,
@@ -99,16 +100,17 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
         record_skins(report, piece['id'], ensure_skin(holder, 'piece', piece, managed, context))
         report['created' if created else 'updated'].append(piece['id'])
 
-    if holders:
-        detached = ensure_collection(DETACHED_COLLECTION)
-        for mm_id, holder in holders.items():
-            detach(holder, managed, detached)
-            report['removed'].append(mm_id)
+    # An older file may hold detached work that still draws
+    if bpy.data.collections.get(DETACHED_COLLECTION) is not None:
+        ensure_detached_collection()
+    for mm_id, holder in holders.items():
+        detach(holder, managed)
+        report['removed'].append(mm_id)
     report['texts'] = walltext.apply_texts(
-        project_dir, description.get('wallTexts') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION),
+        project_dir, description.get('wallTexts') or [], managed, ensure_detached_collection,
         fps=fps, duration=duration)
     report['decor'] = decor.apply_decor(
-        project_dir, description.get('decor') or [], managed, lambda: ensure_collection(DETACHED_COLLECTION), context['assets'],
+        project_dir, description.get('decor') or [], managed, ensure_detached_collection, context['assets'],
         fps=fps, duration=duration)
 
     bounds = scene_bounds(marbles, marble_motion, pieces)
@@ -263,11 +265,15 @@ def record_skins(report, mm_id, states):
             report['skins'][mm_id] = state
 
 
-def detach(holder, managed, detached):
-    """Moves the holder's skins to the detached collection in place and deletes the holder"""
+def detach(holder, managed):
+    """Deletes the holder and the skins the app built; a skin changed in Blender moves to the detached collection in place"""
     for child in list(holder.children):
         for obj in [child, *descendants(child)]:
             skins.release_reactions(obj)
+        if child.get('mm_skin') in (skins.DEFAULT_SKIN, assets.ASSET_SKIN) and not skins.is_edited(child):
+            skins.remove_object(child)
+            continue
+        detached = ensure_detached_collection()
         matrix = child.matrix_world.copy()
         child.parent = None
         child.matrix_world = matrix

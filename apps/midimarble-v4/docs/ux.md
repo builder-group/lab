@@ -233,7 +233,7 @@ The app owns physics. Rapier and Blender's Bullet do not produce identical resul
 - The app writes the scene directly into the `.blend` through the running Blender worker. No intermediate export format is used.
 - Each piece becomes an app-owned holder object with its transform and keyframes. Its skin is a child of the holder, so rotating a piece in Compose rotates its skin.
 - Every piece gets an animated hit value that rises to 1 on impact and decays to 0. Effects, reactions and the camera read it.
-- A deleted piece moves its skin to a detached collection instead of deleting the artwork
+- A deleted piece deletes its skin, unless the skin was changed in Blender: then it moves to a detached collection, which is never drawn in a film
 
 ## Film
 

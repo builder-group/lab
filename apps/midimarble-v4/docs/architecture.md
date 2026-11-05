@@ -183,7 +183,7 @@ Scene structure in Blender:
 
 - `MidiMarble · managed` holds app-owned holder empties with locked transforms
 - Each holder parents its skin, so Compose transforms move the skin and Blender offsets stay local
-- `MidiMarble · detached` receives skins of deleted pieces
+- `MidiMarble · detached` receives what was changed in Blender when its piece or layer goes, hidden from renders and the viewport; untouched skins are deleted
 - Everything else belongs to the user
 
 ### Background preview frames
