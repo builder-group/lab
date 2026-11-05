@@ -5,7 +5,7 @@ import { NO_BLENDER_OBJECTS, preflightExport } from './export-preflight';
 
 describe('preflightExport memo', () => {
 	const project = createProject({ title: 'Song' });
-	const run = (): TSimulationResult => ({ revision: project.revision, duration: project.end, marbles: [], pieces: [], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } });
+	const run = (): TSimulationResult => ({ revision: project.revision, duration: project.length, marbles: [], pieces: [], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } });
 
 	it('checks a run once for every caller', () => {
 		const result = run();

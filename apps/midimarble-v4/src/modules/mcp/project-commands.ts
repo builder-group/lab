@@ -6,7 +6,7 @@ import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinC
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
-import { applyProjectCommands, SComponents, SDesign, SEntity, SHit, SLane, SPhysics, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
+import { applyProjectCommands, SComponents, SFilm, SEntity, SHit, SLane, SProject, SSource, STempo, type TEntity, type TProject, type TProjectCommand, type TProjectTheme, type TVec2 } from '@/modules/project';
 import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TRailLayout, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
@@ -56,13 +56,11 @@ export interface TExpandedCommands {
 const SVec = z.strictObject({ x: z.number(), y: z.number() });
 const SComponentName = z.enum(Object.keys(SComponents.shape) as [keyof typeof SComponents.shape, ...(keyof typeof SComponents.shape)[]]);
 
-const DESIGN_EXAMPLE_LINE = "{ type: 'setDesign', design: { theme: 'brass' } }";
+const FILM_EXAMPLE_LINE = "{ type: 'updateFilm', film: { theme: 'brass' } }";
 
 /** Each command's fields, strictly: a wrong shape is an error that names the field, never an empty Undo step */
 const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
-	setTitle: { schema: z.strictObject({ type: z.string(), title: z.string() }), example: "{ type: 'setTitle', title: 'Name' }" },
-	setEnd: { schema: z.strictObject({ type: z.string(), end: z.number().positive() }), example: "{ type: 'setEnd', end: 32 }" },
-	setFrame: { schema: z.strictObject({ type: z.string(), width: z.number().positive(), height: z.number().positive() }), example: "{ type: 'setFrame', width: 9, height: 16 }" },
+	updateProject: { schema: z.strictObject({ type: z.string(), patch: SProject.pick({ title: true, length: true, format: true, gravity: true }).partial().strict() }), example: "{ type: 'updateProject', patch: { title: 'Name', length: 32, format: { width: 9, height: 16 }, gravity: 0.5 } }" },
 	upsertSource: { schema: z.strictObject({ type: z.string(), source: SSource }), example: "{ type: 'upsertSource', source }" },
 	removeSource: { schema: z.strictObject({ type: z.string(), sourceId: z.string() }), example: "{ type: 'removeSource', sourceId }" },
 	upsertLane: { schema: z.strictObject({ type: z.string(), lane: SLane.partial({ hits: true }) }), example: "{ type: 'upsertLane', lane }" },
@@ -84,8 +82,7 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 		example: "{ type: 'setComponent', entityId, component: { name: 'release', value: { position: { x, y }, time } } }, with name one of marble, release, piece, transform, hitLink, path, skin or wallText"
 	},
 	removeComponent: { schema: z.strictObject({ type: z.string(), entityId: z.string(), name: SComponentName }), example: "{ type: 'removeComponent', entityId, name }" },
-	setDesign: { schema: z.strictObject({ type: z.string(), design: SDesign.partial() }), example: DESIGN_EXAMPLE_LINE },
-	setPhysics: { schema: z.strictObject({ type: z.string(), physics: SPhysics }), example: "{ type: 'setPhysics', physics: { gravityScale: 0.5 } }" },
+	updateFilm: { schema: z.strictObject({ type: z.string(), film: SFilm.partial() }), example: FILM_EXAMPLE_LINE },
 	setTempo: { schema: z.strictObject({ type: z.string(), tempo: STempo.nullable() }), example: "{ type: 'setTempo', tempo: { bpm: 120, beatsPerBar: 4 } }" },
 	placePiece: {
 		schema: z.strictObject({ type: z.string(), pieceType: z.string(), hit: z.strictObject({ marbleId: z.string(), hitId: z.string() }).optional(), position: SVec.optional(), angle: z.number().optional(), params: z.record(z.string(), z.number()).optional(), name: z.string().optional(), path: z.array(SVec).optional(), paths: z.array(z.array(SVec)).optional(), layout: z.enum(RAIL_LAYOUTS).optional() }),
@@ -97,20 +94,20 @@ const COMMAND_SHAPES: Record<string, { schema: z.ZodType; example: string }> = {
 	scatterDecor: { schema: z.strictObject({ type: z.string(), sources: z.array(z.string()).optional(), density: z.number().optional(), seed: z.number().optional() }), example: "{ type: 'scatterDecor', sources: [], density: 0.2 }" }
 };
 
-/** What `setDesign` takes, field by field: an error shows the field that went wrong, not the same line every time */
-const DESIGN_EXAMPLES: Record<string, string> = {
-	theme: "{ type: 'setDesign', design: { theme: 'brass' } }, with pegboard, brass, neon or an id from get_state.themes",
-	wall: "{ type: 'setDesign', design: { wall: { color: '#f6e3b8', backgroundColor: '#fff2d2', kind: 'plain' } } }, with kind plain, plaster, pegboard, grid or none, the plain Pegboard wall in wall.labelColor, the color it has in Track",
-	lights: "{ type: 'setDesign', design: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
-	camera: "{ type: 'setDesign', design: { camera: { distance: 1.36, pitch: 1.15, side: 1.66, lead: 0.15, smoothing: 0.6, sway: 0, mode: 'rig' } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
-	renderPreset: "{ type: 'setDesign', design: { renderPreset: 'final' } }, with draft or final",
+/** What `updateFilm` takes, field by field: an error shows the field that went wrong, not the same line every time */
+const FILM_EXAMPLES: Record<string, string> = {
+	theme: "{ type: 'updateFilm', film: { theme: 'brass' } }, with pegboard, brass, neon or an id from get_state.themes",
+	wall: "{ type: 'updateFilm', film: { wall: { color: '#f6e3b8', backgroundColor: '#fff2d2', kind: 'plain' } } }, with kind plain, plaster, pegboard, grid or none, the plain Pegboard wall in wall.labelColor, the color it has in Track",
+	lights: "{ type: 'updateFilm', film: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
+	camera: "{ type: 'updateFilm', film: { camera: { distance: 1.36, tilt: 1.15, turn: 1.66, sway: 0, auto: true } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
+	quality: "{ type: 'updateFilm', film: { quality: 'final' } }, with draft or final",
 	decor: 'Decor is easier with placeDecor and scatterDecor',
 	themes: "A stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"
 };
 
-function designExample(issues: readonly { path: PropertyKey[] }[]): string {
-	const field = issues.map((issue) => issue.path[1]).find((name) => typeof name === 'string' && name in DESIGN_EXAMPLES);
-	return typeof field === 'string' ? (DESIGN_EXAMPLES[field] ?? '') : `design takes ${Object.keys(DESIGN_EXAMPLES).join(', ')}. The film-look guide lists their fields`;
+function filmExample(issues: readonly { path: PropertyKey[] }[]): string {
+	const field = issues.map((issue) => issue.path[1]).find((name) => typeof name === 'string' && name in FILM_EXAMPLES);
+	return typeof field === 'string' ? (FILM_EXAMPLES[field] ?? '') : `film takes ${Object.keys(FILM_EXAMPLES).join(', ')}. The film-look guide lists their fields`;
 }
 
 /** A library's words as a sentence's: its first letter low, and names such as wallText as they are */
@@ -129,26 +126,26 @@ export function commandProblem(command: { type: string }): string | null {
 		if (issue.code === 'unrecognized_keys') return `${where !== '' ? `${where} has ` : ''}unknown ${issue.keys.length === 1 ? 'field' : 'fields'} ${issue.keys.join(', ')}`;
 		return `${where !== '' ? `${where}: ` : ''}${issueWords(issue.message)}`;
 	});
-	const example = command.type === 'setDesign' ? designExample(checked.error.issues) : `It looks like ${shape.example}`;
+	const example = command.type === 'updateFilm' ? filmExample(checked.error.issues) : `It looks like ${shape.example}`;
 	return `${command.type} doesn't fit: ${issues.join('; ')}. ${example}.`;
 }
 
 /**
- * What an agent means by a part of a value: `setDesign` changes only the named fields of the camera, wall and lights, and
+ * What an agent means by a part of a value: `updateFilm` changes only the named fields of the camera, wall and lights, and
  * `setComponent` only those of a marble, title or skin, so nothing has to be read back first or guessed, like a radius.
  */
 function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCommand {
-	if (command.type === 'setDesign') {
-		const { design } = project;
-		const patch = command.design as Record<string, unknown>;
+	if (command.type === 'updateFilm') {
+		const { film } = project;
+		const patch = command.film as Record<string, unknown>;
 		const merged = { ...patch };
-		if (isObject(patch['camera'])) merged['camera'] = { ...design.camera, ...patch['camera'] };
-		if (isObject(patch['wall'])) merged['wall'] = { ...design.wall, ...patch['wall'] };
+		if (isObject(patch['camera'])) merged['camera'] = { ...film.camera, ...patch['camera'] };
+		if (isObject(patch['wall'])) merged['wall'] = { ...film.wall, ...patch['wall'] };
 		if (isObject(patch['lights'])) {
 			const key = patch['lights']['key'];
-			merged['lights'] = { ...design.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...design.lights.key, ...key } } : {}) };
+			merged['lights'] = { ...film.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...film.lights.key, ...key } } : {}) };
 		}
-		return { ...command, design: merged } as TAgentCommand;
+		return { ...command, film: merged } as TAgentCommand;
 	}
 	if (command.type !== 'setComponent' || !isObject(command.component)) return command;
 	const { name, value } = command.component as { name?: unknown; value?: unknown };
@@ -271,8 +268,8 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 			const missing = owner == null ? undefined : command.hitIds.find((id) => !owner.hits.some((hit) => hit.id === id));
 			return missing != null ? `There is no hit ${missing} on that lane. get_state.marbles[].hitList lists them.` : null;
 		}
-		case 'setDesign':
-			return designProblem(project, items, packThemes, command.design);
+		case 'updateFilm':
+			return filmProblem(project, items, packThemes, command.film);
 		case 'applySkin': {
 			if (command.pieceType != null && command.pieceType !== 'marble' && getPieceDefinition(command.pieceType) == null) return `There is no piece type ${command.pieceType}. Use one from ${SKIN_ELEMENTS.join(', ')}.`;
 			for (const id of command.entityIds ?? []) {
@@ -295,20 +292,20 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 	}
 }
 
-function designProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], design: Partial<TProject['design']>): string | null {
-	const themes = design.themes ?? project.design.themes;
-	if (design.theme != null && !isBuiltInTheme(design.theme) && !themes.some((theme) => theme.id === design.theme) && !packThemes.some((theme) => theme.id === design.theme)) {
+function filmProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], film: Partial<TProject['film']>): string | null {
+	const themes = film.themes ?? project.film.themes;
+	if (film.theme != null && !isBuiltInTheme(film.theme) && !themes.some((theme) => theme.id === film.theme) && !packThemes.some((theme) => theme.id === film.theme)) {
 		const known = ['pegboard', 'brass', 'neon', ...themes.map((theme) => theme.id), ...packThemes.map((theme) => theme.id)];
-		return `There is no theme ${design.theme}. Themes are ${known.join(', ')}.`;
+		return `There is no theme ${film.theme}. Themes are ${known.join(', ')}.`;
 	}
-	for (const theme of design.themes ?? []) {
+	for (const theme of film.themes ?? []) {
 		if (!isBuiltInTheme(theme.base)) return `${theme.name}'s base is pegboard, brass or neon, not ${theme.base}.`;
 		for (const [element, part] of Object.entries(theme.parts ?? {})) {
 			const problem = part.skin != null ? skinProblem(part.skin, element as TSkinElement, items) : null;
 			if (problem != null) return problem;
 		}
 	}
-	const focus = design.camera?.focusMarbleId;
+	const focus = film.camera?.focusMarbleId;
 	if (focus != null && !project.entities.some((entity) => entity.id === focus && entity.components.marble != null)) return `There is no marble ${focus}. get_state.marbles[].entityId lists them.`;
 	return null;
 }
@@ -364,13 +361,13 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 			const commands = skinCommands(project, target, command.assetId);
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}
-		case 'setDesign': {
-			const theme = packThemes.find((item) => item.id === command.design.theme);
-			if (theme == null || projectThemes(project.design).some((item) => item.id === theme.id)) return Ok({ commands: [command] });
+		case 'updateFilm': {
+			const theme = packThemes.find((item) => item.id === command.film.theme);
+			if (theme == null || projectThemes(project.film).some((item) => item.id === theme.id)) return Ok({ commands: [command] });
 			// A Pack's theme joins the project when it is applied, as the Theme picker does it
-			const { theme: _theme, ...rest } = command.design;
+			const { theme: _theme, ...rest } = command.film;
 			const added = packThemeCommands(project, theme);
-			return Ok({ commands: Object.keys(rest).length > 0 ? [{ type: 'setDesign', design: rest }, ...added] : added });
+			return Ok({ commands: Object.keys(rest).length > 0 ? [{ type: 'updateFilm', film: rest }, ...added] : added });
 		}
 		case 'placeDecor': {
 			const source = decorSource(items, command.source);

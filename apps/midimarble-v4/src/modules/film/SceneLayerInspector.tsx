@@ -16,10 +16,10 @@ import { noneWallColor, resolveTheme, keyLightCommands, keyLightLayer, MAX_LIGHT
  */
 export const WallInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
 	const { cx, project, isFilm } = props;
-	const { design } = project;
-	const wall = wallLayer(design);
-	const origin = themeOriginLabel(design);
-	const themeName = resolveTheme(design).name;
+	const { film } = project;
+	const wall = wallLayer(film);
+	const origin = themeOriginLabel(film);
+	const themeName = resolveTheme(film).name;
 	const isOwn = Object.keys(wall.own).some((name) => name !== 'labelColor');
 	const labelWell = (
 		<ColorWell
@@ -85,10 +85,10 @@ export const WallInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: 
 /** The theme's Key Light: can't be deleted, only given back to the theme */
 export const KeyLightInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const { design } = project;
-	const key = keyLightLayer(design);
-	const origin = themeOriginLabel(design);
-	const themeName = resolveTheme(design).name;
+	const { film } = project;
+	const key = keyLightLayer(film);
+	const origin = themeOriginLabel(film);
+	const themeName = resolveTheme(film).name;
 	const isOwn = Object.keys(key.own).length > 0;
 
 	return (

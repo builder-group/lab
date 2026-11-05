@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { Bookmark, RotateCcw, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, Panel, ScrubField, SelectField, StateRow, TextField } from '@/components';
-import { shotLength, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, shotKindLabel, shotKinds, updateShotCommands, type TShotKind, songDisplayName, titleSpan, withTitleTime } from '@/modules/scene';
+import { shotHold, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, shotKindLabel, shotKinds, updateShotCommands, type TShotKind, songDisplayName, titleSpan, withTitleTime } from '@/modules/scene';
 import { PieceIcon, cameraAngles, MAX_TILT_DEGREES } from '@/modules/canvas';
-import type { TDesign, TEntity, TProject, TShot } from '@/modules/project';
+import type { TFilm, TEntity, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime, parseTime } from '@/modules/project';
@@ -24,14 +24,14 @@ import { framingProblemAt, preflightExport } from '@/modules/building';
  */
 export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const camera = project.design.camera;
+	const camera = project.film.camera;
 	const shots = camera.shots.length;
 	return (
 		<>
 			<InspectorHeader
 				icon={<Video size={16} strokeWidth={1.7} />}
 				title="Camera"
-				subtitle={`${camera.mode === 'rig' ? 'Follows Marbles' : 'In Blender'} · ${shots === 1 ? '1 shot' : `${shots} shots`}`}
+				subtitle={`${camera.auto ? 'Follows Marbles' : 'In Blender'} · ${shots === 1 ? '1 shot' : `${shots} shots`}`}
 			/>
 			<CameraPanel cx={cx} project={project} />
 		</>
@@ -40,7 +40,7 @@ export const CameraInspector: React.FC<{ cx: StudioCx; project: TProject }> = (p
 
 /** The shape of the film, in Film's Scene */
 export const FormatField: React.FC<{ cx: StudioCx; project: TProject }> = ({ cx, project }) => {
-	const aspect = frameAspects.find((item) => item.width === project.frame.width && item.height === project.frame.height);
+	const aspect = frameAspects.find((item) => item.width === project.format.width && item.height === project.format.height);
 	return (
 		<SelectField
 			id="project-format"
@@ -49,7 +49,7 @@ export const FormatField: React.FC<{ cx: StudioCx; project: TProject }> = ({ cx,
 			options={[...frameAspects.map((item) => ({ value: item.label, label: item.label })), ...(aspect == null ? [{ value: 'custom', label: 'Custom' }] : [])]}
 			onChange={(value) => {
 				const next = frameAspects.find((item) => item.label === value);
-				if (next != null) cx.execute([{ type: 'setFrame', width: next.width, height: next.height }]);
+				if (next != null) cx.execute([{ type: 'updateProject', patch: { format: { width: next.width, height: next.height } } }]);
 			}}
 		/>
 	);
@@ -72,14 +72,14 @@ function degreesToRadians(degrees: number): number {
 
 const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const camera = project.design.camera;
+	const camera = project.film.camera;
 	const cameraState = useFeatureState(cx.film.$camera);
 	const status = useFeatureState(cx.film.$status);
 	const [isConfirming, setIsConfirming] = React.useState(false);
 	// A drag in the preview shows here as it goes
 	const angles = useFeatureState(cx.film.$orbit) ?? cameraAngles(camera);
 
-	function set(patch: Partial<TDesign['camera']>): void {
+	function set(patch: Partial<TFilm['camera']>): void {
 		cx.execute(cameraCommands(project, patch));
 	}
 
@@ -94,14 +94,14 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 				<label htmlFor="camera-follow" className="mm-ifield-label">
 					Follow Marbles
 				</label>
-				<input id="camera-follow" type="checkbox" className="mm-checkbox" checked={camera.mode === 'rig'} onChange={(event) => set({ mode: event.target.checked ? 'rig' : 'manual' })} />
+				<input id="camera-follow" type="checkbox" className="mm-checkbox" checked={camera.auto} onChange={(event) => set({ auto: event.target.checked })} />
 			</span>
-			{camera.mode === 'rig' ? (
+			{camera.auto ? (
 				<>
 					{cx.$workspace.get() === 'film' ? <FramingProblem cx={cx} project={project} /> : null}
 					<ScrubField id="camera-distance" label="Distance" name="Distance" value={camera.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
-					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.side)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ side: degreesToRadians(value) })} />
-					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.pitch)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ pitch: degreesToRadians(value) })} />
+					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.turn)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ turn: degreesToRadians(value) })} />
+					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.tilt)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ tilt: degreesToRadians(value) })} />
 					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 holds the Turn and keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
 					{cameraState === 'takenOver' ? (
 						<>
@@ -187,21 +187,21 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 				}
 			>
 				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
-				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.end} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
+				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.length} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
 				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={5} max={500} onCommit={(value) => set({ distance: value / 100 })} />
 				<ScrubField
 					id="shot-hold"
 					label="Hold"
 					name="Hold"
-					value={shotLength(shot) ?? 0}
+					value={shotHold(shot) ?? 0}
 					unit="s"
 					step={0.05}
 					precision={1}
 					min={0}
-					max={project.end}
+					max={project.length}
 					format={(value) => (value <= 0 ? 'To Next Shot' : `${value.toFixed(1)} s`)}
 					parse={parseHold}
-					onCommit={(value) => set({ length: value })}
+					onCommit={(value) => set({ hold: value })}
 				/>
 			</Panel>
 		</>
@@ -214,7 +214,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 	const { cx, project, entity } = props;
 	const text = entity.components.wallText;
 	const transform = entity.components.transform;
-	const filmEnd = project.end;
+	const filmEnd = project.length;
 	const editingTitle = useFeatureState(cx.film.$editingTitle);
 	const [timingKey, setTimingKey] = React.useState(0);
 
@@ -253,7 +253,7 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 		const playhead = cx.$playhead.get();
 		const songName = songDisplayName(project);
 		const frameHeight = frameHeightOnWall(project, cx.simulation.$result.get(), playhead);
-		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName, aspect: project.frame.width / project.frame.height });
+		const value = withTitleStyle(text, next, { frameHeight, playhead, end: filmEnd, songName, aspect: project.format.width / project.format.height });
 		cx.execute([{ type: 'upsertEntity', entity: { ...entity, name: value.text, components: { ...entity.components, wallText: value } } }]);
 	}
 
@@ -313,9 +313,9 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; enti
 					<label htmlFor="text-color" className="mm-ifield-label">
 						Color
 					</label>
-					<input id="text-color" type="color" className="mm-color" aria-label="Title color" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color ?? defaultTitleColor(project.design)} onChange={(event) => setText({ color: event.target.value })} />
-					{text.color != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{themeOriginLabel(project.design)}</span>}
-					{text.color != null && text.color.toLowerCase() !== defaultTitleColor(project.design) ? (
+					<input id="text-color" type="color" className="mm-color" aria-label="Title color" style={{ boxShadow: 'inset 0 0 0 1px var(--control-border)', borderRadius: 4 }} value={text.color ?? defaultTitleColor(project.film)} onChange={(event) => setText({ color: event.target.value })} />
+					{text.color != null ? <span className="mm-ifield-value text-[11px] text-[var(--text-secondary)] uppercase">{text.color}</span> : <span className="mm-ifield-value text-[11px] text-[var(--text-tertiary)]">{themeOriginLabel(project.film)}</span>}
+					{text.color != null && text.color.toLowerCase() !== defaultTitleColor(project.film) ? (
 						<button className="mm-icon-button" onClick={clearColor} title="Use the color that reads on the wall" aria-label="Reset Color" type="button">
 							<RotateCcw size={12} strokeWidth={1.9} />
 						</button>

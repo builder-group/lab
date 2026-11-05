@@ -60,7 +60,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 	}
 
 	const tiles: TPickerTile[] = [
-		...skinTiles(project.design, element, entities, usedSkinIds(project)).map((tile) => ({
+		...skinTiles(project.film, element, entities, usedSkinIds(project)).map((tile) => ({
 			key: tile.id,
 			label: tile.label,
 			detail: tile.detail,
@@ -117,13 +117,13 @@ function libraryTile(cx: StudioCx, project: TProject, entry: TLibraryEntry, enti
 /** The Wall's skin, drawn in the wall's color */
 export const WallPicker: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const color = wallLayer(project.design).color;
-	const tiles: TPickerTile[] = wallTiles(project.design).map((tile) => ({
+	const color = wallLayer(project.film).color;
+	const tiles: TPickerTile[] = wallTiles(project.film).map((tile) => ({
 		key: tile.id,
 		label: tile.label,
 		detail: tile.detail,
 		previewUrl: null,
-		thumb: <WallThumb kind={tile.shownKind} color={tile.kind === 'none' ? noneWallColor(project.design.wall.labelColor) : color} />,
+		thumb: <WallThumb kind={tile.shownKind} color={tile.kind === 'none' ? noneWallColor(project.film.wall.labelColor) : color} />,
 		isCurrent: tile.isCurrent,
 		title: tile.kind == null ? "Back to the theme's wall, with its colors" : tile.kind === 'none' ? 'The plain Pegboard wall in the color Track gives it' : `A ${tile.label} wall`,
 		onApply: () => {
@@ -165,7 +165,7 @@ const WallThumb: React.FC<{ kind: TWallSkin; color: string }> = ({ kind, color }
  * color with Color by Note on. `assetId` is the applied skin, null for the theme's default.
  */
 function notifySkinApplied(cx: StudioCx, project: TProject, skinLabel: string, pieceType: string, selected: TEntity[], assetId: string | null): void {
-	const keepsSkinColor = isThemeColorByNote(project.design) && !resolveElementLook(project.design, 'platform', assetId != null ? { assetId } : null).isThemeSkin;
+	const keepsSkinColor = isThemeColorByNote(project.film) && !resolveElementLook(project.film, 'platform', assetId != null ? { assetId } : null).isThemeSkin;
 	const message = skinAppliedMessage({ skinLabel, pieceType, selected, keepsSkinColor });
 	if (message != null) cx.notifyEdit(message);
 }

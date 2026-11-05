@@ -320,7 +320,7 @@ describe('an added note', () => {
 		const [isOk, error, added] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
 		const history = pushHistory(createHistory(project), added);
-		const result = simulator.simulate({ ...added, end: last + 2 });
+		const result = simulator.simulate({ ...added, length: last + 2 });
 
 		expect(history.present.music.lanes[0]?.hits.find((item) => item.id === hit.id)?.pitch).toBe(67);
 		expect(result.hits.find((item) => item.hitId === hit.id)?.status).toBe('open');

@@ -50,7 +50,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const hasSong = project != null && hasSongLayer(project);
 	const audio = project?.music.sources.find((source) => source.kind === 'audio');
 	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
-	const trackWidth = Math.max((project?.end ?? 1) * zoom + 120, 0);
+	const trackWidth = Math.max((project?.length ?? 1) * zoom + 120, 0);
 
 	// Hit results by lane, so a lane row re-renders only with a new simulation result
 	const hitStatus = React.useMemo(() => {
@@ -186,7 +186,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		const element = scrollRef.current;
 		if (element == null || project == null) return;
 		// The song, not a longer length the user set past it, like Figma's fit to the layers
-		const span = Math.min(project.end, songFitEnd(project) ?? project.end);
+		const span = Math.min(project.length, songFitEnd(project) ?? project.length);
 		setZoom(clampZoom((element.clientWidth - TIME_ORIGIN - 24) / span));
 		requestAnimationFrame(() => {
 			element.scrollLeft = 0;
@@ -197,7 +197,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const projectId = project?.id;
 	React.useEffect(() => {
 		const element = scrollRef.current;
-		const end = cx.project?.end;
+		const end = cx.project?.length;
 		if (element == null || end == null || projectId == null) return;
 		setZoom(clampZoom((element.clientWidth - TIME_ORIGIN - 24) / end));
 		element.scrollLeft = 0;
@@ -246,7 +246,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Layers</span>
 						</div>
 						<TimeGutter isRuler />
-						<Ruler cx={cx} end={project.end} zoom={zoom} width={trackWidth} timeAt={timeAt} />
+						<Ruler cx={cx} end={project.length} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
 					{hasSong ? (
 						<SongTrack
@@ -304,7 +304,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />
 					</div>
 					{/* Outside the project range is shaded, like the area past Blender's end frame */}
-					<div className="mm-out-of-range pointer-events-none absolute top-0 bottom-0" style={{ left: TIME_ORIGIN + project.end * zoom, right: 0 }} />
+					<div className="mm-out-of-range pointer-events-none absolute top-0 bottom-0" style={{ left: TIME_ORIGIN + project.length * zoom, right: 0 }} />
 					<PlayheadLine cx={cx} zoom={zoom} scrollRef={scrollRef} />
 				</div>
 			</div>

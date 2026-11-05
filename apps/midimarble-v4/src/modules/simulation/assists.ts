@@ -1531,7 +1531,7 @@ export function simulateTrial(
 	project: TProject,
 	until: number
 ): TSimulationResult {
-	return simulate({ ...project, end: Math.max(1 / 240, Math.min(project.end, until)) });
+	return simulate({ ...project, length: Math.max(1 / 240, Math.min(project.length, until)) });
 }
 
 export function withEntities(project: TProject, entities: TEntity[]): TProject {

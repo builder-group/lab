@@ -32,7 +32,7 @@ function smallProject(times: number[], id = 'small'): TProject {
 		{ type: 'upsertLane', lane: { ...lane, id: LANE, hits: times.map((time, index) => ({ id: `h${index + 1}`, time })) } },
 		{ type: 'removeLane', marbleId: lane.id },
 		{ type: 'upsertEntity', entity: { ...marble, components: { marble: { ...marble.components.marble!, marbleId: LANE }, release: { position: { x: 0, y: 0.6 }, time: times[0]! - 0.35 } } } },
-		{ type: 'setEnd', end: times.at(-1)! + 0.6 }
+		{ type: 'updateProject', patch: { length: times.at(-1)! + 0.6 } }
 	]);
 }
 
@@ -71,7 +71,7 @@ describe('fitPattern function', () => {
 
 	it('should share the fall a longer hop needs with the hop before it, and fit the same way twice', () => {
 		// A marble can't leave a bar faster than it landed: 0.235 s hops, then 0.37 and 0.59 s, must fall about 0.36 m at Gravity 1
-		const project = { ...smallProject([1, 1.235, 1.47, 1.843, 2.43, 2.8]), physics: { gravityScale: 1 } };
+		const project = { ...smallProject([1, 1.235, 1.47, 1.843, 2.43, 2.8]), physics: { gravity: 1 } };
 		const fit = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
 		const again = fitPattern({ project, marbleId: LANE, hitIds: ids(1, 6), kind: 'zigzag', drop: 0.08 }, { sim });
 		const measures = measurePattern(fit.project, sim.simulate(fit.project), LANE);
@@ -194,7 +194,7 @@ describe('runGroupChange function', () => {
 	});
 
 	it('should report a long fall inside a range', () => {
-		const project = { ...smallProject([1, 1.25, 1.5, 2.5, 2.74]), physics: { gravityScale: 1 } };
+		const project = { ...smallProject([1, 1.25, 1.5, 2.5, 2.74]), physics: { gravity: 1 } };
 		const outcome = runGroupChange(project, { ...change, to: 2.74 }, { sim });
 
 		expect(outcome.problems.some((problem) => /falls [\d.]+ m/.test(problem.words) && problem.words.includes('Long Rail'))).toBe(true);

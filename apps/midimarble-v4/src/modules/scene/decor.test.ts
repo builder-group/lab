@@ -19,7 +19,7 @@ import { apply, loadFixture } from '@/modules/project/test-helpers';
 function loadBare(name: string): TProject {
 	const project = loadFixture(name);
 	// These tests place their own decor
-	return { ...project, design: { ...project.design, decor: [] } };
+	return { ...project, film: { ...project.film, decor: [] } };
 }
 
 /** Distance from a box to a marble's path as a polyline, its radius taken off: the exact check, not the grid the code uses */
@@ -73,10 +73,10 @@ describe('Decor', () => {
 			const withDecor = apply(apply(project, commands), madeInBlenderCommands(project, 'Tree', { in: 1, out: 2, hidden: true }));
 			const [isOk, err, parsed] = parseProject(serializeProject(withDecor));
 			if (!isOk) throw err;
-			expect(parsed.design.decor).toEqual(withDecor.design.decor);
-			expect(parsed.design.madeInBlender).toEqual([{ name: 'Tree', in: 1, out: 2, hidden: true }]);
+			expect(parsed.film.decor).toEqual(withDecor.film.decor);
+			expect(parsed.film.madeInBlender).toEqual([{ name: 'Tree', in: 1, out: 2, hidden: true }]);
 			expect(parsed.$schema).toBe('marble-project@5');
-			expect(project.design.decor).toEqual([]);
+			expect(project.film.decor).toEqual([]);
 		});
 
 		it('should never reach the simulation: the hits are the same with decor over the run', () => {
@@ -88,7 +88,7 @@ describe('Decor', () => {
 		it('should number names', () => {
 			const first = apply(project, addDecorCommands(project, builtInSource('decor:star'), { x: 0, y: 0 }).commands);
 			const second = apply(first, addDecorCommands(first, builtInSource('decor:star'), { x: 0, y: 0 }).commands);
-			expect(second.design.decor.map((item) => item.name)).toEqual(['Star', 'Star 2']);
+			expect(second.film.decor.map((item) => item.name)).toEqual(['Star', 'Star 2']);
 		});
 	});
 
@@ -101,33 +101,33 @@ describe('Decor', () => {
 		it('should rename, hide, delete and duplicate', () => {
 			const { project: base, id } = added();
 			const renamed = apply(base, updateDecorCommands(base, [id], { name: 'North Star' }));
-			expect(renamed.design.decor[0]?.name).toBe('North Star');
+			expect(renamed.film.decor[0]?.name).toBe('North Star');
 			const hidden = apply(renamed, updateDecorCommands(renamed, [id], { hidden: true }));
-			expect(hidden.design.decor[0]?.hidden).toBe(true);
+			expect(hidden.film.decor[0]?.hidden).toBe(true);
 			const shown = apply(hidden, updateDecorCommands(hidden, [id], { hidden: false }));
-			expect(shown.design.decor[0]?.hidden).toBeUndefined();
+			expect(shown.film.decor[0]?.hidden).toBeUndefined();
 			const { commands, decorIds } = duplicateDecorCommands(shown, [id]);
 			const copied = apply(shown, commands);
-			expect(copied.design.decor).toHaveLength(2);
-			expect(copied.design.decor[1]?.id).toBe(decorIds[0]);
-			expect(copied.design.decor[1]?.position.x).toBeGreaterThan(0.1);
+			expect(copied.film.decor).toHaveLength(2);
+			expect(copied.film.decor[1]?.id).toBe(decorIds[0]);
+			expect(copied.film.decor[1]?.position.x).toBeGreaterThan(0.1);
 			const deleted = apply(copied, deleteDecorCommands(copied, [id, ...decorIds]));
-			expect(deleted.design.decor).toEqual([]);
+			expect(deleted.film.decor).toEqual([]);
 		});
 
 		it('should make a hand-moved scattered item the user\'s', () => {
 			const { project: base, id } = added();
-			const scattered = apply(base, [{ type: 'setDesign', design: { decor: base.design.decor.map((item) => ({ ...item, scattered: true })) } }]);
+			const scattered = apply(base, [{ type: 'updateFilm', film: { decor: base.film.decor.map((item) => ({ ...item, scattered: true })) } }]);
 			const moved = apply(scattered, updateDecorCommands(scattered, [id], { position: { x: 0.3, y: 0.3 } }));
-			expect(moved.design.decor[0]?.scattered).toBeUndefined();
+			expect(moved.film.decor[0]?.scattered).toBeUndefined();
 			const renamed = apply(scattered, updateDecorCommands(scattered, [id], { name: 'Mine' }));
-			expect(renamed.design.decor[0]?.scattered).toBe(true);
+			expect(renamed.film.decor[0]?.scattered).toBe(true);
 		});
 
 		it('should clear Made in Blender entries that set nothing', () => {
 			const set = apply(project, madeInBlenderCommands(project, 'Tree', { hidden: true }));
-			expect(set.design.madeInBlender).toEqual([{ name: 'Tree', hidden: true }]);
-			expect(apply(set, madeInBlenderCommands(set, 'Tree', { hidden: null })).design.madeInBlender).toEqual([]);
+			expect(set.film.madeInBlender).toEqual([{ name: 'Tree', hidden: true }]);
+			expect(apply(set, madeInBlenderCommands(set, 'Tree', { hidden: null })).film.madeInBlender).toEqual([]);
 		});
 
 		it('should send what Blender needs and nothing about scatter tags', () => {
@@ -201,7 +201,7 @@ describe('Decor', () => {
 			const fix = moveDecorClear(over, result, decorId);
 			expect(fix).not.toBeNull();
 			const moved = apply(over, fix?.commands ?? []);
-			const decor = moved.design.decor[0] as TDecor;
+			const decor = moved.film.decor[0] as TDecor;
 			expect(clearanceToRuns(result, decorBox(decor))).toBeGreaterThanOrEqual(MOVE_CLEAR_MARGIN);
 			expect(decorOverlaps(moved, result, [])).toEqual([]);
 		});
@@ -268,9 +268,9 @@ describe('Decor', () => {
 			expect(first.commands).toHaveLength(1);
 			const once = apply(base, first.commands);
 			const twice = apply(once, scatterDecorCommands(once, result, track, { ...options, seed: 9 }).commands);
-			expect(once.design.decor.filter((item) => item.scattered === true).length).toBe(first.count);
-			expect(twice.design.decor.some((item) => item.id === decorId)).toBe(true);
-			expect(twice.design.decor.filter((item) => item.scattered !== true)).toHaveLength(1);
+			expect(once.film.decor.filter((item) => item.scattered === true).length).toBe(first.count);
+			expect(twice.film.decor.some((item) => item.id === decorId)).toBe(true);
+			expect(twice.film.decor.filter((item) => item.scattered !== true)).toHaveLength(1);
 		}, 60_000);
 	});
 
@@ -280,7 +280,7 @@ describe('Decor', () => {
 			expect(source.footprint).toEqual({ x: 0.02, y: 0.015 });
 			const { commands, count } = scatterDecorCommands(project, result, track, { items: [source], density: 0.5, seed: 1 });
 			expect(count).toBeGreaterThan(0);
-			expect(new Set(apply(project, commands).design.decor.map((item) => item.source))).toEqual(new Set(['assets/holly/asset.blend']));
+			expect(new Set(apply(project, commands).film.decor.map((item) => item.source))).toEqual(new Set(['assets/holly/asset.blend']));
 		}, 60_000);
 	});
 
@@ -309,7 +309,7 @@ describe('Decor', () => {
 			expect(decorTips(preflightExport(project, result, [])).size).toBe(0);
 			const [isOk, err, loaded] = parseProject(serializeProject(project));
 			if (!isOk) throw err;
-			expect(loaded.design.decor.map((item) => item.snowfall)).toEqual([{ density: 0.5, size: 1, speed: 1, color: '#fff1d6' }]);
+			expect(loaded.film.decor.map((item) => item.snowfall)).toEqual([{ density: 0.5, size: 1, speed: 1, color: '#fff1d6' }]);
 			expect(buildSceneDescription(project, result, { fps: 30 }).description.decor?.map((item) => item.item)).toEqual(['snowfall']);
 		});
 

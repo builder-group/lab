@@ -29,8 +29,8 @@ export function getRenderPreset(id: TRenderPreset): TRenderPresetInfo {
 	return renderPresets.find((preset) => preset.id === id) ?? (renderPresets[1] as TRenderPresetInfo);
 }
 
-export function renderFps(project: Pick<TProject, 'design'>): number {
-	return getRenderPreset(project.design.renderPreset).fps;
+export function renderFps(project: Pick<TProject, 'film'>): number {
+	return getRenderPreset(project.film.quality).fps;
 }
 
 /** Quality picker entry: `Draft · 720p · Flat Light`, `Final · 1080p` */

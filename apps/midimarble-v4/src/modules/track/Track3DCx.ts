@@ -155,7 +155,7 @@ export class Track3DCx {
 	/** The same wall as the flat view */
 	private paintWall(renderer: TrackRenderer): void {
 		if (this.container == null) return;
-		const wallColor = this.trackCx.studio.project?.design.wall.labelColor;
+		const wallColor = this.trackCx.studio.project?.film.wall.labelColor;
 		renderer.setWallLook(trackWall(this.container, wallColor));
 		this.wallColor = wallColor;
 	}
@@ -165,7 +165,7 @@ export class Track3DCx {
 		const studio = this.trackCx.studio;
 		const project = studio.project;
 		if (renderer == null || project == null) return;
-		if (project.design.wall.labelColor !== this.wallColor) this.paintWall(renderer);
+		if (project.film.wall.labelColor !== this.wallColor) this.paintWall(renderer);
 		const pieces = this.pieces();
 		const playhead = studio.$playhead.get();
 		const radius = project.entities.find((entity) => entity.components.marble != null)?.components.marble?.radius ?? 0.012;
@@ -175,7 +175,7 @@ export class Track3DCx {
 		const filmTrack = this.view === 'camera' && result != null ? this.cameras.at(project, result, studio.film.$orbit.get()).track : null;
 		const pose = filmTrack != null ? sampleCameraTrack(filmTrack, playhead, this.scratchPose) : null;
 		if (pose != null) {
-			const aspect = project.frame.width / project.frame.height;
+			const aspect = project.format.width / project.format.height;
 			const height = Math.max(1, Math.min(this.size.height - FRAME_INSET * 2, (this.size.width - FRAME_INSET * 2) / aspect));
 			const width = height * aspect;
 			this.filmFrame = { x: (this.size.width - width) / 2, y: (this.size.height - height) / 2, width, height };

@@ -168,7 +168,7 @@ function sameExit(a: TPatternExit | null, b: TPatternExit | null): boolean {
 }
 
 function marbleAt(sim: TSimulator, project: TProject, marbleId: string, time: number): TPatternExit | null {
-	const result = sim.simulate({ ...project, end: time + 0.01 });
+	const result = sim.simulate({ ...project, length: time + 0.01 });
 	const sample = sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time);
 	return sample == null ? null : { position: sample.position, velocity: sample.velocity, time: sample.time };
 }

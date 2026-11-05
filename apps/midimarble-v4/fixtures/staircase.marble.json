@@ -3,11 +3,12 @@
 	"id": "staircase",
 	"title": "Staircase",
 	"revision": 1,
-	"frame": {
+	"format": {
 		"width": 9,
 		"height": 16
 	},
-	"end": 4.5,
+	"length": 4.5,
+	"gravity": 1,
 	"music": {
 		"sources": [],
 		"lanes": [
@@ -252,10 +253,7 @@
 			}
 		}
 	],
-	"physics": {
-		"gravityScale": 1
-	},
-	"design": {
+	"film": {
 		"theme": "pegboard",
 		"themes": [],
 		"wall": {},
@@ -264,14 +262,12 @@
 		},
 		"decor": [],
 		"madeInBlender": [],
-		"renderPreset": "final",
+		"quality": "final",
 		"camera": {
-			"mode": "rig",
+			"auto": true,
 			"distance": 1.166,
-			"pitch": 0.7,
-			"lead": 0.15,
-			"smoothing": 0.6,
 			"sway": 1,
+			"tilt": 0.7,
 			"shots": []
 		}
 	}

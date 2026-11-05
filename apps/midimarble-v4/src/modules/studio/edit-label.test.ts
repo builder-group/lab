@@ -27,7 +27,7 @@ describe('editLabel', () => {
 
 	it('should name a rename and the settings of the film', () => {
 		expect(label(base, [{ type: 'upsertEntity', entity: { ...a, name: 'Mine' } }])).toBe('Rename Platform');
-		expect(label(base, [{ type: 'setEnd', end: 9 }])).toBe('Change Length');
-		expect(label(base, [{ type: 'setPhysics', physics: { gravityScale: 0.5 } }])).toBe('Change Gravity');
+		expect(label(base, [{ type: 'updateProject', patch: { length: 9 } }])).toBe('Change Length');
+		expect(label(base, [{ type: 'updateProject', patch: { gravity: 0.5 } }])).toBe('Change Gravity');
 	});
 });

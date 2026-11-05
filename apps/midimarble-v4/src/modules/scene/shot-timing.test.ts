@@ -1,23 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { TShot } from '@/modules/project';
 import { shotEvents } from '@/modules/camera';
-import { shotLength, shotSpans } from './shot-timing';
+import { shotHold, shotSpans } from './shot-timing';
 
 const shot = (id: string, time: number, kind: TShot['kind'], length?: number): TShot => ({
 	id,
 	time,
 	kind,
 	distance: 0.5,
-	...(length != null ? { length } : {})
+	...(length != null ? { hold: length } : {})
 });
 
 describe('shots', () => {
 	it('holds close shots for 2 s and the others until the next shot', () => {
-		expect(shotLength(shot('a', 0, 'pushIn'))).toBe(2);
-		expect(shotLength(shot('a', 0, 'closeUp'))).toBe(2);
-		expect(shotLength(shot('a', 0, 'wide'))).toBeNull();
-		expect(shotLength(shot('a', 0, 'follow', 3))).toBe(3);
-		expect(shotLength(shot('a', 0, 'pushIn', 0))).toBeNull();
+		expect(shotHold(shot('a', 0, 'pushIn'))).toBe(2);
+		expect(shotHold(shot('a', 0, 'closeUp'))).toBe(2);
+		expect(shotHold(shot('a', 0, 'wide'))).toBeNull();
+		expect(shotHold(shot('a', 0, 'follow', 3))).toBe(3);
+		expect(shotHold(shot('a', 0, 'pushIn', 0))).toBeNull();
 	});
 
 	it('spans each shot to its release, the next shot or the end', () => {

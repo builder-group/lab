@@ -38,11 +38,11 @@ describe('film length', () => {
 		const project = createProject({ id: 'tap', title: 'Tap' });
 		const lane = project.music.lanes[0];
 		if (lane != null) lane.hits = times.map((time, index) => ({ id: `h${index}`, time }));
-		return { ...project, end };
+		return { ...project, length: end };
 	}
 
 	it('starts from the length of a new project', () => {
-		expect(createProject().end).toBe(DEFAULT_PROJECT_END);
+		expect(createProject().length).toBe(DEFAULT_PROJECT_END);
 	});
 
 	it('tells a length left as the song set it from one the user set', () => {
@@ -71,7 +71,7 @@ describe('filmTail', () => {
 			id: `bowl-${marbleId}`,
 			components: { piece: { type: 'bowl', params: {} }, hitLink: { marbleId, hitId: 'h0-0', angle: 0, contactAt: 0.5, anchored: true } }
 		}));
-		return { ...project, end, music: { ...project.music, lanes }, entities: [...project.entities, ...entities] };
+		return { ...project, length: end, music: { ...project.music, lanes }, entities: [...project.entities, ...entities] };
 	}
 
 	it('runs the Bowl tail only when every marble that plays last has a Bowl', () => {

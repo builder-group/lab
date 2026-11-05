@@ -20,7 +20,7 @@ describe('film commands', () => {
 	});
 
 	it('should link a built-in skin, and follow the theme again with the theme\'s own skin', () => {
-		const project = { ...createStaircaseProject(), design: { ...createStaircaseProject().design, theme: 'brass' } };
+		const project = { ...createStaircaseProject(), film: { ...createStaircaseProject().film, theme: 'brass' } };
 		const [first] = pieceIds(project);
 		if (first == null) throw new Error('fixture');
 		const linked = apply(project, builtInSkinCommands(project, { kind: 'pieceType', pieceType: 'platform' }, 'platform:copper'));
@@ -75,14 +75,14 @@ describe('film commands', () => {
 
 	it('should set the theme once and skip an unchanged theme', () => {
 		const project = createStaircaseProject();
-		expect(themeCommands(project, project.design.theme)).toEqual([]);
-		expect(apply(project, themeCommands(project, 'brass')).design.theme).toBe('brass');
+		expect(themeCommands(project, project.film.theme)).toEqual([]);
+		expect(apply(project, themeCommands(project, 'brass')).film.theme).toBe('brass');
 	});
 
 	it('should keep the other camera settings when one changes', () => {
 		const project = createStaircaseProject();
-		const next = apply(project, cameraCommands(project, { lead: 0.4 }));
-		expect(next.design.camera).toEqual({ ...project.design.camera, lead: 0.4 });
+		const next = apply(project, cameraCommands(project, { sway: 0.4 }));
+		expect(next.film.camera).toEqual({ ...project.film.camera, sway: 0.4 });
 	});
 
 	it('should link a skin to the selected pieces only', () => {
@@ -205,10 +205,10 @@ describe('itemFitsPieceType function', () => {
 
 	it('should recolor titles that still have the old theme\'s title color when the theme changes', () => {
 		const project = createStaircaseProject();
-		const title = { id: 'text-1', name: 'Title', components: { wallText: { text: 'Title', font: 'Bfont Regular', size: 0.03, color: themeTitleColor(project.design.theme) }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
+		const title = { id: 'text-1', name: 'Title', components: { wallText: { text: 'Title', font: 'Bfont Regular', size: 0.03, color: themeTitleColor(project.film.theme) }, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
 		const custom = { ...title, id: 'text-2', components: { ...title.components, wallText: { ...title.components.wallText, color: '#ff0000' } } };
 		const withTitles = apply(project, [{ type: 'upsertEntity', entity: title }, { type: 'upsertEntity', entity: custom }]);
-		const other = withTitles.design.theme === 'brass' ? 'pegboard' : 'brass';
+		const other = withTitles.film.theme === 'brass' ? 'pegboard' : 'brass';
 		const next = apply(withTitles, themeCommands(withTitles, other));
 		expect(next.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe(themeTitleColor(other));
 		expect(next.entities.find((entity) => entity.id === 'text-2')?.components.wallText?.color).toBe('#ff0000');
@@ -222,7 +222,7 @@ describe('hand changes', () => {
 		const piece = project.entities.find((entity) => entity.components.piece != null);
 		const changed = apply(project, [
 			...skinCommands(project, { kind: 'entities', entityIds: [piece?.id as string] }, 'platform:copper'),
-			{ type: 'setDesign', design: { wall: { color: '#112233', kind: 'grid' }, lights: { key: { strength: 2 }, added: [] } } }
+			{ type: 'updateFilm', film: { wall: { color: '#112233', kind: 'grid' }, lights: { key: { strength: 2 }, added: [] } } }
 		]);
 		expect(handChangeCount(changed)).toBe(4);
 		expect(handChangeCount(apply(changed, resetHandChangesCommands(changed)))).toBe(0);

@@ -75,7 +75,7 @@ export async function createSimulator(): Promise<TSimulator> {
 			const far = whole?.projectId === project.id ? whole.result : null;
 			const [result, nextCache] = runSimulation(project, cache, far != null ? horizon : undefined);
 			cache = nextCache;
-			if (far != null && result.duration < project.end - 1 / PHYSICS_HZ) return withFarRun(result, far);
+			if (far != null && result.duration < project.length - 1 / PHYSICS_HZ) return withFarRun(result, far);
 			whole = { projectId: project.id, result };
 			return result;
 		},
@@ -242,7 +242,7 @@ function rebaseStaticPieces(plan: TPlan, state: TRunState, snapshot: TSnapshot):
 // Plan
 
 interface TPlan {
-	/** Gravity along y, Earth's scaled by the project's `physics.gravityScale` */
+	/** Gravity along y, Earth's scaled by the project's `physics.gravity` */
 	gravity: number;
 	startStep: number;
 	endStep: number;
@@ -408,7 +408,7 @@ function createPlan(project: TProject): TPlan {
 
 	const startStep = Math.min(0, ...marbles.map((marble) => marble.releaseStep));
 	const gravity = gravityOf(project);
-	const endStep = Math.floor(project.end * PHYSICS_HZ + STEP_EPSILON);
+	const endStep = Math.floor(project.length * PHYSICS_HZ + STEP_EPSILON);
 
 	let staticLowY = Infinity;
 	for (const piece of staticPieces) {

@@ -104,7 +104,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	let sims = 0;
 	const run = (next: TProject, until: number): TSimulationResult => {
 		sims++;
-		return sim.simulate({ ...next, end: until });
+		return sim.simulate({ ...next, length: until });
 	};
 	let project = base;
 	const bars: TBar[] = [];

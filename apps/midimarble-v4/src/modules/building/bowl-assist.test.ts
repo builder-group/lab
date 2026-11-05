@@ -42,7 +42,7 @@ describe('Add Bowl', () => {
 		// The film that follows the song runs on until the catch shows
 		const next = { ...zigzag, entities: [...zigzag.entities, placed.entity] };
 		expect(projectSongEnd(next)).toBeCloseTo(6.2 + BOWL_TAIL, 6);
-		const run = simulator.simulate({ ...next, end: projectSongEnd(next) ?? next.end });
+		const run = simulator.simulate({ ...next, length: projectSongEnd(next) ?? next.length });
 		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(16);
 		expect(bowlCatch(run, placed.entity.id).status).toBe('caught');
 	}, 20_000);
@@ -68,7 +68,7 @@ describe('Add Bowl', () => {
 		// Pushed off to the side, the marble falls past it
 		const missing: TProject = {
 			...zigzag,
-			end: projectSongEnd({ ...zigzag, entities: [...zigzag.entities, bowl] }) ?? zigzag.end,
+			length: projectSongEnd({ ...zigzag, entities: [...zigzag.entities, bowl] }) ?? zigzag.length,
 			revision: zigzag.revision + 1,
 			entities: [...zigzag.entities, { ...bowl, components: { ...bowl.components, hitLink: { ...bowl.components.hitLink, offset: { x: 0.25, y: 0 } } } }]
 		};

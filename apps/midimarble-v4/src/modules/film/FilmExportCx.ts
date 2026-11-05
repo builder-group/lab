@@ -40,7 +40,7 @@ export class FilmExportCx {
 		if (!this.isRunning && this.$job.get().phase !== 'done') {
 			this.$settings.set((settings) => ({
 				...settings,
-				preset: project.design.renderPreset,
+				preset: project.film.quality,
 				fileName: settings.chosenPath == null ? filmFileName(project.title) : settings.fileName
 			}));
 		}

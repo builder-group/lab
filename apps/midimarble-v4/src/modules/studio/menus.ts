@@ -98,7 +98,7 @@ export function titleMenu(cx: StudioCx, title: TEntity): TMenuEntry[] {
 /** The Label Color of the selected decorations */
 export function decorLabelEntries(cx: StudioCx, ids: readonly string[]): TMenuEntry[] {
 	const project = cx.project;
-	const current = project == null ? undefined : project.design.decor.find((item) => ids.includes(item.id))?.labelColor;
+	const current = project == null ? undefined : project.film.decor.find((item) => ids.includes(item.id))?.labelColor;
 	return labelColorEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
 }
 

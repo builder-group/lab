@@ -132,9 +132,9 @@ export class PatternsCx {
 	 * Gravity changes how every marble falls, so live Patterns fit again, in one Undo step with it. A Group fits the later
 	 * ones on its marble itself, so the first of each marble is enough. Stop takes the change back, so nothing changed.
 	 */
-	async setGravity(gravityScale: number): Promise<void> {
+	async setGravity(gravity: number): Promise<void> {
 		this.endHover();
-		if (!this.studio.execute([{ type: 'setPhysics', physics: { gravityScale } }])) return;
+		if (!this.studio.execute([{ type: 'updateProject', patch: { gravity: gravity } }])) return;
 		const project = this.studio.project;
 		if (project == null) return;
 		this.isStopped = false;

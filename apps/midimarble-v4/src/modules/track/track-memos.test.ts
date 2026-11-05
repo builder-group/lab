@@ -13,7 +13,7 @@ function shown(): { cx: StudioCx; trackCx: TrackCx; project: TProject; result: T
 	const entity = createFreePiece('platform', pose, [marble]);
 	const piece = displayPiece(entity, { pose });
 	const project: TProject = { ...created, music: { ...created.music, lanes: [lane] }, entities: [marble, entity] };
-	const result = { revision: project.revision, duration: project.end, marbles: [], pieces: [piece], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult;
+	const result = { revision: project.revision, duration: project.length, marbles: [], pieces: [piece], contacts: [], hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult;
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	cx.simulation.$result.set(result);

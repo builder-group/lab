@@ -12,7 +12,7 @@ function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TPro
 	const cx = new StudioCx();
 	cx.$history.set(createHistory(project));
 	Object.defineProperty(cx.simulation, 'assists', { get: () => assists });
-	cx.simulation.$result.set({ revision: project.revision, duration: project.end, marbles: [], pieces: [], contacts: [], hits: [hit], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult);
+	cx.simulation.$result.set({ revision: project.revision, duration: project.length, marbles: [], pieces: [], contacts: [], hits: [hit], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult);
 	return { cx, project, hit };
 }
 

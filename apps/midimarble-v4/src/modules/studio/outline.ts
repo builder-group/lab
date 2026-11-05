@@ -21,12 +21,12 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, source: songSource(project), label: SONG_LAYER_LABEL });
 
-	const shots = [...project.design.camera.shots].sort((a, b) => a.time - b.time);
+	const shots = [...project.film.camera.shots].sort((a, b) => a.time - b.time);
 	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
 	rows.push({ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen });
 	if (isCameraOpen) for (const shot of shots) rows.push({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, shot });
 
-	rows.push({ kind: 'wall', id: WALL_KEY, depth: 0, parentId: null, labelColor: project.design.wall.labelColor });
+	rows.push({ kind: 'wall', id: WALL_KEY, depth: 0, parentId: null, labelColor: project.film.wall.labelColor });
 
 	// A plain Group across marbles or of free pieces lists its pieces under Track Pieces, like one layer of them
 	const looseGroups = (project.groups ?? []).filter((group) => group.marbleId == null);
@@ -60,7 +60,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	if (workspace === 'track') return rows;
 
-	const lights = addedLights(project.design);
+	const lights = addedLights(project.film);
 	const isLightsOpen = !collapsed.includes(LIGHTS_KEY);
 	rows.push({ kind: 'group', id: LIGHTS_KEY, depth: 0, parentId: null, label: 'Lights', groupKey: LIGHTS_KEY, childIds: [KEY_LIGHT_KEY, ...lights.map((light) => toLightKey(light.id))], isOpen: isLightsOpen });
 	if (isLightsOpen) {
@@ -76,7 +76,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	}
 
 	// Newest first, like the titles; what Blender holds comes after, since the app didn't place it
-	const decor = [...decorList(project.design)].reverse();
+	const decor = [...decorList(project.film)].reverse();
 	const childIds = [...decor.map((item) => toDecorKey(item.id)), ...blenderObjects.map((object) => toMadeInBlenderKey(object.name))];
 	if (childIds.length > 0) {
 		const isOpen = !collapsed.includes(DECOR_KEY);

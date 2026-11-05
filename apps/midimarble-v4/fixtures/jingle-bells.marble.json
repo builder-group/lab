@@ -3,11 +3,12 @@
 	"id": "jingle-bells",
 	"title": "Jingle Bells",
 	"revision": 0,
-	"frame": {
+	"format": {
 		"width": 9,
 		"height": 16
 	},
-	"end": 34,
+	"length": 34,
+	"gravity": 0.5,
 	"music": {
 		"sources": [
 			{
@@ -3885,10 +3886,7 @@
 			}
 		}
 	],
-	"physics": {
-		"gravityScale": 0.5
-	},
-	"design": {
+	"film": {
 		"theme": "theme-christmas",
 		"themes": [
 			{
@@ -5314,14 +5312,12 @@
 			}
 		],
 		"madeInBlender": [],
-		"renderPreset": "final",
+		"quality": "final",
 		"camera": {
-			"mode": "rig",
+			"auto": true,
 			"distance": 1.36,
-			"pitch": 1.15,
-			"lead": 0.15,
-			"smoothing": 0.6,
 			"sway": 1,
+			"tilt": 1.15,
 			"shots": []
 		}
 	}

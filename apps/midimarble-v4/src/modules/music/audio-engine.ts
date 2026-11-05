@@ -165,15 +165,15 @@ export async function renderProjectAudio(
 	options: { sampleRate?: number } = {}
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE } = options;
-	if (!hasSong(project)) return silentAudio(project.end, sampleRate);
+	if (!hasSong(project)) return silentAudio(project.length, sampleRate);
 	const audioSources = project.music.sources.filter((source) => source.kind === 'audio');
 	if (!audioSources.length) {
 		const bank = await loadInstrumentBank();
-		const audio = renderMarbles(project.music.lanes, { sampleRate, duration: project.end, bank, backing: backingVoice(project) });
+		const audio = renderMarbles(project.music.lanes, { sampleRate, duration: project.length, bank, backing: backingVoice(project) });
 		fadeOut(audio, FILM_AUDIO_FADE);
 		return audio;
 	}
-	const audio = silentAudio(project.end, sampleRate);
+	const audio = silentAudio(project.length, sampleRate);
 	const decodedSources = await Promise.all(
 		audioSources.map(async (source) => ({
 			source,
@@ -203,7 +203,7 @@ export function createAudioSignature(
 		: [];
 	const backing = isSynthesized ? backingVoice(project) : undefined;
 	const backingKey = backing == null ? null : { instrument: backing.instrument, hits: backing.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) };
-	return JSON.stringify({ end: project.end, audioSources, lanes, backing: backingKey });
+	return JSON.stringify({ end: project.length, audioSources, lanes, backing: backingKey });
 }
 
 let bankPromise: Promise<BasicSoundBank> | null = null;

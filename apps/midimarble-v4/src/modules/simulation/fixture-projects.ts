@@ -1,4 +1,4 @@
-import { createLane, DEFAULT_GRAVITY_SCALE, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
+import { createLane, DEFAULT_GRAVITY, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import { KIT_SCALE } from './pieces';
 import { createLinkedPiece } from './placement';
 
@@ -25,8 +25,8 @@ export function createStaircaseProject(): TProject {
 			}
 		]
 	});
-	project.design.camera.distance = 1.166;
-	project.physics.gravityScale = 1;
+	project.film.camera.distance = 1.166;
+	project.gravity = 1;
 	return project;
 }
 
@@ -37,7 +37,7 @@ export function createPerfProject(): TProject {
 		id: 'perf-60s-4marbles',
 		title: 'Performance 60 s, 4 marbles',
 		end: 60,
-		gravityScale: 1,
+		gravity: 1,
 		marbles: [0, 1, 2, 3].map((index) => ({
 			x: index * 0.3,
 			y: 0.6,
@@ -74,7 +74,7 @@ function createRunProject(options: {
 	title: string;
 	end: number;
 	marbles: TRunMarble[];
-	gravityScale?: number;
+	gravity?: number;
 }): TProject {
 	const project = createBareRunProject(options);
 	const { entities } = project;
@@ -105,7 +105,7 @@ export function createBareRunProject(options: {
 	end: number;
 	marbles: TBareRunMarble[];
 	/** Share of Earth gravity, the default of new projects when unset */
-	gravityScale?: number;
+	gravity?: number;
 }): TProject {
 	const lanes = options.marbles.map((marble, index) => {
 		const lane = createLane(index, `lane-${index + 1}`);
@@ -138,21 +138,21 @@ export function createBareRunProject(options: {
 		id: options.id,
 		title: options.title,
 		revision: 0,
-		frame: { width: 9, height: 16 },
-		end: options.end,
+		format: { width: 9, height: 16 },
+		length: options.end,
 		music: { sources: [], lanes, backing: [] },
 		entities,
-		physics: { gravityScale: options.gravityScale ?? DEFAULT_GRAVITY_SCALE },
-		design: {
+		gravity: options.gravity ?? DEFAULT_GRAVITY,
+		film: {
 			theme: 'pegboard',
 			themes: [],
 			wall: {},
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
-			renderPreset: 'final',
+			quality: 'final',
 			// 1.166 m frames the Marble Race Kit through the 85 mm lens; the default kit is KIT_SCALE times larger
-			camera: { mode: 'rig', distance: 1.166 * KIT_SCALE, pitch: 0.7, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] }
+			camera: { auto: true, distance: 1.166 * KIT_SCALE, tilt: 0.7, sway: 1, shots: [] }
 		}
 	};
 }

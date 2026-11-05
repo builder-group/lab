@@ -39,7 +39,7 @@ export interface TSceneDescription {
 	marbles: TSceneMarble[];
 	pieces: TScenePiece[];
 	/**
-	 * Follow-camera rig settings from the project's `design.camera`. Without them the worker frames the run with
+	 * Follow-camera rig settings from the project's `film.camera`. Without them the worker frames the run with
 	 * a static front camera.
 	 */
 	camera?: TSceneCamera;

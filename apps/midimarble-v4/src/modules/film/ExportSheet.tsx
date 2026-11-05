@@ -76,10 +76,10 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	// Issues never block an export; the default button only says that it goes ahead despite them
 	const exportLabel = preflight.warnings > 0 ? 'Export Anyway' : 'Export';
 
-	const duration = result?.duration ?? project.end;
+	const duration = result?.duration ?? project.length;
 	const preset = getRenderPreset(settings.preset);
-	const size = filmSize(project.frame, settings.preset);
-	const estimate = estimateExport({ duration, frame: project.frame, preset: settings.preset, measured: measured[preset.engine], preview });
+	const size = filmSize(project.format, settings.preset);
+	const estimate = estimateExport({ duration, frame: project.format, preset: settings.preset, measured: measured[preset.engine], preview });
 
 	return (
 		<>
@@ -104,7 +104,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					onChange={(value) => {
 						cx.filmExport.updateSettings({ preset: value as TRenderPreset });
 						// The project remembers the last choice, so the sheet opens on it next time
-						cx.execute([{ type: 'setDesign', design: { renderPreset: value as TRenderPreset } }]);
+						cx.execute([{ type: 'updateFilm', film: { quality: value as TRenderPreset } }]);
 					}}
 				/>
 				<label htmlFor="export-name">Save As</label>

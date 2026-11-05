@@ -1,10 +1,10 @@
 import type { TSceneThemeOverrides } from './scene-description';
-import { createId, type TDesign, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
+import { createId, type TFilm, type TEntity, type TKeyLightPose, type TProject, type TPackOrigin, type TProjectCommand, type TProjectTheme, type TSkinComponent, type TThemeOverrides, type TThemePart, type TThemeParts } from '@/modules/project';
 import { STARTER_ORIGIN } from './pack-data';
 import { catalogSkin, entitySkinElement, resolveSkinLook, SKIN_ELEMENTS, type TSkinElement, type TSkinLook } from './skin-catalog';
 
 // Themes a project makes from a built-in one. A project theme keeps its base's skins, reactions and render look and
-// changes a few colors on top (`TThemeOverrides`). `design.theme` names a built-in id or a project theme's id; the
+// changes a few colors on top (`TThemeOverrides`). `film.theme` names a built-in id or a project theme's id; the
 // Blender worker and the Draft Preview both read the base plus the overrides (`themes.py` `resolve_theme`).
 
 /** The origin line of what came from a Pack: "Christmas Pack" */
@@ -59,15 +59,15 @@ export function builtInThemeLabel(id: string): string | null {
 	return BUILT_IN_THEMES.find((theme) => theme.id === id)?.label ?? null;
 }
 
-export function projectThemes(design: Pick<TDesign, 'themes'>): TProjectTheme[] {
-	return design.themes;
+export function projectThemes(film: Pick<TFilm, 'themes'>): TProjectTheme[] {
+	return film.themes;
 }
 
 /** Resolves a theme id, the applied theme by default. An unknown id draws as the default theme, like in Blender. */
-export function resolveTheme(design: Pick<TDesign, 'theme' | 'themes'>, id: string = design.theme): TResolvedTheme {
+export function resolveTheme(film: Pick<TFilm, 'theme' | 'themes'>, id: string = film.theme): TResolvedTheme {
 	const builtIn = builtInThemeLabel(id);
 	if (builtIn != null) return { id, name: builtIn, base: id, overrides: {}, parts: resolveParts(id, null), isBuiltIn: true, projectTheme: null };
-	const theme = projectThemes(design).find((item) => item.id === id);
+	const theme = projectThemes(film).find((item) => item.id === id);
 	if (theme == null) return { id, name: id, base: DEFAULT_THEME, overrides: {}, parts: resolveParts(DEFAULT_THEME, null), isBuiltIn: false, projectTheme: null };
 	const base = isBuiltInTheme(theme.base) ? theme.base : DEFAULT_THEME;
 	return { id, name: theme.name, base, overrides: theme.overrides, parts: resolveParts(base, theme.parts), isBuiltIn: false, projectTheme: theme };
@@ -78,25 +78,25 @@ function resolveParts(base: string, parts: TThemeParts | null | undefined): Reco
 }
 
 /** What an element wears under the applied theme, with its own skin component's overrides */
-export function resolveElementLook(design: Pick<TDesign, 'theme' | 'themes'>, element: TSkinElement, component?: TSkinComponent | null): TSkinLook {
-	const theme = resolveTheme(design);
+export function resolveElementLook(film: Pick<TFilm, 'theme' | 'themes'>, element: TSkinElement, component?: TSkinComponent | null): TSkinLook {
+	const theme = resolveTheme(film);
 	return resolveSkinLook(theme.base, theme.projectTheme?.parts, element, component);
 }
 
 /** A project theme's parts for the scene description; absent for a built-in theme or a project theme without any */
-export function sceneThemeParts(design: Pick<TDesign, 'theme' | 'themes'>): TThemeParts | undefined {
-	const parts = resolveTheme(design).projectTheme?.parts;
+export function sceneThemeParts(film: Pick<TFilm, 'theme' | 'themes'>): TThemeParts | undefined {
+	const parts = resolveTheme(film).projectTheme?.parts;
 	return parts != null && Object.keys(parts).length > 0 ? parts : undefined;
 }
 
 /** Whether the theme's platforms take their note's color: Color by Note as a theme's default */
-export function isThemeColorByNote(design: Pick<TDesign, 'theme' | 'themes'>): boolean {
-	return resolveTheme(design).parts.platform.colorSource === 'note';
+export function isThemeColorByNote(film: Pick<TFilm, 'theme' | 'themes'>): boolean {
+	return resolveTheme(film).parts.platform.colorSource === 'note';
 }
 
 /** Built-in theme the applied theme starts from: skins, reactions, title color and render look follow it */
-export function baseThemeOf(design: Pick<TDesign, 'theme' | 'themes'>): string {
-	return resolveTheme(design).base;
+export function baseThemeOf(film: Pick<TFilm, 'theme' | 'themes'>): string {
+	return resolveTheme(film).base;
 }
 
 /** The Wall under the skin None: plain Pegboard in its color, whatever the theme */
@@ -108,18 +108,18 @@ export function noneWallColor(labelColor: string | undefined): string {
  * The colors the film uses: the applied theme's overrides with the Wall and Key Light layers' own colors on top,
  * for the scene description and the Draft Preview
  */
-export function appliedOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TThemeOverrides {
-	const overrides: TThemeOverrides = { ...resolveTheme(design).overrides };
-	if (design.wall.kind === 'none') overrides.wallColor = noneWallColor(design.wall.labelColor);
-	else if (design.wall.color != null) overrides.wallColor = design.wall.color;
-	if (design.wall.backgroundColor != null) overrides.backgroundColor = design.wall.backgroundColor;
-	if (design.lights.key?.color != null) overrides.lightColor = design.lights.key.color;
+export function appliedOverrides(film: Pick<TFilm, 'theme' | 'themes' | 'wall' | 'lights'>): TThemeOverrides {
+	const overrides: TThemeOverrides = { ...resolveTheme(film).overrides };
+	if (film.wall.kind === 'none') overrides.wallColor = noneWallColor(film.wall.labelColor);
+	else if (film.wall.color != null) overrides.wallColor = film.wall.color;
+	if (film.wall.backgroundColor != null) overrides.backgroundColor = film.wall.backgroundColor;
+	if (film.lights.key?.color != null) overrides.lightColor = film.lights.key.color;
 	return overrides;
 }
 
 /** Overrides of the film's look for the scene description; absent for a built-in or a project theme without any */
-export function sceneThemeOverrides(design: Pick<TDesign, 'theme' | 'themes' | 'wall' | 'lights'>): TSceneThemeOverrides | undefined {
-	const overrides = appliedOverrides(design);
+export function sceneThemeOverrides(film: Pick<TFilm, 'theme' | 'themes' | 'wall' | 'lights'>): TSceneThemeOverrides | undefined {
+	const overrides = appliedOverrides(film);
 	const entries = Object.entries(overrides).filter(([, value]) => typeof value === 'string' && value.length > 0);
 	return entries.length > 0 ? (Object.fromEntries(entries.map(([name, value]) => [name, value.toLowerCase()])) as TSceneThemeOverrides) : undefined;
 }
@@ -167,9 +167,9 @@ export function themeTitleColor(base: string): string {
 }
 
 /** What a title reads in when its own color is unset, and the color a new one starts with: it stands apart from the wall the project shows */
-export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wall'>): string {
-	const theme = resolveTheme(design);
-	return titleColorOnWall((design.wall.kind === 'none' ? noneWallColor(design.wall.labelColor) : design.wall.color) ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
+export function defaultTitleColor(film: Pick<TFilm, 'theme' | 'themes' | 'wall'>): string {
+	const theme = resolveTheme(film);
+	return titleColorOnWall((film.wall.kind === 'none' ? noneWallColor(film.wall.labelColor) : film.wall.color) ?? theme.overrides.wallColor ?? themeDefaultColor(theme.base, 'wallColor') ?? '#ffffff');
 }
 
 /**
@@ -177,9 +177,9 @@ export function defaultTitleColor(design: Pick<TDesign, 'theme' | 'themes' | 'wa
  * marbles apart, and a theme applies to all of them
  */
 export function themeCommands(project: TProject, themeId: string): TProjectCommand[] {
-	if (project.design.theme === themeId) return [];
-	const oldColor = defaultTitleColor(project.design);
-	const newColor = defaultTitleColor({ ...project.design, theme: themeId });
+	if (project.film.theme === themeId) return [];
+	const oldColor = defaultTitleColor(project.film);
+	const newColor = defaultTitleColor({ ...project.film, theme: themeId });
 	const titles =
 		oldColor === newColor
 			? []
@@ -188,7 +188,7 @@ export function themeCommands(project: TProject, themeId: string): TProjectComma
 					if (text?.color == null || text.color.toLowerCase() !== oldColor) return [];
 					return [{ type: 'setComponent' as const, entityId: entity.id, component: { name: 'wallText' as const, value: { ...text, color: newColor } } }];
 				});
-	return [{ type: 'setDesign', design: { theme: themeId } }, ...titles];
+	return [{ type: 'updateFilm', film: { theme: themeId } }, ...titles];
 }
 
 /**
@@ -196,33 +196,33 @@ export function themeCommands(project: TProject, themeId: string): TProjectComma
  * ("Neon Copy", "Neon Copy 2"), and applied, as one edit
  */
 export function duplicateThemeCommands(project: TProject, sourceId: string): { commands: TProjectCommand[]; themeId: string } {
-	const source = resolveTheme(project.design, sourceId);
+	const source = resolveTheme(project.film, sourceId);
 	const theme: TProjectTheme = {
 		id: createId('theme'),
-		name: copyName(source.name, projectThemes(project.design).map((item) => item.name)),
+		name: copyName(source.name, projectThemes(project.film).map((item) => item.name)),
 		base: source.base,
 		overrides: { ...source.overrides },
 		...sceneOf(source.projectTheme),
 		...(source.projectTheme?.parts != null ? { parts: source.projectTheme.parts } : {})
 	};
 	// The applied theme's copy keeps what the project changed on the Wall and Lights layers, which the copy now holds
-	if (sourceId !== project.design.theme || !hasLayerChanges(project.design)) return { commands: addThemeCommands(project, theme), themeId: theme.id };
-	const { wall, lights } = project.design;
+	if (sourceId !== project.film.theme || !hasLayerChanges(project.film)) return { commands: addThemeCommands(project, theme), themeId: theme.id };
+	const { wall, lights } = project.film;
 	const saved: TProjectTheme = {
 		...theme,
-		overrides: appliedOverrides(project.design),
+		overrides: appliedOverrides(project.film),
 		...sceneOf({
 			wallKind: wall.kind === 'none' ? 'pegboard' : (wall.kind ?? theme.wallKind),
 			keyLight: { ...theme.keyLight, ...withoutColor(lights.key) },
 			lights: [...(theme.lights ?? []), ...lights.added]
 		})
 	};
-	return { commands: [...addThemeCommands(project, saved), { type: 'setDesign', design: { wall: wall.labelColor != null ? { labelColor: wall.labelColor } : {}, lights: { added: [] } } }], themeId: saved.id };
+	return { commands: [...addThemeCommands(project, saved), { type: 'updateFilm', film: { wall: wall.labelColor != null ? { labelColor: wall.labelColor } : {}, lights: { added: [] } } }], themeId: saved.id };
 }
 
 /** Whether the project changed the Wall or Lights layers on top of its theme, which a kept look stores */
-export function hasLayerChanges(design: Pick<TDesign, 'wall' | 'lights'>): boolean {
-	return Object.keys(design.wall).some((name) => name !== 'labelColor') || Object.keys(design.lights.key ?? {}).length > 0 || design.lights.added.length > 0;
+export function hasLayerChanges(film: Pick<TFilm, 'wall' | 'lights'>): boolean {
+	return Object.keys(film.wall).some((name) => name !== 'labelColor') || Object.keys(film.lights.key ?? {}).length > 0 || film.lights.added.length > 0;
 }
 
 /** A project theme's Wall skin, Key Light and lights, leaving out what it does not set */
@@ -234,7 +234,7 @@ function sceneOf(theme: Pick<TProjectTheme, 'wallKind' | 'keyLight' | 'lights'> 
 	};
 }
 
-function withoutColor(key: TDesign['lights']['key']): TKeyLightPose {
+function withoutColor(key: TFilm['lights']['key']): TKeyLightPose {
 	const { color: _color, ...pose } = key ?? {};
 	return pose;
 }
@@ -245,7 +245,7 @@ function withoutColor(key: TDesign['lights']['key']): TKeyLightPose {
  * keep it. One edit, and the theme is applied.
  */
 export function currentLookThemeCommands(project: TProject, name?: string): { commands: TProjectCommand[]; themeId: string } {
-	const { commands, themeId } = duplicateThemeCommands(project, project.design.theme);
+	const { commands, themeId } = duplicateThemeCommands(project, project.film.theme);
 	const parts = currentThemeParts(project);
 	const clear = project.entities.flatMap((entity): TProjectCommand[] => {
 		const element = entitySkinElement(entity);
@@ -257,8 +257,8 @@ export function currentLookThemeCommands(project: TProject, name?: string): { co
 		return [rest != null ? { type: 'setComponent', entityId: entity.id, component: { name: 'skin', value: rest } } : { type: 'removeComponent', entityId: entity.id, name: 'skin' }];
 	});
 	const withCopy = commands.flatMap((command) => {
-		if (command.type !== 'setDesign' || command.design.themes == null) return [command];
-		return [{ ...command, design: { ...command.design, themes: command.design.themes.map((theme) => (theme.id === themeId ? { ...theme, ...(name != null ? { name } : {}), parts: { ...theme.parts, ...parts } } : theme)) } }];
+		if (command.type !== 'updateFilm' || command.film.themes == null) return [command];
+		return [{ ...command, film: { ...command.film, themes: command.film.themes.map((theme) => (theme.id === themeId ? { ...theme, ...(name != null ? { name } : {}), parts: { ...theme.parts, ...parts } } : theme)) } }];
 	});
 	return { commands: [...withCopy, ...clear], themeId };
 }
@@ -311,37 +311,37 @@ function withoutPart(skin: TSkinComponent, part: TThemePart): TSkinComponent | n
 /** Renames a project theme; an empty name changes nothing */
 export function renameThemeCommands(project: TProject, themeId: string, name: string): TProjectCommand[] {
 	const trimmed = name.trim();
-	const themes = projectThemes(project.design);
+	const themes = projectThemes(project.film);
 	const theme = themes.find((item) => item.id === themeId);
 	if (theme == null || !trimmed.length || trimmed === theme.name) return [];
-	return [{ type: 'setDesign', design: { themes: themes.map((item) => (item.id === themeId ? { ...item, name: trimmed } : item)) } }];
+	return [{ type: 'updateFilm', film: { themes: themes.map((item) => (item.id === themeId ? { ...item, name: trimmed } : item)) } }];
 }
 
 /** Deletes a project theme; when the film uses it, its base theme takes its place */
 export function deleteThemeCommands(project: TProject, themeId: string): TProjectCommand[] {
-	const themes = projectThemes(project.design);
+	const themes = projectThemes(project.film);
 	const theme = themes.find((item) => item.id === themeId);
 	if (theme == null) return [];
-	const fallback = project.design.theme === themeId ? themeCommands(project, resolveTheme(project.design, themeId).base) : [];
+	const fallback = project.film.theme === themeId ? themeCommands(project, resolveTheme(project.film, themeId).base) : [];
 	const remaining = themes.filter((item) => item.id !== themeId);
-	return [...fallback, { type: 'setDesign', design: { themes: remaining } }];
+	return [...fallback, { type: 'updateFilm', film: { themes: remaining } }];
 }
 
 /** Sets or, with null, clears overrides of a project theme */
 export function themeOverrideCommands(project: TProject, themeId: string, patch: Partial<Record<TThemeOverrideName, string | null>>): TProjectCommand[] {
-	const themes = projectThemes(project.design);
+	const themes = projectThemes(project.film);
 	const theme = themes.find((item) => item.id === themeId);
 	if (theme == null) return [];
 	const merged: Record<string, string | null | undefined> = { ...theme.overrides, ...patch };
 	const overrides = Object.fromEntries(Object.entries(merged).flatMap(([name, value]) => (value != null ? [[name, value.toLowerCase()]] : []))) as TThemeOverrides;
 	if (JSON.stringify(overrides) === JSON.stringify(theme.overrides)) return [];
-	return [{ type: 'setDesign', design: { themes: themes.map((item) => (item.id === themeId ? { ...item, overrides } : item)) } }];
+	return [{ type: 'updateFilm', film: { themes: themes.map((item) => (item.id === themeId ? { ...item, overrides } : item)) } }];
 }
 
 function addThemeCommands(project: TProject, theme: TProjectTheme): TProjectCommand[] {
-	const themes = [...projectThemes(project.design), theme];
-	const withTheme: TProject = { ...project, design: { ...project.design, themes } };
-	return [{ type: 'setDesign', design: { themes } }, ...themeCommands(withTheme, theme.id)];
+	const themes = [...projectThemes(project.film), theme];
+	const withTheme: TProject = { ...project, film: { ...project.film, themes } };
+	return [{ type: 'updateFilm', film: { themes } }, ...themeCommands(withTheme, theme.id)];
 }
 
 /** "Neon" → "Neon Copy"; "Neon Copy" → "Neon Copy 2" when taken, like Finder */

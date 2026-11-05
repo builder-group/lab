@@ -40,7 +40,7 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.export': 'the export_film tool',
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
-	'camera.addShot': 'args.time, kind, distance and length if wanted',
+	'camera.addShot': 'args.time, kind, distance and hold if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
@@ -81,7 +81,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
-				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.design.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.film.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -280,10 +280,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
-		const { time, kind, distance, length } = SShotArgs.parse(args);
+		const { time, kind, distance, hold } = SShotArgs.parse(args);
 		const project = cx.project;
 		if (project == null) return;
-		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(length != null ? { length } : {}) });
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
 		cx.$workspace.set('film');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
@@ -316,7 +316,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		}
 		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
 		if (!isAddedOk) throw addedErr;
-		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'setDesign', design: { theme: id } }.`);
+		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'updateFilm', film: { theme: id } }.`);
 	},
 	'film.restartBlender': async (cx) => {
 		await cx.film.restart();
@@ -326,7 +326,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	},
 	'marble.speed': async (cx, args) => {
 		const { value } = z.object({ value: z.number().min(0.05).max(2) }).parse(args);
-		cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
+		cx.execute([{ type: 'updateProject', patch: { gravity: value } }]);
 	},
 	'film.exportPack': async (cx, args) => {
 		const { path, name, description, author, theme, items } = z.object({ path: SPath, name: z.string(), description: z.string().optional(), author: z.string().optional(), theme: z.boolean().optional(), items: z.array(z.string()).optional() }).parse(args);
@@ -339,7 +339,7 @@ const SShotArgs = z.object({
 	time: z.number().min(0).optional(),
 	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
 	distance: z.number().positive().optional(),
-	length: z.number().nonnegative().optional()
+	hold: z.number().nonnegative().optional()
 });
 
 const STitleArgs = z.object({
@@ -360,10 +360,10 @@ function addTitle(cx: StudioCx, args: Record<string, unknown>): void {
 	const playhead = cx.$playhead.get();
 	const frameHeight = frameHeightOnWall(project, result, playhead);
 	const point = at ?? previewPointToWall(project, result, playhead, 0.5, 0.5);
-	const { commands, entityId } = addWallTextCommands(point, { color: color ?? defaultTitleColor(project.design), frameHeight, ...(text != null ? { text } : {}) });
+	const { commands, entityId } = addWallTextCommands(point, { color: color ?? defaultTitleColor(project.film), frameHeight, ...(text != null ? { text } : {}) });
 	const styled = commands.flatMap((command) => {
 		if (command.type !== 'upsertEntity' || command.entity.components.wallText == null) return [command];
-		const title = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.end, songName: songDisplayName(project), aspect: project.frame.width / project.frame.height });
+		const title = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.length, songName: songDisplayName(project), aspect: project.format.width / project.format.height });
 		const wallText = { ...title, ...(start != null ? { in: start } : {}), ...(out != null ? { out } : {}) };
 		return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
 	});
@@ -383,11 +383,11 @@ async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<
 
 /** The themes of added Packs that `commands` apply, as a project stores them: their items copied in */
 async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TProjectTheme[]> {
-	const wanted = commands.flatMap((command) => (command.type === 'setDesign' ? [(command as { design?: { theme?: unknown } }).design?.theme] : []));
+	const wanted = commands.flatMap((command) => (command.type === 'updateFilm' ? [(command as { film?: { theme?: unknown } }).film?.theme] : []));
 	const themes: TProjectTheme[] = [];
 	for (const pack of addedPacks.get()) {
 		for (const theme of pack.themes) {
-			if (!wanted.includes(theme.id) || cx.project?.design.themes.some((item) => item.id === theme.id) === true) continue;
+			if (!wanted.includes(theme.id) || cx.project?.film.themes.some((item) => item.id === theme.id) === true) continue;
 			const ready = await cx.library.packThemeInProject(pack, theme);
 			if (ready != null) themes.push(ready);
 		}

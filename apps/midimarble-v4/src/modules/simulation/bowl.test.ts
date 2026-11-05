@@ -13,15 +13,15 @@ beforeAll(async () => {
 });
 
 /** A marble that falls onto a free Bowl whose mouth is at the origin, arriving at `speed` with `vx` sideways */
-function drop(speed: number, vx: number, gravityScale = 0.5): TProject {
-	const g = 9.81 * gravityScale;
+function drop(speed: number, vx: number, gravity = 0.5): TProject {
+	const g = 9.81 * gravity;
 	const height = (speed * speed) / (2 * g);
 	const time = speed / g;
 	const project = createBareRunProject({
 		id: 'bowl',
 		title: 'Bowl',
 		end: time + 2.5,
-		gravityScale,
+		gravity,
 		marbles: [{ x: -vx * time, y: height, releaseTime: 0, velocity: { x: vx, y: 0 }, hitTimes: [] }]
 	});
 	project.entities.push({

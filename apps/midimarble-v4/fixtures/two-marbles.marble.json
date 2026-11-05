@@ -3,11 +3,12 @@
 	"id": "two-marbles",
 	"title": "Two marbles",
 	"revision": 6,
-	"frame": {
+	"format": {
 		"width": 9,
 		"height": 16
 	},
-	"end": 2.75,
+	"length": 2.75,
+	"gravity": 0.5,
 	"music": {
 		"sources": [],
 		"lanes": [
@@ -280,10 +281,7 @@
 			}
 		}
 	],
-	"physics": {
-		"gravityScale": 0.5
-	},
-	"design": {
+	"film": {
 		"theme": "pegboard",
 		"themes": [],
 		"wall": {},
@@ -292,14 +290,12 @@
 		},
 		"decor": [],
 		"madeInBlender": [],
-		"renderPreset": "final",
+		"quality": "final",
 		"camera": {
-			"mode": "rig",
+			"auto": true,
 			"distance": 1.7489999999999999,
-			"pitch": 0.7,
-			"lead": 0.15,
-			"smoothing": 0.6,
 			"sway": 1,
+			"tilt": 0.7,
 			"shots": []
 		}
 	}

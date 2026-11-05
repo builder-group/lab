@@ -18,13 +18,13 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 	const { cx, project } = props;
 	const [renamingId, setRenamingId] = React.useState<string | null>(null);
 	const packs = useFeatureState(addedPacks);
-	const theme = resolveTheme(project.design);
+	const theme = resolveTheme(project.film);
 	const changes = handChangeCount(project);
-	const own = projectThemes(project.design);
-	const themes = [...themePresets.map((item) => item.id), ...own.map((item) => item.id)].map((id) => resolveTheme(project.design, id));
+	const own = projectThemes(project.film);
+	const themes = [...themePresets.map((item) => item.id), ...own.map((item) => item.id)].map((id) => resolveTheme(project.film, id));
 	// A Pack's themes join the project when applied; one already in it shows as the project's
 	const packThemes = packs.flatMap((pack) =>
-		pack.themes.filter((item) => !own.some((theirs) => theirs.id === item.id)).map((item) => ({ pack, theme: item, resolved: resolveTheme({ theme: project.design.theme, themes: [{ ...item, pack: packOriginOf(pack) }] }, item.id) }))
+		pack.themes.filter((item) => !own.some((theirs) => theirs.id === item.id)).map((item) => ({ pack, theme: item, resolved: resolveTheme({ theme: project.film.theme, themes: [{ ...item, pack: packOriginOf(pack) }] }, item.id) }))
 	);
 
 	/** A project theme's own: a click on the tile applies any theme */
@@ -42,7 +42,7 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 	const tiles: TPickerTile[] = [
 		...themes.map((item) => ({
 			...themeTile(cx, item),
-			isCurrent: project.design.theme === item.id,
+			isCurrent: project.film.theme === item.id,
 			onApply: () => {
 				cx.execute(themeCommands(project, item.id));
 			},

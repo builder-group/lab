@@ -139,8 +139,8 @@ describe('touchedKeys', () => {
 		const added = { id: 'new1', name: 'New', components: {} } as TProject['entities'][number];
 		expect(touchedKeys(project, { ...project, entities: [...changed, added] })).toEqual([pieceId, 'new1']);
 		expect(touchedKeys(project, { ...project, entities: project.entities.filter((entity) => entity.id !== pieceId) })).toEqual([]);
-		expect(touchedKeys(project, { ...project, design: { ...project.design, wall: { color: '#123456' } } as TProject['design'] })).toContain('wall');
-		expect(touchedKeys(project, { ...project, design: { ...project.design, lights: { ...project.design.lights, key: { color: '#ffffff' } } } as TProject['design'] })).toContain('light:key');
+		expect(touchedKeys(project, { ...project, film: { ...project.film, wall: { color: '#123456' } } as TProject['film'] })).toContain('wall');
+		expect(touchedKeys(project, { ...project, film: { ...project.film, lights: { ...project.film.lights, key: { color: '#ffffff' } } } as TProject['film'] })).toContain('light:key');
 	});
 });
 
@@ -209,7 +209,7 @@ describe('Stop and edits through McpCx', () => {
 	it('should show a running call and say Stop in its reply; an edit that had not landed stays out', async () => {
 		const cx = studio();
 		const arrival = { epoch: cx.mcp.presence.stopEpoch, isStopHeld: false };
-		const answer = cx.mcp.answer(call('run_command', { id: 'project.execute', args: { commands: [{ type: 'setTitle', title: 'Renamed' }], label: 'Rename' } }), arrival);
+		const answer = cx.mcp.answer(call('run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { title: 'Renamed' } }], label: 'Rename' } }), arrival);
 		await vi.advanceTimersByTimeAsync(5);
 		expect(cx.mcp.presence.$current.get()?.label).toBe('Renaming');
 		cx.mcp.stop();
@@ -238,7 +238,7 @@ describe('Stop and edits through McpCx', () => {
 		const cx = studio();
 		const arrival = { epoch: cx.mcp.presence.stopEpoch, isStopHeld: false };
 		cx.mcp.stop();
-		const refused = await cx.mcp.answer(call('run_command', { id: 'project.execute', args: { commands: [{ type: 'setTitle', title: 'Nope' }] } }), arrival);
+		const refused = await cx.mcp.answer(call('run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { title: 'Nope' } }] } }), arrival);
 		expect(refused.isError).toBe(true);
 		expect(cx.project?.title).toBe('Song');
 		const reading = await cx.mcp.answer(call('list_commands', {}), arrival);
@@ -252,7 +252,7 @@ describe('Stop and edits through McpCx', () => {
 		cx.mcp.presence.$touched.listen(({ value }) => {
 			seen.push(value.map((item) => item.key));
 		});
-		cx.execute([{ type: 'setPhysics', physics: { gravityScale: 0.5 } }]);
+		cx.execute([{ type: 'updateProject', patch: { gravity: 0.5 } }]);
 		expect(seen).toEqual([]);
 		const marble = cx.project?.entities.find((item) => item.components.marble != null);
 		const outcome = await cx.runAgentStep('Agent: Rename', async () => {

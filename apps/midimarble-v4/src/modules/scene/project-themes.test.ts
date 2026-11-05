@@ -8,19 +8,19 @@ import { apply } from '@/modules/project/test-helpers';
 
 function withTheme(theme: string): TProject {
 	const project = createStaircaseProject();
-	return { ...project, design: { ...project.design, theme } };
+	return { ...project, film: { ...project.film, theme } };
 }
 
 describe('resolveTheme function', () => {
 	it('should resolve built-in, project and unknown themes to a base', () => {
 		const project = withTheme('neon');
-		expect(resolveTheme(project.design)).toMatchObject({ id: 'neon', name: 'Neon', base: 'neon', isBuiltIn: true, overrides: {} });
-		const design = { ...project.design, theme: 'theme-1', themes: [{ id: 'theme-1', name: 'Night', base: 'neon', overrides: { wallColor: '#112233' } }] };
-		expect(resolveTheme(design)).toMatchObject({ name: 'Night', base: 'neon', isBuiltIn: false, overrides: { wallColor: '#112233' } });
-		expect(baseThemeOf(design)).toBe('neon');
+		expect(resolveTheme(project.film)).toMatchObject({ id: 'neon', name: 'Neon', base: 'neon', isBuiltIn: true, overrides: {} });
+		const film = { ...project.film, theme: 'theme-1', themes: [{ id: 'theme-1', name: 'Night', base: 'neon', overrides: { wallColor: '#112233' } }] };
+		expect(resolveTheme(film)).toMatchObject({ name: 'Night', base: 'neon', isBuiltIn: false, overrides: { wallColor: '#112233' } });
+		expect(baseThemeOf(film)).toBe('neon');
 		// An unknown id or base draws as Pegboard, as in Blender
-		expect(resolveTheme({ ...design, theme: 'gone' })).toMatchObject({ name: 'gone', base: 'pegboard', projectTheme: null });
-		expect(baseThemeOf({ ...design, themes: [{ id: 'theme-1', name: 'Odd', base: 'chalk', overrides: {} }] })).toBe('pegboard');
+		expect(resolveTheme({ ...film, theme: 'gone' })).toMatchObject({ name: 'gone', base: 'pegboard', projectTheme: null });
+		expect(baseThemeOf({ ...film, themes: [{ id: 'theme-1', name: 'Odd', base: 'chalk', overrides: {} }] })).toBe('pegboard');
 	});
 
 	it("should give each override its base's own color while it is not set", () => {
@@ -35,11 +35,11 @@ describe('project theme commands', () => {
 		const project = withTheme('neon');
 		const first = duplicateThemeCommands(project, 'neon');
 		const copied = apply(project, first.commands);
-		expect(copied.design.theme).toBe(first.themeId);
-		expect(resolveTheme(copied.design)).toMatchObject({ name: 'Neon Copy', base: 'neon', overrides: {} });
-		expect(themeOrigin(resolveTheme(copied.design), () => false)).toBe('Based on Neon');
+		expect(copied.film.theme).toBe(first.themeId);
+		expect(resolveTheme(copied.film)).toMatchObject({ name: 'Neon Copy', base: 'neon', overrides: {} });
+		expect(themeOrigin(resolveTheme(copied.film), () => false)).toBe('Based on Neon');
 		const second = apply(copied, duplicateThemeCommands(copied, first.themeId).commands);
-		expect(second.design.themes.map((theme) => theme.name)).toEqual(['Neon Copy', 'Neon Copy 2']);
+		expect(second.film.themes.map((theme) => theme.name)).toEqual(['Neon Copy', 'Neon Copy 2']);
 		expect(copyName('Neon Copy 2', ['Neon Copy', 'Neon Copy 2'])).toBe('Neon Copy 3');
 	});
 
@@ -54,22 +54,22 @@ describe('project theme commands', () => {
 		const { commands, themeId } = duplicateThemeCommands(project, 'brass');
 		let current = edit(commands);
 		current = edit(themeOverrideCommands(current, themeId, { wallColor: '#336699', lightColor: '#FF8800' }));
-		expect(resolveTheme(current.design).overrides).toEqual({ wallColor: '#336699', lightColor: '#ff8800' });
+		expect(resolveTheme(current.film).overrides).toEqual({ wallColor: '#336699', lightColor: '#ff8800' });
 		current = edit(renameThemeCommands(current, themeId, '  Blue Room '));
-		expect(resolveTheme(current.design).name).toBe('Blue Room');
+		expect(resolveTheme(current.film).name).toBe('Blue Room');
 		const copy = apply(current, duplicateThemeCommands(current, themeId).commands);
-		expect(resolveTheme(copy.design)).toMatchObject({ name: 'Blue Room Copy', overrides: { wallColor: '#336699', lightColor: '#ff8800' } });
+		expect(resolveTheme(copy.film)).toMatchObject({ name: 'Blue Room Copy', overrides: { wallColor: '#336699', lightColor: '#ff8800' } });
 		current = edit(themeOverrideCommands(current, themeId, { lightColor: null }));
-		expect(resolveTheme(current.design).overrides).toEqual({ wallColor: '#336699' });
+		expect(resolveTheme(current.film).overrides).toEqual({ wallColor: '#336699' });
 
 		history = undoHistory(history);
-		expect(resolveTheme(history.present.design).overrides).toEqual({ wallColor: '#336699', lightColor: '#ff8800' });
+		expect(resolveTheme(history.present.film).overrides).toEqual({ wallColor: '#336699', lightColor: '#ff8800' });
 		history = undoHistory(history);
-		expect(resolveTheme(history.present.design).name).toBe('Brass Copy');
+		expect(resolveTheme(history.present.film).name).toBe('Brass Copy');
 		history = undoHistory(history);
 		history = undoHistory(history);
-		expect(history.present.design.theme).toBe('brass');
-		expect(history.present.design.themes).toEqual([]);
+		expect(history.present.film.theme).toBe('brass');
+		expect(history.present.film.themes).toEqual([]);
 	});
 
 	it('should ignore an empty name and an override that changes nothing', () => {
@@ -86,18 +86,18 @@ describe('project theme commands', () => {
 		const { commands, themeId } = duplicateThemeCommands(project, 'neon');
 		const copied = apply(project, commands);
 		const deleted = apply(copied, deleteThemeCommands(copied, themeId));
-		expect(deleted.design.theme).toBe('neon');
-		expect(deleted.design.themes).toEqual([]);
+		expect(deleted.film.theme).toBe('neon');
+		expect(deleted.film.themes).toEqual([]);
 		// A theme the film does not use goes without changing the applied theme
 		const other = apply(copied, themeCommands(copied, 'brass'));
-		expect(apply(other, deleteThemeCommands(other, themeId)).design.theme).toBe('brass');
+		expect(apply(other, deleteThemeCommands(other, themeId)).film.theme).toBe('brass');
 	});
 
 	it("should recolor titles still in the old wall's title color", () => {
 		const light = { id: 'theme-light', name: 'Light', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
 		const project = withTheme('pegboard');
 		const title = { id: 'text-1', components: { wallText: { text: 'Hi', font: 'Bfont Regular', size: 0.03, color: '#ffffff' } } };
-		const withTitle = { ...project, design: { ...project.design, themes: [light] }, entities: [...project.entities, title] };
+		const withTitle = { ...project, film: { ...project.film, themes: [light] }, entities: [...project.entities, title] };
 		const onLight = apply(withTitle, themeCommands(withTitle, 'theme-light'));
 		expect(onLight.entities.find((entity) => entity.id === 'text-1')?.components.wallText?.color).toBe('#1f3a5f');
 		const back = apply(onLight, themeCommands(onLight, 'pegboard'));
@@ -116,7 +116,7 @@ describe('project themes in Blender and the Draft Preview', () => {
 		const description = buildSceneDescription(colored, result, { fps: 30 }).description;
 		expect(description.theme).toBe('neon');
 		expect(description.themeOverrides).toEqual({ wallColor: '#112233', glowColor: '#00ff88' });
-		expect(sceneThemeOverrides(withTheme('brass').design)).toBeUndefined();
+		expect(sceneThemeOverrides(withTheme('brass').film)).toBeUndefined();
 	});
 
 	it("should draw a project theme's wall and glow in the Draft Preview", () => {
@@ -143,10 +143,10 @@ describe('Theme manifests and parts', () => {
 		expect(sceneThemeParts({ theme: 'mine', themes })).toEqual(themes[0]?.parts);
 		expect(sceneThemeParts({ theme: 'neon', themes })).toBeUndefined();
 		// Duplicate Theme keeps the parts
-		const withTheme = { ...project, design: { ...project.design, theme: 'mine', themes } };
+		const withTheme = { ...project, film: { ...project.film, theme: 'mine', themes } };
 		const { commands, themeId } = duplicateThemeCommands(withTheme, 'mine');
 		const [isOk, , next] = applyProjectCommands(withTheme, commands);
-		expect(isOk && resolveTheme(next.design, themeId).parts.marble.skin).toBe('marble:glass');
+		expect(isOk && resolveTheme(next.film, themeId).parts.marble.skin).toBe('marble:glass');
 	});
 
 	it('should keep the current look as a theme: the look most of a type wear becomes its part, exceptions stay', () => {
@@ -155,12 +155,12 @@ describe('Theme manifests and parts', () => {
 			id,
 			components: { piece: { type: 'platform', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 }, ...(assetId != null ? { skin: { assetId } } : {}) }
 		});
-		const project = { ...base, design: { ...base.design, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
+		const project = { ...base, film: { ...base.film, theme: 'brass' }, entities: [...base.entities, platform('a', 'platform:copper'), platform('b', 'platform:copper'), platform('c', 'platform:key'), platform('d', 'library-skin')] };
 		const { commands, themeId } = currentLookThemeCommands(project);
 		const [isOk, error, next] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
-		const theme = resolveTheme(next.design, themeId);
-		expect(next.design.theme).toBe(themeId);
+		const theme = resolveTheme(next.film, themeId);
+		expect(next.film.theme).toBe(themeId);
 		expect(theme.name).toBe('Brass Copy');
 		expect(theme.parts.platform.skin).toBe('platform:copper');
 		const skinOf = (id: string) => next.entities.find((entity) => entity.id === id)?.components.skin;

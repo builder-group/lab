@@ -77,7 +77,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 				onPointerUp={() => {
 					endGrabRef.current = null;
 					// One edit however far it went, so one Undo takes it back
-					if (endDrag != null && Math.abs(endDrag - end) > 1e-6) cx.execute([{ type: 'setEnd', end: endDrag }]);
+					if (endDrag != null && Math.abs(endDrag - end) > 1e-6) cx.execute([{ type: 'updateProject', patch: { length: endDrag } }]);
 					setEndDrag(null);
 				}}
 				onPointerCancel={() => {

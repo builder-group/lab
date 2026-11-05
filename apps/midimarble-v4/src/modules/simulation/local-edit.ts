@@ -277,10 +277,10 @@ function solveStep(simulator: TSimulator, project: TProject, marbleId: string, s
 	const g = gravityOf(project);
 	const spec = getPieceDefinition(piece.type)?.params['bounce'];
 	const until = (step.aim.kind === 'dot' ? step.aim.nextTime : step.time) + (LEAVE_STEPS + 3) * STEP_TIME;
-	const end = Math.min(project.end, until);
+	const end = Math.min(project.length, until);
 	const run = (candidate: TProject): TSimulationResult => {
 		count();
-		return simulator.simulate({ ...candidate, end });
+		return simulator.simulate({ ...candidate, length: end });
 	};
 	const clampAngle = (angle: number): number => Math.max(step.before.angle - TILT_LIMIT, Math.min(step.before.angle + TILT_LIMIT, angle));
 	const clampBounce = (bounce: number): number => Math.max(spec?.min ?? 0.1, Math.min(spec?.max ?? 0.95, bounce));
@@ -452,8 +452,8 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		}
 		// A look just past the change, so a drag too shows a break as one hit and no heap
 		const lastStep = Math.max(...edits.map((edit) => after.music.lanes.find((lane) => lane.id === edit.marbleId)?.hits[Math.min(edit.afterIndex + 3, (after.music.lanes.find((lane) => lane.id === edit.marbleId)?.hits.length ?? 1) - 1)]?.time ?? 0));
-		const end = Math.min(after.end, lastStep + QUICK_LOOK);
-		const near = simulator.simulate({ ...project, end });
+		const end = Math.min(after.length, lastStep + QUICK_LOOK);
+		const near = simulator.simulate({ ...project, length: end });
 		const broken = brokenSince(base, near).filter((hit) => hit.targetTime < end - 0.05);
 		const held = broken.length > 0 ? holdBreaks(project, after, base, near, broken) : null;
 		return { project: held?.project ?? project, absorbedBy, broken, strays: 0, result: base, runs, heldFrom: held?.from ?? [], moveMiss: missOf(near) };

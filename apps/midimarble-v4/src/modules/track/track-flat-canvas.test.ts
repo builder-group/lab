@@ -41,7 +41,7 @@ function mounted(): { cx: StudioCx; trackCx: TrackCx; renderer: TrackRenderer; w
 	const samples = Array.from({ length: 600 }, (_, index) => ({ time: index / 60, position: { x: index * 0.02, y: -index * 0.02 }, velocity: { x: 1.2, y: -1.2 } }));
 	const result = {
 		revision: project.revision,
-		duration: project.end,
+		duration: project.length,
 		marbles: [{ entityId: marble.id, marbleId: lane.id, samples }],
 		pieces: [{ ...displayPiece(windmill, { pose }), motion: [{ time: 0, angle: 0 }, { time: 10, angle: 10 }] }],
 		contacts: [],

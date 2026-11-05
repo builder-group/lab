@@ -35,7 +35,7 @@ export const StudioWindow: React.FC<{ cx: StudioCx }> = (props) => {
 					<FilmView
 						cx={cx.film}
 						studio={cx}
-						frame={history.present.frame}
+						frame={history.present.format}
 						onPick={(id, shiftKey) => {
 							const selection = cx.$selection.get();
 							if (!shiftKey) cx.$selection.set(id == null ? [] : [id]);

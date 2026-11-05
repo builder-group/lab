@@ -29,12 +29,12 @@ function createTwoMarbleProject(): TProject {
 	});
 	return {
 		$schema: 'marble-project@5',
-		physics: { gravityScale: 1 },
+		gravity: 1,
 		id: 'preflight',
 		title: 'Preflight',
 		revision: 3,
-		frame: { width: 9, height: 16 },
-		end: 4,
+		format: { width: 9, height: 16 },
+		length: 4,
 		music: {
 			sources: [{ id: 'song', kind: 'midi', path: 'audio/song.mid', name: 'Song', offset: 0 }],
 			lanes: [
@@ -62,7 +62,7 @@ function createTwoMarbleProject(): TProject {
 			platform('loose', null, ''),
 			{ id: 'rail', name: 'rail', components: { piece: { type: 'rail', params: {} }, transform: { position: { x: 0, y: 0 }, angle: 0 } } }
 		],
-		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], renderPreset: 'final', camera: { mode: 'rig', distance: 0.85, pitch: 1, lead: 0.15, smoothing: 0.6, sway: 1, shots: [] } }
+		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], quality: 'final', camera: { auto: true, distance: 0.85, tilt: 1, sway: 1, shots: [] } }
 	};
 }
 

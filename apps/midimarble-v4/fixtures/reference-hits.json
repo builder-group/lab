@@ -1,6 +1,6 @@
 {
 	"note": "Hit times of the reference recreation's 58 hits, for the Patterns chain check. Times only: no audio or skins.",
-	"gravityScale": 0.5,
+	"gravity": 0.5,
 	"release": {
 		"position": {
 			"x": -0.058,

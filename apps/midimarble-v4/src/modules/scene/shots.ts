@@ -28,16 +28,16 @@ export function sortShots(shots: TShot[]): TShot[] {
 }
 
 /** Adds a marker at the given time, a Push In unless `options` say otherwise, and returns its id */
-export function addShotCommands(project: TProject, time: number, id = createId('shot'), options: Partial<Pick<TShot, 'kind' | 'distance' | 'length'>> = {}): { commands: TProjectCommand[]; shotId: string } {
-	const camera = project.design.camera;
+export function addShotCommands(project: TProject, time: number, id = createId('shot'), options: Partial<Pick<TShot, 'kind' | 'distance' | 'hold'>> = {}): { commands: TProjectCommand[]; shotId: string } {
+	const camera = project.film.camera;
 	const kind = options.kind ?? 'pushIn';
-	const shot: TShot = { id, time: round(Math.max(0, time)), kind, distance: round(options.distance ?? shotPresetDistance(kind, camera.distance)), ...(options.length != null ? { length: options.length } : {}) };
+	const shot: TShot = { id, time: round(Math.max(0, time)), kind, distance: round(options.distance ?? shotPresetDistance(kind, camera.distance)), ...(options.hold != null ? { hold: options.hold } : {}) };
 	return { commands: shotsCommands(project, [...camera.shots, shot]), shotId: id };
 }
 
 /** Changes one marker; a new kind applies its preset distance unless the patch sets one */
 export function updateShotCommands(project: TProject, shotId: string, patch: Partial<Omit<TShot, 'id'>>): TProjectCommand[] {
-	const camera = project.design.camera;
+	const camera = project.film.camera;
 	const shot = camera.shots.find((item) => item.id === shotId);
 	if (shot == null) return [];
 	const preset = patch.kind != null && patch.kind !== shot.kind ? { distance: shotPresetDistance(patch.kind, camera.distance) } : {};
@@ -49,13 +49,13 @@ export function updateShotCommands(project: TProject, shotId: string, patch: Par
 }
 
 export function removeShotsCommands(project: TProject, shotIds: string[]): TProjectCommand[] {
-	const shots = project.design.camera.shots;
+	const shots = project.film.camera.shots;
 	const kept = shots.filter((shot) => !shotIds.includes(shot.id));
 	return kept.length === shots.length ? [] : shotsCommands(project, kept);
 }
 
 function shotsCommands(project: TProject, shots: TShot[]): TProjectCommand[] {
-	return [{ type: 'setDesign', design: { camera: { ...project.design.camera, shots: sortShots(shots) } } }];
+	return [{ type: 'updateFilm', film: { camera: { ...project.film.camera, shots: sortShots(shots) } } }];
 }
 
 function round(value: number): number {

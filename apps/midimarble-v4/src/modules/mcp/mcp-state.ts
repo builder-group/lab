@@ -2,7 +2,7 @@ import type { TBlenderObject } from '@/modules/scene';
 import { preflightExport, problemSummary } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TEntity, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY_SCALE, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/project';
+import { DEFAULT_GRAVITY, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSong } from '@/modules/music';
 
@@ -42,10 +42,10 @@ export function hitReport(project: TProject, result: TSimulationResult | null, b
 
 /** The project in short. Hit keys in `openHits` work for `select` and `placePiece`. */
 export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly TSelectedItem[]; playhead: number; isPlaying: boolean; agentFolder: string | null; packThemes?: { id: string; name: string; pack: string }[]; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown; blenderObjects: readonly TBlenderObject[] }): Record<string, unknown> {
-	const design = project.design;
-	const theme = resolveTheme(design);
-	const wall = wallLayer(design);
-	const light = keyLightLayer(design);
+	const film = project.film;
+	const theme = resolveTheme(film);
+	const wall = wallLayer(film);
+	const light = keyLightLayer(film);
 	const resolved = new Map(result?.pieces.map((piece) => [piece.entityId, piece]) ?? []);
 	const pieces = project.entities.filter((entity) => entity.components.piece != null);
 	const countBy = (values: string[]): Record<string, number> => {
@@ -55,9 +55,9 @@ export function projectState(project: TProject, result: TSimulationResult | null
 	};
 	const hits = result?.hits ?? [];
 	return {
-		project: { title: project.title, path: view.path, revision: project.revision, length: round(project.end), frame: project.frame },
+		project: { title: project.title, path: view.path, revision: project.revision, length: round(project.length), format: project.format },
 		// Gravity: a share of Earth's gravity for every marble
-		physics: { gravityScale: project.physics.gravityScale, default: DEFAULT_GRAVITY_SCALE, range: [0.05, 2] },
+		gravity: { value: project.gravity, default: DEFAULT_GRAVITY, range: [0.05, 2] },
 		...(view.building != null ? { building: view.building } : {}),
 		...(view.lastBuild != null ? { lastBuild: view.lastBuild } : {}),
 		agentFolder: view.agentFolder,
@@ -77,7 +77,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				labelColor: lane.color,
 				filmColor: marbleFilmColor(project, lane.id),
 				radius: marble?.components.marble?.radius ?? null,
-				skin: marble != null ? (marble.components.skin?.assetId ?? resolveElementLook(design, 'marble', marble.components.skin).skin) : null,
+				skin: marble != null ? (marble.components.skin?.assetId ?? resolveElementLook(film, 'marble', marble.components.skin).skin) : null,
 				release: marble?.components.release?.position ?? null,
 				hits: lane.hits.length,
 				onTime: own.filter((hit) => hit.status === 'onTime').length,
@@ -104,21 +104,21 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				};
 			}),
 			...(pieces.length > MAX_PIECES ? { piecesLeftOut: pieces.length - MAX_PIECES } : {}),
-			lights: design.lights.added.length,
+			lights: film.lights.added.length,
 			titles: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
 				return text != null ? [{ id: entity.id, text: text.text, style: text.style ?? 'wall', ...(text.in != null ? { in: text.in } : {}), ...(text.out != null ? { out: text.out } : {}) }] : [];
 			})
 		},
-		camera: design.camera,
+		camera: film.camera,
 		// What the film uses, and in `own` what this project changed on top of its theme
 		wall: { color: wall.color, backgroundColor: wall.backgroundColor, kind: wall.kind, own: wall.own },
-		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: design.lights ?? {} },
+		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: film.lights ?? {} },
 		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
-		projectThemes: design.themes.map((item) => ({ id: item.id, name: item.name })),
+		projectThemes: film.themes.map((item) => ({ id: item.id, name: item.name })),
 		...(view.packThemes != null && view.packThemes.length > 0 ? { packThemes: view.packThemes } : {}),
-		decor: { count: design.decor.length, sources: countBy(design.decor.map((item) => item.source)) },
-		renderPreset: design.renderPreset
+		decor: { count: film.decor.length, sources: countBy(film.decor.map((item) => item.source)) },
+		quality: film.quality
 	};
 }
 
@@ -147,7 +147,7 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 		if (lightId != null) return { kind: 'light', key, id: lightId };
 		const decorId = parseDecorKey(key);
 		if (decorId != null) {
-			const decor = project.design.decor.find((item) => item.id === decorId);
+			const decor = project.film.decor.find((item) => item.id === decorId);
 			return { kind: 'decor', key, id: decorId, ...(decor != null ? { source: decor.source, x: round(decor.position.x), y: round(decor.position.y) } : {}) };
 		}
 		const shotId = parseShotKey(key);

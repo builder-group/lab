@@ -3,11 +3,12 @@
 	"id": "long-gap",
 	"title": "Long gap",
 	"revision": 0,
-	"frame": {
+	"format": {
 		"width": 9,
 		"height": 16
 	},
-	"end": 5.2,
+	"length": 5.2,
+	"gravity": 0.5,
 	"music": {
 		"sources": [],
 		"lanes": [
@@ -325,10 +326,7 @@
 			}
 		}
 	],
-	"physics": {
-		"gravityScale": 0.5
-	},
-	"design": {
+	"film": {
 		"theme": "pegboard",
 		"themes": [],
 		"wall": {},
@@ -337,14 +335,12 @@
 		},
 		"decor": [],
 		"madeInBlender": [],
-		"renderPreset": "final",
+		"quality": "final",
 		"camera": {
-			"mode": "rig",
+			"auto": true,
 			"distance": 1.7489999999999999,
-			"pitch": 0.7,
-			"lead": 0.15,
-			"smoothing": 0.6,
 			"sway": 1,
+			"tilt": 0.7,
 			"shots": []
 		}
 	}

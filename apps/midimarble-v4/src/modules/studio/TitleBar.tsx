@@ -124,7 +124,7 @@ const DocumentTitle: React.FC<{ cx: StudioCx }> = (props) => {
 						value={title}
 						onDone={(value) => {
 							setIsRenaming(false);
-							if (value != null && value !== title) cx.execute([{ type: 'setTitle', title: value }]);
+							if (value != null && value !== title) cx.execute([{ type: 'updateProject', patch: { title: value } }]);
 						}}
 					/>
 				) : (

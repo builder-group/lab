@@ -109,7 +109,7 @@ export function openScatterPanel(cx: StudioCx): void {
 /** What the panel offers: the listed items that scatter, then Decor from the Library that is in this project */
 export function scatterItems(cx: StudioCx): { id: string; label: string }[] {
 	const assets = cx.library.$projectItems.get().flatMap((item) => (item.manifest?.role === 'decoration' ? [{ id: assetDecorSource(item.id, item.manifest.label, item.manifest.fittedParams).source, label: item.manifest.label }] : []));
-	return [...listedDecorItems(addedBuiltInDecor(), usedDecorSources(cx.project?.design)).filter((item) => item.scatter), ...assets];
+	return [...listedDecorItems(addedBuiltInDecor(), usedDecorSources(cx.project?.film)).filter((item) => item.scatter), ...assets];
 }
 
 /** Scatters with the panel's settings; everything the panel does until it closes is one undo step */
@@ -161,7 +161,7 @@ export function startDecorDrag(cx: StudioCx, event: React.PointerEvent<HTMLEleme
 	const track = filmCamera(project, result).track;
 	if (track == null) return false;
 	const pose = sampleCameraTrack(track, cx.$playhead.get());
-	const aspect = project.frame.width / project.frame.height;
+	const aspect = project.format.width / project.format.height;
 	const element = event.currentTarget;
 	const rect = element.getBoundingClientRect();
 	const toWall = (clientX: number, clientY: number): TVec2 | null => imageToWall(pose, aspect, (clientX - rect.left) / rect.width, (clientY - rect.top) / rect.height);
@@ -170,7 +170,7 @@ export function startDecorDrag(cx: StudioCx, event: React.PointerEvent<HTMLEleme
 	const key = decorAt(start);
 	if (key == null || !cx.$selection.get().includes(key)) return false;
 	const decorId = key.slice('decor:'.length);
-	const origin = project.design.decor.find((item) => item.id === decorId)?.position;
+	const origin = project.film.decor.find((item) => item.id === decorId)?.position;
 	if (origin == null) return false;
 	const [startX, startY] = [event.clientX, event.clientY];
 	const pointerId = event.pointerId;
@@ -204,11 +204,11 @@ export function startDecorDrag(cx: StudioCx, event: React.PointerEvent<HTMLEleme
 }
 
 function updateDecorPosition(project: TProject, decorId: string, position: TVec2): TProjectCommand[] {
-	const list = project.design.decor;
+	const list = project.film.decor;
 	return [
 		{
-			type: 'setDesign',
-			design: {
+			type: 'updateFilm',
+			film: {
 				decor: list.map((item) => {
 					if (item.id !== decorId) return item;
 					const { scattered: _scattered, ...own } = item;

@@ -1,11 +1,11 @@
-import { marbleFilmColor, type TDesign, type TEntity, type TProject, type TThemeParts } from '@/modules/project';
+import { marbleFilmColor, type TFilm, type TEntity, type TProject, type TThemeParts } from '@/modules/project';
 import { PLAIN_PIECE_COLOR } from './draft-look';
 import { pieceLabelColor } from './label-colors';
 import { baseThemeOf, defaultTitleColor, resolveElementLook, sceneThemeOverrides, sceneThemeParts } from './project-themes';
 import { skinElement } from './skin-catalog';
 import { sceneDecor } from './decor';
 import { sceneLayers } from './scene-layers';
-import { shotLength } from './shot-timing';
+import { shotHold } from './shot-timing';
 import { getPieceDefinition, pathDepth, bowlCatch, BOWL_TYPE } from '@/modules/simulation';
 import { lastPlayingMarbles } from '@/modules/music';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation';
@@ -65,7 +65,7 @@ export function buildSceneDescription(
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
 			// The skin None wears the label color, the only skin that does
-			color: resolveElementLook(project.design, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.lanes.find((lane) => lane.id === track.marbleId)?.color ?? marbleFilmColor(project, track.marbleId)) : marbleFilmColor(project, track.marbleId),
+			color: resolveElementLook(project.film, 'marble', entity?.components.skin).skin === 'marble:none' ? (project.music.lanes.find((lane) => lane.id === track.marbleId)?.color ?? marbleFilmColor(project, track.marbleId)) : marbleFilmColor(project, track.marbleId),
 			...(entity?.components.skin != null ? { skin: entity.components.skin } : {}),
 			...(skinAssetPath(entity?.components.skin?.assetId) != null ? { assetPath: skinAssetPath(entity?.components.skin?.assetId) } : {}),
 			motionPath,
@@ -108,7 +108,7 @@ export function buildSceneDescription(
 			assetPath: skinAssetPath(entity?.components.skin?.assetId),
 			// The skin None wears the label color, the only skin that does
 			color:
-				entity != null && resolveElementLook(project.design, skinElement(piece.type), entity.components.skin).skin.endsWith(':none') ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR)
+				entity != null && resolveElementLook(project.film, skinElement(piece.type), entity.components.skin).skin.endsWith(':none') ? (pieceLabelColor(project, entity) ?? PLAIN_PIECE_COLOR)
 				: marbleId != null && project.music.lanes.some((lane) => lane.id === marbleId) ? marbleFilmColor(project, marbleId)
 				: DEFAULT_PIECE_COLOR,
 			...notePitchOf(project, entity),
@@ -124,16 +124,16 @@ export function buildSceneDescription(
 			revision: project.revision,
 			fps: options.fps,
 			duration: result.duration,
-			frame: { width: project.frame.width, height: project.frame.height },
-			theme: baseThemeOf(project.design),
+			frame: { width: project.format.width, height: project.format.height },
+			theme: baseThemeOf(project.film),
 			...themeOverridesOf(project),
 			...themePartsOf(project),
-			...sceneLayers(project.design),
-			...sceneDecor(project.design),
+			...sceneLayers(project.film),
+			...sceneDecor(project.film),
 			marbles,
 			pieces,
 			camera: {
-				...buildSceneCamera(project.design.camera),
+				...buildSceneCamera(project.film.camera),
 				descent: descentCurve(result),
 				holdAfter: lastStruckTime(result),
 				holdBowl: heldBowls(project, result)
@@ -142,7 +142,7 @@ export function buildSceneDescription(
 				const text = entity.components.wallText;
 				const transform = entity.components.transform;
 				if (text == null || transform == null) return [];
-				return [{ id: entity.id, ...text, color: text.color ?? defaultTitleColor(project.design), position: { ...transform.position }, angle: transform.angle }];
+				return [{ id: entity.id, ...text, color: text.color ?? defaultTitleColor(project.film), position: { ...transform.position }, angle: transform.angle }];
 			})
 		},
 		motionFiles
@@ -179,20 +179,24 @@ export function heldBowls(project: TProject, result: TSimulationResult): { x: nu
 	return points.length ? points : null;
 }
 
-export function buildSceneCamera(camera: TDesign['camera']): TSceneCamera {
+// What the follow camera always uses: how far ahead it looks in seconds, and how smoothly it moves from 0 to 1
+const CAMERA_LEAD = 0.15;
+const CAMERA_SMOOTHING = 0.6;
+
+export function buildSceneCamera(camera: TFilm['camera']): TSceneCamera {
 	return {
-		mode: camera.mode,
+		mode: camera.auto ? 'rig' : 'manual',
 		distance: camera.distance,
-		pitch: camera.pitch,
-		lead: camera.lead,
-		smoothing: camera.smoothing,
-		...(camera.side != null ? { side: camera.side } : {}),
+		pitch: camera.tilt,
+		lead: CAMERA_LEAD,
+		smoothing: CAMERA_SMOOTHING,
+		...(camera.turn != null ? { side: camera.turn } : {}),
 		sway: camera.sway,
 		shots: camera.shots.map((shot) => ({
 			time: shot.time,
 			kind: shot.kind,
 			distance: shot.distance,
-			length: shotLength(shot)
+			length: shotHold(shot)
 		})),
 		focusMarbleId: camera.focusMarbleId ?? null
 	};
@@ -281,11 +285,11 @@ function notePitchOf(project: TProject, entity: TEntity | undefined): { notePitc
 }
 
 function themeOverridesOf(project: TProject): { themeOverrides?: TSceneThemeOverrides } {
-	const overrides = sceneThemeOverrides(project.design);
+	const overrides = sceneThemeOverrides(project.film);
 	return overrides != null ? { themeOverrides: overrides } : {};
 }
 
 function themePartsOf(project: TProject): { themeParts?: TThemeParts } {
-	const parts = sceneThemeParts(project.design);
+	const parts = sceneThemeParts(project.film);
 	return parts != null ? { themeParts: parts } : {};
 }

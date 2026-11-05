@@ -16,7 +16,7 @@ if (packageDir == null) throw new Error('Usage: export-blender-fixture <fixture>
 const json = readFileSync(new URL(`../fixtures/${fixture}.marble.json`, import.meta.url), 'utf8');
 const [isProjectOk, projectErr, parsed] = parseProject(json);
 if (!isProjectOk) throw projectErr;
-const project = { ...parsed, design: { ...parsed.design, theme } };
+const project = { ...parsed, film: { ...parsed.film, theme } };
 
 const simulator = await createSimulator();
 const result = simulator.simulate(project);
@@ -35,7 +35,7 @@ write(SCENE_DESCRIPTION_PATH, JSON.stringify(build.description));
 const bank = SoundBankLoader.fromArrayBuffer(
 	new Uint8Array(readFileSync(new URL('../public/audio/marble-instruments.sf2', import.meta.url))).buffer
 );
-const audio = renderMarbles(project.music.lanes, { sampleRate: 48000, duration: project.end, bank });
+const audio = renderMarbles(project.music.lanes, { sampleRate: 48000, duration: project.length, bank });
 write('renders/soundtrack.wav', encodeWav(audio.left, audio.right, audio.sampleRate));
 
 const hits = result.hits.filter((hit) => hit.actualTime != null).length;

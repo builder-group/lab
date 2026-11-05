@@ -134,7 +134,7 @@ function fitRail(request: TFitPatternRequest, options: TFitPatternOptions): TFit
 	const problems: TPatternProblem[] = [];
 	if (Math.abs(fit.holdErr) > 0.05) problems.push({ hitId, words: `The rail lets go ${formatSeconds(Math.abs(fit.holdErr))} ${fit.holdErr > 0 ? 'late' : 'early'} for the note at ${wordsForHitTime(to.time)}.` });
 	if (fit.isTouching) problems.push({ hitId, words: `The rail touches a piece beside it at ${wordsForHitTime(from.time)}.` });
-	const result = options.sim.simulate({ ...fit.project, end: to.time + 0.02 });
+	const result = options.sim.simulate({ ...fit.project, length: to.time + 0.02 });
 	return {
 		commands: [{ type: 'upsertEntity', entity: fit.entity }],
 		entities: [fit.entity],
@@ -190,7 +190,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 		...(next != null && !isNextClose && request.keepsDirection !== true ? { exitToFrame: frameBand(project).centerX } : {})
 	};
 	if (kind === 'staircase') {
-		const head = sim.simulate({ ...base, end: (hits[0]?.time ?? 0) + 0.01 });
+		const head = sim.simulate({ ...base, length: (hits[0]?.time ?? 0) + 0.01 });
 		const dotX = head.hits.find((hit) => hit.hitId === hitIds[0])?.dot?.x ?? 0;
 		shape.dir = Math.sign(frameBand(project).centerX - dotX) || 1;
 	}
@@ -225,7 +225,7 @@ function fitBarPattern(request: TFitPatternRequest, options: TFitPatternOptions)
 			}
 		}
 	}
-	const result = sim.simulate({ ...chosen.project, end: (next?.time ?? last.time + 0.3) + 0.01 });
+	const result = sim.simulate({ ...chosen.project, length: (next?.time ?? last.time + 0.3) + 0.01 });
 	const entities = chosen.entities;
 	const blocking = [...problemsOf(chosen, lane.hits), ...longFalls(result, ids, lane.hits)];
 	return {
@@ -249,7 +249,7 @@ function scoreFit(sim: TSimulator, fit: TBarsFit, marbleId: string, ids: string[
 	const mine = new Set(stopsBefore ? ids.slice(0, -1) : ids);
 	const made = new Set(fit.entities.map((entity) => entity.id));
 	const nextTime = fit.project.music.lanes.find((lane) => lane.id === marbleId)?.hits.find((hit) => hit.id === ids.at(-1))?.time ?? lastTime;
-	const result = sim.simulate({ ...fit.project, end: Math.max(lastTime, nextTime) + 0.02 });
+	const result = sim.simulate({ ...fit.project, length: Math.max(lastTime, nextTime) + 0.02 });
 	const late = result.hits.filter((hit) => ids.includes(hit.hitId) && hit.status !== 'onTime' && hit.status !== 'drifting' && hit.status !== 'open').map((hit) => hit.hitId);
 	const strikes = extraStrikes(fit.project, result).flatMap((item) => (mine.has(item.hitId) ? [item.hitId] : []));
 	const rolls = rollingHits(fit.project, result).flatMap((item) => (mine.has(item.hitId) ? [item.hitId] : []));

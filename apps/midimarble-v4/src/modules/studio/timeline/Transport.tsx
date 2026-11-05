@@ -144,7 +144,7 @@ const RepeatButton: React.FC<{ cx: StudioCx }> = (props) => {
 const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const playhead = useFeatureState(cx.$playhead);
-	const end = useFeatureState(cx.$history)?.present.end ?? 0;
+	const end = useFeatureState(cx.$history)?.present.length ?? 0;
 	const [draft, setDraft] = React.useState<{ field: 'playhead' | 'length'; text: string } | null>(null);
 	const [isInvalid, setIsInvalid] = React.useState(false);
 
@@ -162,7 +162,7 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 			return;
 		}
 		if (draft.field === 'playhead') cx.seek(Math.min(end, time));
-		else if (Math.abs(time - end) > 1e-6) cx.execute([{ type: 'setEnd', end: Math.max(MIN_FILM_LENGTH, time) }]);
+		else if (Math.abs(time - end) > 1e-6) cx.execute([{ type: 'updateProject', patch: { length: Math.max(MIN_FILM_LENGTH, time) } }]);
 		setDraft(null);
 	}
 

@@ -392,7 +392,7 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	if (!isInBand(next.dot, band, 1 - (0.1 * frameBand(applied, marbleId).halfWidth) / band.halfWidth)) return reject(state, `out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
 	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
 	const probe = createLinkedPiece('platform', marbleId, next.hitId, 0, { id: 'accept-probe' });
-	const probed = await state.deps.simulate({ ...applied, entities: [...applied.entities, probe], end: Math.min(applied.end, next.targetTime + 0.05) });
+	const probed = await state.deps.simulate({ ...applied, entities: [...applied.entities, probe], length: Math.min(applied.length, next.targetTime + 0.05) });
 	if (probed.pieces.find((piece) => piece.entityId === probe.id)?.status === 'blocked') return reject(state, `no room at ${next.hitId}`);
 	const pace = result.pace;
 	if (pace != null && isShared(applied)) {
@@ -864,8 +864,8 @@ function diffCommands(from: TProject, to: TProject): TProjectCommand[] {
 		const before = known.get(entity.id);
 		if (before !== entity && JSON.stringify(before) !== JSON.stringify(entity)) commands.push({ type: 'upsertEntity', entity });
 	}
-	if (from.end !== to.end) commands.push({ type: 'setEnd', end: to.end });
-	if (from.design !== to.design && JSON.stringify(from.design) !== JSON.stringify(to.design)) commands.push({ type: 'setDesign', design: to.design });
+	if (from.length !== to.length) commands.push({ type: 'updateProject', patch: { length: to.length } });
+	if (from.film !== to.film && JSON.stringify(from.film) !== JSON.stringify(to.film)) commands.push({ type: 'updateFilm', film: to.film });
 	return commands;
 }
 
@@ -1134,11 +1134,11 @@ async function reachedWhenChecked(state: TBuildState, attempted: TAttempt): Prom
 	const finished = await run(state, attempted.project);
 	if (!keepsPace(attempted.project, finished) || bowlTrouble(attempted.finished?.project ?? attempted.project) != null) {
 		state.deps.onLog?.('  the dots leave the shared pace or a marble misses its Bowl, so the build counts as stopped at the end');
-		return attempted.project.end;
+		return attempted.project.length;
 	}
 	if (framingTrouble(attempted.project, finished) != null) {
 		state.deps.onLog?.('  the camera loses a marble, so the build counts as stopped at the end');
-		return attempted.project.end;
+		return attempted.project.length;
 	}
 	return Infinity;
 }
@@ -1149,7 +1149,7 @@ async function goOnPastStuck(build: TBuildRun, best: TBestAttempt): Promise<TPro
 	const { state } = best;
 	if (build.isStopped) return best.project;
 	if (!publish(build, best.project, null)) build.isStopped = true;
-	if (build.isStopped || best.reached === Infinity || best.reached >= project.end) return best.project;
+	if (build.isStopped || best.reached === Infinity || best.reached >= project.length) return best.project;
 	deps.onLog?.(`no attempt got through, so the one that reached ${best.reached.toFixed(2)} s goes on past it`);
 	const before = { ...state.counts };
 	state.counts = emptyCounts();

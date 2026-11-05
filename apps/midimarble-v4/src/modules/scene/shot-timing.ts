@@ -7,14 +7,14 @@ export const SHOT_HOLD = 2.0;
 export const SHOT_EASE_SECONDS = 0.8;
 
 /** Hold of a shot kind without a length of its own: close shots release, Wide and Follow hold until the next shot */
-export function defaultShotLength(kind: TShot['kind']): number | null {
+export function defaultShotHold(kind: TShot['kind']): number | null {
 	return kind === 'pushIn' || kind === 'closeUp' ? SHOT_HOLD : null;
 }
 
-/** Seconds the shot holds, or null when it holds until the next shot (a length of 0 or an open kind's default) */
-export function shotLength(shot: Pick<TShot, 'kind' | 'length'>): number | null {
-	const length = shot.length ?? defaultShotLength(shot.kind);
-	return length != null && length > 0 ? length : null;
+/** Seconds the shot holds, or null when it holds until the next shot (a hold of 0 or an open kind's default) */
+export function shotHold(shot: Pick<TShot, 'kind' | 'hold'>): number | null {
+	const hold = shot.hold ?? defaultShotHold(shot.kind);
+	return hold != null && hold > 0 ? hold : null;
 }
 
 /**
@@ -25,8 +25,8 @@ export function shotSpans(shots: readonly TShot[], end: number): TShotSpan[] {
 	const sorted = [...shots].sort((a, b) => a.time - b.time);
 	return sorted.map((shot, index) => {
 		const following = sorted[index + 1]?.time ?? Infinity;
-		const length = shotLength(shot);
-		const release = length != null ? shot.time + length : Infinity;
+		const hold = shotHold(shot);
+		const release = hold != null ? shot.time + hold : Infinity;
 		const isRelease = release < following - 1e-9;
 		const stop = Math.min(release, following, Math.max(end, shot.time));
 		return { shotId: shot.id, kind: shot.kind, start: shot.time, end: stop, isRelease };

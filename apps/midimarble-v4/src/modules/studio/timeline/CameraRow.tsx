@@ -18,7 +18,7 @@ import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
  */
 export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 	const { cx, project, zoom, width, selection, timeAt } = props;
-	const shots = project.design.camera.shots;
+	const shots = project.film.camera.shots;
 	const isSelected = selection.includes(CAMERA_KEY) || selection.some((key) => parseShotKey(key) != null);
 	const [drag, setDrag] = React.useState<{ shotId: string; grab: number; originX: number; time: number; moved: boolean } | null>(null);
 

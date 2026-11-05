@@ -42,12 +42,11 @@ function changeLabel(old: TEntity, next: TEntity, changed: TEntity[]): string | 
 
 function commandLabel(before: TProject, command: TProjectCommand): string | null {
 	switch (command.type) {
-		case 'setEnd':
-			return 'Change Length';
-		case 'setFrame':
-			return 'Change Format';
-		case 'setPhysics':
-			return 'Change Gravity';
+		case 'updateProject':
+			if (command.patch.length != null) return 'Change Length';
+			if (command.patch.format != null) return 'Change Format';
+			if (command.patch.gravity != null) return 'Change Gravity';
+			return null;
 		case 'setTempo':
 			return 'Change Tempo';
 		case 'setBackingInstrument':
@@ -79,19 +78,19 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 		}
 		case 'removeGroups':
 			return 'Ungroup';
-		case 'setDesign':
-			return designLabel(before, command.design);
+		case 'updateFilm':
+			return filmLabel(before, command.film);
 		default:
 			return null;
 	}
 }
 
-function designLabel(before: TProject, design: Extract<TProjectCommand, { type: 'setDesign' }>['design']): string | null {
-	if (design.decor != null) return listLabel(before.design.decor, design.decor, 'Decor', 'Decor');
-	if (design.lights != null) return listLabel(before.design.lights.added, design.lights.added, 'Light', 'Lights');
-	if (design.camera != null) return design.camera.shots.length !== before.design.camera.shots.length ? listLabel(before.design.camera.shots, design.camera.shots, 'Shot', 'Shots') : 'Change Camera';
-	if (design.theme != null || design.themes != null) return 'Change Theme';
-	if (design.wall != null) return 'Change Wall';
+function filmLabel(before: TProject, film: Extract<TProjectCommand, { type: 'updateFilm' }>['film']): string | null {
+	if (film.decor != null) return listLabel(before.film.decor, film.decor, 'Decor', 'Decor');
+	if (film.lights != null) return listLabel(before.film.lights.added, film.lights.added, 'Light', 'Lights');
+	if (film.camera != null) return film.camera.shots.length !== before.film.camera.shots.length ? listLabel(before.film.camera.shots, film.camera.shots, 'Shot', 'Shots') : 'Change Camera';
+	if (film.theme != null || film.themes != null) return 'Change Theme';
+	if (film.wall != null) return 'Change Wall';
 	return null;
 }
 

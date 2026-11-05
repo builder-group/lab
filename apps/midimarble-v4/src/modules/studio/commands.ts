@@ -103,10 +103,10 @@ function unlinkedSelection(cx: StudioCx): string[] {
 export function deleteTheme(cx: StudioCx, themeId: string): void {
 	const project = cx.project;
 	if (project == null) return;
-	const theme = resolveTheme(project.design, themeId);
+	const theme = resolveTheme(project.film, themeId);
 	if (theme.projectTheme == null || !cx.execute(deleteThemeCommands(project, themeId))) return;
-	const base = resolveTheme(project.design, theme.base).name;
-	cx.notifyEdit(project.design.theme === themeId ? `${theme.name} deleted; the film uses ${base} again` : `${theme.name} deleted`);
+	const base = resolveTheme(project.film, theme.base).name;
+	cx.notifyEdit(project.film.theme === themeId ? `${theme.name} deleted; the film uses ${base} again` : `${theme.name} deleted`);
 }
 
 function hasPieces(cx: StudioCx): boolean {
@@ -190,7 +190,7 @@ function copySelection(cx: StudioCx): void {
 	if (trackCx(cx) == null) {
 		const decorIds = selectedDecorIds(cx.$selection.get());
 		const titleIds = selectedTitleIds(cx);
-		cx.$clipboard.set({ pieces: cx.$clipboard.get()?.pieces ?? [], decor: project.design.decor.filter((item) => decorIds.includes(item.id)), titles: project.entities.filter((entity) => titleIds.includes(entity.id)) });
+		cx.$clipboard.set({ pieces: cx.$clipboard.get()?.pieces ?? [], decor: project.film.decor.filter((item) => decorIds.includes(item.id)), titles: project.entities.filter((entity) => titleIds.includes(entity.id)) });
 		return;
 	}
 	const pieces = freePieces(project, cx.simulation.$result.get(), selectedPieceIds(project, cx.$selection.get()));
@@ -461,7 +461,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'play.start', title: 'Go to Beginning', section: 'Playback', shortcut: '↩', keywords: 'rewind start', isEnabled: hasProject, run: (cx) => cx.$playhead.set(0) },
 	{ id: 'play.previousHit', title: 'Previous Hit', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
 	{ id: 'play.nextHit', title: 'Next Hit', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
-	{ id: 'play.repeat', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownRepeatRange(cx.$repeatRange.get(), cx.project?.id, cx.project?.end ?? 0)?.isOn === true, run: (cx) => cx.toggleRepeatRange() },
+	{ id: 'play.repeat', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownRepeatRange(cx.$repeatRange.get(), cx.project?.id, cx.project?.length ?? 0)?.isOn === true, run: (cx) => cx.toggleRepeatRange() },
 	{ id: 'play.tap', title: 'Tap Hit at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
 
 	// MARK: - Tools
@@ -638,10 +638,10 @@ export const commands: readonly TCommand[] = [
 		title: 'Delete Theme',
 		section: 'Film',
 		keywords: 'remove theme',
-		isEnabled: (cx) => cx.project != null && resolveTheme(cx.project.design).projectTheme != null,
+		isEnabled: (cx) => cx.project != null && resolveTheme(cx.project.film).projectTheme != null,
 		run: (cx) => {
 			const project = cx.project;
-			if (project != null) deleteTheme(cx, project.design.theme);
+			if (project != null) deleteTheme(cx, project.film.theme);
 		}
 	},
 	{ id: 'film.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.filmExport.isRunning, run: (cx) => cx.filmExport.cancel() },

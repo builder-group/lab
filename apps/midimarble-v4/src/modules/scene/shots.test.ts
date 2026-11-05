@@ -11,7 +11,7 @@ describe('shot markers', () => {
 	it('should add a push-in marker at 0.7 of the base distance', () => {
 		const project = createProject({ title: 'Shots' });
 		const next = addShot(project, 2.5, 'shot-a');
-		expect(next.design.camera.shots).toEqual([{ id: 'shot-a', time: 2.5, kind: 'pushIn', distance: shotPresetDistance('pushIn', project.design.camera.distance) }]);
+		expect(next.film.camera.shots).toEqual([{ id: 'shot-a', time: 2.5, kind: 'pushIn', distance: shotPresetDistance('pushIn', project.film.camera.distance) }]);
 		expect(shotPresetDistance('pushIn', 1)).toBe(0.7);
 	});
 
@@ -25,15 +25,15 @@ describe('shot markers', () => {
 		const moved = apply(project, updateShotCommands(project, 'early', { time: 6 }));
 
 		// Assert
-		expect(project.design.camera.shots.map((shot) => shot.id)).toEqual(['early', 'late']);
-		expect(moved.design.camera.shots.map((shot) => shot.id)).toEqual(['late', 'early']);
+		expect(project.film.camera.shots.map((shot) => shot.id)).toEqual(['early', 'late']);
+		expect(moved.film.camera.shots.map((shot) => shot.id)).toEqual(['late', 'early']);
 	});
 
 	it('should apply the kind preset distance when the kind changes', () => {
 		let project = addShot(createProject({ title: 'Shots' }), 1, 'shot');
 		project = apply(project, updateShotCommands(project, 'shot', { distance: 0.2 }));
 		const wide = apply(project, updateShotCommands(project, 'shot', { kind: 'wide' }));
-		expect(wide.design.camera.shots[0]).toMatchObject({ kind: 'wide', distance: shotPresetDistance('wide', project.design.camera.distance) });
+		expect(wide.film.camera.shots[0]).toMatchObject({ kind: 'wide', distance: shotPresetDistance('wide', project.film.camera.distance) });
 		expect(shotPresetDistance('closeUp', 1)).toBe(0.45);
 	});
 
@@ -41,7 +41,7 @@ describe('shot markers', () => {
 		let project = createProject({ title: 'Shots' });
 		project = addShot(project, 1, 'a');
 		project = addShot(project, 2, 'b');
-		expect(apply(project, removeShotsCommands(project, ['a'])).design.camera.shots.map((shot) => shot.id)).toEqual(['b']);
+		expect(apply(project, removeShotsCommands(project, ['a'])).film.camera.shots.map((shot) => shot.id)).toEqual(['b']);
 		expect(removeShotsCommands(project, ['missing'])).toEqual([]);
 		expect(updateShotCommands(project, 'missing', { time: 3 })).toEqual([]);
 	});
@@ -53,6 +53,6 @@ describe('shot markers', () => {
 		];
 		expect(sortShots(shots).map((shot) => shot.id)).toEqual(['a', 'b']);
 		const project = addShot(createProject({ title: 'Shots' }), -1, 'zero');
-		expect(project.design.camera.shots[0]?.time).toBe(0);
+		expect(project.film.camera.shots[0]?.time).toBe(0);
 	});
 });

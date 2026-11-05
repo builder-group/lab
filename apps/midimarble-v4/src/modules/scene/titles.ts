@@ -34,7 +34,7 @@ export function titleClips(project: TProject): { entityId: string; text: string;
 	return project.entities
 		.flatMap((entity) => {
 			const text = entity.components.wallText;
-			return text == null ? [] : [{ entityId: entity.id, text: text.text, ...titleSpan(text, project.end) }];
+			return text == null ? [] : [{ entityId: entity.id, text: text.text, ...titleSpan(text, project.length) }];
 		})
 		.sort((a, b) => a.start - b.start);
 }

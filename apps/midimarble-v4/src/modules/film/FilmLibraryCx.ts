@@ -126,7 +126,7 @@ export class FilmLibraryCx {
 		if (project == null) return;
 		const worn = new Set(project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []));
 		const assetIds = this.$projectItems.get().flatMap((item) => (worn.has(item.id) ? [item.id] : []));
-		this.$exportPack.set({ name: resolveTheme(project.design).name, includesTheme: true, assetIds });
+		this.$exportPack.set({ name: resolveTheme(project.film).name, includesTheme: true, assetIds });
 	}
 
 	/** Export Pack…: writes the Pack; `destination` skips the save panel. Ok(null) when canceled. */
@@ -171,7 +171,7 @@ export class FilmLibraryCx {
 	async applyPackTheme(pack: TPack, theme: TProjectTheme): Promise<boolean> {
 		const existing = this.source.getProject();
 		if (existing == null) return false;
-		if (!existing.design.themes.some((item) => item.id === theme.id)) {
+		if (!existing.film.themes.some((item) => item.id === theme.id)) {
 			const ready = await this.packThemeInProject(pack, theme);
 			const project = this.source.getProject();
 			if (ready == null || project == null) return false;

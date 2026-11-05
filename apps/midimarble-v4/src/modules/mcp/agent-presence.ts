@@ -130,8 +130,8 @@ export function touchedKeys(before: TProject, after: TProject): string[] {
 		const previous = entities.get(entity.id);
 		if (previous !== entity && (previous == null || !isSame(previous, entity))) keys.push(entity.id);
 	}
-	const was = before.design;
-	const is = after.design;
+	const was = before.film;
+	const is = after.film;
 	if (!isSame(was.wall, is.wall)) keys.push(WALL_KEY);
 	if (!isSame(was.lights.key, is.lights.key)) keys.push(KEY_LIGHT_KEY);
 	const lights = new Map((was.lights.added).map((light) => [light.id, light]));

@@ -103,7 +103,7 @@ export class TrackCx {
 		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
 		const applyTheme = (): void => {
 			const style = getComputedStyle(container);
-			const wallColor = this.studio.project?.design.wall.labelColor;
+			const wallColor = this.studio.project?.film.wall.labelColor;
 			const canvasColor = wallColor ?? style.getPropertyValue('--track-wall').trim();
 			renderer.setWallLook(trackWall(container, wallColor));
 			renderer.setWallHidden(this.studio.$hidden.get().includes(WALL_KEY));
@@ -113,10 +113,10 @@ export class TrackCx {
 		applyTheme();
 		scheme.addEventListener('change', applyTheme);
 		cleanups.push(() => scheme.removeEventListener('change', applyTheme));
-		let paintedWall = this.studio.project?.design.wall.labelColor;
+		let paintedWall = this.studio.project?.film.wall.labelColor;
 		cleanups.push(
 			this.studio.$history.listen(({ value }) => {
-				const wallColor = value?.present.design.wall.labelColor;
+				const wallColor = value?.present.film.wall.labelColor;
 				if (wallColor === paintedWall) return;
 				paintedWall = wallColor;
 				applyTheme();
@@ -783,7 +783,7 @@ export class TrackCx {
 	private followPhysics(result: TSimulationResult | null): void {
 		const project = this.project;
 		if (project == null || result == null || result.revision !== project.revision) return;
-		const key = JSON.stringify(project.physics ?? null);
+		const key = JSON.stringify(project.gravity);
 		const previous = this.physicsKey;
 		this.physicsKey = { projectId: project.id, key };
 		if (previous == null || previous.projectId !== project.id || previous.key === key) return;

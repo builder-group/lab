@@ -300,7 +300,7 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const time = this.$playhead.get();
 		const point = previewPointToWall(project, result, time, u, v);
-		const { commands, entityId } = addWallTextCommands(point, { color: defaultTitleColor(project.design), frameHeight: frameHeightOnWall(project, result, time) });
+		const { commands, entityId } = addWallTextCommands(point, { color: defaultTitleColor(project.film), frameHeight: frameHeightOnWall(project, result, time) });
 		if (!this.execute(commands)) return;
 		this.$selection.set([entityId]);
 		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected
@@ -315,16 +315,16 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const playhead = this.$playhead.get();
 		const frameHeight = frameHeightOnWall(project, result, playhead);
-		const { commands, entityId } = addWallTextCommands(previewPointToWall(project, result, playhead, 0.5, 0.5), { color: defaultTitleColor(project.design), frameHeight });
+		const { commands, entityId } = addWallTextCommands(previewPointToWall(project, result, playhead, 0.5, 0.5), { color: defaultTitleColor(project.film), frameHeight });
 		const styled = commands.flatMap((command) => {
 			if (command.type !== 'upsertEntity' || command.entity.components.wallText == null) return [command];
-			const wallText = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.end, songName: songDisplayName(project), aspect: project.frame.width / project.frame.height });
+			const wallText = withTitleStyle(command.entity.components.wallText, style, { frameHeight, playhead, end: project.length, songName: songDisplayName(project), aspect: project.format.width / project.format.height });
 			return [{ ...command, entity: { ...command.entity, name: wallText.text, components: { ...command.entity.components, wallText } } }];
 		});
 		if (!this.execute(styled)) return;
 		// Keep the new title in view: a Song Name opens the film and an End Card closes it, wherever the playhead is
 		const text = styled.flatMap((command) => (command.type === 'upsertEntity' && command.entity.id === entityId ? [command.entity.components.wallText] : []))[0];
-		if (text != null && (playhead < (text.in ?? 0) || playhead >= (text.out ?? project.end))) this.$playhead.set(text.in ?? 0);
+		if (text != null && (playhead < (text.in ?? 0) || playhead >= (text.out ?? project.length))) this.$playhead.set(text.in ?? 0);
 		this.$workspace.set('film');
 		this.$selection.set([entityId]);
 		this.film.$editingTitle.set(entityId);
@@ -779,8 +779,8 @@ export class StudioCx {
 		if (project == null) return;
 		const client = this.simulation.assists;
 		const end = client != null ? await fittedSongEnd(project, (trial) => client.simulateAssist(trial)) : projectSongEnd(project);
-		if (end == null || this.$history.get()?.present !== project || Math.abs(end - project.end) < 0.005) return;
-		this.execute([{ type: 'setEnd', end }]);
+		if (end == null || this.$history.get()?.present !== project || Math.abs(end - project.length) < 0.005) return;
+		this.execute([{ type: 'updateProject', patch: { length: end } }]);
 	}
 
 	/**
@@ -792,10 +792,10 @@ export class StudioCx {
 		const client = this.simulation.assists;
 		if (project == null || client == null || !endsOnBowl(project)) return null;
 		const end = await fittedSongEnd(project, (trial) => client.simulateAssist(trial));
-		if (end == null || this.project !== project || end <= project.end + 0.005) return null;
+		if (end == null || this.project !== project || end <= project.length + 0.005) return null;
 		// The length is no new edit, so the notice of the edit stays
 		this.isRefittingEnd = true;
-		this.execute([{ type: 'setEnd', end }], { amend: true });
+		this.execute([{ type: 'updateProject', patch: { length: end } }], { amend: true });
 		this.isRefittingEnd = false;
 		return end;
 	}
@@ -934,21 +934,21 @@ export class StudioCx {
 	 * the default length, so taps can run past the last hit, like Logic's recording past the project end
 	 */
 	get playbackEnd(): number {
-		const end = this.project?.end ?? 0;
+		const end = this.project?.length ?? 0;
 		return this.tapSession?.isAutoEnd === true ? Math.max(end, DEFAULT_PROJECT_END) : end;
 	}
 
 	/** The range playback loops: the Repeat Range while it is on, never while tapping along, which runs on to the end */
 	get repeatSpan(): TRepeatSpan | null {
 		const project = this.project;
-		const shown = project != null && this.tapSession == null ? shownRepeatRange(this.$repeatRange.get(), project.id, project.end) : null;
+		const shown = project != null && this.tapSession == null ? shownRepeatRange(this.$repeatRange.get(), project.id, project.length) : null;
 		return shown?.isOn === true ? { start: shown.start, end: shown.end } : null;
 	}
 
 	/** C: Repeat Range on or off, with a first range from the playhead when there is none yet */
 	toggleRepeatRange(): void {
 		const project = this.project;
-		if (project != null) this.$repeatRange.set(toggledRepeatRange(this.$repeatRange.get(), project.id, project.end, this.$playhead.get()));
+		if (project != null) this.$repeatRange.set(toggledRepeatRange(this.$repeatRange.get(), project.id, project.length, this.$playhead.get()));
 	}
 
 	/** A drag on the ruler's repeat strip sets the range and turns it on */
@@ -965,7 +965,7 @@ export class StudioCx {
 		if (session?.hasTapped === true) this.$fitFirstHits.set(true);
 		if (session == null || !session.hasTapped || project == null) return;
 		const fitted = projectSongEnd(project);
-		if (fitted != null && fitted > project.end + 1e-6) this.execute([{ type: 'setEnd', end: fitted }], { amend: true });
+		if (fitted != null && fitted > project.length + 1e-6) this.execute([{ type: 'updateProject', patch: { length: fitted } }], { amend: true });
 	}
 
 	undo(): void {

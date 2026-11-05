@@ -12,8 +12,8 @@ import { PHYSICS_HZ, type TSimulationResult } from './types';
 /** How far an entry may differ from the ride's, in m/s at Earth's gravity; speeds at a rhythm scale with gravity */
 const TRANSIT_TOLERANCE = 0.6;
 
-export function rideTolerance(gravityScale: number): number {
-	return TRANSIT_TOLERANCE * gravityScale;
+export function rideTolerance(gravity: number): number {
+	return TRANSIT_TOLERANCE * gravity;
 }
 
 /** Physics steps after its hit at which a marble has left a platform */

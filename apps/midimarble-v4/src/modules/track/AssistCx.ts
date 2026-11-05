@@ -578,8 +578,8 @@ export class AssistCx {
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
 		await this.studio.lengthenForCatch();
 		const built = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
-		const end = this.studio.project?.end ?? project.end;
-		const report = end !== project.end ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
+		const end = this.studio.project?.length ?? project.length;
+		const report = end !== project.length ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {

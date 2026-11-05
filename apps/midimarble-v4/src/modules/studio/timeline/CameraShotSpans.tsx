@@ -9,11 +9,11 @@ import { parseShotKey } from '@/modules/project';
  */
 export const CameraShotSpans: React.FC<TCameraShotSpansProps> = (props) => {
 	const { project, zoom, selection, dragged } = props;
-	const shots = project.design.camera.shots.map((shot) => (dragged != null && shot.id === dragged.shotId ? { ...shot, time: dragged.time } : shot));
+	const shots = project.film.camera.shots.map((shot) => (dragged != null && shot.id === dragged.shotId ? { ...shot, time: dragged.time } : shot));
 	const selected = new Set(selection.map(parseShotKey).filter((id) => id != null));
 	return (
 		<>
-			{shotSpans(shots, project.end).map((span) => {
+			{shotSpans(shots, project.length).map((span) => {
 				const color = selected.has(span.shotId) ? 'var(--accent)' : 'var(--warn)';
 				const fade = span.isRelease ? SHOT_EASE_SECONDS * zoom : 0;
 				return (

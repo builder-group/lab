@@ -400,7 +400,7 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 	const { cx, row, isSelected, isInSelection, joinsTop, joinsBottom, isRenaming, tip, actions } = props;
 	const view = outlineRowView(row);
 	const project = cx.project;
-	const isHidden = project != null && (row.kind === 'decor' ? row.decor.hidden === true : row.kind === 'madeInBlender' && madeInBlenderLayer(project.design, row.name).hidden === true);
+	const isHidden = project != null && (row.kind === 'decor' ? row.decor.hidden === true : row.kind === 'madeInBlender' && madeInBlenderLayer(project.film, row.name).hidden === true);
 
 	function toggleHidden(): void {
 		if (project == null) return;

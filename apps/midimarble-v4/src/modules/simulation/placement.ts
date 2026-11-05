@@ -83,8 +83,8 @@ export function startRailOf(project: TProject, marbleId: string): TEntity | unde
 }
 
 export function frameBand(project: TProject, marbleId?: string): TFrameBand {
-	const aspect = project.frame.width / project.frame.height;
-	const distance = project.design.camera.distance;
+	const aspect = project.format.width / project.format.height;
+	const distance = project.film.camera.distance;
 	const width = 0.45 * (aspect / (9 / 16)) * (distance > 0 ? distance / 1.263 : 1);
 	// A marble waiting on its start rail lands `laneOffset` from where it is released, and its lane lies there
 	const releaseX = (entity: TEntity): number => {

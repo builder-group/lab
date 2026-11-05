@@ -43,7 +43,7 @@ describe('Rail layouts', () => {
 	});
 
 	it('should hold a drawn Rail\'s further paths as colliders of the one piece', async () => {
-		const project = createBareRunProject({ id: 'two-paths', title: 'Two Paths', end: 1.2, gravityScale: 0.5, marbles: [{ x: 0, y: 0.1, releaseTime: 0, hitTimes: [] }] });
+		const project = createBareRunProject({ id: 'two-paths', title: 'Two Paths', end: 1.2, gravity: 0.5, marbles: [{ x: 0, y: 0.1, releaseTime: 0, hitTimes: [] }] });
 		const rail: TEntity = {
 			id: 'rail',
 			components: {

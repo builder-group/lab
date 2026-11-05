@@ -68,7 +68,7 @@ describe('a preview that stops at a horizon', () => {
 		const project = loadFixture('zigzag');
 		const simulator = await createSimulator();
 		const run = simulator.simulate(project, HORIZON);
-		expect(run.duration).toBeCloseTo(project.end, 2);
+		expect(run.duration).toBeCloseTo(project.length, 2);
 		expect(run.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(project.music.lanes.reduce((count, lane) => count + lane.hits.length, 0));
 	});
 });

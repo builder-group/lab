@@ -6,7 +6,7 @@ import { startRailPlan, withStartRails } from './start-rail';
 const G = 9.81 * 0.5;
 
 function project(first = 1, velocity?: { x: number; y: number }) {
-	return createBareRunProject({ id: 'start', title: 'Start', end: 2.5, gravityScale: 0.5, marbles: [{ x: -0.1, y: 0.6, releaseTime: first - 0.5, ...(velocity != null ? { velocity } : {}), hitTimes: [first, first + 0.5] }] });
+	return createBareRunProject({ id: 'start', title: 'Start', end: 2.5, gravity: 0.5, marbles: [{ x: -0.1, y: 0.6, releaseTime: first - 0.5, ...(velocity != null ? { velocity } : {}), hitTimes: [first, first + 0.5] }] });
 }
 
 describe('startRailPlan function', () => {

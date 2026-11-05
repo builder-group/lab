@@ -65,7 +65,7 @@ export async function findBowl(
 	};
 	const trial: TProject = {
 		...without,
-		end: Math.max(without.end, last.time + BOWL_TAIL + BOWL_WATCH)
+		length: Math.max(without.length, last.time + BOWL_TAIL + BOWL_WATCH)
 	};
 	const base = await deps.simulate(trial);
 	const hit = base.hits.find((item) => item.marbleId === marbleId && item.hitId === last.id);
@@ -227,7 +227,7 @@ export async function withBowls(project: TProject, deps: TBowlDeps, options: TBo
 	}
 	// A film that would end before the catch is lengthened; a longer one stays what it is
 	const end = projectSongEnd(current);
-	return { project: end == null || end <= current.end ? current : { ...current, end }, messages };
+	return { project: end == null || end <= current.length ? current : { ...current, length: end }, messages };
 }
 
 /**

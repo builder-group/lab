@@ -34,8 +34,8 @@ export const FilmView: React.FC<TFilmViewProps> = (props) => {
 	const isLiveMode = useLiveMode(cx, studio);
 	const orbit = useFeatureState(cx.$orbit);
 	const selection = useFeatureState(studio.$selection);
-	const cameraMode = useFeatureState(studio.$history)?.present.design.camera.mode;
-	const canOrbit = selection.includes(CAMERA_KEY) && cameraMode === 'rig' && placing == null;
+	const isCameraAuto = useFeatureState(studio.$history)?.present.film.camera.auto;
+	const canOrbit = selection.includes(CAMERA_KEY) && isCameraAuto === true && placing == null;
 	const busy = status === 'starting' || status === 'syncing' || status === 'rendering';
 
 	// Escape leaves the placing mode before it reaches the studio shortcuts

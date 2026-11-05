@@ -64,7 +64,7 @@ function problemsBesidesSong(project: TProject, outcome: TBuildOutcome): string[
 describe('buildTrack function', () => {
 	it('builds Jingle Bells from the imported MIDI at default settings, with a clean preflight', async () => {
 		const project = importedJingle();
-		expect(project.physics.gravityScale).toBe(0.5);
+		expect(project.gravity).toBe(0.5);
 		const progress: TBuildProgress[] = [];
 		const outcome = await buildTrack(project, { ...localBuildDeps(simulator), onProgress: (item) => progress.push(item) });
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(115);

@@ -12,7 +12,7 @@ function fullProject(): TProject {
 	const free = { id: 'rail-1', components: { piece: { type: 'rail' } } } as unknown as TEntity;
 	const titles = ['title-1', 'title-2'].map((id) => ({ id, name: id, components: { wallText: { text: id } } }) as unknown as TEntity);
 	project.entities.push(platform, free, ...titles);
-	project.design.camera.shots = [{ id: 'shot-1', time: 2, kind: 'wide' } as TProject['design']['camera']['shots'][number]];
+	project.film.camera.shots = [{ id: 'shot-1', time: 2, kind: 'wide' } as TProject['film']['camera']['shots'][number]];
 	return project;
 }
 
@@ -24,7 +24,7 @@ function rowSelection(row: TOutlineRow): string[] {
 describe('inspectorTarget function', () => {
 	it('should show the Wall and the lights for their layers and the Project for a light that is gone', () => {
 		const project = fullProject();
-		project.design.lights = { added: [{ id: 'light-1', name: 'Fill', color: '#ffffff', strength: 2, side: 0.5, height: 0.3 }] };
+		project.film.lights = { added: [{ id: 'light-1', name: 'Fill', color: '#ffffff', strength: 2, side: 0.5, height: 0.3 }] };
 
 		expect(inspectorTarget(project, [WALL_KEY])).toEqual({ kind: 'wall' });
 		expect(inspectorTarget(project, [KEY_LIGHT_KEY])).toEqual({ kind: 'light', id: 'key' });
@@ -137,7 +137,7 @@ describe('several Decor items', () => {
 	it('should have an inspector of their own in Film, and show the Scene in Track', () => {
 		const base = createProject({ title: 'Decor' });
 		const decor = (id: string): TDecor => ({ id, source: 'decor:sphere', position: { x: 0, y: 0 }, scale: 1, rotation: 0 }) as unknown as TDecor;
-		const project = { ...base, design: { ...base.design, decor: [decor('a'), decor('b')] } };
+		const project = { ...base, film: { ...base.film, decor: [decor('a'), decor('b')] } };
 
 		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')])).toEqual({ kind: 'decorItems', ids: ['a', 'b'] });
 		expect(inspectorTarget(project, [toDecorKey('a'), toDecorKey('b')], 'track').kind).toBe('scene');

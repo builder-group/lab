@@ -62,7 +62,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 		case 'titles':
 			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} Titles`} subtitle="Multiple selection" />;
 		case 'shot': {
-			const shot = project.design.camera.shots.find((item) => item.id === target.id);
+			const shot = project.film.camera.shots.find((item) => item.id === target.id);
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
 		}
 		case 'marble': {
@@ -85,11 +85,11 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <WallInspector cx={cx} project={project} isFilm={isFilm} />;
 		case 'light': {
 			if (target.id === KEY_LIGHT_ID) return <KeyLightInspector cx={cx} project={project} />;
-			const light = addedLights(project.design).find((item) => item.id === target.id);
+			const light = addedLights(project.film).find((item) => item.id === target.id);
 			return light == null ? null : <LightInspector cx={cx} project={project} light={light} />;
 		}
 		case 'decor': {
-			const decor = project.design.decor.find((item) => item.id === target.id);
+			const decor = project.film.decor.find((item) => item.id === target.id);
 			return decor == null ? null : <DecorInspector key={decor.id} cx={cx} project={project} decor={decor} />;
 		}
 		case 'decorItems':
@@ -287,7 +287,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					format={formatTime}
 					parse={parseTime}
 					min={0}
-					max={project.end}
+					max={project.length}
 					onCommit={(time) => setHit({ time })}
 				/>
 			</Panel>
@@ -437,13 +437,13 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject }> = (props) => 
  */
 const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolean }> = (props) => {
 	const { cx, project, isFilm } = props;
-	const speed = project.physics.gravityScale;
+	const speed = project.gravity;
 
-	const withSpeed = (gravityScale: number): TProject => ({ ...project, physics: { ...project.physics, gravityScale } });
+	const withSpeed = (gravity: number): TProject => ({ ...project, gravity });
 
 	return (
 		<>
-			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.end)} />
+			<InspectorHeader icon={<Globe size={16} strokeWidth={1.7} />} title="Scene" subtitle={formatTime(project.length)} />
 			{isFilm ? (
 				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Packs… exports a look as a Pack. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
 					<ThemeRow cx={cx} project={project} />
@@ -464,7 +464,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 						onCommit={(value) => {
 							const trackCx = cx.$trackCx.get();
 							if (trackCx != null) void cx.patterns.setGravity(value);
-							else cx.execute([{ type: 'setPhysics', physics: { gravityScale: value } }]);
+							else cx.execute([{ type: 'updateProject', patch: { gravity: value } }]);
 							cx.simulation.endPreview();
 						}}
 					/>

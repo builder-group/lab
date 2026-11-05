@@ -630,10 +630,10 @@ interface TFraming {
 const framings = new WeakMap<TSimulationResult['marbles'], Map<string, TFraming | null>>();
 
 export function checkFraming(project: TProject, result: TSimulationResult): TFraming | null {
-	if (project.design.camera.mode === 'manual') return null;
+	if (!project.film.camera.auto) return null;
 	// `renderFps`: the film's frame rate, which the Draft Preview's camera uses too
-	const { fps } = getRenderPreset(project.design.renderPreset);
-	const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${result.duration}`;
+	const { fps } = getRenderPreset(project.film.quality);
+	const key = `${fps}:${JSON.stringify(project.film.camera)}:${project.format.width}x${project.format.height}:${result.duration}`;
 	let byKey = framings.get(result.marbles);
 	if (byKey == null) {
 		byKey = new Map();
@@ -665,7 +665,7 @@ const LETTER_WIDTH = 0.55;
 
 /** A screen title wider than the frame on any of its lines. A wall title is cut off only by where the camera looks, which a person sees */
 function titleIssues(project: TProject): TPreflightIssue[] {
-	const aspect = project.frame.width / project.frame.height;
+	const aspect = project.format.width / project.format.height;
 	return project.entities.flatMap((entity) => {
 		const title = entity.components.wallText;
 		if (title == null || title.style == null || title.style === 'wall') return [];

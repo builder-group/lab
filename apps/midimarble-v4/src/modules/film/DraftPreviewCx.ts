@@ -91,7 +91,7 @@ export class DraftPreviewCx {
 	colorsOf(piece: TResolvedPiece): TDraftColors {
 		const project = this.studio.project;
 		const scene = this.scenePiece(piece.entityId);
-		const theme = project != null ? resolveTheme(project.design) : null;
+		const theme = project != null ? resolveTheme(project.film) : null;
 		return draftPieceColors(
 			theme?.base ?? DEFAULT_THEME,
 			scene ?? { type: piece.type, color: '#c8b89a', skin: null },
@@ -107,7 +107,7 @@ export class DraftPreviewCx {
 	skinMarks(piece: TResolvedPiece): { id: string; points: TVec2[]; color: string }[] {
 		const project = this.studio.project;
 		if (piece.type !== 'platform' || project == null) return [];
-		const theme = resolveTheme(project.design);
+		const theme = resolveTheme(project.film);
 		const marks = draftSkinMarks(theme.base, { type: piece.type, skin: this.scenePiece(piece.entityId)?.skin ?? null, angle: piece.angle }, theme.projectTheme?.parts);
 		if (!marks.length) return [];
 		const angle = pieceAngleAt(piece, this.studio.$playhead.get());
@@ -135,10 +135,10 @@ export class DraftPreviewCx {
 			const text = entity.components.wallText;
 			const transform = entity.components.transform;
 			if (text == null || hidden.includes(entity.id)) return [];
-			const color = text.color ?? defaultTitleColor(project.design);
+			const color = text.color ?? defaultTitleColor(project.film);
 			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
 				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame, plain unless they ask for a plate
-				const screen = previewScreenTitleLayout(text.style, text.size, this.size, project.frame, project.design.renderPreset);
+				const screen = previewScreenTitleLayout(text.style, text.size, this.size, project.format, project.film.quality);
 				return [{ entityId: entity.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen, hasPlate: text.plate === true }];
 			}
 			if (transform == null) return [];
@@ -169,7 +169,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
-		return decorList(project.design).flatMap((decor) => {
+		return decorList(project.film).flatMap((decor) => {
 			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
 			if (opacity <= 0 || isFrameEffect(decor)) return [];
 			const extent = decorExtent(decor);
@@ -185,7 +185,7 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
-		return decorList(project.design).flatMap((decor): TDraftEffect[] => {
+		return decorList(project.film).flatMap((decor): TDraftEffect[] => {
 			const effect = decorItem(decor.source)?.effect;
 			const opacity = decor.hidden === true ? 0 : titleOpacity(time, decor);
 			if (effect == null || opacity <= 0) return [];
@@ -214,7 +214,7 @@ export class DraftPreviewCx {
 		if (project == null || this.pose == null) return [];
 		const time = this.studio.$playhead.get();
 		return this.studio.film.$blenderObjects.get().flatMap((object) => {
-			const layer = madeInBlenderLayer(project.design, object.name);
+			const layer = madeInBlenderLayer(project.film, object.name);
 			const opacity = layer.hidden === true ? 0 : titleOpacity(time, layer);
 			if (opacity <= 0) return [];
 			return [{ key: toMadeInBlenderKey(object.name), points: this.boxOutline(blenderObjectBox(object)), opacity }];
@@ -241,12 +241,12 @@ export class DraftPreviewCx {
 		const project = this.studio.project;
 		if (project == null) return [];
 		const time = this.studio.$playhead.get();
-		const shown = decorList(project.design).filter((decor) => decor.hidden !== true && titleOpacity(time, decor) > 0 && !isFrameEffect(decor));
+		const shown = decorList(project.film).filter((decor) => decor.hidden !== true && titleOpacity(time, decor) > 0 && !isFrameEffect(decor));
 		return [
 			...this.studio.film.$blenderObjects
 				.get()
 				.filter((object) => {
-					const layer = madeInBlenderLayer(project.design, object.name);
+					const layer = madeInBlenderLayer(project.film, object.name);
 					return layer.hidden !== true && titleOpacity(time, layer) > 0;
 				})
 				.map((object) => ({ key: toMadeInBlenderKey(object.name), box: blenderObjectBox(object) })),
@@ -283,7 +283,7 @@ export class DraftPreviewCx {
 	marbles(): TPlacedMarble[] {
 		const project = this.studio.project;
 		if (project == null) return [];
-		const theme = resolveTheme(project.design);
+		const theme = resolveTheme(project.film);
 		const result = this.studio.simulation.$result.get();
 		const hidden = this.studio.$hidden.get();
 		const playhead = this.studio.$playhead.get();
@@ -292,9 +292,9 @@ export class DraftPreviewCx {
 			if (marble == null || release == null || hidden.includes(entity.id)) return [];
 			const motion = result?.marbles.find((item) => item.entityId === entity.id);
 			const position = marblePositionAt(motion, playhead, release.position);
-			const look = resolveElementLook(project.design, 'marble', entity.components.skin);
+			const look = resolveElementLook(project.film, 'marble', entity.components.skin);
 			const marbleColor = project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color;
-			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? (marbleColor ?? '#3478f6') : marbleFilmColor(project, marble.marbleId), appliedOverrides(project.design), look);
+			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? (marbleColor ?? '#3478f6') : marbleFilmColor(project, marble.marbleId), appliedOverrides(project.film), look);
 			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Track
 			const label = look.skin === 'marble:contrast' && entity.components.skin?.color == null ? project.music.lanes.find((lane) => lane.id === marble.marbleId)?.color : undefined;
 			return [
@@ -313,7 +313,7 @@ export class DraftPreviewCx {
 	glows(): boolean {
 		const project = this.studio.project;
 		if (project == null) return false;
-		const theme = resolveTheme(project.design);
+		const theme = resolveTheme(project.film);
 		return draftGlows(theme.parts.platform.skin === 'platform:neon' ? 'neon' : theme.base);
 	}
 
@@ -344,7 +344,7 @@ export class DraftPreviewCx {
 	}
 
 	private aspect(): number {
-		const frame = this.studio.project?.frame;
+		const frame = this.studio.project?.format;
 		return frame != null ? frame.width / frame.height : 9 / 16;
 	}
 
@@ -361,9 +361,9 @@ export class DraftPreviewCx {
 		const renderer = this.renderer;
 		const project = this.studio.project;
 		if (renderer == null || project == null) return;
-		const theme = resolveTheme(project.design);
-		const overrides = appliedOverrides(project.design);
-		const wallKind = wallKindOverride(project.design);
+		const theme = resolveTheme(project.film);
+		const overrides = appliedOverrides(project.film);
+		const wallKind = wallKindOverride(project.film);
 		const wallKey = `${theme.base} ${overrides.wallColor ?? ''} ${wallKind ?? ''}`;
 		if (this.wallTheme !== wallKey) {
 			renderer.setWallLook(draftWall(theme.base, overrides, wallKind));

@@ -12,7 +12,7 @@ describe('Revert to Opened', () => {
 	it('should have nothing to revert until an edit, and again after undoing it', () => {
 		const cx = opened();
 		expect(cx.canRevert()).toBe(false);
-		cx.execute([{ type: 'setEnd', end: 42 }]);
+		cx.execute([{ type: 'updateProject', patch: { length: 42 } }]);
 		expect(cx.canRevert()).toBe(true);
 		cx.undo();
 		expect(cx.canRevert()).toBe(false);
@@ -20,22 +20,22 @@ describe('Revert to Opened', () => {
 
 	it('should ask first, go back as one named step, and undo', async () => {
 		const cx = opened();
-		const before = cx.project?.end;
-		cx.execute([{ type: 'setEnd', end: 42 }]);
+		const before = cx.project?.length;
+		cx.execute([{ type: 'updateProject', patch: { length: 42 } }]);
 
 		const canceled = cx.revertToOpened();
 		cx.answerConfirm(false);
 		await canceled;
-		expect(cx.project?.end).toBe(42);
+		expect(cx.project?.length).toBe(42);
 
 		const reverted = cx.revertToOpened();
 		expect(cx.$confirmPrompt.get()?.action).toBe('Revert');
 		cx.answerConfirm(true);
 		await reverted;
-		expect(cx.project?.end).toBe(before);
+		expect(cx.project?.length).toBe(before);
 		expect(cx.undoLabel).toBe('Revert to Opened');
 
 		cx.undo();
-		expect(cx.project?.end).toBe(42);
+		expect(cx.project?.length).toBe(42);
 	});
 });

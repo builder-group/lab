@@ -1,10 +1,8 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { BACKING_ID, SProject, type TComponentName, type TComponents, type TDesign, type TEntity, type TGroup, type THit, type TLane, type TPhysics, type TProject, type TSource, type TTempo } from './schema';
+import { BACKING_ID, SProject, type TComponentName, type TComponents, type TEntity, type TFilm, type TGroup, type THit, type TLane, type TProject, type TSource, type TTempo } from './schema';
 
 export type TProjectCommand =
-	| { type: 'setTitle'; title: string }
-	| { type: 'setEnd'; end: number }
-	| { type: 'setFrame'; width: number; height: number }
+	| { type: 'updateProject'; patch: Partial<Pick<TProject, 'title' | 'length' | 'format' | 'gravity'>> }
 	| { type: 'upsertSource'; source: TSource }
 	| { type: 'removeSource'; sourceId: string }
 	| { type: 'upsertLane'; lane: Omit<TLane, 'hits'> & { hits?: THit[] } }
@@ -21,8 +19,7 @@ export type TProjectCommand =
 	| { type: 'removeGroups'; groupIds: string[] }
 	| { type: 'setComponent'; entityId: string; component: TComponentPatch }
 	| { type: 'removeComponent'; entityId: string; name: TComponentName }
-	| { type: 'setDesign'; design: Partial<TDesign> }
-	| { type: 'setPhysics'; physics: Partial<TPhysics> }
+	| { type: 'updateFilm'; film: Partial<TFilm> }
 	| { type: 'setTempo'; tempo: TTempo | null };
 
 export type TComponentPatch = {
@@ -53,14 +50,8 @@ export function applyProjectCommands(
 
 function applyCommand(project: TProject, command: TProjectCommand): TResult<TProject, Error> {
 	switch (command.type) {
-		case 'setTitle':
-			project.title = command.title;
-			return Ok(project);
-		case 'setEnd':
-			project.end = command.end;
-			return Ok(project);
-		case 'setFrame':
-			project.frame = { width: command.width, height: command.height };
+		case 'updateProject':
+			Object.assign(project, command.patch);
 			return Ok(project);
 		case 'upsertSource':
 			project.music.sources = upsertById(project.music.sources, command.source);
@@ -150,15 +141,12 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			) as TComponents;
 			return Ok(project);
 		}
-		case 'setDesign': {
-			const design = { ...project.design, ...command.design };
+		case 'updateFilm': {
+			const film = { ...project.film, ...command.film };
 			// The follow camera reads shot markers in time order
-			project.design = { ...design, camera: { ...design.camera, shots: [...design.camera.shots].sort((a, b) => a.time - b.time) } };
+			project.film = { ...film, camera: { ...film.camera, shots: [...film.camera.shots].sort((a, b) => a.time - b.time) } };
 			return Ok(project);
 		}
-		case 'setPhysics':
-			project.physics = { ...project.physics, ...command.physics };
-			return Ok(project);
 		case 'setTempo': {
 			const { tempo: _previous, ...music } = project.music;
 			project.music = command.tempo == null ? music : { ...music, tempo: command.tempo };

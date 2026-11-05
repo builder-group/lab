@@ -33,7 +33,7 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 		const { in: _in, out: _out, ...rest } = text;
 		const value: TWallText = { ...rest };
 		if (next.start > 0) value.in = round(next.start);
-		if (next.end < project.end) value.out = round(next.end);
+		if (next.end < project.length) value.out = round(next.end);
 		cx.execute([{ type: 'setComponent', entityId: entity.id, component: { name: 'wallText', value } }]);
 	}
 
@@ -42,9 +42,9 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 		if (clip == null) return current;
 		const time = timeAt(clientX);
 		if (current.edge === 'in') return { ...current, start: Math.min(Math.max(0, time), clip.end - MIN_CLIP) };
-		if (current.edge === 'out') return { ...current, end: Math.max(Math.min(project.end, time), clip.start + MIN_CLIP) };
+		if (current.edge === 'out') return { ...current, end: Math.max(Math.min(project.length, time), clip.start + MIN_CLIP) };
 		const length = clip.end - clip.start;
-		const start = Math.min(Math.max(0, time - current.grab), project.end - length);
+		const start = Math.min(Math.max(0, time - current.grab), project.length - length);
 		return { ...current, start, end: start + length };
 	}
 

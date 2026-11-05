@@ -38,13 +38,13 @@ describe('Packs', () => {
 	it('should add a theme and show it as one edit', () => {
 		const project = createProject({ title: 'Song' });
 		const commands = packThemeCommands(project, theme);
-		expect(commands[0]).toEqual({ type: 'setDesign', design: { themes: [theme] } });
-		expect(commands.some((command) => command.type === 'setDesign' && command.design.theme === 'cozy')).toBe(true);
+		expect(commands[0]).toEqual({ type: 'updateFilm', film: { themes: [theme] } });
+		expect(commands.some((command) => command.type === 'updateFilm' && command.film.theme === 'cozy')).toBe(true);
 	});
 
 	it('should export the shown theme and chosen items, with what the theme needs', () => {
 		const project = createProject({ title: 'Song' });
-		const withTheme = { ...project, design: { ...project.design, themes: [theme], theme: 'cozy' } };
+		const withTheme = { ...project, film: { ...project.film, themes: [theme], theme: 'cozy' } };
 		const [isOk, , exported] = packExport(withTheme, [item('brass-bar', 'skin'), item('bauble', 'decoration'), item('tree', 'decoration')], { name: ' Christmas ', includesTheme: true, assetIds: ['bauble'] });
 		expect(isOk).toBe(true);
 		expect(exported?.manifest).toMatchObject({ id: 'christmas', name: 'Christmas', version: '1.0' });
@@ -59,7 +59,7 @@ describe('Packs', () => {
 		const project = createProject({ title: 'Song' });
 		const [, , exported] = packExport(project, [], { name: 'Mine', includesTheme: true, assetIds: [] });
 		const stored = JSON.parse(exported?.themes[0]?.json ?? '{}') as TProjectTheme;
-		expect(stored.base).toBe(project.design.theme);
+		expect(stored.base).toBe(project.film.theme);
 	});
 
 	it('should refuse an empty or unnamed Pack and an item that is not in the project', () => {

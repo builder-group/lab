@@ -17,7 +17,7 @@ afterAll(() => sim.dispose());
 const LANE = 'lane';
 
 interface TReferenceHits {
-	gravityScale: number;
+	gravity: number;
 	release: NonNullable<TEntity['components']['release']>;
 	startRail: TEntity['components'];
 	hits: number[];
@@ -36,12 +36,12 @@ function referenceProject(): TProject {
 	const lane = project.music.lanes[0];
 	const marble = project.entities[0];
 	if (lane == null || marble?.components.marble == null) throw new Error('No marble');
-	return apply({ ...project, physics: { gravityScale: reference.gravityScale } }, [
+	return apply({ ...project, gravity: reference.gravity }, [
 		{ type: 'upsertLane', lane: { ...lane, id: LANE, hits: reference.hits.map((time, index) => ({ id: `h${index}`, time })) } },
 		{ type: 'removeLane', marbleId: lane.id },
 		{ type: 'upsertEntity', entity: { ...marble, components: { marble: { ...marble.components.marble, marbleId: LANE }, release: reference.release } } },
 		{ type: 'upsertEntity', entity: { id: 'start-rail', name: 'Rail 1', components: reference.startRail } },
-		{ type: 'setEnd', end: (reference.hits.at(-1) ?? 0) + 0.6 }
+		{ type: 'updateProject', patch: { length: (reference.hits.at(-1) ?? 0) + 0.6 } }
 	]);
 }
 

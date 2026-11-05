@@ -87,9 +87,9 @@ const Viewport: React.FC<{ trackCx: TrackCx; view: TTrackView; startsIn3d: boole
 	const dragRef = React.useRef<{ kind: 'turn' | 'pan' | 'still'; last: TVec2; moved: number } | null>(null);
 	const [isDragging, setIsDragging] = React.useState(false);
 	const selection = useFeatureState(cx.$selection);
-	const cameraMode = useFeatureState(cx.$history)?.present.design.camera.mode;
+	const isCameraAuto = useFeatureState(cx.$history)?.present.film.camera.auto;
 	const isCamera = view === 'camera';
-	const canOrbit = isCamera && selection.includes(CAMERA_KEY) && cameraMode === 'rig';
+	const canOrbit = isCamera && selection.includes(CAMERA_KEY) && isCameraAuto === true;
 	const isPanTool = !isCamera && (spaceHeld || tool === 'hand');
 
 	React.useEffect(() => {

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { SIDE_ANGLE, cameraCommands, type TCameraAngles } from '@/modules/camera';
-import type { TDesign } from '@/modules/project';
+import type { TFilm } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 
 /** Radians per pixel of a drag, Blender's orbit speed */
@@ -10,8 +10,8 @@ export const MAX_TILT_DEGREES = 80;
 /** Pixels a press moves before it is a drag rather than a click */
 const DRAG_THRESHOLD = 3;
 
-export function cameraAngles(camera: TDesign['camera']): TCameraAngles {
-	return { side: camera.side ?? SIDE_ANGLE, pitch: camera.pitch };
+export function cameraAngles(camera: TFilm['camera']): TCameraAngles {
+	return { turn: camera.turn ?? SIDE_ANGLE, tilt: camera.tilt };
 }
 
 /**
@@ -21,19 +21,19 @@ export function cameraAngles(camera: TDesign['camera']): TCameraAngles {
 export function orbitedAngles(start: TCameraAngles, deltaX: number, deltaY: number): TCameraAngles {
 	const fullTurn = 2 * Math.PI;
 	return {
-		side: (((start.side - deltaX * ORBIT_SPEED) % fullTurn) + fullTurn) % fullTurn,
-		pitch: Math.min((MAX_TILT_DEGREES * Math.PI) / 180, Math.max(0, start.pitch - deltaY * ORBIT_SPEED))
+		turn: (((start.turn - deltaX * ORBIT_SPEED) % fullTurn) + fullTurn) % fullTurn,
+		tilt: Math.min((MAX_TILT_DEGREES * Math.PI) / 180, Math.max(0, start.tilt - deltaY * ORBIT_SPEED))
 	};
 }
 
 /**
- * Orbits the film camera with a drag on the preview. The Draft Preview answers at once from `design.$orbit`; the project
+ * Orbits the film camera with a drag on the preview. The Draft Preview answers at once from `film.$orbit`; the project
  * takes the angles on release, as one Undo step, and Blender catches up then.
  */
 export function startCameraOrbit(cx: StudioCx, event: React.PointerEvent): void {
 	const project = cx.project;
 	if (project == null) return;
-	const start = cameraAngles(project.design.camera);
+	const start = cameraAngles(project.film.camera);
 	const [startX, startY] = [event.clientX, event.clientY];
 	const pointerId = event.pointerId;
 	let isDragged = false;

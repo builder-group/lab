@@ -836,8 +836,8 @@ function crossesMarbles(fixing: TFixing, base: TProject, trial: TSimulationResul
 async function keepFix(fixing: TFixing, base: TProject, trial: TSimulationResult, problem: THitResult, commands: TProjectCommand[]): Promise<TFix | null> {
 	const { current, latest, deps } = fixing;
 	if (!advances(fixing, base, trial, problem) || crossesMarbles(fixing, base, trial, problem, commands)) return null;
-	const whole = { ...base, end: current.end };
-	const run = trial.duration >= current.end - 1e-6 ? trial : await deps.simulate(whole);
+	const whole = { ...base, length: current.length };
+	const run = trial.duration >= current.length - 1e-6 ? trial : await deps.simulate(whole);
 	if (isCanceled(fixing) || !advances(fixing, whole, run, problem)) return null;
 	const added = addedProblems(current, latest, whole, run, fixing.deps.blenderObjects?.() ?? NO_BLENDER_OBJECTS, { marbleId: problem.marbleId, from: problem.targetTime });
 	return added.length ? null : { commands, run };
@@ -845,7 +845,7 @@ async function keepFix(fixing: TFixing, base: TProject, trial: TSimulationResult
 
 /** The project as Fix tries it for `problem`: simulated up to `TRY_HORIZON` after it */
 function clipped(fixing: TFixing, problem: THitResult): TProject {
-	return { ...fixing.current, end: Math.min(fixing.current.end, problem.targetTime + TRY_HORIZON) };
+	return { ...fixing.current, length: Math.min(fixing.current.length, problem.targetTime + TRY_HORIZON) };
 }
 
 /**

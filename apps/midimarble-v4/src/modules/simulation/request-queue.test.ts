@@ -85,7 +85,7 @@ describe('request queue', () => {
 describe('worker protocol', () => {
 	function bareRun(hitTimes: number[], angles: number[]): TProject {
 		const project = createBareRunProject({
-			gravityScale: 1, id: 'protocol', title: 'Protocol', end: 5, marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes }] });
+			gravity: 1, id: 'protocol', title: 'Protocol', end: 5, marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes }] });
 		angles.forEach((angle, index) => {
 			project.entities.push(createLinkedPiece('platform', 'lane-1', `hit-1-${index + 1}`, angle, { id: `piece-${index + 1}` }));
 		});

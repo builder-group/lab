@@ -10,7 +10,7 @@ import { loadFixture } from '@/modules/project/test-helpers';
 
 function createBareProject(end: number): TProject {
 	const project = createStaircaseProject();
-	project.end = end;
+	project.length = end;
 	project.music.lanes = [];
 	project.entities = [];
 	return project;

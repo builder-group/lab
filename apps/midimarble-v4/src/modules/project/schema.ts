@@ -208,7 +208,7 @@ const SShot = z.strictObject({
 	distance: z.number().positive(),
 	// Seconds the shot holds before the camera eases back to the rig, 0 until the next shot; absent uses the kind's
 	// default (2 s for Push In and Close-Up, until the next shot for Wide and Follow)
-	length: z.number().nonnegative().optional()
+	hold: z.number().nonnegative().optional()
 });
 
 const SHexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -323,7 +323,7 @@ const SMadeInBlender = z.strictObject({
 	hidden: z.boolean().optional()
 });
 
-export const SDesign = z.strictObject({
+export const SFilm = z.strictObject({
 	// A built-in theme id or the id of one of `themes`
 	theme: z.string(),
 	// Themes made in this project
@@ -344,15 +344,15 @@ export const SDesign = z.strictObject({
 	// The Decor layers
 	decor: z.array(SDecor),
 	madeInBlender: z.array(SMadeInBlender),
-	renderPreset: z.enum(['draft', 'final']),
+	quality: z.enum(['draft', 'final']),
 	camera: z.strictObject({
-		mode: z.enum(['rig', 'manual']),
+		// Follow Marbles: on, the app moves the camera; off, it's moved in Blender
+		auto: z.boolean(),
 		distance: z.number().positive(),
-		pitch: z.number(),
-		lead: z.number().nonnegative(),
-		smoothing: z.number().min(0).max(1),
-		// Turn: the camera's side angle around what it follows in radians, 0 to 2π; absent is 95°
-		side: z.number().min(0).max(2 * Math.PI).optional(),
+		// Downward angle in radians
+		tilt: z.number(),
+		// The camera's side angle around what it follows in radians, 0 to 2π; absent is 95°
+		turn: z.number().min(0).max(2 * Math.PI).optional(),
 		// How much the view turns and rolls on its own, 0 to 1
 		sway: z.number().min(0).max(1),
 		shots: z.array(SShot),
@@ -360,12 +360,6 @@ export const SDesign = z.strictObject({
 		focusMarbleId: SId.optional()
 	})
 });
-
-/**
- * Project physics. `gravityScale` multiplies Earth's 9.81 m/s² for every marble, so a run plays slower and
- * hops lower at the same rhythm; hits stay on time because pieces are placed where the marble is.
- */
-export const SPhysics = z.strictObject({ gravityScale: z.number().min(0.05).max(2) });
 
 /**
  * Lane ID that addresses Backing in hit commands and hit selection keys. Lane IDs are created with a prefix
@@ -408,9 +402,12 @@ export const SProject = z.strictObject({
 	id: SId,
 	title: z.string(),
 	revision: z.number().int().nonnegative(),
-	frame: z.strictObject({ width: z.number().positive(), height: z.number().positive() }),
-	// Timeline end in seconds; the user decides where the run ends
-	end: z.number().positive(),
+	format: z.strictObject({ width: z.number().positive(), height: z.number().positive() }),
+	// The film's length in seconds; the user decides where the run ends
+	length: z.number().positive(),
+	// Multiplies Earth's 9.81 m/s² for every marble, so a run plays slower and hops lower at the same rhythm; hits stay on
+	// time because pieces are placed where the marble is
+	gravity: z.number().min(0.05).max(2),
 	music: z.strictObject({
 		sources: z.array(SSource),
 		lanes: z.array(SLane),
@@ -423,8 +420,7 @@ export const SProject = z.strictObject({
 	entities: z.array(SEntity),
 	// Absent until a Pattern makes one
 	groups: z.array(SGroup).optional(),
-	physics: SPhysics,
-	design: SDesign
+	film: SFilm
 });
 
 export const projectDefinition = defineSchema({
@@ -442,7 +438,7 @@ export type TEntity = z.infer<typeof SEntity>;
 export type TComponents = z.infer<typeof SComponents>;
 export type TTransit = z.infer<typeof STransitComponent>;
 export type TComponentName = keyof TComponents;
-export type TDesign = z.infer<typeof SDesign>;
+export type TFilm = z.infer<typeof SFilm>;
 export type TProjectTheme = z.infer<typeof SProjectTheme>;
 export type TPackOrigin = z.infer<typeof SPackOrigin>;
 export type TSkinComponent = z.infer<typeof SSkinComponent>;
@@ -466,5 +462,4 @@ export function isPatternGroup(group: TGroup): group is TPatternGroup {
 	return 'kind' in group;
 }
 export type TTempo = z.infer<typeof STempo>;
-export type TPhysics = z.infer<typeof SPhysics>;
 export type TPathNode = z.infer<typeof SPathNode>;

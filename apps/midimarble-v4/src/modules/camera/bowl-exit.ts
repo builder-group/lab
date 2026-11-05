@@ -11,7 +11,7 @@ const EXIT_FPS = 30;
 /** Length of the what-if run `bowlExit` reads: the longest tail past the last note, plus a frame to see the marble go */
 export function exitRunProject(project: TProject): TProject | null {
 	const last = lastNote(project);
-	return last == null ? null : { ...project, end: Math.max(project.end, last + BOWL_TAIL_MAX + 0.05) };
+	return last == null ? null : { ...project, length: Math.max(project.length, last + BOWL_TAIL_MAX + 0.05) };
 }
 
 /**

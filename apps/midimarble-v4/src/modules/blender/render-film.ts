@@ -25,7 +25,7 @@ export async function renderFilm(
 	const [isWrittenOk, writtenErr] = await blender.writePackageFile(packagePath, SOUNDTRACK_PATH, wav);
 	if (!isWrittenOk) return Err(writtenErr);
 
-	const preset = options.preset ?? project.design.renderPreset;
+	const preset = options.preset ?? project.film.quality;
 	const outputPath = options.outputPath ?? `renders/film-${preset}.mp4`;
 	const [isStartedOk, startedErr, started] = await blender.startRenderFilm(packagePath, {
 		preset,

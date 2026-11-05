@@ -101,7 +101,7 @@ describe('buildSceneDescription', () => {
 	it('carries the camera sway', () => {
 		const { project, result } = fixture();
 		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera?.sway).toBe(1);
-		project.design.camera.sway = 0;
+		project.film.camera.sway = 0;
 		expect(buildSceneDescription(project, result, { fps: 30 }).description.camera?.sway).toBe(0);
 	});
 
@@ -301,17 +301,17 @@ describe('buildSceneDescription with moving and path pieces', () => {
 		expect(description.pieces[0]?.paths).toBeNull();
 	});
 
-	it('passes the design camera rig settings', () => {
+	it('passes the film camera rig settings', () => {
 		const { project, result } = fixture();
-		project.design.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', distance: 0.4 });
+		project.film.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', distance: 0.4 });
 		const { description } = buildSceneDescription(project, result, { fps: 60 });
 		expect(description.camera).toEqual({
-			mode: project.design.camera.mode,
-			distance: project.design.camera.distance,
-			pitch: project.design.camera.pitch,
-			lead: project.design.camera.lead,
+			mode: 'rig',
+			distance: project.film.camera.distance,
+			pitch: project.film.camera.tilt,
+			lead: 0.15,
 			sway: 1,
-			smoothing: project.design.camera.smoothing,
+			smoothing: 0.6,
 			// A Push In without a length of its own holds 2 s before the camera eases back
 			shots: [{ time: 1, kind: 'pushIn', distance: 0.4, length: 2 }],
 			focusMarbleId: null,
@@ -330,7 +330,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 
 	it('passes the focus marble and a shared descent curve when the result has one', () => {
 		const { project, result } = fixture();
-		project.design.camera.focusMarbleId = 'marble-2';
+		project.film.camera.focusMarbleId = 'marble-2';
 		const descent = [
 			{ time: 0, y: 0.5 },
 			{ time: 1, y: 0.2 },

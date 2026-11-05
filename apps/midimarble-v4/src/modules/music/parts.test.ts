@@ -13,7 +13,7 @@ function project(sources: TSource[], melody: THit[], bass: THit[], backing: THit
 	const base = createProject({ title: 'Parts' });
 	return {
 		...base,
-		end: 2,
+		length: 2,
 		music: {
 			...base.music,
 			sources,

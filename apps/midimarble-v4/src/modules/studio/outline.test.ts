@@ -20,7 +20,7 @@ function project(options: { hasSong?: boolean; entities?: TEntity[]; shots?: { i
 			backing: []
 		},
 		entities: [{ id: 'marble-1', components: { marble: { marbleId: 'lane-1' } } }, { id: 'marble-2', components: { marble: { marbleId: 'lane-2' } } }, ...entities],
-		design: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], camera: { shots } }
+		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], camera: { shots } }
 	} as unknown as TProject;
 }
 
@@ -68,7 +68,7 @@ describe('buildOutline function', () => {
 
 	it('should list added lights after the Key Light, in Film only', () => {
 		const lit = project();
-		lit.design.lights = { added: [{ id: 'light-1', name: 'Fill', color: '#ffffff', strength: 2, side: 0.5, height: 0.3 }] };
+		lit.film.lights = { added: [{ id: 'light-1', name: 'Fill', color: '#ffffff', strength: 2, side: 0.5, height: 0.3 }] };
 
 		const film = buildOutline(lit);
 		const lights = film.filter((row) => row.kind === 'light');

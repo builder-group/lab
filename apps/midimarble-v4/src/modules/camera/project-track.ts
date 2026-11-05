@@ -30,7 +30,7 @@ export function cachedFollowCameraTrack(
 	result: TSimulationResult,
 	fps: number
 ): TCameraTrack | null {
-	const key = `${fps}:${JSON.stringify(project.design.camera)}:${project.frame.width}x${project.frame.height}:${result.duration}`;
+	const key = `${fps}:${JSON.stringify(project.film.camera)}:${project.format.width}x${project.format.height}:${result.duration}`;
 	let byKey = tracks.get(result.marbles);
 	if (byKey == null) {
 		byKey = new Map();

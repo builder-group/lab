@@ -19,7 +19,7 @@ function projectWithHit(): { project: TProject; marbleId: string; hitId: string 
 function resultFor(project: TProject, marbleId: string, hitId: string): TSimulationResult {
 	return {
 		revision: project.revision,
-		duration: project.end,
+		duration: project.length,
 		marbles: [],
 		pieces: [],
 		contacts: [],
@@ -115,7 +115,7 @@ describe('MCP tools', () => {
 		const before = cx.$history.get()?.past.length;
 		const reply = await runTool(cx, 'run_command', {
 			id: 'project.execute',
-			args: { commands: [{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle: 0.2 }, { type: 'setEnd', end: 9 }], label: 'Place Platform' }
+			args: { commands: [{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle: 0.2 }, { type: 'updateProject', patch: { length: 9 } }], label: 'Place Platform' }
 		});
 		const answer = JSON.parse(textOf(reply)) as { undoStep: string; selection: string[]; hits: string };
 		expect(reply.isError).toBe(false);
@@ -140,9 +140,9 @@ describe('MCP tools', () => {
 
 	it('should keep a person\'s edits in their own steps, named by what changed', async () => {
 		const { cx } = studio();
-		await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setEnd', end: 9 }] } });
+		await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { length: 9 } }] } });
 		const steps = cx.$history.get()?.past.length ?? 0;
-		cx.execute([{ type: 'setEnd', end: 8 }]);
+		cx.execute([{ type: 'updateProject', patch: { length: 8 } }]);
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);
 		expect(cx.undoLabel).toBe('Change Length');
 	});
@@ -152,7 +152,7 @@ describe('MCP tools', () => {
 		const project = cx.project;
 		const reply = await runTool(cx, 'run_command', {
 			id: 'project.execute',
-			args: { commands: [{ type: 'setEnd', end: 9 }, { type: 'placePiece', pieceType: 'nope', hit: { marbleId, hitId: 'hit1' } }] }
+			args: { commands: [{ type: 'updateProject', patch: { length: 9 } }, { type: 'placePiece', pieceType: 'nope', hit: { marbleId, hitId: 'hit1' } }] }
 		});
 		expect(reply.isError).toBe(true);
 		expect(textOf(reply)).toContain('no piece called nope');
@@ -214,7 +214,7 @@ describe('MCP tools', () => {
 		expect(JSON.parse(textOf(reply))).toMatchObject({ selection: ['wall'], changed: false });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.selection).toEqual([{ kind: 'layer', key: 'wall' }]);
-		expect(state.physics).toEqual({ gravityScale: 0.5, default: 0.5, range: [0.05, 2] });
+		expect(state.gravity).toEqual({ value: 0.5, default: 0.5, range: [0.05, 2] });
 		expect(state.wall).toMatchObject({ own: {} });
 		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
 		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
@@ -223,22 +223,22 @@ describe('MCP tools', () => {
 	it("should refuse a command's wrong fields, naming them, with no Undo step", async () => {
 		const { cx } = studio();
 		const before = cx.$history.get();
-		for (const command of [{ type: 'setPhysics', gravityScale: 0.4 }, { type: 'setPhysics', foo: 1 }, { type: 'setPhysics', physics: { gravity: 1 } }, { type: 'setComponent', entityId: 'x', component: { name: 'marble', release: {} } }]) {
+		for (const command of [{ type: 'updateProject', gravity: 0.4 }, { type: 'updateProject', foo: 1 }, { type: 'updateProject', patch: { foo: 1 } }, { type: 'setComponent', entityId: 'x', component: { name: 'marble', release: {} } }]) {
 			const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [command] } });
 			expect(reply.isError).toBe(true);
 			expect(textOf(reply)).toContain("doesn't fit");
 		}
 		expect(cx.$history.get()).toBe(before);
-		const moved = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setPhysics', physics: { gravityScale: 0.4 } }] } });
+		const moved = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { gravity: 0.4 } }] } });
 		expect(JSON.parse(textOf(moved)).changed).toBe(true);
-		expect(cx.project?.physics.gravityScale).toBe(0.4);
+		expect(cx.project?.gravity).toBe(0.4);
 	});
 
 	it('should say when commands change nothing, and make no Undo step', async () => {
 		const { cx } = studio();
 		const before = cx.$history.get();
-		const gravity = cx.project?.physics.gravityScale;
-		const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setPhysics', physics: { gravityScale: gravity } }] } });
+		const gravity = cx.project?.gravity;
+		const reply = await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { gravity } }] } });
 		expect(JSON.parse(textOf(reply)).changed).toBe(false);
 		expect(cx.$history.get()).toBe(before);
 	});
@@ -255,7 +255,7 @@ describe('MCP tools', () => {
 		const { cx } = studio();
 		const reply = await runTool(cx, 'run_command', { id: 'marble.speed', args: { value: 0.7 } });
 		expect(JSON.parse(textOf(reply)).changed).toBe(true);
-		expect(cx.project?.physics.gravityScale).toBe(0.7);
+		expect(cx.project?.gravity).toBe(0.7);
 		expect((await runTool(cx, 'run_command', { id: 'marble.speed', args: {} })).isError).toBe(true);
 	});
 
@@ -323,34 +323,34 @@ describe('MCP tools', () => {
 		});
 	});
 
-	describe('setDesign', () => {
+	describe('updateFilm', () => {
 		it('should refuse an unknown theme and name the ones there are', async () => {
 			const { cx } = studio();
-			const reply = await execute(cx, { type: 'setDesign', design: { theme: 'theme-nope' } });
+			const reply = await execute(cx, { type: 'updateFilm', film: { theme: 'theme-nope' } });
 			expect(reply.isError).toBe(true);
 			expect(textOf(reply)).toContain('There is no theme theme-nope');
 			expect(textOf(reply)).toContain('pegboard');
-			expect(cx.project?.design.theme).not.toBe('theme-nope');
+			expect(cx.project?.film.theme).not.toBe('theme-nope');
 		});
 
 		it('should change only the fields it names', async () => {
 			const { cx } = studio();
-			const before = cx.project?.design.camera.distance;
-			await execute(cx, { type: 'setDesign', design: { camera: { sway: 0 }, wall: { color: '#f6e3b8' }, lights: { key: { color: '#ffd08a' } } } });
-			await execute(cx, { type: 'setDesign', design: { wall: { kind: 'plain' }, lights: { key: { strength: 3 } } } });
-			expect(cx.project?.design.camera.sway).toBe(0);
-			expect(cx.project?.design.camera.distance).toBe(before);
-			expect(cx.project?.design.wall).toEqual({ color: '#f6e3b8', kind: 'plain' });
-			expect(cx.project?.design.lights.key).toEqual({ color: '#ffd08a', strength: 3 });
+			const before = cx.project?.film.camera.distance;
+			await execute(cx, { type: 'updateFilm', film: { camera: { sway: 0 }, wall: { color: '#f6e3b8' }, lights: { key: { color: '#ffd08a' } } } });
+			await execute(cx, { type: 'updateFilm', film: { wall: { kind: 'plain' }, lights: { key: { strength: 3 } } } });
+			expect(cx.project?.film.camera.sway).toBe(0);
+			expect(cx.project?.film.camera.distance).toBe(before);
+			expect(cx.project?.film.wall).toEqual({ color: '#f6e3b8', kind: 'plain' });
+			expect(cx.project?.film.lights.key).toEqual({ color: '#ffd08a', strength: 3 });
 		});
 
 		it('should say what is wrong with the field that is wrong', async () => {
 			const { cx } = studio();
-			expect(textOf(await execute(cx, { type: 'setDesign', design: { lights: { fill: {} } } }))).toContain('lights has key and added');
-			expect(textOf(await execute(cx, { type: 'setDesign', design: { camera: { zoom: 0.5 } } }))).toContain('sway');
-			expect(textOf(await execute(cx, { type: 'setDesign', design: { wall: { paint: '#fff' } } }))).toContain('kind plain');
-			const unknown = textOf(await execute(cx, { type: 'setDesign', design: { sky: {} } }));
-			expect(unknown).toContain('design takes theme, wall, lights, camera');
+			expect(textOf(await execute(cx, { type: 'updateFilm', film: { lights: { fill: {} } } }))).toContain('lights has key and added');
+			expect(textOf(await execute(cx, { type: 'updateFilm', film: { camera: { zoom: 0.5 } } }))).toContain('sway');
+			expect(textOf(await execute(cx, { type: 'updateFilm', film: { wall: { paint: '#fff' } } }))).toContain('kind plain');
+			const unknown = textOf(await execute(cx, { type: 'updateFilm', film: { sky: {} } }));
+			expect(unknown).toContain('film takes theme, wall, lights, camera');
 			expect(unknown).not.toContain("theme: 'brass' } }.");
 		});
 
@@ -360,9 +360,9 @@ describe('MCP tools', () => {
 			addedPacks.set([{ id: 'xmas', name: 'Christmas', version: '1.0', themes: [theme], items: [], builtInDecor: [] } as unknown as TPack]);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { packThemes: { id: string; pack: string }[] };
 			expect(state.packThemes).toEqual([{ id: 'theme-pack', name: 'Golden', pack: 'Christmas' }]);
-			expect((await execute(cx, { type: 'setDesign', design: { theme: 'theme-pack' } })).isError).toBe(false);
-			expect(cx.project?.design.theme).toBe('theme-pack');
-			expect(cx.project?.design.themes[0]?.pack?.packName).toBe('Christmas');
+			expect((await execute(cx, { type: 'updateFilm', film: { theme: 'theme-pack' } })).isError).toBe(false);
+			expect(cx.project?.film.theme).toBe('theme-pack');
+			expect(cx.project?.film.themes[0]?.pack?.packName).toBe('Christmas');
 			addedPacks.set([]);
 		});
 	});
@@ -416,9 +416,9 @@ describe('MCP tools', () => {
 
 		it('should add a shot from its arguments, readable in get_state', async () => {
 			const { cx } = studio();
-			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', distance: 1.2, length: 2 } });
+			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', distance: 1.2, hold: 2 } });
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { camera: { shots: unknown[]; distance: number } };
-			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, length: 2 })]);
+			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, hold: 2 })]);
 			expect(state.camera.distance).toBeGreaterThan(0);
 		});
 	});
@@ -459,17 +459,17 @@ describe('MCP tools', () => {
 		const { cx } = studio();
 		cx.mcp.isPointerDown = true;
 		expect(busyReason(cx)).toContain('middle of a drag');
-		const pending = runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setEnd', end: 9 }] } });
+		const pending = runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { length: 9 } }] } });
 		const reply = await pending;
 		expect(reply.isError).toBe(true);
 		expect(textOf(reply)).toContain('middle of a drag');
-		expect(cx.project?.end).not.toBe(9);
+		expect(cx.project?.length).not.toBe(9);
 
-		const later = runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'setEnd', end: 9 }] } });
+		const later = runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'updateProject', patch: { length: 9 } }] } });
 		await new Promise((resolve) => setTimeout(resolve, 100));
 		cx.mcp.isPointerDown = false;
 		expect((await later).isError).toBe(false);
-		expect(cx.project?.end).toBe(9);
+		expect(cx.project?.length).toBe(9);
 	});
 
 	it('should check play_range and export arguments', async () => {
@@ -493,13 +493,13 @@ describe('MCP tools', () => {
 describe('expandCommands function', () => {
 	it('should place a free piece with its parameters, and pass project commands through', () => {
 		const { project } = projectWithHit();
-		const [isOk, , expanded] = expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', position: { x: 1, y: 2 }, angle: 0.5, params: { length: 0.1 }, name: 'Top' }, { type: 'setEnd', end: 3 }]);
+		const [isOk, , expanded] = expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', position: { x: 1, y: 2 }, angle: 0.5, params: { length: 0.1 }, name: 'Top' }, { type: 'updateProject', patch: { length: 3 } }]);
 		expect(isOk).toBe(true);
 		const placed = expanded?.commands[0];
 		expect(placed?.type === 'upsertEntity' && placed.entity.components.transform).toEqual({ position: { x: 1, y: 2 }, angle: 0.5 });
 		expect(placed?.type === 'upsertEntity' && placed.entity.components.piece?.params['length']).toBe(0.1);
 		expect(placed?.type === 'upsertEntity' && placed.entity.name).toBe('Top');
-		expect(expanded?.commands[1]).toEqual({ type: 'setEnd', end: 3 });
+		expect(expanded?.commands[1]).toEqual({ type: 'updateProject', patch: { length: 3 } });
 		expect(expanded?.summary).toBeNull();
 	});
 

@@ -30,14 +30,14 @@ describe('Gravity and live Patterns', () => {
 		await patterns.setGravity(0.5);
 
 		expect(run.mock.calls[0]?.[1]).toMatchObject({ groupId: group.id, kind: 'zigzag' });
-		expect(run.mock.calls[0]?.[0].physics.gravityScale).toBe(0.5);
+		expect(run.mock.calls[0]?.[0].gravity).toBe(0.5);
 		expect(cx.project?.groups?.[0]).toMatchObject({ width: 0.15 });
 		expect(cx.$history.get()?.past.length).toBe(steps + 1);
 	});
 
 	it('should take the change back on Stop', async () => {
 		const { cx, patterns, run } = studio();
-		const before = cx.project?.physics;
+		const before = cx.project?.gravity;
 		run.mockImplementation(async () => {
 			patterns.stop();
 			throw new PatternCanceledError();
@@ -45,6 +45,6 @@ describe('Gravity and live Patterns', () => {
 
 		await patterns.setGravity(0.5);
 
-		expect(cx.project?.physics).toEqual(before);
+		expect(cx.project?.gravity).toEqual(before);
 	});
 });

@@ -41,7 +41,7 @@ function audioInputs(project: TProject) {
 		backing: backing == null ? null : { sound: backing.instrument, hits: sortedHits(backing.hits) },
 		songs: project.music.sources.map(({ id, kind, path, name, offset }) => ({ id, kind, path, name, start: offset })),
 		tempo: project.music.tempo ?? null,
-		length: project.end
+		length: project.length
 	};
 }
 

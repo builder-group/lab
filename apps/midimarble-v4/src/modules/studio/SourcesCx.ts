@@ -125,7 +125,7 @@ export class SourcesCx {
 		this.studio.execute([
 			...replaced.map((item) => ({ type: 'removeSource' as const, sourceId: item.id })),
 			{ type: 'upsertSource', source },
-			{ type: 'setEnd', end: Math.max(project.end, Math.ceil(source.offset + analysis.duration)) }
+			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.offset + analysis.duration)) } }
 		]);
 		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.`);
 	}

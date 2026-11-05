@@ -19,9 +19,9 @@ beforeAll(async () => {
 // Tilt of the hand placed zigzag start for the default kit. Steeper starts crowd its 9 cm bars at 0.3 s.
 const TILT = 0.25;
 
-function zigzagStart(hitTimes: number[], tilt = TILT, gravityScale = 1): TProject {
+function zigzagStart(hitTimes: number[], tilt = TILT, gravity = 1): TProject {
 	const project = createBareRunProject({
-		gravityScale,
+		gravity,
 		id: 'assists',
 		title: 'Assists',
 		end: 4,
@@ -45,7 +45,7 @@ function evenTimes(count: number, gap = 0.3, start = 0.15): number[] {
 function halfGravityRun(hitTimes: number[], placed: number): TProject {
 	const end = (hitTimes.at(-1) ?? 0) + 1;
 	let project = createBareRunProject({
-		gravityScale: 0.5,
+		gravity: 0.5,
 		id: 'half',
 		title: 'Half gravity',
 		end,
@@ -141,7 +141,7 @@ describe('assists', () => {
 		expect(mirrored?.commands).toEqual([{ type: 'upsertEntity', entity: mirrored?.entity }]);
 
 		const empty = createBareRunProject({
-		gravityScale: 1,
+		gravity: 1,
 			id: 'empty',
 			title: 'Empty',
 			end: 1,
@@ -208,7 +208,7 @@ describe('assists', () => {
 	it('auto places a bare run with sideways travel and clear pieces up to the last hit', () => {
 		for (const gap of [0.2, 0.3, 0.45]) {
 			const bare = createBareRunProject({
-		gravityScale: 1,
+		gravity: 1,
 				id: 'bare',
 				title: 'Bare',
 				end: 4,
@@ -279,7 +279,7 @@ describe('assists', () => {
 
 	it('stops Continue at the first ghost that leaves the frame', () => {
 		const project = createBareRunProject({
-		gravityScale: 1,
+		gravity: 1,
 			id: 'drift',
 			title: 'Drift',
 			end: 4,
@@ -433,7 +433,7 @@ describe('assists', () => {
 
 	it('auto places the first strikes of two marbles with different rhythms on one descent pace', () => {
 		let project = createBareRunProject({
-		gravityScale: 1,
+		gravity: 1,
 			id: 'duet',
 			title: 'Duet',
 			end: 3,

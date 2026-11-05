@@ -12,7 +12,7 @@ describe('pace', () => {
 	describe('paceRate function', () => {
 		it('should be the default bounce descent at the median interval', () => {
 			const project = createBareRunProject({
-			gravityScale: 1,
+			gravity: 1,
 				id: 'pace',
 				title: 'Pace',
 				end: 4,
@@ -24,7 +24,7 @@ describe('pace', () => {
 
 		it('should share one rate between lanes and ignore long notes', () => {
 			const project = createBareRunProject({
-			gravityScale: 1,
+			gravity: 1,
 				id: 'pace',
 				title: 'Pace',
 				end: 8,
@@ -39,9 +39,9 @@ describe('pace', () => {
 		});
 
 		it('should keep a zigzag of several marbles clear of the piece two hits back at half gravity', () => {
-			const duet = (gravityScale: number, count: number) =>
+			const duet = (gravity: number, count: number) =>
 				createBareRunProject({
-					gravityScale,
+					gravity,
 					id: 'pace',
 					title: 'Pace',
 					end: 6,
@@ -68,9 +68,9 @@ describe('pace', () => {
 		});
 
 		it('should scale the bounce rise of a long gap with gravity', () => {
-			const solo = (gravityScale: number) =>
+			const solo = (gravity: number) =>
 				createBareRunProject({
-					gravityScale,
+					gravity,
 					id: 'pace',
 					title: 'Pace',
 					end: 6,
@@ -86,7 +86,7 @@ describe('pace', () => {
 	describe('descentPace function', () => {
 		it('should anchor at the earliest dot and fall at the rate', () => {
 			const project = createBareRunProject({
-			gravityScale: 1,
+			gravity: 1,
 				id: 'pace',
 				title: 'Pace',
 				end: 2,
@@ -110,7 +110,7 @@ describe('pace', () => {
 	describe('frameBand function', () => {
 		it('should give each lane its own band, MARBLE_SPACING apart', () => {
 			const project = createBareRunProject({
-			gravityScale: 1,
+			gravity: 1,
 				id: 'bands',
 				title: 'Bands',
 				end: 2,
@@ -131,14 +131,14 @@ describe('pace', () => {
 			expect(left.centerX + left.halfWidth).toBeGreaterThanOrEqual(right.centerX - right.halfWidth - 1e-12);
 			// One marble gets the film frame: 0.45 m at 1.263 m through the 85 mm lens, wider further away
 			const single = createBareRunProject({
-			gravityScale: 1,
+			gravity: 1,
 				id: 'single',
 				title: 'Single',
 				end: 1,
 				marbles: [{ x: 0.1, y: 0.6, releaseTime: 0, hitTimes: [0.5] }]
 			});
 			expect(frameBand(single, 'lane-1').centerX).toBe(0.1);
-			expect(frameBand(single, 'lane-1').halfWidth).toBeCloseTo((0.225 * single.design.camera.distance) / 1.263, 12);
+			expect(frameBand(single, 'lane-1').halfWidth).toBeCloseTo((0.225 * single.film.camera.distance) / 1.263, 12);
 		});
 	});
 });

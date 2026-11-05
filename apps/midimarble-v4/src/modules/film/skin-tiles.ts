@@ -21,8 +21,8 @@ export interface TLookTile {
  * `usedSkins` names it. Choosing the theme's own skin follows the theme (`builtInSkinCommands`), so it has no second tile.
  * The first tile gives the selection back to its theme, properties too.
  */
-export function skinTiles(design: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TEntity[], usedSkins?: ReadonlySet<string>): TLookTile[] {
-	const theme = resolveTheme(design);
+export function skinTiles(film: Parameters<typeof resolveTheme>[0], element: TSkinElement, entities: readonly TEntity[], usedSkins?: ReadonlySet<string>): TLookTile[] {
+	const theme = resolveTheme(film);
 	const part = theme.parts[element].skin;
 	const owns = entities.map((entity) => {
 		const assetId = entity.components.skin?.assetId;
@@ -43,9 +43,9 @@ function themeTileLabel(skin: string | undefined): string {
 }
 
 /** Every skin the project wears or one of its themes names, which keeps a hidden skin on the tiles */
-export function usedSkinIds(project: Pick<TProject, 'entities' | 'design'>): ReadonlySet<string> {
+export function usedSkinIds(project: Pick<TProject, 'entities' | 'film'>): ReadonlySet<string> {
 	const worn = project.entities.flatMap((entity) => entity.components.skin?.assetId ?? []);
-	const named = project.design.themes.flatMap((theme) => Object.values(theme.parts ?? {}).flatMap((part) => part.skin ?? []));
+	const named = project.film.themes.flatMap((theme) => Object.values(theme.parts ?? {}).flatMap((part) => part.skin ?? []));
 	return new Set([...worn, ...named]);
 }
 
@@ -62,8 +62,8 @@ export interface TWallTile extends TLookTile {
 	shownKind: TWallSkin;
 }
 
-export function wallTiles(design: Parameters<typeof wallLayer>[0]): TWallTile[] {
-	const wall = wallLayer(design);
+export function wallTiles(film: Parameters<typeof wallLayer>[0]): TWallTile[] {
+	const wall = wallLayer(film);
 	const themeKind = wall.theme.kind;
 	return [
 		{ id: THEME_DEFAULT_TILE, kind: null, shownKind: themeKind, label: themeTileLabel(wallKindLabel(themeKind)), detail: '', previewUrl: null, isCurrent: wall.own.kind == null || wall.own.kind === themeKind },

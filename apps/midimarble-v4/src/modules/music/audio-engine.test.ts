@@ -53,7 +53,7 @@ describe('createAudioSignature function', () => {
 		expect(createAudioSignature(tapped, resolve)).toBe(base);
 		expect(createAudioSignature(moved, resolve)).not.toBe(base);
 		expect(createAudioSignature(instrument, resolve)).not.toBe(base);
-		expect(createAudioSignature({ ...project, end: project.end + 1 }, resolve)).not.toBe(base);
+		expect(createAudioSignature({ ...project, length: project.length + 1 }, resolve)).not.toBe(base);
 	});
 
 	it('should ignore lanes when an audio source exists', () => {

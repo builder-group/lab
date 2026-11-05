@@ -14,10 +14,10 @@ export interface TFilmCamera {
 }
 
 export interface TCameraAngles {
-	/** Turn in radians */
-	side: number;
-	/** Tilt in radians */
-	pitch: number;
+	/** In radians */
+	turn: number;
+	/** In radians */
+	tilt: number;
 }
 
 export function filmCamera(project: TProject, result: TSimulationResult): TFilmCamera {
@@ -30,7 +30,7 @@ export function filmCamera(project: TProject, result: TSimulationResult): TFilmC
 /** The same run through other angles, for a drag on the preview: the scene stays, only the camera bakes again */
 export function filmCameraAt(film: TFilmCamera, angles: TCameraAngles): TFilmCamera {
 	const { description, motionFiles } = film.build;
-	const camera = description.camera != null ? { ...description.camera, ...angles } : undefined;
+	const camera = description.camera != null ? { ...description.camera, side: angles.turn, pitch: angles.tilt } : undefined;
 	return { ...film, track: bakeFollowCamera(followCameraInput({ ...description, ...(camera != null ? { camera } : {}) }, motionFiles)) };
 }
 
@@ -49,12 +49,12 @@ export class FilmCameraCache {
 		const key = `${result.revision}:${project.revision}`;
 		if (this.camera?.key !== key) this.camera = { key, value: filmCamera(project, result) };
 		if (orbit == null) return this.camera.value;
-		const orbitKey = `${key}:${orbit.side}:${orbit.pitch}`;
+		const orbitKey = `${key}:${orbit.turn}:${orbit.tilt}`;
 		if (this.orbited?.key !== orbitKey) this.orbited = { key: orbitKey, value: filmCameraAt(this.camera.value, orbit) };
 		return this.orbited.value;
 	}
 }
 
-export function cameraCommands(project: TProject, patch: Partial<TProject['design']['camera']>): TProjectCommand[] {
-	return [{ type: 'setDesign', design: { camera: { ...project.design.camera, ...patch } } }];
+export function cameraCommands(project: TProject, patch: Partial<TProject['film']['camera']>): TProjectCommand[] {
+	return [{ type: 'updateFilm', film: { camera: { ...project.film.camera, ...patch } } }];
 }

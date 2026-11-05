@@ -20,6 +20,6 @@ export function pasteFilmCommands(project: TProject, kept: Pick<TClipboard, 'tit
 			components: { ...title.components, ...(transform != null ? { transform: { ...transform, position: { x: transform.position.x + DUPLICATE_OFFSET.x, y: transform.position.y + DUPLICATE_OFFSET.y } } } : {}) }
 		};
 	});
-	const pasted = decor.commands.flatMap((command) => (command.type === 'setDesign' ? (command.design.decor ?? []) : [])).filter((item) => decor.decorIds.includes(item.id));
+	const pasted = decor.commands.flatMap((command) => (command.type === 'updateFilm' ? (command.film.decor ?? []) : [])).filter((item) => decor.decorIds.includes(item.id));
 	return { commands: [...decor.commands, ...titles.map((entity): TProjectCommand => ({ type: 'upsertEntity', entity }))], titles, decor: pasted };
 }

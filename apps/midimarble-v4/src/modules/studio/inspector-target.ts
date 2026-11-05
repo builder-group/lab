@@ -48,7 +48,7 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 	if (titleIds.length === 1) return { kind: 'title', id: titleIds[0] as string };
 	if (titleIds.length > 1) return { kind: 'titles', ids: titleIds };
 
-	const shot = project.design.camera.shots.find((item) => selection.some((key) => parseShotKey(key) === item.id));
+	const shot = project.film.camera.shots.find((item) => selection.some((key) => parseShotKey(key) === item.id));
 	if (shot != null) return { kind: 'shot', id: shot.id };
 
 	const marble = project.entities.find((entity) => entity.id === selection[0] && entity.components.marble != null);
@@ -57,12 +57,12 @@ function selectedTarget(project: TProject, selection: readonly string[]): TInspe
 
 	const lightIds = selection.flatMap((key) => parseLightKey(key) ?? []);
 	if (lightIds.length > 0) {
-		const added = addedLights(project.design);
+		const added = addedLights(project.film);
 		const known = lightIds.filter((id) => id === KEY_LIGHT_ID || added.some((light) => light.id === id));
 		if (known.length === 1) return { kind: 'light', id: known[0] as string };
 	}
 
-	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.design.decor.some((item) => item.id === id) === true);
+	const decorIds = selection.flatMap((key) => parseDecorKey(key) ?? []).filter((id) => project.film.decor.some((item) => item.id === id) === true);
 	if (decorIds.length === 1) return { kind: 'decor', id: decorIds[0] as string };
 	if (decorIds.length > 1) return { kind: 'decorItems', ids: decorIds };
 

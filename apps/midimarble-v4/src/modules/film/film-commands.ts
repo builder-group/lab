@@ -35,7 +35,7 @@ function themePreset(id: string, label: string, description: string): TThemePres
 export function builtInSkinCommands(project: TProject, target: TSkinTarget, skinId: string): TProjectCommand[] {
 	const element = skinId.split(':')[0] as TSkinElement;
 	const entityIds = skinTargetIds(project, target);
-	const commands = resolveTheme(project.design).parts[element]?.skin !== skinId ? skinCommands(project, target, skinId) : followThemeSkinCommands(project, entityIds);
+	const commands = resolveTheme(project.film).parts[element]?.skin !== skinId ? skinCommands(project, target, skinId) : followThemeSkinCommands(project, entityIds);
 	return commands;
 }
 
@@ -96,7 +96,7 @@ function handSkinnedIds(project: TProject): string[] {
 
 /** How many changes the project makes over its theme: pieces and marbles with a skin of their own, and each Wall and Key Light value set on the layer */
 export function handChangeCount(project: TProject): number {
-	const { wall, lights } = project.design;
+	const { wall, lights } = project.film;
 	// The Wall's label color is Track's, like a piece's, so it isn't a change over the theme
 	return handSkinnedIds(project).length + Object.keys(wall).filter((name) => name !== 'labelColor').length + Object.keys(lights.key ?? {}).length;
 }
@@ -326,14 +326,14 @@ export function previewPointToWall(
 	v: number
 ): TVec2 {
 	const camera = result != null ? filmCamera(project, result).track : null;
-	const point = camera != null ? imageToWall(sampleCameraTrack(camera, time), project.frame.width / project.frame.height, u, v) : null;
+	const point = camera != null ? imageToWall(sampleCameraTrack(camera, time), project.format.width / project.format.height, u, v) : null;
 	if (point != null) return point;
 	const band = frameBand(project);
 	const marble = project.entities.find((entity) => entity.components.marble != null);
 	const track = result?.marbles.find((item) => item.entityId === marble?.id);
 	const focus = (track == null ? null : trajectoryAt(track.samples, time, gravityOf(project))?.position) ?? marble?.components.release?.position ?? { x: band.centerX, y: 0 };
 	const width = band.halfWidth * 2;
-	const height = width * (project.frame.height / project.frame.width);
+	const height = width * (project.format.height / project.format.width);
 	return { x: band.centerX + (u - 0.5) * width, y: focus.y - (v - 0.5) * height };
 }
 

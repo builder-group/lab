@@ -24,7 +24,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	const globalItems = useFeatureState(cx.library.$globalItems);
 	const looks = entities.flatMap((entity) => {
 		const element = entitySkinElement(entity);
-		return element != null ? [{ entity, element, look: resolveElementLook(project.design, element, entity.components.skin) }] : [];
+		return element != null ? [{ entity, element, look: resolveElementLook(project.film, element, entity.components.skin) }] : [];
 	});
 	const shared = sharedSkinProperties(looks);
 	const ids = entities.map((entity) => entity.id);
@@ -48,7 +48,7 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; entit
 	const first = looks[0];
 	const firstSkin = first != null ? catalogSkin(first.look.skin) : null;
 	// Showing the theme's skin, a value not set here comes from the theme: "From Brass"; on a skin of its own, it is that skin's
-	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.design);
+	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.film);
 	// On a marble, Marble means a color of its own, set in the row below
 	const isMarbles = looks.length > 0 && looks.every(({ element }) => element === 'marble');
 	const colorSourceLabel = (colorSource: TSkinColorSource): string => (isMarbles && colorSource === 'marble' ? 'Custom' : COLOR_SOURCE_LABELS[colorSource]);
@@ -144,7 +144,7 @@ function sharedExtras(project: TProject, entities: TEntity[], items: readonly { 
 		const library = items.find((item) => item.id === entity.components.skin?.assetId)?.manifest?.properties;
 		if (library != null) return library;
 		const element = entitySkinElement(entity);
-		return element != null ? (catalogSkin(resolveElementLook(project.design, element, entity.components.skin).skin)?.properties ?? []) : [];
+		return element != null ? (catalogSkin(resolveElementLook(project.film, element, entity.components.skin).skin)?.properties ?? []) : [];
 	});
 	return (lists[0] ?? []).filter((property) => lists.every((list) => list.some((item) => item.name === property.name && item.type === property.type)));
 }

@@ -17,7 +17,7 @@ if (packageDir == null) throw new Error('Usage: export-marble-skin-scenes <packa
 
 const [isProjectOk, projectErr, parsed] = parseProject(readFileSync(new URL('../fixtures/two-marbles.marble.json', import.meta.url), 'utf8'));
 if (!isProjectOk) throw projectErr;
-const project: TProject = { ...parsed, design: { ...parsed.design, theme: 'brass', decor: [], camera: { ...parsed.design.camera, distance: 0.5 } } };
+const project: TProject = { ...parsed, film: { ...parsed.film, theme: 'brass', decor: [], camera: { ...parsed.film.camera, distance: 0.5 } } };
 const [first, second] = project.entities.filter((entity) => entity.components.marble != null).map((entity) => entity.id);
 if (first == null || second == null) throw new Error('The fixture needs two marbles');
 
@@ -53,7 +53,7 @@ const scenes: Record<string, TProjectCommand[]> = {
 		{ type: 'applySkin', assetId: 'marble-test-glass', entityIds: [second] }
 	]),
 	'tiles-glass-metal': [...tile(first, 'marble:glass'), ...tile(second, 'marble:metal')],
-	steady: agent([{ type: 'setDesign', design: { camera: { sway: 0 }, wall: { kind: 'plain', color: '#ffefc8' } } } as unknown as TAgentCommand])
+	steady: agent([{ type: 'updateFilm', film: { camera: { sway: 0 }, wall: { kind: 'plain', color: '#ffefc8' } } } as unknown as TAgentCommand])
 };
 
 for (const [name, commands] of Object.entries(scenes)) {

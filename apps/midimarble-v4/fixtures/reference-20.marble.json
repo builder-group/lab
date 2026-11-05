@@ -3,11 +3,12 @@
 	"id": "reference-20",
 	"title": "Reference 20",
 	"revision": 0,
-	"frame": {
+	"format": {
 		"width": 9,
 		"height": 16
 	},
-	"end": 20.75,
+	"length": 20.75,
+	"gravity": 0.5,
 	"music": {
 		"sources": [],
 		"lanes": [
@@ -1538,10 +1539,7 @@
 			}
 		}
 	],
-	"physics": {
-		"gravityScale": 0.5
-	},
-	"design": {
+	"film": {
 		"theme": "brass",
 		"themes": [],
 		"wall": {},
@@ -1550,14 +1548,12 @@
 		},
 		"decor": [],
 		"madeInBlender": [],
-		"renderPreset": "final",
+		"quality": "final",
 		"camera": {
-			"mode": "rig",
+			"auto": true,
 			"distance": 1.36,
-			"pitch": 1.15,
-			"lead": 0.15,
-			"smoothing": 0.6,
 			"sway": 1,
+			"tilt": 1.15,
 			"shots": []
 		}
 	}

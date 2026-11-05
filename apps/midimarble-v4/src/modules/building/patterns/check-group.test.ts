@@ -27,7 +27,7 @@ function smallProject(times: number[]): TProject {
 		{ type: 'upsertLane', lane: { ...lane, id: LANE, hits: times.map((time, index) => ({ id: `h${index}`, time })) } },
 		{ type: 'removeLane', marbleId: lane.id },
 		{ type: 'upsertEntity', entity: { ...marble, components: { ...marble.components, marble: { ...marble.components.marble, marbleId: LANE } } } },
-		{ type: 'setEnd', end: (times.at(-1) ?? 0) + 0.6 }
+		{ type: 'updateProject', patch: { length: (times.at(-1) ?? 0) + 0.6 } }
 	]);
 }
 

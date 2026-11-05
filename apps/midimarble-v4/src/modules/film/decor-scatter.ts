@@ -95,7 +95,7 @@ export function scatterPlacements(project: TProject, result: TSimulationResult, 
 
 /** Replaces what Scatter Decor placed before with a new scatter, as one edit */
 export function scatterDecorCommands(project: TProject, result: TSimulationResult, track: TCameraTrack, options: TScatterOptions): { commands: TProjectCommand[]; count: number; isAtMost: boolean } {
-	const kept = decorList(project.design).filter((item) => item.scattered !== true);
+	const kept = decorList(project.film).filter((item) => item.scattered !== true);
 	const names = kept.map((item) => item.name);
 	const placed = scatterPlacements(project, result, track, options).map((placement): TDecor => {
 		const decor = newDecor(placement.source, placement.position, names);
@@ -113,7 +113,7 @@ function keptBoxes(project: TProject, blenderObjects: readonly TBlenderObject[])
 		if (text == null || transform == null || (text.style != null && text.style !== 'wall')) return [];
 		return [{ x: transform.position.x, y: transform.position.y, halfX: (Math.max(1, text.text.length) * text.size * 0.62) / 2, halfY: text.size * 0.6, angle: transform.angle }];
 	});
-	return [...decorList(project.design).filter((item) => item.scattered !== true && !isFrameEffect(item)).map(decorBox), ...titles, ...blenderObjects.map(blenderObjectBox)];
+	return [...decorList(project.film).filter((item) => item.scattered !== true && !isFrameEffect(item)).map(decorBox), ...titles, ...blenderObjects.map(blenderObjectBox)];
 }
 
 function boxesTouch(a: TWallBox, b: TWallBox, margin: number): boolean {

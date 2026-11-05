@@ -49,7 +49,7 @@ export function createImportCommands(
 	const played = lanes.flat().length > 0 ? lanes.flat() : backing;
 	if (played.length > 0) {
 		const end = songEnd(played.reduce((max, note) => Math.max(max, note.time), 0));
-		if (!hasHits ? Math.abs(end - project.end) > 1e-6 : end > project.end) commands.push({ type: 'setEnd', end });
+		if (!hasHits ? Math.abs(end - project.length) > 1e-6 : end > project.length) commands.push({ type: 'updateProject', patch: { length: end } });
 	}
 	return commands;
 }
@@ -149,11 +149,11 @@ export function lastHitTime(project: TProject): number | null {
  * Song or the automatic fit left it. A length the user set to anything else is theirs and never changes silently.
  */
 export function isAutoEnd(project: TProject): boolean {
-	if (Math.abs(project.end - DEFAULT_PROJECT_END) < 1e-6) return true;
+	if (Math.abs(project.length - DEFAULT_PROJECT_END) < 1e-6) return true;
 	const last = lastHitTime(project);
 	if (last == null) return false;
-	if (Math.abs(project.end - songEnd(last, SONG_TAIL)) < 0.005) return true;
-	const tail = project.end - last;
+	if (Math.abs(project.length - songEnd(last, SONG_TAIL)) < 0.005) return true;
+	const tail = project.length - last;
 	return endsOnBowl(project) && tail > BOWL_TAIL_MIN - 0.005 && tail < BOWL_TAIL_MAX + 0.005;
 }
 
@@ -164,8 +164,8 @@ export function isAutoEnd(project: TProject): boolean {
 export function fitsSong(project: TProject): boolean {
 	const last = lastHitTime(project);
 	if (last == null) return false;
-	if (!endsOnBowl(project)) return Math.abs(project.end - songEnd(last, SONG_TAIL)) < 0.005;
-	const tail = project.end - last;
+	if (!endsOnBowl(project)) return Math.abs(project.length - songEnd(last, SONG_TAIL)) < 0.005;
+	const tail = project.length - last;
 	return tail > BOWL_TAIL_MIN - 0.005 && tail < BOWL_TAIL_MAX + 0.005;
 }
 

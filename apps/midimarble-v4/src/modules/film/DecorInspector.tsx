@@ -25,11 +25,11 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 	const [timingKey, setTimingKey] = React.useState(0);
 	const tip = useDecorTip(cx, project, toDecorKey(decor.id));
 	const item = decorItem(decor.source);
-	const span = titleSpan(decor, project.end);
+	const span = titleSpan(decor, project.length);
 	const update = (patch: Parameters<typeof updateDecorCommands>[2]): void => void cx.execute(updateDecorCommands(requireProject(cx), [decor.id], patch));
 
 	function setTime(field: 'in' | 'out', typed: string): void {
-		const value = withTitleTime(decor, field, typed, project.end);
+		const value = withTitleTime(decor, field, typed, project.length);
 		if (value == null) {
 			// Not a time, or it would end before it starts: the field shows the time it had
 			setTimingKey((key) => key + 1);
@@ -101,11 +101,11 @@ export const MadeInBlenderInspector: React.FC<{ cx: StudioCx; project: TProject;
 	const { cx, project, name } = props;
 	const [timingKey, setTimingKey] = React.useState(0);
 	const tip = useDecorTip(cx, project, toMadeInBlenderKey(name));
-	const layer = madeInBlenderLayer(project.design, name);
-	const span = titleSpan(layer, project.end);
+	const layer = madeInBlenderLayer(project.film, name);
+	const span = titleSpan(layer, project.length);
 
 	function setTime(field: 'in' | 'out', typed: string): void {
-		const value = withTitleTime(layer, field, typed, project.end);
+		const value = withTitleTime(layer, field, typed, project.length);
 		if (value == null) {
 			setTimingKey((key) => key + 1);
 			return;

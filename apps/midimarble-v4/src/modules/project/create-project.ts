@@ -9,15 +9,15 @@ export const DEFAULT_MARBLE_RADIUS = 0.012;
  * Gravity of new projects as a share of Earth's. Chosen by measurement so a default-kit zigzag hops about one
  * bar length per hit like the reference film; see `references.md`.
  */
-export const DEFAULT_GRAVITY_SCALE = 0.5;
+export const DEFAULT_GRAVITY = 0.5;
 /**
  * Follow camera of new projects. Through the 85 mm lens 1.36 m frames as much as 0.8 m did through 50 mm: a single
- * marble spans about 7.4 % of the frame width, and far rows no longer shrink to a pile. The steep pitch looks along
+ * marble spans about 7.4 % of the frame width, and far rows no longer shrink to a pile. The steep tilt looks along
  * the wall like the reference, so a column shows several stacked bars. Groups of marbles pull back only as far as
  * they need (`camera.py`, readable distance). Measured in `references.md`, Tuned film view.
  */
 export const DEFAULT_CAMERA_DISTANCE = 1.36;
-export const DEFAULT_CAMERA_PITCH = 1;
+export const DEFAULT_CAMERA_TILT = 1;
 /** Distance between the releases of neighboring marbles, and between their lanes' bands in the frame */
 export const MARBLE_SPACING = 0.26;
 
@@ -34,25 +34,23 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		id,
 		title,
 		revision: 0,
-		frame: { width: 9, height: 16 },
-		end: 12,
+		format: { width: 9, height: 16 },
+		length: 12,
+		gravity: DEFAULT_GRAVITY,
 		music: { sources: [], lanes: [lane], backing: [] },
 		entities: [createMarble(lane, { x: 0, y: 0.6 })],
-		physics: { gravityScale: DEFAULT_GRAVITY_SCALE },
-		design: {
+		film: {
 			theme: 'pegboard',
 			themes: [],
 			wall: {},
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
-			renderPreset: 'final',
+			quality: 'final',
 			camera: {
-				mode: 'rig',
+				auto: true,
 				distance: DEFAULT_CAMERA_DISTANCE,
-				pitch: DEFAULT_CAMERA_PITCH,
-				lead: 0.15,
-				smoothing: 0.6,
+				tilt: DEFAULT_CAMERA_TILT,
 				sway: 1,
 				shots: []
 			}

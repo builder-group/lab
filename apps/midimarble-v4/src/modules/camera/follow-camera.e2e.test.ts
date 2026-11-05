@@ -30,7 +30,7 @@ describe('follow camera on whole songs', () => {
 			results.set(name, { project: loaded, result: simulator.simulate(loaded) });
 		}
 		// Jingle Bells run on 3 s past its film end, to see the hold settle and the last marble leave the frame
-		const longer = { ...fixture('jingle-bells').project, end: fixture('jingle-bells').project.end + 3 };
+		const longer = { ...fixture('jingle-bells').project, length: fixture('jingle-bells').project.length + 3 };
 		results.set('jingle-bells-longer', { project: longer, result: simulator.simulate(longer) });
 		simulator.dispose();
 	});
@@ -140,18 +140,18 @@ describe('follow camera on whole songs', () => {
 
 	it('pushes in relative to the current framing', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
-		const rig = jingle.design.camera.distance;
+		const rig = jingle.film.camera.distance;
 		const automatic = required(followCameraTrack(jingle, result, 30));
 		const pushed = required(
 			followCameraTrack(
 				{
 					...jingle,
-					design: {
-						...jingle.design,
+					film: {
+						...jingle.film,
 						camera: {
-							...jingle.design.camera,
+							...jingle.film.camera,
 							shots: [
-								{ id: 'shot', time: 10, kind: 'pushIn', distance: rig * 0.7, length: 2 }
+								{ id: 'shot', time: 10, kind: 'pushIn', distance: rig * 0.7, hold: 2 }
 							]
 						}
 					}
@@ -225,7 +225,7 @@ describe('follow camera on whole songs', () => {
 		const longer = required(results.get('jingle-bells-longer'));
 		const exit = required(bowlExit(longer.project, longer.result));
 		expect(exit).toBe(Number.POSITIVE_INFINITY);
-		expect(jingle.end).toBe(songEnd(lastNote, bowlTail(exit)));
+		expect(jingle.length).toBe(songEnd(lastNote, bowlTail(exit)));
 		const end = track.frameCount - 1;
 		const bowls = jingle.entities.filter((entity) => entity.components.piece?.type === 'bowl');
 		expect(bowls).toHaveLength(2);
@@ -251,7 +251,7 @@ describe('follow camera on whole songs', () => {
 	it('ends Reference 20 no later than the longest tail, with its last marble in its Bowl in frame', () => {
 		const { project: reference, result } = fixture('reference-20');
 		const lastNote = Math.max(...reference.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
-		expect(reference.end).toBeLessThanOrEqual(songEnd(lastNote, BOWL_TAIL_MAX));
+		expect(reference.length).toBeLessThanOrEqual(songEnd(lastNote, BOWL_TAIL_MAX));
 		const track = required(followCameraTrack(reference, result, 30));
 		const end = track.frameCount - 1;
 		const marble = required(result.marbles[0]);
@@ -283,13 +283,13 @@ describe('follow camera on whole songs', () => {
 
 	it('eases a Push In back to the rig after its hold', () => {
 		const { project: reference, result } = fixture('reference-20');
-		const rig = reference.design.camera.distance;
+		const rig = reference.film.camera.distance;
 		const withShot = (length?: number): TProject => ({
 			...reference,
-			design: {
-				...reference.design,
+			film: {
+				...reference.film,
 				camera: {
-					...reference.design.camera,
+					...reference.film.camera,
 					shots: [
 						{
 							id: 'shot',
@@ -315,7 +315,7 @@ describe('follow camera on whole songs', () => {
 		it.skipIf(dump == null)(`matches the camera Blender bakes for ${name}`, () => {
 			const { project: loaded, result } = fixture(name);
 			const track = required(
-				followCameraTrack({ ...loaded, design: { ...loaded.design, theme: 'brass' } }, result, 30)
+				followCameraTrack({ ...loaded, film: { ...loaded.film, theme: 'brass' } }, result, 30)
 			);
 			const error = compareCameraTrack(track, required(dump));
 			expect(error.frameCountDelta).toBe(0);

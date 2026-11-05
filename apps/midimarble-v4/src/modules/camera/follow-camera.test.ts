@@ -22,7 +22,7 @@ describe('follow camera', () => {
 			results.set(name, { project: loaded, result: simulator.simulate(loaded) });
 		}
 		// Zigzag run on 3 s past its film end, to see the hold settle and the marble leave the frame
-		const longer = { ...fixture('zigzag').project, end: fixture('zigzag').project.end + 3 };
+		const longer = { ...fixture('zigzag').project, length: fixture('zigzag').project.length + 3 };
 		results.set('zigzag-longer', { project: longer, result: simulator.simulate(longer) });
 		simulator.dispose();
 	});
@@ -30,8 +30,8 @@ describe('follow camera', () => {
 	it('should keep the wall upright at Sway 0, and roll on its own at the default', () => {
 		const { project, result } = fixture(FIXTURES[0] as string);
 		const tilts = (sway: number | undefined): number[] => {
-			const camera = { ...project.design.camera, ...(sway != null ? { sway } : {}) };
-			const track = required(followCameraTrack({ ...project, design: { ...project.design, camera } }, result, 30));
+			const camera = { ...project.film.camera, ...(sway != null ? { sway } : {}) };
+			const track = required(followCameraTrack({ ...project, film: { ...project.film, camera } }, result, 30));
 			const frames = track.rotation.length / 4;
 			return Array.from({ length: frames }, (_, frame) => {
 				const matrix = quaternionToMatrix(track.rotation.subarray(frame * 4, frame * 4 + 4));
@@ -46,10 +46,10 @@ describe('follow camera', () => {
 
 	it('should stand the camera at the Turn, the same as the default when the project sets 95°', () => {
 		const { project, result } = fixture(FIXTURES[0] as string);
-		const track = (side: number | undefined): Float64Array => {
-			const { side: _, ...base } = project.design.camera;
-			const camera = { ...base, ...(side != null ? { side } : {}) };
-			return required(followCameraTrack({ ...project, design: { ...project.design, camera } }, result, 30)).position;
+		const track = (turn: number | undefined): Float64Array => {
+			const { turn: _, ...base } = project.film.camera;
+			const camera = { ...base, ...(turn != null ? { turn } : {}) };
+			return required(followCameraTrack({ ...project, film: { ...project.film, camera } }, result, 30)).position;
 		};
 		const standard = track(undefined);
 		expect(Array.from(track(SIDE_ANGLE))).toEqual(Array.from(standard));
@@ -278,10 +278,10 @@ describe('follow camera', () => {
 
 	it('pushes in relative to the current framing, and eases back to the rig after its hold', () => {
 		const { project: zigzag, result } = fixture('zigzag');
-		const rig = zigzag.design.camera.distance;
+		const rig = zigzag.film.camera.distance;
 		const withShot = (length?: number): TProject => ({
 			...zigzag,
-			design: { ...zigzag.design, camera: { ...zigzag.design.camera, shots: [{ id: 'shot', time: 1, kind: 'pushIn', distance: rig * 0.7, ...(length != null ? { length } : {}) }] } }
+			film: { ...zigzag.film, camera: { ...zigzag.film.camera, shots: [{ id: 'shot', time: 1, kind: 'pushIn', distance: rig * 0.7, ...(length != null ? { hold: length } : {}) }] } }
 		});
 		const automatic = required(followCameraTrack(zigzag, result, 30));
 		const held = required(followCameraTrack(withShot(1), result, 30));

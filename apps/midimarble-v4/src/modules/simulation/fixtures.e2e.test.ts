@@ -184,14 +184,14 @@ describe('fixtures', () => {
 		expect(counts).toEqual([51, 64]);
 		expectAllOnTime(result, 115);
 		expect(project.music.lanes.map((lane) => lane.instrument)).toEqual([9, 8]);
-		expect(project.design.theme).toBe('theme-christmas');
-		expect(project.design.themes.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass' });
-		expect(project.design.decor.length).toBeGreaterThan(80);
+		expect(project.film.theme).toBe('theme-christmas');
+		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass' });
+		expect(project.film.decor.length).toBeGreaterThan(80);
 		// A theme carries no side dressing
-		expect(project.design.themes.find((theme) => theme.id === 'theme-christmas')?.wallKind).toBeUndefined();
-		expect(project.design.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
+		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')?.wallKind).toBeUndefined();
+		expect(project.film.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
 		// Built at new projects' default half gravity, which the assists keep on the shared pace
-		expect(project.physics.gravityScale).toBe(0.5);
+		expect(project.gravity).toBe(0.5);
 		// Rails with the Switchback layout hold the melody across its long notes
 		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(10);
 		// While both marbles play, they never touch each other or the other lane's pieces

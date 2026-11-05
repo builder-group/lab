@@ -34,7 +34,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 	const spaceHeld = useFeatureState(trackCx.$spaceHeld);
 	const drag = useFeatureState(trackCx.$drag);
 	const hover = useFeatureState(trackCx.$hover);
-	const wallColor = useFeatureState(cx.$history)?.present.design.wall.labelColor;
+	const wallColor = useFeatureState(cx.$history)?.present.film.wall.labelColor;
 
 	React.useEffect(() => {
 		const container = containerRef.current;

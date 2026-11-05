@@ -43,7 +43,7 @@ describe('title timing', () => {
 
 		// Act
 		const clips = titleClips(project);
-		const description = buildSceneDescription(project, { revision: 0, duration: project.end, marbles: [], pieces: [], hits: [], contacts: [] } as never, { fps: 30 }).description;
+		const description = buildSceneDescription(project, { revision: 0, duration: project.length, marbles: [], pieces: [], hits: [], contacts: [] } as never, { fps: 30 }).description;
 
 		// Assert
 		expect(clips).toEqual([{ entityId, text: 'Fin', start: 1, end: 3 }]);
@@ -94,14 +94,14 @@ describe('title color', () => {
 	it('should follow the wall the project shows: its own color, then its theme', () => {
 		const project = createProject({ id: 'p', title: 'T' });
 		const christmas = { id: 'theme-x', name: 'Christmas', base: 'brass', overrides: { wallColor: '#f7f5f0' } };
-		expect(defaultTitleColor({ ...project.design, theme: 'brass' })).toBe(WHITE);
-		expect(defaultTitleColor({ ...project.design, theme: 'theme-x', themes: [christmas] })).toBe(DARK);
-		expect(defaultTitleColor({ ...project.design, theme: 'theme-x', themes: [christmas], wall: { color: '#101010' } })).toBe(WHITE);
+		expect(defaultTitleColor({ ...project.film, theme: 'brass' })).toBe(WHITE);
+		expect(defaultTitleColor({ ...project.film, theme: 'theme-x', themes: [christmas] })).toBe(DARK);
+		expect(defaultTitleColor({ ...project.film, theme: 'theme-x', themes: [christmas], wall: { color: '#101010' } })).toBe(WHITE);
 	});
 
 	it('should give an unset title the default in the scene, and leave one out of a theme switch', () => {
 		const project = createProject({ id: 'p', title: 'T' });
-		project.design.theme = 'pegboard';
+		project.film.theme = 'pegboard';
 		const { color: _color, ...unset } = TEXT;
 		const entity = { id: 'text-1', name: 'Fin', components: { wallText: unset, transform: { position: { x: 0, y: 0 }, angle: 0 } } };
 		project.entities.push(entity);

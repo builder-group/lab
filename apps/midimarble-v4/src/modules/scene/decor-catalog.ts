@@ -1,5 +1,5 @@
 import { STARTER_PACK } from './pack-data';
-import type { TDecor, TDesign } from '@/modules/project';
+import type { TDecor, TFilm } from '@/modules/project';
 import catalog from '../../../blender/mm_worker/decor_catalog.json';
 
 // The Decor items. The Starter Pack lists the ones every project is offered, another Pack brings the rest; `origin` names a Pack. The Blender worker builds the same items from the same file (`decor.py`), and `check_design.py` holds its meshes to these sizes.
@@ -33,8 +33,8 @@ export function listedDecorItems(added: readonly string[], inUse: ReadonlySet<st
 }
 
 /** The items a project has placed, which it keeps offering without their Pack */
-export function usedDecorSources(design: Pick<TDesign, 'decor'> | undefined): ReadonlySet<string> {
-	return new Set(design?.decor.map((decor) => decor.source));
+export function usedDecorSources(film: Pick<TFilm, 'decor'> | undefined): ReadonlySet<string> {
+	return new Set(film?.decor.map((decor) => decor.source));
 }
 
 export function decorItem(source: string): TDecorItem | null {

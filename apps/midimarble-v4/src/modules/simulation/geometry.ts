@@ -2,12 +2,12 @@ import type { TVec2 } from '@/modules/project';
 
 // Wall-plane geometry shared by the simulation and the Track helpers
 
-/** Earth gravity along y; a project scales it by `physics.gravityScale` (`gravityOf`) */
+/** Earth gravity along y; a project scales it by `gravity` (`gravityOf`) */
 export const GRAVITY_Y = -9.81;
 
-/** Gravity along y of a project: Earth's scaled by its `physics.gravityScale`, Earth's without physics */
-export function gravityOf(project: { physics?: { gravityScale: number } }): number {
-	return GRAVITY_Y * (project.physics?.gravityScale ?? 1);
+/** Gravity along y of a project: Earth's scaled by its `gravity`, Earth's without one */
+export function gravityOf(project: { gravity?: number }): number {
+	return GRAVITY_Y * (project.gravity ?? 1);
 }
 
 /** Oriented rectangle in the wall plane. `angle` rotates its length axis from +x toward +y. */

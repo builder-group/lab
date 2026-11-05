@@ -54,7 +54,7 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 	const run = (next: TProject, until: number): TSimulationResult => {
 		sims++;
 		onTry?.();
-		return sim.simulate({ ...next, end: until });
+		return sim.simulate({ ...next, length: until });
 	};
 	const free = run(base, to + 0.02);
 	const entryTime = findEntryTime(free, marbleId, from, to, entryDrop) ?? from + 0.12;

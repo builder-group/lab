@@ -23,15 +23,15 @@ describe('project document', () => {
 	it('accepts the draft render preset alongside the earlier presets', () => {
 		const project = createProject();
 		for (const renderPreset of ['draft', 'final'] as const) {
-			const [isParsedOk, , parsed] = parseProject(serializeProject({ ...project, design: { ...project.design, renderPreset } }));
+			const [isParsedOk, , parsed] = parseProject(serializeProject({ ...project, film: { ...project.film, quality: renderPreset } }));
 			expect(isParsedOk).toBe(true);
-			expect(parsed?.design.renderPreset).toBe(renderPreset);
+			expect(parsed?.film.quality).toBe(renderPreset);
 		}
 	});
 
-	it('should reject a removed design field', () => {
+	it('should reject a removed film field', () => {
 		const project = createProject();
-		expect(parseProject(JSON.stringify({ ...project, design: { ...project.design, themeOptions: { glow: 1 } } }))[0]).toBe(false);
+		expect(parseProject(JSON.stringify({ ...project, film: { ...project.film, themeOptions: { glow: 1 } } }))[0]).toBe(false);
 	});
 
 	it('should round-trip project themes and reject malformed ones', () => {
@@ -40,14 +40,14 @@ describe('project document', () => {
 			{ id: 'theme-1', name: 'Neon Copy', base: 'neon', overrides: { wallColor: '#336699', glowColor: '#00ff88' } },
 			{ id: 'theme-2', name: 'Sunset', base: 'brass', overrides: {}, origin: 'agent' as const }
 		];
-		const withThemes = { ...project, design: { ...project.design, theme: 'theme-1', themes } };
+		const withThemes = { ...project, film: { ...project.film, theme: 'theme-1', themes } };
 		const [isParsedOk, parsedErr, parsed] = parseProject(serializeProject(withThemes));
 		expect(isParsedOk, parsedErr?.message).toBe(true);
-		expect(parsed?.design.themes).toEqual(themes);
-		expect(parsed?.design.theme).toBe('theme-1');
-		const badColor = { ...project, design: { ...project.design, themes: [{ ...themes[0], overrides: { wallColor: 'blue' } }] } };
+		expect(parsed?.film.themes).toEqual(themes);
+		expect(parsed?.film.theme).toBe('theme-1');
+		const badColor = { ...project, film: { ...project.film, themes: [{ ...themes[0], overrides: { wallColor: 'blue' } }] } };
 		expect(parseProject(JSON.stringify(badColor))[0]).toBe(false);
-		const unknownField = { ...project, design: { ...project.design, themes: [{ ...themes[0], overrides: { fog: '#ffffff' } }] } };
+		const unknownField = { ...project, film: { ...project.film, themes: [{ ...themes[0], overrides: { fog: '#ffffff' } }] } };
 		expect(parseProject(JSON.stringify(unknownField))[0]).toBe(false);
 	});
 
@@ -90,7 +90,7 @@ describe('commands', () => {
 		const [isEditOk, editErr, edited] = applyProjectCommands(project, [
 			{ type: 'upsertHits', marbleId, hits: [{ id: 'b', time: 2 }] },
 			{ type: 'upsertHits', marbleId, hits: [{ id: 'a', time: 1 }] },
-			{ type: 'setTitle', title: 'Renamed' }
+			{ type: 'updateProject', patch: { title: 'Renamed' } }
 		]);
 		expect(editErr).toBeUndefined();
 		expect(isEditOk).toBe(true);
@@ -102,7 +102,7 @@ describe('commands', () => {
 	it('leaves the source untouched when a batch is invalid', () => {
 		const project = createProject();
 		const [isEditOk] = applyProjectCommands(project, [
-			{ type: 'setTitle', title: 'Changed' },
+			{ type: 'updateProject', patch: { title: 'Changed' } },
 			{ type: 'upsertHits', marbleId: 'missing', hits: [] }
 		]);
 		expect(isEditOk).toBe(false);
@@ -145,7 +145,7 @@ describe('commands', () => {
 describe('history', () => {
 	it('undoes and redoes with increasing revisions', () => {
 		const project = createProject();
-		const [, , renamed] = applyProjectCommands(project, [{ type: 'setTitle', title: 'A' }]);
+		const [, , renamed] = applyProjectCommands(project, [{ type: 'updateProject', patch: { title: 'A' } }]);
 		let history = pushHistory(createHistory(project), renamed as TProject);
 		history = undoHistory(history);
 		expect(history.present.title).toBe('Untitled');
