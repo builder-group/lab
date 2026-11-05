@@ -2,8 +2,8 @@ import { createState } from 'feature-state';
 import type { TScenePiece } from '@/modules/blender/scene-description';
 import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose } from '@/modules/camera';
 import { ComposeRenderer, MARBLE_Z, type TRenderPiece } from '@/modules/compose/ComposeRenderer';
-import { distanceToSegment, isPointInPolygon } from '@/modules/compose/picking';
-import { marblePositionAt, pieceAngleAt, pieceKind, pieceOutline } from '@/modules/compose/scene';
+import { isPointInPolygon } from '@/modules/compose/picking';
+import { marblePositionAt, pieceAngleAt } from '@/modules/compose/scene';
 import { marbleFilmColor, type TVec2 } from '@/modules/project';
 import { toDecorKey, toMadeInBlenderKey } from '@/modules/studio/selection';
 import { $blenderObjects, blenderObjectBox, decorBox, decorList, madeInBlenderLayer } from './decor';
@@ -15,7 +15,7 @@ import { wallKindOverride } from './scene-layers';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout } from './draft-look';
-import { selectionHull } from './draft-outline';
+import { pickPiece, pieceScreenOutline } from './draft-outline';
 import { filmCamera, filmCameraAt, imageToWall, type TFilmCamera } from './film-camera';
 import { hitboxOutlines } from './hitbox-outline';
 
@@ -333,11 +333,7 @@ export class DraftPreviewCx {
 	 * camera sees of them from the wall to their front, a few pixels out like the Compose canvas
 	 */
 	selectionOutline(piece: TResolvedPiece): TVec2[] {
-		const kind = pieceKind(piece);
-		const wall = pieceOutline(piece);
-		if (kind === 'path' || kind === 'tube') return wall.map((corner) => this.toScreen(corner, this.pathZ()));
-		const depth = shownDepth(piece);
-		return selectionHull([...wall.map((corner) => this.toScreen(corner, 0)), ...wall.map((corner) => this.toScreen(corner, depth))], 3);
+		return pieceScreenOutline(piece, (point, z) => this.toScreen(point, z), this.pathZ());
 	}
 
 	/** A piece's hitbox in CSS pixels at the playhead: its colliders' outlines in the plane the marble moves in */
@@ -352,32 +348,8 @@ export class DraftPreviewCx {
 			const box = titleBoxes.get(title.entityId);
 			if (title.opacity > 0 && box != null && isPointInPolygon(point, box)) return title.entityId;
 		}
-		let best: { id: string; distance: number } | null = null;
-		for (const piece of this.pieces()) {
-			const kind = pieceKind(piece);
-			const wall = pieceOutline(piece);
-			if (kind === 'path' || kind === 'tube') {
-				const outline = wall.map((corner) => this.toScreen(corner, this.pathZ()));
-				if (isPointInPolygon(point, outline)) return piece.entityId;
-				// Thin rails stay pickable within a few pixels of their outline
-				const distance = distanceToOutline(point, outline);
-				if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
-				continue;
-			}
-			// The steep film camera sees bars from above: the piece covers its outline at the wall, at its front and the
-			// sides between them
-			const depth = shownDepth(piece);
-			const back = wall.map((corner) => this.toScreen(corner, 0));
-			const front = wall.map((corner) => this.toScreen(corner, depth));
-			const sides = wall.map((_, index) => {
-				const next = (index + 1) % wall.length;
-				return [back[index], back[next], front[next], front[index]].filter((corner) => corner != null);
-			});
-			if ([back, front, ...sides].some((polygon) => isPointInPolygon(point, polygon))) return piece.entityId;
-			const distance = Math.min(distanceToOutline(point, back), distanceToOutline(point, front));
-			if (distance < 6 && (best == null || distance < best.distance)) best = { id: piece.entityId, distance };
-		}
-		if (best != null) return best.id;
+		const piece = pickPiece(this.pieces(), point, (at, z) => this.toScreen(at, z), this.pathZ());
+		if (piece != null) return piece;
 		const wall = this.toWall(point.x / this.size.width, point.y / this.size.height);
 		return wall != null ? this.decorAt(wall) : null;
 	}
@@ -462,11 +434,4 @@ export interface TDraftTitle {
 	screen?: TScreenTitleLayout;
 	/** A screen title with the encoder's soft dark plate and shadow */
 	hasPlate?: boolean;
-}
-
-function distanceToOutline(point: TVec2, outline: TVec2[]): number {
-	return outline.reduce((best, a, index) => {
-		const b = outline[(index + 1) % outline.length] ?? a;
-		return Math.min(best, distanceToSegment(point, a, b));
-	}, Infinity);
 }

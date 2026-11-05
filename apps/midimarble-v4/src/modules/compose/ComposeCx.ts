@@ -637,6 +637,13 @@ export class ComposeCx {
 	}
 
 	/** The user moves the view by hand: Follow turns off and a glide in progress stops where it is */
+	/** Pans from Track's 3D view, which has no flat drag of its own */
+	panView(dx: number, dy: number): void {
+		if (this.$spaceHeld.get()) this.spacePanned = true;
+		this.takeView();
+		this.$camera.set((camera) => ({ ...camera, view: panBy(camera.view, dx, dy) }));
+	}
+
 	private takeView(): void {
 		if (this.$follow.get()) this.$follow.set(false);
 		this.isNavigating = false;
@@ -2168,6 +2175,9 @@ export class ComposeCx {
 		switch (action.type) {
 			case 'follow':
 				this.toggleFollow();
+				return true;
+			case 'view3d':
+				this.studio.$trackView.set(this.studio.$trackView.get() === '3d' ? '2d' : '3d');
 				return true;
 			case 'zoom':
 				this.zoomBy(action.factor);

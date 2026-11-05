@@ -14,6 +14,7 @@ import type { TPose, TSnap } from './attach-edit';
 import { mapNodes, nodesPathData } from './bezier';
 import { ComposeCx, noteLabel, type TComposeDrag } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
+import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
 import { acceptableCount } from './ghosts';
 import { followKey } from './keys';
@@ -85,8 +86,10 @@ export const ComposeCanvas: React.FC<TComposeCanvasProps> = (props) => {
 			<AssistBar compose={compose} />
 			<EmptyWall cx={cx} />
 			<SimulatingIndicator cx={cx} />
+			<Track3DView compose={compose} />
 			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
 				<CornerControls compose={compose} />
+				<TrackViewSwitch cx={cx} />
 			</div>
 		</div>
 	);
@@ -1001,19 +1004,23 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	const { compose } = props;
 	const follow = useFeatureState(compose.$follow);
 	const snapping = useFeatureState(compose.studio.$snapping);
+	const trackView = useFeatureState(compose.studio.$trackView);
 	return (
 		<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
-			<button
-				className="mm-tool-button !h-7 !w-7"
-				data-active={snapping}
-				aria-label="Snap"
-				aria-pressed={snapping}
-				onClick={() => compose.studio.$snapping.set(!snapping)}
-				type="button"
-			>
-				<Magnet size={14} strokeWidth={1.7} />
-				<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
-			</button>
+			{/* Nothing drags in 3D, so there is nothing to snap */}
+			{trackView === '2d' ? (
+				<button
+					className="mm-tool-button !h-7 !w-7"
+					data-active={snapping}
+					aria-label="Snap"
+					aria-pressed={snapping}
+					onClick={() => compose.studio.$snapping.set(!snapping)}
+					type="button"
+				>
+					<Magnet size={14} strokeWidth={1.7} />
+					<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
+				</button>
+			) : null}
 			<button
 				className="mm-tool-button !h-7 !w-7"
 				data-active={follow}

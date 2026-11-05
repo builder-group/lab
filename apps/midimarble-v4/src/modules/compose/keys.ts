@@ -1,6 +1,6 @@
 // Compose keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
 // the path tool, ⇧I opens the Insert library like Figma's assets, the build assists
-// keep theirs (N, ⇧N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, F turns Follow on and off like Logic's Catch Playhead and
+// keep theirs (N, ⇧N, R, M, A, Tab), ⇧1 to ⇧3 frame like Figma, F turns Follow on and off like Logic's Catch Playhead, D is 2D or 3D and
 // T stays free for tapping hits.
 
 export interface TKeyInput {
@@ -50,7 +50,8 @@ export type TComposeKeyAction =
 	| { type: 'fix' }
 	| { type: 'finishPath' }
 	| { type: 'undoPathPoint' }
-	| { type: 'follow' };
+	| { type: 'follow' }
+	| { type: 'view3d' };
 
 /** Tool keys, shared by the rail tooltips, the Insert tiles and the command palette */
 export const toolKeys: { tool: TComposeTool; code: string; key: string }[] = [
@@ -111,6 +112,7 @@ export function composeKeyAction(input: TKeyInput, context: TKeyContext): TCompo
 		return input.code === 'KeyN' ? { type: 'buildTrack' } : null;
 	}
 	if (input.code === followKey.code) return { type: 'follow' };
+	if (input.code === 'KeyD') return { type: 'view3d' };
 
 	const tool = toolKeys.find((item) => item.code === input.code);
 	if (tool != null) return tool.tool === 'path' ? { type: 'tool', tool: 'path', pathType: 'rail' } : { type: 'tool', tool: tool.tool };

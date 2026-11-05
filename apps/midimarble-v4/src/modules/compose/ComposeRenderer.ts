@@ -3,15 +3,28 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
 import type { TVec2 } from '@/modules/project';
 import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
+import { pathMeshes } from './path-meshes';
 import { worldToScreen, type TView, type TViewport } from './view';
 
 // Draws the wall content with WebGL over the CSS dot grid. Objects are kept between updates and only
 // their buffers and transforms change. Frames render on demand through `invalidate`.
 
 export interface TComposeCamera {
-	/** `camera` looks through the film's follow camera, see `setFilm` */
-	mode: '2d' | 'camera';
+	/** `camera` looks through the film's follow camera, see `setFilm`; `orbit` is Track's free 3D view, see `setOrbit` */
+	mode: '2d' | 'camera' | 'orbit';
 	view: TView;
+}
+
+/** Track's free 3D view: how far around its target it stands, at the view's center and scale, and how wide it sees */
+export interface TOrbitView {
+	/** Radians around the wall's up axis; 0 is front-on */
+	yaw: number;
+	/** Radians up from front-on */
+	pitch: number;
+	/** Vertical field of view in degrees: near 0 looks flat, like the 2D view */
+	fov: number;
+	/** Depth of the point it turns around */
+	z: number;
 }
 
 /** Film camera pose and where the film frame sits on the canvas, in CSS pixels */
@@ -30,6 +43,8 @@ export interface TRenderPiece {
 	colors?: { bar: string; nub: string };
 	/** The film's marble path depth, in the Draft Preview: a Windmill turns around it */
 	pathZ?: number;
+	/** Rails, Tunnels and Bowls as real meshes at `pathZ`, in Track's 3D view; elsewhere they are overlay lines */
+	hasSolidPaths?: boolean;
 }
 
 /** Wall surface in the Camera view: its color and the peg hole color, or no holes for a plain wall */
@@ -73,6 +88,7 @@ export class ComposeRenderer {
 	private readonly orthographic = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
 	private readonly film = new THREE.PerspectiveCamera(30, 1, CAMERA_CLIP_START, CAMERA_CLIP_END);
 	private filmView: TFilmView | null = null;
+	private orbit: TOrbitView = { yaw: 0, pitch: 0, fov: 30, z: 0 };
 	private readonly wall: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>;
 	private readonly pieces = new Map<string, TPieceObject>();
 	private readonly marbles = new Map<string, { mesh: THREE.Mesh; radius: number }>();
@@ -143,6 +159,13 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
+	/** Where Track's 3D view stands; called every frame while it moves */
+	setOrbit(orbit: TOrbitView): void {
+		this.orbit = orbit;
+		this.updateCamera();
+		this.invalidate();
+	}
+
 	setTheme(theme: TComposeTheme): void {
 		this.theme = theme;
 		for (const track of this.tracks.values()) track.setFutureMix(theme.canvas);
@@ -170,8 +193,8 @@ export class ComposeRenderer {
 		this.invalidate();
 	}
 
-	/** Track's Camera view, like Blender's Solid mode: a stronger light from above, so a bar's top, front and sides read apart */
-	setClayLight(): void {
+	/** Track's 3D view, like Blender's Solid mode: a stronger light from above, so a bar's top, front and sides read apart */
+	setSolidLight(): void {
 		this.ambient.intensity = 0.45 * Math.PI;
 		this.key.intensity = 0.75 * Math.PI;
 		this.key.position.set(0.4, 1.2, 1);
@@ -184,7 +207,13 @@ export class ComposeRenderer {
 		items.forEach((item) => {
 			const { piece } = item;
 			const kind = layoutOf(piece.type);
-			if (kind !== 'box' && kind !== 'rotor') return;
+			if (kind !== 'box' && kind !== 'rotor') {
+				if (item.hasSolidPaths === true) {
+					seen.add(piece.entityId);
+					this.setPathPiece(item);
+				}
+				return;
+			}
 			seen.add(piece.entityId);
 			let object = this.pieces.get(piece.entityId);
 			if (object == null) {
@@ -213,9 +242,40 @@ export class ComposeRenderer {
 		for (const [id, object] of this.pieces) {
 			if (seen.has(id)) continue;
 			this.scene.remove(object.group);
+			disposeOwned(object);
 			this.pieces.delete(id);
 		}
 		this.invalidate();
+	}
+
+	/** A path piece's meshes in wall coordinates, rebuilt only when the piece or its depth changes */
+	private setPathPiece(item: TRenderPiece): void {
+		const { piece, pathZ = MARBLE_Z } = item;
+		let object = this.pieces.get(piece.entityId);
+		if (object == null) {
+			object = { group: new THREE.Group(), parts: [], geometryKey: '' };
+			this.pieces.set(piece.entityId, object);
+			this.scene.add(object.group);
+		}
+		if (object.pathSource !== piece || object.pathZ !== pathZ) {
+			object.group.clear();
+			disposeOwned(object);
+			const { wires, posts, shell } = pathMeshes(piece, pathZ);
+			object.parts = [
+				...(wires != null ? [{ mesh: new THREE.Mesh(wires), role: 'bar' as const }] : []),
+				...(posts != null ? [{ mesh: new THREE.Mesh(posts), role: 'nub' as const }] : []),
+				...(shell != null ? [{ mesh: new THREE.Mesh(shell), role: 'shell' as const }] : [])
+			];
+			for (const part of object.parts) {
+				object.group.add(part.mesh);
+				part.mesh.renderOrder = part.role === 'shell' ? 2 : 1;
+			}
+			object.ownsGeometry = true;
+			object.pathSource = piece;
+			object.pathZ = pathZ;
+			object.geometryKey = '';
+		}
+		for (const part of object.parts) part.mesh.material = this.pieceMaterial(piece.type, part.role, item.colors);
 	}
 
 	setMarbles(items: TRenderMarble[]): void {
@@ -313,7 +373,7 @@ export class ComposeRenderer {
 	}
 
 	private activeCamera(): THREE.Camera {
-		return this.camera.mode === 'camera' ? this.film : this.orthographic;
+		return this.camera.mode === '2d' ? this.orthographic : this.film;
 	}
 
 	dispose(): void {
@@ -321,6 +381,7 @@ export class ComposeRenderer {
 		if (this.frame != null) cancelAnimationFrame(this.frame);
 		for (const track of this.tracks.values()) track.dispose();
 		this.guides.dispose();
+		for (const object of this.pieces.values()) disposeOwned(object);
 		for (const geometry of this.pieceGeometries.values()) geometry.dispose();
 		for (const material of this.materials.values()) material.dispose();
 		this.nubGeometry.dispose();
@@ -342,12 +403,37 @@ export class ComposeRenderer {
 		this.orthographic.bottom = view.center.y - halfHeight;
 		this.orthographic.updateProjectionMatrix();
 
-		const isFilm = mode === 'camera';
-		this.wall.visible = isFilm;
-		// The film shows no trajectories or frame guides
-		for (const track of this.tracks.values()) track.mesh.visible = !isFilm;
-		this.guides.mesh.visible = !isFilm;
-		if (isFilm) this.updateFilmCamera();
+		const isFlat = mode === '2d';
+		this.wall.visible = !isFlat;
+		// Only the flat view shows trajectories and frame guides
+		for (const track of this.tracks.values()) track.mesh.visible = isFlat;
+		this.guides.mesh.visible = isFlat;
+		if (mode === 'camera') this.updateFilmCamera();
+		else if (mode === 'orbit') this.updateOrbitCamera();
+	}
+
+	/**
+	 * Stands so the plane at the orbit's depth keeps the view's scale at its center: the same wall as the flat view, seen
+	 * from an angle. Near a field of view of 0 it looks flat, which is how a change of view eases between the two.
+	 */
+	private updateOrbitCamera(): void {
+		const { yaw, pitch, fov, z } = this.orbit;
+		const { center, scale } = this.camera.view;
+		const { width, height } = this.viewport;
+		const halfHeight = height / 2 / scale;
+		const distance = halfHeight / Math.tan(THREE.MathUtils.degToRad(fov / 2));
+		orbitTarget.set(center.x, center.y, z);
+		this.film.position.set(center.x + distance * Math.sin(yaw) * Math.cos(pitch), center.y + distance * Math.sin(pitch), z + distance * Math.cos(yaw) * Math.cos(pitch));
+		this.film.up.set(0, 1, 0);
+		this.film.lookAt(orbitTarget);
+		this.film.aspect = width / height;
+		this.film.fov = fov;
+		this.film.near = distance * 0.02;
+		this.film.far = distance * 200;
+		this.film.clearViewOffset();
+		this.film.updateProjectionMatrix();
+		this.film.updateMatrixWorld();
+		this.placeWall(center, Math.max(1, (halfHeight * Math.max(1, width / height)) * 60));
 	}
 
 	/**
@@ -447,13 +533,14 @@ export class ComposeRenderer {
 		return parts;
 	}
 
-	private pieceMaterial(type: string, part: 'bar' | 'nub', colors?: { bar: string; nub: string }): THREE.Material {
+	private pieceMaterial(type: string, part: TPiecePart['role'], colors?: { bar: string; nub: string }): THREE.Material {
 		const key = colors != null ? `piece:${colors.bar}:${colors.nub}:${part}` : `piece:${type}:${part}`;
 		let material = this.materials.get(key);
 		if (material == null) {
 			const palette = colors ?? piecePalette[type] ?? piecePalette['platform'];
-			const color = (part === 'bar' ? palette?.bar : palette?.nub) ?? '#888888';
-			material = new THREE.MeshLambertMaterial({ color });
+			const color = (part === 'nub' ? palette?.nub : palette?.bar) ?? '#888888';
+			// A Tunnel's tube is clear, with both its sides showing
+			material = part === 'shell' ? new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }) : new THREE.MeshLambertMaterial({ color });
 			this.materials.set(key, material);
 		}
 		return material;
@@ -483,6 +570,7 @@ export const piecePalette: Record<string, { bar: string; nub: string }> = {
 /** Blender world to scene: a quarter turn around x, so Blender's y (into the wall) becomes -z */
 const blenderToScene = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 const filmRotation = new THREE.Quaternion();
+const orbitTarget = new THREE.Vector3();
 
 export function paletteOf(type: string): { bar: string; nub: string } {
 	return piecePalette[type] ?? (piecePalette['platform'] as { bar: string; nub: string });
@@ -490,13 +578,24 @@ export function paletteOf(type: string): { bar: string; nub: string } {
 
 interface TPiecePart {
 	mesh: THREE.Mesh;
-	role: 'bar' | 'nub';
+	role: 'bar' | 'nub' | 'shell';
 }
 
 interface TPieceObject {
 	group: THREE.Group;
 	parts: TPiecePart[];
 	geometryKey: string;
+	/** A path piece: what its meshes were built from, and that it alone holds them */
+	pathSource?: TResolvedPiece;
+	pathZ?: number;
+	ownsGeometry?: boolean;
+}
+
+function disposeOwned(object: TPieceObject): void {
+	if (object.ownsGeometry !== true) return;
+	for (const part of object.parts) part.mesh.geometry.dispose();
+	object.parts = [];
+	object.ownsGeometry = false;
 }
 
 /** Pegboard holes for the Camera view's wall, one hole per texture repeat */

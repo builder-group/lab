@@ -323,6 +323,17 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => cx.$snapping.set(!cx.$snapping.get())
 	},
 	{
+		id: 'view.track3d',
+		workspace: 'compose',
+		title: '3D View',
+		section: 'View',
+		shortcut: 'D',
+		keywords: '2d 3d flat orbit look around perspective depth track view',
+		isEnabled: hasProject,
+		isChecked: (cx) => cx.$trackView.get() === '3d',
+		run: (cx) => cx.$trackView.set(cx.$trackView.get() === '3d' ? '2d' : '3d')
+	},
+	{
 		id: 'view.showHitboxes',
 		workspace: 'design',
 		title: 'Show Hitboxes',
@@ -706,6 +717,7 @@ export type TCommandId =
 	| 'tool.hand'
 	| 'tool.path'
 	| 'view.snap'
+	| 'view.track3d'
 	| 'build.next'
 	| 'build.track'
 	| 'build.rebuildFrom'

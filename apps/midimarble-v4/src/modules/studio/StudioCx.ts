@@ -73,6 +73,10 @@ export class StudioCx {
 	/** Quick Help labels the window's regions and explains the control under the pointer. Always off at launch. */
 	readonly $quickHelp = createState(false);
 	readonly $workspace = createState<TWorkspace>('compose');
+	/** Track's canvas: flat and precise, or a free look around in 3D */
+	readonly $trackView = createState<TTrackView>('2d');
+	/** The angle Track's 3D view last had, in radians */
+	readonly $trackAngles = createState<TTrackAngles>({ yaw: -0.6, pitch: 0.3 });
 	readonly $selection = createState<TSelection>([]);
 	readonly $playhead = createState(0);
 	readonly $playing = createState(false);
@@ -658,6 +662,7 @@ export class StudioCx {
 		this.$locked.set([]);
 		this.$playhead.set(0);
 		this.$workspace.set('compose');
+		this.$trackView.set('2d');
 		this.sources.$analysis.set({});
 		this.sources.ensureAnalysis(project);
 		void this.refreshRecent();
@@ -1129,6 +1134,11 @@ function hasFix(notice: TNotice): boolean {
 }
 
 export type TWorkspace = 'compose' | 'design';
+export type TTrackView = '2d' | '3d';
+export interface TTrackAngles {
+	yaw: number;
+	pitch: number;
+}
 export type TStudioPanel = 'sidebar' | 'inspector' | 'timeline';
 
 const TIMELINE_HEIGHT_KEY = 'midimarble-v4:timeline-height';
