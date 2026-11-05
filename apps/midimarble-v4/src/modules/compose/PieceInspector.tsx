@@ -16,7 +16,6 @@ import { PieceIcon } from './piece-icons';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from './scene';
 import { pieceAngle } from './step-loop';
-import type { TPieceFixCheck } from './AssistCx';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
 /**
@@ -84,12 +83,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				onRename={isSingle ? (name) => cx.execute([{ type: 'upsertEntity', entity: { ...first, name } }]) : undefined}
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 				fix={
-					// The Fix-it sits under the problem
-					status == null || link == null ? null : (status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link) && look == null ? (
-						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
-					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? (
-						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} />
-					) : null
+					// Fix sits under the problem
+					status == null || link == null ? null : ((status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link)) || (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? <FixButton cx={cx} entityId={first.id} /> : null
 				}
 			/>
 			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
@@ -249,62 +244,15 @@ interface TPieceInspectorProps {
 	ids: string[];
 }
 
-/**
- * Place Again under a Blocked, Missed or Stopped platform's status pill, or an early or late one a drag left where it
- * lies, like an Xcode Fix-it: places this platform again on its own, as one undo step
- */
-export const ReplaceButton: React.FC<{ cx: StudioCx; laneId: string; hitId: string }> = (props) => {
-	const { cx, laneId, hitId } = props;
+/** Fix under a piece's problem pill: says in the notice what it did or why it couldn't, as one undo step */
+export const FixButton: React.FC<{ cx: StudioCx; entityId: string }> = (props) => {
+	const { cx, entityId } = props;
 	const compose = useFeatureState(cx.$compose);
-	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
 	return (
-		<button
-			className="mm-fix-it mm-fix-it-label"
-			disabled={compose == null || replacing != null}
-			onClick={() => void compose?.assist.replace([`${laneId}/${hitId}`])}
-			title="Place this platform again so the marble lands on time"
-			type="button"
-		>
-			{/* The placing wand, as in the step bar */}
+		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || fixing != null} onClick={() => void compose?.assist.fix(entityId)} title="Try to clear this problem without breaking a hit" type="button">
 			<WandSparkles size={12} strokeWidth={1.9} />
-			Place Again
-		</button>
-	);
-};
-
-/**
- * The Fix-it beside a piece that follows a marble and is Blocked or hit by another marble. Its what-if runs as
- * soon as the piece shows, like Xcode's Fix-its, so the button offers only what will work: Place Again (a bridge
- * suggested again for its gap), Move Clear or Delete (a Blocked piece the run passes through and never uses) for
- * scenery, Place Again for a platform another marble hits (that marble's platform before the hit tilts again).
- * When nothing passes it stays dimmed with the reason as its tooltip. One undo step either way.
- */
-export const FixPieceButton: React.FC<{ cx: StudioCx; entityId: string; isPlatform: boolean }> = (props) => {
-	const { cx, entityId, isPlatform } = props;
-	const compose = useFeatureState(cx.$compose);
-	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
-	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
-	const result = useFeatureState(cx.simulation.$result);
-	const revision = useFeatureState(cx.$history)?.present.revision;
-	const [isApplying, setIsApplying] = React.useState(false);
-	React.useEffect(() => {
-		if (replacing == null && result?.revision === revision) compose?.assist.checkPieceFix(entityId);
-	}, [compose, entityId, replacing, result, revision]);
-	const check = checks[entityId];
-	const fix = check != null && check.revision === revision ? check.fix : null;
-	const works = fix?.commands != null || fix?.rebuildFrom != null;
-	function run(): void {
-		if (compose == null || !works) return;
-		setIsApplying(true);
-		void compose.assist.fixPiece(entityId).finally(() => setIsApplying(false));
-	}
-	const fallback = isPlatform ? 'Place Again' : 'Move Clear';
-	const label = fix == null ? 'Checking…' : (fix.label ?? fallback);
-	const title = fix == null ? 'Trying the fix on a copy of the track first' : fix.rebuildFrom != null ? fix.message : works ? 'Tried on a copy of the track first: it breaks no hit and adds no problem' : fix.message;
-	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={compose == null || replacing != null || isApplying || !works} onClick={run} title={title} type="button">
-			{isPlatform ? <WandSparkles size={12} strokeWidth={1.9} /> : null}
-			{label}
+			Fix
 		</button>
 	);
 };
@@ -327,8 +275,7 @@ function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | unde
 	return { tone: 'warn', label: first.label ?? first.title, detail: look?.map((issue) => `${issue.title}. ${issue.detail ?? ''}`.trim()).join('\n') ?? '' };
 }
 
-const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
-const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
+const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 
 /** The header subtitle, the piece's tie as words.md names it: `Plays C4 · 0:03.2`, `Follows Marble 1 at 0:03.2` or `None` */
 function tieLabel(project: TProject, entity: TEntity): string {

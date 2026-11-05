@@ -5,8 +5,7 @@ import { createState } from 'feature-state';
 import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu, type TMenuEntry } from '@/components';
-import type { TLastFix, TPieceFixCheck } from '@/modules/compose/AssistCx';
-import { blockedScenery } from '@/modules/compose/fix-it';
+import { hasFixes } from '@/modules/compose/fix-it';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { useRunPreflight } from '@/modules/design/ExportPreflight';
 import { fitToSongOffer } from '@/modules/music';
@@ -67,40 +66,32 @@ interface TTransportProps {
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
  * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. A click goes
  * to the first problem in time order. Its menu (the chevron or a right-click) lists every problem in time order, scrolling when long, then Show First
- * Problem and Fix Hits. Until the run for the current edit arrives it reads "Checking…", and
- * while Fix Hits runs only its progress line shows, in the notice.
+ * Problem and Fix. Until the run for the current edit arrives it reads "Checking…", and
+ * while Fix runs only its progress line shows, in the notice.
  */
 const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	const compose = useFeatureState(cx.$compose);
-	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
+	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
 	const building = useFeatureState(compose?.assist.$building ?? NO_BUILDING);
-	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
-	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
 	const addingBowl = useFeatureState(compose?.assist.$addingBowl ?? NO_ADDING);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const preflight = useRunPreflight(cx, project);
 	const summary = React.useMemo(() => problemSummary(preflight ?? preflightExport(project, null), workspace === 'compose' ? 'compose' : 'film'), [preflight, project, workspace]);
 	const isCurrent = result != null && result.revision === project.revision;
-	// Blocked scenery's Fix-its are tried on a copy of the run before the menu offers them. Follows the preflight, which holds during a drag.
-	const blocked = React.useMemo(() => (preflight != null && result != null ? blockedScenery(project, result).map((piece) => piece.entityId) : []), [preflight]); // eslint-disable-line react-hooks/exhaustive-deps -- a new preflight means a new run to check
-	React.useEffect(() => {
-		if (replacing == null) for (const id of blocked) compose?.assist.checkPieceFix(id);
-	}, [blocked, compose, replacing]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
-	if (replacing != null || building != null || summary.state === 'pending') {
+	if (fixing != null || building != null || summary.state === 'pending') {
 		return (
 			<span className="mm-hit-summary" data-tone="pending" role="status" aria-live="polite" data-quick-help="hitSummary">
 				<LoaderCircle size={12} strokeWidth={2} className="animate-spin" aria-hidden />
-				{building != null ? 'Building…' : replacing != null ? 'Fixing…' : 'Checking…'}
+				{building != null ? 'Building…' : fixing != null ? 'Fixing…' : 'Checking…'}
 			</span>
 		);
 	}
-	// The latest fix result and Fit to Song where the user set a length the song no longer matches
-	const hasLastFix = lastFix != null && lastFix.projectId === project.id;
+	// Fit to Song where the user set a length the song no longer matches
 	const fitEnd = fitToSongOffer(project);
 	// Add Bowl for each marble that plays last and has none, so the film ends on the catch
 	const unfinished = lanesWithoutBowl(project);
@@ -111,7 +102,6 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			disabled: compose == null || addingBowl != null,
 			onSelect: () => void compose?.assist.addBowl(laneId)
 		})),
-		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
 		// Ends the film `filmTail` after the last hit, measured with a Bowl, like the ruler's Fit to Song
 		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.fitToSong() }] : [])
 	];
@@ -128,11 +118,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			</span>
 		);
 	}
-	const plan = compose != null && isCurrent ? compose.assist.replacePlan(project, result) : null;
-	// A plan of Blocked scenery alone is offered only once a what-if found a fix for one of its pieces
-	const sceneryChecks = blocked.map((id) => checks[id]).map((check) => (check?.revision === project.revision ? check.fix : null));
-	const isSceneryOnly = plan != null && plan.scenery.length > 0 && plan.platforms === 0 && plan.releases.length === 0;
-	const sceneryWorks = !isSceneryOnly || sceneryChecks.some((fix) => fix?.commands != null);
+	const canFix = compose != null && isCurrent && !compose.assist.isFixing && hasFixes(project, result);
 	const menu = (): TMenuEntry[] => [
 		{ section: problems.length === 1 ? '1 Problem' : `${problems.length} Problems` },
 		// Every problem in time order; a long list scrolls inside the menu, like Xcode's issue navigator
@@ -142,8 +128,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 			onSelect: () => issue.target != null && cx.revealIssue(issue.target)
 		})),
 		'separator' as const,
-		// One label with the edit's notice: "Fix 33 Hits", "Move Windmill 1 Clear"; shown only when it can run
-		...(plan != null && !plan.isEmpty && sceneryWorks && compose != null && !compose.assist.isReplacing ? [{ label: plan.label, onSelect: () => void compose.assist.replace() }] : []),
+		...(canFix ? [{ label: 'Fix', shortcut: 'A', onSelect: () => void compose.assist.fix() }] : []),
 		...extras
 	];
 	return (
@@ -166,10 +151,8 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 };
 
 /** Beside the summary of a project with hits and no Song: it plays silently, so the summary asks for one */
-const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
+const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 const NO_BUILDING = createState<TBuildProgress | null>(null);
-const NO_CHECKS = createState<Record<string, TPieceFixCheck>>({});
-const NO_LAST_FIX = createState<TLastFix | null>(null);
 const NO_ADDING = createState<string | null>(null);
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */

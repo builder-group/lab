@@ -141,7 +141,7 @@ export class SimulationCx {
 	/**
 	 * After an edit, the next platforms take up the change so the rest of the run stays as it was, folded into the edit's
 	 * undo step. Until the answer lands the edit's own run stays back, so a marble's first wild moment never shows. Undo,
-	 * redo and what Build Track and Fix Hits commit themselves are left alone. This is the one way edits reach the run, a
+	 * redo and what Build Track and Fix commit themselves are left alone. This is the one way edits reach the run, a
 	 * person's or an agent's.
 	 */
 	private settleLatestEdit(history: TProjectHistory): void {
@@ -151,7 +151,7 @@ export class SimulationCx {
 		this.seenHistory = history;
 		const assist = this.studio.$compose.get()?.assist;
 		const isStep = seen != null && (seen.past.at(-1)?.entities === history.present.entities || seen.future[0]?.entities === history.present.entities);
-		if (known == null || this.client == null || known.present.id !== history.present.id || isStep || assist?.isBuilding === true || assist?.isReplacing === true) {
+		if (known == null || this.client == null || known.present.id !== history.present.id || isStep || assist?.isBuilding === true || assist?.isFixing === true) {
 			this.settleRun++;
 			this.settled = history;
 			this.stopSettling();

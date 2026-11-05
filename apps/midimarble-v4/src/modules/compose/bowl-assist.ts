@@ -245,10 +245,10 @@ export async function withBowls(project: TProject, deps: TBowlDeps, options: TBo
 }
 
 /**
- * The Fix-it of a Bowl that misses its marble or is Blocked: Place Bowl Again, a new spot on the marble's fall that
+ * The Fix of a Bowl that misses its marble or is Blocked: a new spot on the marble's fall that
  * a what-if run passes, keeping the Bowl's ID, name and skin; or why none does
  */
-export async function bowlFix(project: TProject, result: TSimulationResult, entityId: string, deps: TBowlDeps): Promise<{ commands: TProjectCommand[] | null; message: string; label?: string }> {
+export async function bowlFix(project: TProject, result: TSimulationResult, entityId: string, deps: TBowlDeps): Promise<{ commands: TProjectCommand[] | null; message: string }> {
 	const entity = project.entities.find((item) => item.id === entityId);
 	const laneId = entity?.components.hitLink?.laneId;
 	const name = entity?.name ?? 'Bowl';
@@ -258,5 +258,5 @@ export async function bowlFix(project: TProject, result: TSimulationResult, enti
 	if (caught.status === 'caught' && !isTouchedByOthers(result, entityId, laneId)) return { commands: null, message: `${name} already catches ${marble}` };
 	const placed = await findBowl(project, laneId, deps, { entity });
 	if ('error' in placed) return { commands: null, message: `${placed.error.replace(/\.$/, '')}, so nothing changed` };
-	return { commands: placed.commands, message: placed.message, label: 'Place Bowl Again' };
+	return { commands: placed.commands, message: placed.message };
 }

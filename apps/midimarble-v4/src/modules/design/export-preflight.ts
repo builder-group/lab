@@ -139,7 +139,7 @@ export function framingProblemAt(preflight: TExportPreflight, time: number): TPr
 
 /**
  * Platforms a marble strikes twice, rolls on or passes through and pieces that touch, by entity ID, with those problems: Layers badges them and the
- * inspector shows a pill and Place Again, from the same list as the summary.
+ * inspector shows a pill and Fix, from the same list as the summary.
  */
 export function pieceProblems(preflight: TExportPreflight): Map<string, TPreflightIssue[]> {
 	const problems = new Map<string, TPreflightIssue[]>();

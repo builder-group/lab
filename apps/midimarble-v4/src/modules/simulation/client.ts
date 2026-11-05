@@ -16,7 +16,7 @@ export interface TSimulationClient {
 	simulate: (project: TProject, horizon?: number) => Promise<TSimulationResult>;
 	/**
 	 * Simulates in the assists worker, for assists that alternate their own runs with Auto place, such as
-	 * Fix Hits: both resume from the snapshots of that worker's latest run instead of rebuilding it.
+	 * Fix: both resume from the snapshots of that worker's latest run instead of rebuilding it.
 	 */
 	simulateAssist: (project: TProject) => Promise<TSimulationResult>;
 	/** Keeps the run after an edit (`settleEdit`); a newer request replaces a waiting one */
@@ -36,7 +36,7 @@ export interface TSimulationClient {
 	dispose: () => void;
 }
 
-// Placing at a clicked dot and Fix Hits's runs are waited on, a long-gap piece was asked for, Continue is background work
+// Placing at a clicked dot and Fix's runs are waited on, a long-gap piece was asked for, Continue is background work
 const assistPriority: Record<string, number> = { settle: 0, reconnect: 0, autoPlace: 0, simulate: 0, gapPiece: 1, continue: 2 };
 
 export function createSimulationClient(): TSimulationClient {

@@ -80,7 +80,6 @@ describe('Add Bowl', () => {
 		expect(issue?.title).toBe('Marble 1 misses the Bowl');
 		expect(issue?.severity).toBe('warning');
 		const fix = await bowlFix(missing, result, bowl.id, deps);
-		expect(fix.label).toBe('Place Bowl Again');
 		const placed = fix.commands?.[0];
 		if (placed?.type !== 'upsertEntity') throw new Error(fix.message);
 		expect(placed.entity.id).toBe(bowl.id);

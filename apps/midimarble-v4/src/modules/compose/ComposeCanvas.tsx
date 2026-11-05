@@ -1020,21 +1020,21 @@ const CornerControls: React.FC<{ compose: ComposeCx }> = (props) => {
 	);
 };
 
-const NO_REPLACING = createState<{ done: number; total: number } | null>(null);
+const NO_FIXING = createState<{ done: number; total: number } | null>(null);
 
 /**
- * Says the run is being checked after an edit, or fixed while Fix Hits runs, fading in only when it
+ * Says the run is being checked after an edit, or fixed while Fix runs, fading in only when it
  * takes long enough to notice
  */
 const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const computing = useFeatureState(cx.simulation.$computing);
 	const compose = useFeatureState(cx.$compose);
-	const replacing = useFeatureState(compose?.assist.$replacing ?? NO_REPLACING);
-	if (!computing && replacing == null) return null;
+	const fixing = useFeatureState(compose?.assist.$fixing ?? NO_FIXING);
+	if (!computing && fixing == null) return null;
 	return (
 		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
-			{replacing == null ? 'Checking…' : 'Fixing…'}
+			{fixing == null ? 'Checking…' : 'Fixing…'}
 		</div>
 	);
 };

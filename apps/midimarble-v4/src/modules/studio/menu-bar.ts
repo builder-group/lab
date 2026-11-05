@@ -151,7 +151,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.continue', showsKey: true },
 			{ command: 'build.mirror', showsKey: true },
 			{ command: 'build.repeat', showsKey: true },
-			{ command: 'build.placeAgain', showsKey: true },
+			{ command: 'build.fix', showsKey: true },
 			{ command: 'build.addBowl' },
 			'separator',
 			{ command: 'piece.detach' }

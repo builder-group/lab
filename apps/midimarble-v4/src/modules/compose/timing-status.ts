@@ -55,7 +55,7 @@ export function timingStatus(
 
 /** Why a hit is off time, since neither its tilt nor its Time is the fix: the tilt moves the notes after it, the Time moves the note */
 function offTimeCause(names: TTimingNames): string {
-	return names.piece == null ? '' : '. The marble arrives off time from the piece before: Place Again';
+	return names.piece == null ? '' : '. The marble arrives off time from the piece before: Fix';
 }
 
 /** The status pill for an early or late hit, such as `12 ms Late` */

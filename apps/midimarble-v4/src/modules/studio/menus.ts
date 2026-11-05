@@ -1,7 +1,7 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection } from '@/modules/compose/tie-commands';
 import { createId, type TLane } from '@/modules/project';
-import { commandItem, getCommand, isCommandEnabled, runInWorkspace } from './commands';
+import { commandItem, getCommand, runInWorkspace } from './commands';
 import { formatTime } from './format';
 import { toHitKey } from './selection';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
@@ -16,7 +16,7 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 	if (cx.$workspace.get() !== 'compose') return tidyMenu([commandItem(cx, 'edit.rename'), 'separator', ...pieceLinkItems(cx)]);
 	const selected = cx.project?.entities.filter((entity) => cx.$selection.get().includes(entity.id)) ?? [];
 	return tidyMenu([
-		isCommandEnabled(cx, getCommand('build.placeAgain')) ? commandItem(cx, 'build.placeAgain') : null,
+		selected.length === 1 && selected[0]?.components.hitLink != null ? commandItem(cx, 'build.fix') : null,
 		selected.some((entity) => entity.components.hitLink != null) ? commandItem(cx, 'build.rebuildFrom') : null,
 		'separator',
 		commandItem(cx, 'view.fitSelection'),

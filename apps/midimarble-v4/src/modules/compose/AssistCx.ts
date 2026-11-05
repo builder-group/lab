@@ -1,12 +1,8 @@
 import { createState } from 'feature-state';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TEntity, type TProject, type TVec2 } from '@/modules/project';
 import {
-	defaultPlatformAngle,
-	findLongGaps,
-	frameBand,
 	gapPieceReads,
 	hitOwners,
-	isMusicalPiece,
 	isSuperseded,
 	layoutOf,
 	openLongGaps,
@@ -24,7 +20,7 @@ import { parseHitKey, toHitKey } from '@/modules/studio/selection';
 import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
-import { addedProblems, blockedScenery, brokenHits, fixPiece, lookPieces, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
+import { addedProblems, brokenHits, fixMessage, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome } from './fix-it';
 import { findBowl } from './bowl-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
@@ -32,10 +28,12 @@ import { unreachableActions } from './unreachable-fixes';
 import { displayPiece } from './attach-edit';
 import { newlyBroken } from './bowl-assist';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
-import { commitAtHit, findStepTarget, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
+import { commitAtHit, findStepTarget, pieceForHit, selectedPieceIds } from './step-loop';
 
 /** How long Fix tries to bring a marble back to pieces waiting behind a break, before it says it can't */
 const FIX_HELD_BUDGET_MS = 10000;
+
+const DEGREE = Math.PI / 180;
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterwards */
 export const AUTO_PLACE_WAIT_MS = 150;
@@ -237,39 +235,6 @@ export class AssistCx {
 		if (this.$queuedNext.get() !== 0) this.$queuedNext.set(0);
 	}
 
-	/** Place Again (A) for the selected platform; false when no piece that plays a note is selected, where A means Next */
-	placeAgain(): boolean {
-		const project = this.studio.project;
-		const client = this.studio.simulation.assists;
-		if (project == null || client == null) return false;
-		const ids = selectedPieceIds(project, this.studio.$selection.get());
-		const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
-		const link = entity?.components.hitLink;
-		const pieceType = entity?.components.piece?.type;
-		if (entity == null || link == null || pieceType == null) return false;
-		if (!isMusicalPiece(pieceType)) {
-			const kind = layoutOf(pieceType);
-			this.studio.notify(kind === 'path' || kind === 'tube' ? "Place Again tilts platforms only. Drag the rail's handles to shape it." : 'Place Again tilts platforms only. Turn this piece by hand.');
-			return true;
-		}
-		client.autoPlace({ project, laneId: link.laneId, hitId: link.hitId, type: pieceType, entityId: entity.id }).then(
-			(answer) => {
-				const present = this.studio.project;
-				if (present == null || present.revision !== project.revision) return;
-				// The tilt and bounce together, and a platform a drag left where it lay goes back on its note
-				const commands = replaceCommands(present, answer.entity);
-				if (!commands.length) {
-					this.studio.notify('This platform already lands on time');
-					return;
-				}
-				this.studio.execute(commands);
-			},
-			(error: unknown) => {
-				if (!isSuperseded(error)) this.studio.notify(autoPlaceFailure(error));
-			}
-		);
-		return true;
-	}
 
 	/**
 	 * Places a piece at an open hit. Platforms and windmills ask Auto place for the angle and wait up to
@@ -506,10 +471,10 @@ export class AssistCx {
 		});
 	}
 
-	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Fix Hits; what it did stays */
+	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Fix; what it did stays */
 	stopBuild(): void {
 		if (this.buildRun != null) this.buildRun.isCancelled = true;
-		if (this.replaceRun != null) this.replaceRun.isCancelled = true;
+		if (this.fixRun != null) this.fixRun.isCancelled = true;
 	}
 
 	private buildAction(): { label: string; title: string; run: () => void } {
@@ -533,11 +498,11 @@ export class AssistCx {
 	/**
 	 * Build Track: builds every open hit of every marble in time order and ends each marble in a Bowl, as one undo
 	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
-	 * like Fix Hits, and what it built so far stays.
+	 * like Fix, and what it built so far stays.
 	 */
 	async buildTrack(from?: { laneId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
 		const project = this.studio.project;
-		if (project == null || this.buildRun != null || this.replaceRun != null) return null;
+		if (project == null || this.buildRun != null || this.fixRun != null) return null;
 		if (!project.music.lanes.some((lane) => lane.hits.length > 0)) {
 			this.studio.notify('Build Track needs notes. Import a song, or press T and tap along.');
 			return null;
@@ -605,7 +570,7 @@ export class AssistCx {
 		const present = this.studio.project;
 		const result: TSimulationResult = { ...outcome.result, revision: present?.revision ?? outcome.project.revision };
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
-		this.replacedRevision = result.revision;
+		this.lastFixRevision = result.revision;
 		const summary = problemSummary(preflightExport(present ?? outcome.project, result));
 		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterwards
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
@@ -613,10 +578,8 @@ export class AssistCx {
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {
-			const lastFix: TLastFix = { projectId: project.id, message: report.message, details: report.details, revision: present?.revision ?? outcome.project.revision };
-			this.$lastFix.set(lastFix);
 			const broken = brokenHits(result.hits).length;
-			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [{ label: this.replacePlan(present, result).label, title: 'Fix the broken hits', run: () => void this.replace() }] : [], { details: report.details });
+			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [this.fixAction()] : [], { details: report.details });
 		} else this.studio.notify(report.message);
 		// A person's build ends with its result in view; an agent's leaves their view alone
 		if (!this.studio.isInAgentStep) this.studio.$compose.get()?.fitOnceSimulated();
@@ -634,31 +597,25 @@ export class AssistCx {
 		return link != null ? { laneId: link.laneId, hitId: link.hitId } : null;
 	}
 
-	// MARK: - Fix-its
+	// MARK: - Fix
 
-	/**
-	 * Fix-its of pieces checked by a what-if before they are offered, per piece, for the revision they were checked
-	 * on: the inspector's Fix-it and the hit summary's menu show only a fix that passed
-	 */
-	readonly $pieceFixes = createState<Record<string, TPieceFixCheck>>({});
-	/** The run Fix Hits is working on, if any; Stop sets `isCancelled` */
-	readonly $replacing = createState<{ done: number; total: number } | null>(null);
-	/**
-	 * The result of the latest Fix Hits in this project, its two-line notice and the full text, so the hit
-	 * summary's Show Last Fix brings it back after the notice is gone, like Xcode's report navigator
-	 */
-	readonly $lastFix = createState<TLastFix | null>(null);
-	private replaceRun: { isCancelled: boolean } | null = null;
+	/** How far the running Fix is, null when none runs */
+	readonly $fixing = createState<{ done: number; total: number } | null>(null);
+	private fixRun: { isCancelled: boolean } | null = null;
 	/** Hits of the latest current result, to tell which hits an edit broke */
 	private baseline: { projectId: string; revision: number; hits: THitResult[] } | null = null;
 	/** Per marble, its hits from the latest result in which none of them was broken, for moving a release back */
 	private lastGood = new Map<string, THitResult[]>();
 	private lastGoodProjectId: string | null = null;
-	private replacedRevision: number | null = null;
+	private lastFixRevision: number | null = null;
+
+	private fixAction(): { label: string; title: string; run: () => void } {
+		return { label: 'Fix', title: 'Try to play every note again; Undo goes back', run: () => void this.fix() };
+	}
 
 	/**
 	 * After an edit, compares the new run with the one before it. When later hits became Blocked or Missed, the
-	 * edit's notice gets "Fix N Hits", or a notice says so; undo, redo and Fix Hits itself do not ask.
+	 * edit's notice gets Fix, or a notice says so; undo, redo and Fix itself do not ask.
 	 */
 	private offerFixIt(): void {
 		const project = this.studio.project;
@@ -667,14 +624,13 @@ export class AssistCx {
 		const previous = this.baseline;
 		if (previous?.projectId === project.id && previous.revision === result.revision) return;
 		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
-		// A run Fix Hits made is not a reference for the next one: its release came from the reference itself
-		if (this.replaceRun == null && this.buildRun == null && result.revision !== this.replacedRevision) this.rememberGood(project, result);
-		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.replaceRun != null || this.buildRun != null) return;
+		// A run Fix made is not a reference for the next one: its release came from the reference itself
+		if (this.fixRun == null && this.buildRun == null && result.revision !== this.lastFixRevision) this.rememberGood(project, result);
+		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.fixRun != null || this.buildRun != null) return;
 		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
 		const broken = newlyBroken(previous.hits, result.hits);
 		if (!broken.length) return;
-		const plan = this.replacePlan(project, result);
-		const action = { label: plan.label, title: plan.title, run: () => void this.replace() };
+		const action = this.fixAction();
 		const notice = this.studio.$notice.get();
 		if (notice != null && notice.revision === result.revision && notice.progress == null) {
 			this.studio.updateNotice(notice.id, { actions: [...(notice.actions ?? []), action] });
@@ -694,134 +650,95 @@ export class AssistCx {
 		}
 	}
 
-	get isReplacing(): boolean {
-		return this.replaceRun != null;
+	get isFixing(): boolean {
+		return this.fixRun != null;
 	}
 
 	/** An assist is still working on the latest edit: what it answers next can change the project or what Next does */
 	get isAnswering(): boolean {
-		return this.studio.simulation.isSettling || this.isPlacing || this.replaceRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
+		return this.studio.simulation.isSettling || this.isPlacing || this.fixRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
 	}
 
-	/** Shows the latest Fix Hits result of this project again, with its Details */
-	showLastFix(): void {
-		const last = this.$lastFix.get();
-		if (last == null || last.projectId !== this.studio.project?.id) return;
-		this.studio.notify(last.message, 'info', { details: last.details });
-	}
-
-	/** What Fix Hits will change for the run as it is, for its label in the notice and the hit summary */
-	replacePlan(project: TProject, result: TSimulationResult): TReplacePlan {
-		const kinds = new Map<string, TSceneryFixKind | null>();
-		for (const [id, check] of Object.entries(this.$pieceFixes.get())) {
-			if (check.revision === project.revision && check.fix != null) kinds.set(id, check.fix.kind ?? null);
-		}
-		return replacePlan(project, result, [...this.lastGood.values()].flat(), kinds);
-	}
-
-	/** The worker calls a what-if needs: runs, Auto place and a new bridge for a long gap */
-	private fixDeps(): Pick<TReplaceDeps, 'simulate' | 'autoPlace' | 'gapPiece'> | null {
+	/** The worker calls Fix and Add Bowl need: runs, Auto place and a new bridge for a long gap */
+	private fixDeps(isCancelled?: () => boolean): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece'> | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
+		const options = isCancelled != null ? { isCancelled } : undefined;
 		return {
+			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
-			autoPlace: async (next, hit, entity) => {
-				const answer = await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id });
-				return answer.entity;
-			},
-			gapPiece: async (next, gap, type, entityId) => {
-				const answer = await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId });
-				return answer.entity;
-			}
+			autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, options)).entity,
+			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).entity
 		};
 	}
 
 	/**
-	 * Runs the what-if of a piece's Fix-it for the run as it is, once per revision, so the Fix-it is offered only
-	 * when it will work, like Xcode's Fix-its: Move Clear, Place Again or Delete for scenery, Fix Hits for a
-	 * platform another marble hits. The answer lands in `$pieceFixes`.
+	 * A, and Fix on the Track menu: the one selected piece, or the whole run. Fix tries on a copy where it can, says why
+	 * when it can't and is one undo step. Pieces waiting behind a break come first, whatever is selected.
 	 */
-	checkPieceFix(entityId: string): void {
+	fixSelection(): void {
+		const project = this.studio.project;
+		if (project == null) return;
+		const selected = this.studio.$selection.get();
+		const hit = selected.length === 1 && selected[0] != null ? parseHitKey(selected[0]) : null;
+		const ids = selectedPieceIds(project, selected);
+		const piece = hit != null ? pieceForHitKey(project, hit) : ids.length === 1 ? ids[0] : undefined;
+		void this.fix(piece);
+	}
+
+	/** Fix for one piece, or the whole run */
+	async fix(entityId?: string): Promise<void> {
 		const project = this.studio.project;
 		const result = this.currentResult();
+		if (project == null || result == null || this.fixRun != null || this.buildRun != null) return;
+		if (project.entities.some((entity) => entity.components.hitLink?.held != null)) await this.fixHeld(project);
+		else if (entityId != null) await this.fixOnePiece(project, result, entityId);
+		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
+		else this.studio.notify('Nothing to fix');
+	}
+
+	private async fixOnePiece(project: TProject, result: TSimulationResult, entityId: string): Promise<void> {
 		const deps = this.fixDeps();
-		if (project == null || result == null || deps == null || this.replaceRun != null || this.buildRun != null) return;
-		const known = this.$pieceFixes.get()[entityId];
-		if (known?.revision === project.revision) return;
-		this.setPieceFix(entityId, { revision: project.revision, fix: null });
-		fixPiece(project, result, entityId, deps).then(
-			(fix) => {
-				if (this.$pieceFixes.get()[entityId]?.revision === project.revision) this.setPieceFix(entityId, { revision: project.revision, fix });
-			},
-			(error: unknown) => {
-				const message = error instanceof Error ? error.message : String(error);
-				if (this.$pieceFixes.get()[entityId]?.revision === project.revision) this.setPieceFix(entityId, { revision: project.revision, fix: { commands: null, message } });
-			}
-		);
-	}
-
-	private setPieceFix(entityId: string, check: TPieceFixCheck): void {
-		this.$pieceFixes.set({ ...this.$pieceFixes.get(), [entityId]: check });
-	}
-
-	/**
-	 * Fix Hits: runs Auto place again from the first broken hit onward as one undo step, with progress in the
-	 * notice and Stop. With `only` (`laneId/hitId` keys), just those platforms.
-	 */
-	async replace(only?: string[]): Promise<TReplaceOutcome | null> {
-		const present = this.studio.project;
-		const shown = this.currentResult();
-		const client = this.studio.simulation.assists;
-		if (present == null || shown == null || client == null || this.replaceRun != null || this.buildRun != null) return null;
-		if (present.entities.some((entity) => entity.components.hitLink?.held != null)) {
-			await this.fixHeld(present);
-			return null;
-		}
-		const project = present;
-		const result = shown;
-		const targets = brokenHits(result.hits, only);
-		const scenery = only == null ? blockedScenery(project, result) : [];
-		if (!targets.length && !scenery.length && (only != null || lookPieces(project, result).length === 0)) {
-			this.studio.notify(only == null ? 'Every platform lands its note; nothing to fix' : 'This platform already lands on time');
-			return null;
-		}
-		const run = { isCancelled: false };
-		this.replaceRun = run;
-		this.dispatch({ type: 'dismiss' });
-		const startRevision = project.revision;
-		let expected = startRevision;
-		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCancelled = true) };
-		const from = Math.min(targets[0]?.targetTime ?? Infinity, ...scenery.map((piece) => piece.entryTime ?? piece.hitTime ?? Infinity));
-		// Like Finder's copy progress: how far, in broken hits fixed, and how long is left once the rate is known
-		const startedAt = performance.now();
-		const estimate = createEstimate();
-		const progressText = (at: number, done: number, total: number, fraction: number): string => {
-			if (only != null) return `Placing the platform at ${formatTime(at)} again`;
-			const left = estimate.update(performance.now() - startedAt, fraction, done, total);
-			return [`Fixing hits · ${done} of ${total} fixed`, left].filter(Boolean).join(' · ');
-		};
-		let furthest = 0;
-		const progressId = this.studio.notify(progressText(from, 0, targets.length, 0), 'info', { progress: 0, actions: [stop] });
-		const before = only == null ? [...this.lastGood.values()].flat() : undefined;
-		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
-		let outcome: TReplaceOutcome | null = null;
+		if (deps == null) return;
+		this.fixRun = { isCancelled: false };
+		this.$fixing.set({ done: 0, total: 1 });
 		try {
-			outcome = await replaceBroken(
+			const fix = await fixPiece(project, result, entityId, deps);
+			// Another edit while the what-if ran makes it stale
+			if (this.studio.project?.revision !== project.revision) return;
+			const { rebuildFrom } = fix;
+			if (fix.commands != null) {
+				if (this.studio.execute(fix.commands)) this.studio.notifyEdit(fix.message);
+			} else if (rebuildFrom != null) {
+				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
+			} else this.studio.notify(fix.message);
+		} catch (error) {
+			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+		} finally {
+			this.fixRun = null;
+			this.$fixing.set(null);
+		}
+	}
+
+	/** Runs Auto place again from the first broken hit onward as one undo step, with progress in the notice and Stop */
+	private async fixWholeRun(project: TProject, result: TSimulationResult): Promise<void> {
+		const run = { isCancelled: false };
+		let expected = project.revision;
+		const isCancelled = (): boolean => run.isCancelled || (this.studio.project?.revision ?? expected) !== expected;
+		const deps = this.fixDeps(isCancelled);
+		if (deps == null) return;
+		this.fixRun = run;
+		this.dispatch({ type: 'dismiss' });
+		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCancelled = true) };
+		const progressId = this.studio.notify('Fixing', 'info', { progress: 0, actions: [stop] });
+		let furthest = 0;
+		let outcome: TFixOutcome | null = null;
+		try {
+			outcome = await fixTrack(
 				project,
 				result,
 				{
-					// The assists worker, so Auto place resumes from the run Fix Hits just simulated
-					simulate: async (next) => client.simulateAssist(next),
-					// Stop also ends a search spread over the assists pool between its stages
-					autoPlace: async (next, hit, entity) => {
-						const request = { project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id };
-						const answer = await client.autoPlace(request, { isCancelled });
-						return answer.entity;
-					},
-					gapPiece: async (next, gap, type, entityId) => {
-						const answer = await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, { isCancelled });
-						return answer.entity;
-					},
+					...deps,
 					commit: (_next, commands, isFirst) => {
 						// Another edit since the last step stops the run rather than folding into it
 						if (this.studio.project?.revision !== expected) return null;
@@ -829,92 +746,76 @@ export class AssistCx {
 						expected = this.studio.project?.revision ?? expected;
 						return this.studio.project;
 					},
-					onProgress: (done, total, at, fraction) => {
-						this.$replacing.set({ done, total });
+					onProgress: (done, total, fraction) => {
+						this.$fixing.set({ done, total });
 						// A try that backs up never moves the bar back
 						furthest = Math.max(furthest, Math.min(1, Math.max(0, fraction)));
-						this.studio.updateNotice(progressId, { message: progressText(at, done, total, furthest), progress: furthest });
+						this.studio.updateNotice(progressId, { message: `Fixing · ${done} of ${total} hits`, progress: furthest });
 					},
 					isCancelled
 				},
-				{ only, before }
+				[...this.lastGood.values()].flat()
 			);
 		} catch (error: unknown) {
 			this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
 		} finally {
-			this.replaceRun = null;
-			this.$replacing.set(null);
+			this.fixRun = null;
+			this.$fixing.set(null);
 		}
-		if (outcome == null) return null;
+		if (outcome == null) return;
 		this.baseline = { projectId: project.id, revision: outcome.result.revision, hits: outcome.result.hits };
-		this.replacedRevision = outcome.result.revision;
+		this.lastFixRevision = outcome.result.revision;
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
-		const changed = this.studio.project?.revision !== startRevision;
+		if (this.studio.project?.revision === project.revision) {
+			this.studio.notify('No new tilt helps these pieces without adding a problem. Turn them by hand, or undo the edit that broke them.');
+			return;
+		}
 		// How the run stands comes from the one problem model, the same as the hit summary and the export sheet
 		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }));
 		const added = addedProblems(project, result, outcome.project, outcome.result);
-		const message = !changed
-			? only != null
-				? "No tilt lands this platform on time. Choose Fix Hits in the hit summary's menu, or turn it by hand."
-				: 'No new tilt helps these platforms without adding a problem. Turn them by hand, or undo the edit that broke them.'
-			: replaceResultMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
-		if (changed) {
-			// Two lines, with everything it changed behind Details and in the hit summary's Show Last Fix
-			const standing = { label: summary.label, hitProblems: summary.hitProblems, added };
-			const short = only != null ? message : replaceResultSummary(project, result.hits, outcome, standing);
-			const stopped = outcome.isStopped && !run.isCancelled ? ' · stopped by another edit' : '';
-			const details = outcome.isStopped && !run.isCancelled ? `${message} Stopped by another edit.` : message;
-			const lastFix: TLastFix = { projectId: project.id, message: `${short}${stopped}`, details, revision: this.studio.project?.revision ?? outcome.project.revision };
-			this.$lastFix.set(lastFix);
-			this.studio.notifyEdit(lastFix.message, [], { details: lastFix.details });
-		} else this.studio.notify(message);
-		return outcome;
+		const message = fixMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
+		this.studio.notifyEdit(outcome.isStopped && !run.isCancelled ? `${message} · stopped by another edit` : message);
 	}
 
 	/**
 	 * Fix for pieces waiting behind a break. First the marble is brought back to them, which moves nothing else. When no
-	 * tilt reaches them, Fix Hits tries on a copy from where they wait, a limited time, and lands only if every hit plays:
+	 * tilt reaches them, Fix tries on a copy from where they wait, a limited time, and lands only if every hit plays:
 	 * a try that leaves tens of hits broken is no fix, so the pieces go on waiting and the notice says so.
 	 */
 	private async fixHeld(project: TProject): Promise<void> {
 		const client = this.studio.simulation.assists;
 		if (client == null) return;
 		const run = { isCancelled: false };
-		this.replaceRun = run;
 		const startedAt = performance.now();
+		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
+		const deps = this.fixDeps(isCancelled);
+		if (deps == null) return;
+		this.fixRun = run;
 		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCancelled = true) };
 		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
-		const isCancelled = (): boolean => run.isCancelled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
 		let fixed: TProject | null = null;
 		try {
 			const back = await client.reconnect(project);
 			if (back != null) fixed = withSettled(project, back.entities);
 			else {
 				const released = release(project);
-				const outcome = await replaceBroken(
-					released,
-					await client.simulateAssist(released),
-					{
-						simulate: async (next) => client.simulateAssist(next),
-						autoPlace: async (next, hit, entity) => (await client.autoPlace({ project: next, laneId: hit.laneId, hitId: hit.hitId, type: entity.components.piece?.type ?? 'platform', entityId: entity.id }, { isCancelled })).entity,
-						gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, laneId: gap.laneId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, { isCancelled })).entity,
-						commit: (next, commands) => {
-							const [isOk, , applied] = applyProjectCommands(next, commands);
-							return isOk ? applied : null;
-						},
-						onProgress: (_done, _total, _at, fraction) => {
-							this.studio.updateNotice(progressId, { progress: Math.min(1, Math.max(0, fraction)) });
-						},
-						isCancelled
+				const outcome = await fixTrack(released, await client.simulateAssist(released), {
+					...deps,
+					commit: (next, commands) => {
+						const [isOk, , applied] = applyProjectCommands(next, commands);
+						return isOk ? applied : null;
 					},
-					{}
-				);
+					onProgress: (_done, _total, fraction) => {
+						this.studio.updateNotice(progressId, { progress: Math.min(1, Math.max(0, fraction)) });
+					},
+					isCancelled
+				});
 				if (!outcome.isStopped && !brokenHits(outcome.result.hits).length) fixed = outcome.project;
 			}
 		} catch (error) {
 			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
 		} finally {
-			this.replaceRun = null;
+			this.fixRun = null;
 		}
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		if (this.studio.project?.revision !== project.revision) return;
@@ -955,32 +856,6 @@ export class AssistCx {
 		} finally {
 			this.$addingBowl.set(null);
 		}
-	}
-
-	/**
-	 * The Fix-it of a piece that follows a marble and is Blocked or hit by another marble (Move Clear, or Fix Hits
-	 * of the other marble's platform before the hit), applied only when its what-if run breaks no hit and adds no
-	 * problem, as one undo step
-	 */
-	async fixPiece(entityId: string): Promise<void> {
-		const project = this.studio.project;
-		const result = this.currentResult();
-		const deps = this.fixDeps();
-		if (project == null || result == null || deps == null || this.replaceRun != null) return;
-		// The what-if that made the Fix-it's label, when it belongs to this revision
-		const checked = this.$pieceFixes.get()[entityId];
-		const fix = checked?.revision === project.revision && checked.fix != null ? checked.fix : await fixPiece(project, result, entityId, deps);
-		// Another edit while the what-if ran makes it stale
-		if (this.studio.project?.revision !== project.revision) return;
-		if (fix.rebuildFrom != null) {
-			await this.buildTrack(fix.rebuildFrom);
-			return;
-		}
-		if (fix.commands == null) {
-			this.studio.notify(fix.message);
-			return;
-		}
-		if (this.studio.execute(fix.commands)) this.studio.notifyEdit(fix.message);
 	}
 
 	/** Asks for Continue ghosts for the focused marble when the shown result is current */
@@ -1035,21 +910,6 @@ export class AssistCx {
 }
 
 
-const DEGREE = Math.PI / 180;
-
-/**
- * Clear leans for the hit before a long gap, mirroring the previous piece first like a zigzag. Auto
- * place launches the marble into a rail itself, so Compose no longer sends these; they remain for
- * a rail that needs a steeper launch.
- */
-export function launchAngles(project: TProject, hit: THitResult): number[] | undefined {
-	const gap = findLongGaps(project, hit.laneId).find((item) => item.fromHitId === hit.hitId && item.bridgedBy == null);
-	if (gap == null) return undefined;
-	const previous = previousPiece(project, hit.laneId, hit.targetTime)?.angle;
-	const lean = previous != null && Math.abs(previous) > DEGREE ? -Math.sign(previous) : Math.sign(defaultPlatformAngle(hit.dot ?? { x: 0, y: 0 }, hit.velocity, frameBand(project).centerX));
-	return [17, 12, 22, 28].flatMap((degrees) => [lean * degrees * DEGREE, -lean * degrees * DEGREE]);
-}
-
 /** `project` with these entities in place of the ones of the same id */
 function withSettled(project: TProject, entities: TEntity[]): TProject {
 	const changed = new Map(entities.map((entity) => [entity.id, entity]));
@@ -1070,13 +930,13 @@ function tiltChange(project: TProject, changed: TEntity[]): string {
 	return `Tilted ${tilts.length} platforms again, from ${first.name}. `;
 }
 
-function wait(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+/** The piece that plays this hit, if any */
+function pieceForHitKey(project: TProject, hit: { laneId: string; hitId: string }): string | undefined {
+	return project.entities.find((entity) => entity.components.piece != null && entity.components.hitLink?.laneId === hit.laneId && entity.components.hitLink.hitId === hit.hitId)?.id;
 }
 
-function autoPlaceFailure(error: unknown): string {
-	if (error instanceof Error && error.message.startsWith('No angle')) return 'No tilt lands the marble on time with the next note in the frame. Turn the platform by hand or move the note.';
-	return `The platform couldn't be tilted: ${error instanceof Error ? error.message : String(error)}`;
+function wait(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** The simulation's reason a gap piece found no place, in the app's words, with what to do */
@@ -1139,21 +999,4 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
 	const details = [message, ...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
 	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, bowls: outcome.bowls, attention };
-}
-
-/** A piece's Fix-it as its what-if found it for `revision`; `fix` is null while the what-if runs */
-export interface TPieceFixCheck {
-	revision: number;
-	fix: TPieceFix | null;
-}
-
-/** A Fix Hits result as its notice showed it */
-export interface TLastFix {
-	projectId: string;
-	/** The two-line notice */
-	message: string;
-	/** Everything it changed, behind Details */
-	details: string;
-	/** Revision right after the fix */
-	revision: number;
 }

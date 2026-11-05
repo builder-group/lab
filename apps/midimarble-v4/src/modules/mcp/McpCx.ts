@@ -141,7 +141,7 @@ export class McpCx {
 	}
 
 	/**
-	 * Stop on the pill: ends what the agent's running call can end and keeps what's done. A Build Track or Fix Hits stops
+	 * Stop on the pill: ends what the agent's running call can end and keeps what's done. A Build Track or Fix stops
 	 * between its steps and an export is cancelled; a frame already rendering finishes. The call's reply says the person
 	 * stopped it, and calls waiting behind it are turned away. A person's own Build Track is theirs to stop.
 	 */

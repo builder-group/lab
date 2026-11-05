@@ -11,7 +11,7 @@ import { canMakeBacking } from '@/modules/compose/reachability';
 import { selectedPieceIds } from '@/modules/compose/step-loop';
 import { armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu } from '@/modules/compose/tie-commands';
 import { BACKING_ID, type TLane, type TProject } from '@/modules/project';
-import { isMusicalPiece, isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
+import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
 import { deleteThemeCommands, resolveTheme } from '@/modules/design/project-themes';
 import { framingFix, framingProblemAt, preflightExport, type TPreflightFix } from '@/modules/design/export-preflight';
 import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds } from '@/modules/design/decor';
@@ -236,23 +236,6 @@ function suggestionLane(cx: StudioCx): TLane | null {
 	return lanes.find((lane) => lane.id === selected) ?? lanes.find((lane) => !lane.hits.length) ?? lanes[0] ?? null;
 }
 
-/** One selected platform that plays a note, which Place Again solves again */
-function canPlaceAgain(cx: StudioCx): boolean {
-	const project = cx.project;
-	if (project == null || compose(cx) == null) return false;
-	const ids = selectedPieceIds(project, cx.$selection.get());
-	const entity = ids.length === 1 ? project.entities.find((item) => item.id === ids[0]) : undefined;
-	return entity?.components.hitLink != null && isMusicalPiece(entity.components.piece?.type ?? '');
-}
-
-/** Fix Hits reads as its plan: "Fix 33 Hits", "Move Windmill 1 Clear" */
-function fixTitle(cx: StudioCx): string {
-	const project = cx.project;
-	const result = cx.simulation.$result.get();
-	const plan = project != null && result?.revision === project.revision ? compose(cx)?.assist.replacePlan(project, result) : null;
-	return plan == null || plan.isEmpty ? 'Fix Hits' : plan.label;
-}
-
 function isTool(cx: StudioCx, tool: TComposeTool): boolean {
 	return compose(cx)?.$tool.get() === tool;
 }
@@ -441,25 +424,15 @@ export const commands: readonly TCommand[] = [
 	{ id: 'build.stop', title: 'Stop Building Track', section: 'Track', keywords: 'cancel build track', isEnabled: (cx) => compose(cx)?.assist.isBuilding === true, run: (cx) => compose(cx)?.assist.stopBuild() },
 	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Track', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('repeat') },
 	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Track', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => compose(cx) != null, run: (cx) => compose(cx)?.step('mirror') },
-	{
-		id: 'build.placeAgain',
-		title: 'Place Again',
-		section: 'Track',
-		shortcut: 'A',
-		keywords: 'auto place re-place solve angle tilt on time assist platform',
-		isEnabled: canPlaceAgain,
-		whyDisabled: 'Select a platform that plays a note',
-		run: (cx) => compose(cx)?.placeAgain()
-	},
 	{ id: 'build.continue', title: 'Continue Pattern', section: 'Track', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => compose(cx)?.assist.hasGhosts === true, run: (cx) => compose(cx)?.assist.acceptGhosts() },
 	{
-		id: 'build.replace',
-		title: 'Fix Hits',
-		currentTitle: fixTitle,
+		id: 'build.fix',
+		title: 'Fix',
 		section: 'Track',
-		keywords: 're-place replace repair platforms blocked missed stopped broken move clear release',
-		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isReplacing !== true,
-		run: (cx) => void compose(cx)?.assist.replace()
+		shortcut: 'A',
+		keywords: 'place again re-place replace repair auto place solve tilt platforms blocked missed stopped broken on time move clear release',
+		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isFixing !== true,
+		run: (cx) => compose(cx)?.assist.fixSelection()
 	},
 	{
 		id: 'build.addBowl',
@@ -763,10 +736,9 @@ export type TCommandId =
 	| 'build.stop'
 	| 'build.repeat'
 	| 'build.mirror'
-	| 'build.placeAgain'
 	| 'build.continue'
 	| 'build.dismiss'
-	| 'build.replace'
+	| 'build.fix'
 	| 'piece.playNote'
 	| 'piece.follow'
 	| 'edit.duplicate'

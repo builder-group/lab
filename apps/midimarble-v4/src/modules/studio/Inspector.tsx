@@ -7,7 +7,7 @@ import { InsertPopover } from '@/modules/compose/InsertLibrary';
 import { PieceIcon } from '@/modules/compose/piece-icons';
 import { unreachableActions } from '@/modules/compose/unreachable-fixes';
 import { GroupInspector, PatternRangeInspector, PatternTiles } from '@/modules/compose/PatternInspector';
-import { PieceInspector, PlatformFields, ReplaceButton } from '@/modules/compose/PieceInspector';
+import { FixButton, PieceInspector, PlatformFields } from '@/modules/compose/PieceInspector';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/compose/reachability';
 import { placeAtHit } from '@/modules/compose/step-loop';
 import { timingStatus } from '@/modules/compose/timing-status';
@@ -383,7 +383,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
 				subtitle={`${lane.name} · ${formatTime(hit.time)}`}
 				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
-				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <ReplaceButton cx={cx} laneId={lane.id} hitId={hit.id} /> : null}
+				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <FixButton cx={cx} entityId={piece.id} /> : null}
 			/>
 			<Panel
 				id="hit.note"

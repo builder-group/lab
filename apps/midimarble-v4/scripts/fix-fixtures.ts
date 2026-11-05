@@ -1,7 +1,7 @@
-// Runs the app's own Fix Hits on committed fixtures in place, for the ones whose builders no longer reproduce them or
+// Runs the app's own Fix on committed fixtures in place, for the ones whose builders no longer reproduce them or
 // leave a look problem by hand. Run it after `fixtures:build` or `fixtures:reference`. Usage: tsx scripts/fix-fixtures.ts staircase reference-20
 import { readFileSync, writeFileSync } from 'node:fs';
-import { replaceBroken } from '../src/modules/compose/fix-it';
+import { fixTrack } from '../src/modules/compose/fix-it';
 import { applyProjectCommands, parseProject, serializeProject, type TProject } from '../src/modules/project';
 import { autoPlace, createChainForGap, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap } from '../src/modules/simulation';
 
@@ -12,7 +12,7 @@ for (const name of process.argv.slice(2)) {
 	const url = new URL(`../fixtures/${name}.marble.json`, import.meta.url);
 	const [isProjectOk, projectErr, project] = parseProject(readFileSync(url, 'utf8'));
 	if (!isProjectOk) throw projectErr;
-	const outcome = await replaceBroken(project, simulate(project), {
+	const outcome = await fixTrack(project, simulate(project), {
 		simulate: async (next) => simulate(next),
 		autoPlace: async (next, target, entity) => {
 			const [isOk, error, placement] = autoPlace(next, simulate(next), target.laneId, target.hitId, { simulate, type: entity.components.piece?.type });
