@@ -5,7 +5,7 @@ import { PACE_LIMIT, type TResolvedPiece } from '@/modules/simulation';
 import type { ComposeCx } from './ComposeCx';
 import { paletteOf } from './ComposeRenderer';
 import { acceptableCount, type TGhost } from './ghosts';
-import { FinishShape, RailShape, RailPathsShape, toPoints, TunnelShape } from './PieceLayer';
+import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from './PieceLayer';
 import { pieceKind } from './scene';
 
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */
@@ -67,7 +67,7 @@ const GhostPiece: React.FC<{ compose: ComposeCx; piece: TResolvedPiece; scale: n
 	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
-	if (kind === 'catcher') return <FinishShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
+	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={0.75} dashed tint={tint} />;
 	const palette = paletteOf(piece.type);
 	const outline = compose.screenOutline(piece);
 	// Colours come in as variables so dark mode can lighten the outline and raise the fill (styles.css)

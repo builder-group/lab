@@ -2,7 +2,7 @@ import { cachedFollowCameraTrack, followCameraTrack, framingStretches, isInFrame
 import { hitReach, isUnreachable, reachStatus } from '@/modules/compose/reachability';
 import { hasSong } from '@/modules/music';
 import type { TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { extraStrikes, FINISH_TYPE, finishCatch, getPieceDefinition, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, BOWL_TYPE, bowlCatch, getPieceDefinition, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime } from '@/modules/studio/format';
 import { CAMERA_KEY, toHitKey } from '@/modules/studio/selection';
 import { problemsInTimeOrder } from '@/modules/studio/timeline/hit-status';
@@ -35,7 +35,7 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
 		...hitIssues(project, result, names),
 		...sceneryIssues(project, result, names),
-		...finishIssues(project, result, names),
+		...bowlIssues(project, result, names),
 		...contactIssues(project, result, names),
 		...strikeIssues(project, result, names),
 		...rollIssues(project, result, names),
@@ -379,35 +379,35 @@ function sceneryIssues(project: TProject, result: TSimulationResult, names: TNam
 	});
 }
 
-// MARK: - Finishes
+// MARK: - Bowls
 
 /**
- * Finishes that do not catch their marble: "Melody misses the Finish" when the marble falls past it, bounces out of it,
- * or the film ends before the marble gets there. A Blocked Finish is reported as Blocked scenery. The inspector's
- * Fix-it places it again (Place Finish Again).
+ * Bowls that do not catch their marble: "Melody misses the Bowl" when the marble falls past it, bounces out of it,
+ * or the film ends before the marble gets there. A Blocked Bowl is reported as Blocked scenery. The inspector's
+ * Fix-it places it again (Place Bowl Again).
  */
-function finishIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
+function bowlIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return project.entities.flatMap((entity) => {
 		const link = entity.components.hitLink;
-		if (entity.components.piece?.type !== FINISH_TYPE || link == null) return [];
+		if (entity.components.piece?.type !== BOWL_TYPE || link == null) return [];
 		const piece = result.pieces.find((item) => item.entityId === entity.id);
-		const caught = finishCatch(result, entity.id);
+		const caught = bowlCatch(result, entity.id);
 		if (piece == null || caught.status === 'caught' || caught.status === 'blocked') return [];
 		const lane = names.lane(link.laneId);
 		const time = piece.entryTime ?? piece.hitTime ?? undefined;
 		const isLate = caught.status === 'missed' && time != null && time > result.duration - 0.05;
 		const detail = isLate
-			? `The film ends before ${lane} reaches the Finish. Fit to Song lengthens it.`
+			? `The film ends before ${lane} reaches the Bowl. Fit to Song lengthens it.`
 			: caught.status === 'escaped'
-				? `${lane} lands in the Finish and bounces out of it.`
-				: `${lane} falls past the Finish without landing in it.`;
+				? `${lane} lands in the Bowl and bounces out of it.`
+				: `${lane} falls past the Bowl without landing in it.`;
 		return [
 			{
-				id: `finish:${entity.id}`,
+				id: `bowl:${entity.id}`,
 				kind: 'scenery' as const,
 				severity: 'warning' as const,
 				laneId: link.laneId,
-				title: `${lane} misses the Finish`,
+				title: `${lane} misses the Bowl`,
 				detail,
 				time,
 				target: { ids: [entity.id], point: piece.position, time }
@@ -489,7 +489,7 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 /**
  * A marble striking its own platform outside the note: "Melody hits Platform 12 twice". It sounds like nothing in the
  * film but reads as a mistake, so it counts as a problem. Rests and rolls after the last note and rides on a switchback,
- * rail or Finish don't count (`extraStrikes`).
+ * rail or Bowl don't count (`extraStrikes`).
  */
 function strikeIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return extraStrikes(project, result).map((strike) => {
@@ -510,7 +510,7 @@ function strikeIssues(project: TProject, result: TSimulationResult, names: TName
 
 /**
  * A marble that stays on its platform instead of bouncing off it: "Melody rolls on Platform 12". A platform is for
- * bouncing. Rails, switchbacks and the Finish are exempt, and so is a marble's last note (`rollingHits`).
+ * bouncing. Rails, switchbacks and the Bowl are exempt, and so is a marble's last note (`rollingHits`).
  */
 function rollIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return rollingHits(project, result).map((roll) => ({

@@ -72,7 +72,7 @@ export function pieceOutline(piece: TResolvedPiece): TVec2[] {
 	const kind = pieceKind(piece);
 	if (kind === 'box') return pieceCorners(piece);
 	if (kind === 'generated' || kind === 'catcher') {
-		// The rectangle around the walls and legs, or the Finish's wires
+		// The rectangle around the walls and legs, or the Bowl's wires
 		const points = (piece.paths ?? []).flat();
 		if (!points.length) return [piece.position];
 		const xs = points.map((point) => point.x);

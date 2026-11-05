@@ -27,9 +27,9 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    distance after it unless the next shot comes first.
 5. Hold: from `holdAfter`, the run's last hit, the marbles are read at that time and the follow point eases over
    HOLD_EASE seconds to the middle of the run's last HOLD_SPAN seconds, so the film ends on the final pieces rather
-   than following a marble down the empty wall. With `holdFinish`, the mouths of the Finishes that catch the marbles
-   playing last, it eases instead to FINISH_FRAME of the way from the follow point at the last hit to their mean, so
-   the held frame shows the last piece and the marble landing in its Finish. The run direction and the roll drift
+   than following a marble down the empty wall. With `holdBowl`, the mouths of the Bowls that catch the marbles
+   playing last, it eases instead to BOWL_FRAME of the way from the follow point at the last hit to their mean, so
+   the held frame shows the last piece and the marble landing in its Bowl. The run direction and the roll drift
    come to rest with it.
 
 Everything is baked as keyframes on the studio camera (location, rotation, focus distance), so the camera works in
@@ -94,8 +94,8 @@ SENSOR = 36.0
 # whose middle it settles on
 HOLD_EASE = 1.0
 HOLD_SPAN = 1.0
-# With Finishes, the held follow point sits this share of the way from the last hit to the Finishes' mouths
-FINISH_FRAME = 0.5
+# With Bowls, the held follow point sits this share of the way from the last hit to the Bowls' mouths
+BOWL_FRAME = 0.5
 # Seconds over which the camera eases between framing the group and following the focus marble
 GROUP_EASE = 1.2
 # A group that needs more than the readable distance for less than this many seconds stays framed
@@ -176,7 +176,7 @@ def settings_from(description_camera, theme_settings):
         'focus': camera.get('focusMarbleId') if isinstance(camera.get('focusMarbleId'), str) else None,
         'descent': descent_curve(camera.get('descent')),
         'hold': hold_time(camera.get('holdAfter')),
-        'finish': finish_point(camera.get('holdFinish')),
+        'bowl': bowl_point(camera.get('holdBowl')),
         # Typical piece length on the wall and the first struck pieces; `apply_scene` sets them from the pieces
         'pieceLength': None,
         'opening': None,
@@ -197,8 +197,8 @@ def hold_time(value):
     return float(value)
 
 
-def finish_point(value):
-    """Mean wall point of the Finishes the held ending frames, as a (2,) array, or None"""
+def bowl_point(value):
+    """Mean wall point of the Bowls the held ending frames, as a (2,) array, or None"""
     if not isinstance(value, list):
         return None
     points = []
@@ -461,17 +461,17 @@ def held(values, fps, seconds, reduce=np.max):
     return np.array([reduce(padded[index:index + 2 * window + 1]) for index in range(len(values))])
 
 
-def settled(points, times, hold, finish=None):
+def settled(points, times, hold, bowl=None):
     """Follow points that, after the hold time, ease over HOLD_EASE seconds from the last hit to the middle of the
-    path over the HOLD_SPAN seconds before it, so the last frames show the final pieces; with `finish`, the Finishes'
-    mean mouth, to FINISH_FRAME of the way from the last hit's point to it, so the frame shows the catch"""
+    path over the HOLD_SPAN seconds before it, so the last frames show the final pieces; with `bowl`, the Bowls'
+    mean mouth, to BOWL_FRAME of the way from the last hit's point to it, so the frame shows the catch"""
     span = (times >= hold - HOLD_SPAN - 1e-9) & (times <= hold + 1e-9)
     if not span.any() or not (times > hold).any():
         return points
     middle = points[span].mean(axis=0)
-    if finish is not None:
+    if bowl is not None:
         last = points[span][-1]
-        middle = last + (finish - last) * FINISH_FRAME
+        middle = last + (bowl - last) * BOWL_FRAME
     weight = smoothstep((times - hold) / HOLD_EASE)[:, None]
     return points * (1 - weight) + middle * weight
 
@@ -555,8 +555,8 @@ def group_framing(marbles, motions, times, settings, fps, aspect, heading, aim=N
         ahead = weight * opening['point'] + (1 - weight) * ahead
     shares = lead_shares(marbles, motions, sample, settings.get('focus'), fps) if moving else None
     if hold is not None:
-        finish = settings.get('finish')
-        centre, ahead = settled(centre, times, hold, finish), settled(ahead, times, hold, finish)
+        bowl = settings.get('bowl')
+        centre, ahead = settled(centre, times, hold, bowl), settled(ahead, times, hold, bowl)
     return {'current': centre, 'ahead': ahead, 'depth': depth, 'distance': distance, 'sample': sample,
              'shares': shares, 'fall_scale': fall_scale}
 

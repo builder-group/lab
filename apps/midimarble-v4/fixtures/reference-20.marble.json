@@ -1514,16 +1514,14 @@
 			}
 		},
 		{
-			"id": "finish-lane-1",
-			"name": "Finish 1",
+			"id": "bowl-lane-1",
+			"name": "Bowl 1",
 			"components": {
 				"piece": {
-					"type": "finish",
+					"type": "bowl",
 					"params": {
-						"style": 0,
 						"mirror": 1,
 						"size": 0.06,
-						"length": 0.195,
 						"radius": 0.00375,
 						"entryDelay": 0.3833
 					}

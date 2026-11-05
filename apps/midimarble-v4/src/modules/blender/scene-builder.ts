@@ -4,7 +4,7 @@ import { sceneDecor } from '@/modules/design/decor';
 import { sceneLayers } from '@/modules/design/scene-layers';
 import { shotLength } from '@/modules/camera/shots';
 import { getPieceDefinition } from '@/modules/simulation/pieces';
-import { finishCatch, FINISH_TYPE } from '@/modules/simulation/finish';
+import { bowlCatch, BOWL_TYPE } from '@/modules/simulation/bowl';
 import { lastPlayingLanes } from '@/modules/music/lane-commands';
 import type { TMarbleSample, TMarbleTrack, TSimulationResult } from '@/modules/simulation/types';
 import {
@@ -139,7 +139,7 @@ export function buildSceneDescription(
 				...buildSceneCamera(project.design.camera),
 				descent: descentCurve(result),
 				holdAfter: lastStruckTime(result),
-				holdFinish: heldFinishes(project, result)
+				holdBowl: heldBowls(project, result)
 			},
 			wallTexts: project.entities.flatMap((entity) => {
 				const text = entity.components.wallText;
@@ -163,19 +163,19 @@ export function lastStruckTime(result: TSimulationResult): number | null {
 }
 
 /**
- * Mouths of the Finishes that catch a marble playing last after the run's last hit, which the camera's held ending
- * frames with that hit; null without any. A Finish that misses its marble is left out, so the frame stays on the
+ * Mouths of the Bowls that catch a marble playing last after the run's last hit, which the camera's held ending
+ * frames with that hit; null without any. A Bowl that misses its marble is left out, so the frame stays on the
  * last pieces, and so is one whose catch comes before the hold, which the camera saw while it still followed.
  */
-export function heldFinishes(project: TProject, result: TSimulationResult): { x: number; y: number }[] | null {
+export function heldBowls(project: TProject, result: TSimulationResult): { x: number; y: number }[] | null {
 	const lanes = new Set(lastPlayingLanes(project));
 	const hold = lastStruckTime(result);
 	if (hold == null) return null;
 	const points = project.entities.flatMap((entity) => {
 		const laneId = entity.components.hitLink?.laneId;
-		if (entity.components.piece?.type !== FINISH_TYPE || laneId == null || !lanes.has(laneId)) return [];
+		if (entity.components.piece?.type !== BOWL_TYPE || laneId == null || !lanes.has(laneId)) return [];
 		const piece = result.pieces.find((item) => item.entityId === entity.id);
-		const caught = finishCatch(result, entity.id);
+		const caught = bowlCatch(result, entity.id);
 		if (piece == null || caught.status !== 'caught' || (caught.enterTime ?? -Infinity) < hold) return [];
 		return [{ x: Math.round(piece.position.x * 1e5) / 1e5, y: Math.round(piece.position.y * 1e5) / 1e5 }];
 	});

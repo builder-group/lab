@@ -11,7 +11,7 @@ import type { StudioCx, TStudioPanel } from './StudioCx';
 export type TMenuLine =
 	| {
 			command: TCommandId;
-			/** Tells two items of one command apart, such as Add Finish in Insert and in Track */
+			/** Tells two items of one command apart, such as Add Bowl in Insert and in Track */
 			variant?: string;
 			/** A title for the menu bar where the palette's would read wrong there */
 			title?: string;
@@ -94,7 +94,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'tool.platform', showsKey: true },
 			{ command: 'tool.path', showsKey: true },
 			{ command: 'tool.tunnel', showsKey: true },
-			{ command: 'build.addFinish', variant: 'insert' },
+			{ command: 'build.addBowl', variant: 'insert' },
 			'separator',
 			{ command: 'design.addText', showsKey: true },
 			{ command: 'decor.scatter' },
@@ -152,7 +152,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.mirror', showsKey: true },
 			{ command: 'build.repeat', showsKey: true },
 			{ command: 'build.placeAgain', showsKey: true },
-			{ command: 'build.addFinish' },
+			{ command: 'build.addBowl' },
 			'separator',
 			{ command: 'piece.detach' }
 		]

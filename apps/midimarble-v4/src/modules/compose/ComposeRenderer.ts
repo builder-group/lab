@@ -461,8 +461,8 @@ export const piecePalette: Record<string, { bar: string; nub: string }> = {
 	rail: { bar: '#3c9ee0', nub: '#2373ad' },
 	tunnel: { bar: '#9a7bf0', nub: '#6c4fd0' },
 	windmill: { bar: '#4fb879', nub: '#2f8a52' },
-	// A clear chute: pale steel wires
-	finish: { bar: '#8fa3b8', nub: '#5f7287' }
+	// Clear wires: pale steel
+	bowl: { bar: '#8fa3b8', nub: '#5f7287' }
 };
 
 /** Blender world to scene: a quarter turn around x, so Blender's y (into the wall) becomes -z */

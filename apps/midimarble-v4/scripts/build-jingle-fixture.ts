@@ -1,25 +1,25 @@
 // Writes `fixtures/jingle-bells.marble.json`: the public domain Jingle Bells refrain with a simple bass line,
 // imported like the app's MIDI import sheet (split across up to two marbles, aligned to the import start) and
 // built by Build Track, the app's own builder (`src/modules/compose/build-track.ts`), which ends each marble in a
-// Finish. Writes the MIDI file and a build log with the pace measurements to `.local/jingle/`. The fixture ships the
+// Bowl. Writes the MIDI file and a build log with the pace measurements to `.local/jingle/`. The fixture ships the
 // MIDI file next to it as `fixtures/jingle-bells.mid`, its song, which the example copies into the new package.
 // The film ends with the marbles' catch.
 // Last it is dressed for the film: a Christmas project theme stored in the fixture and a seeded scatter of the Christmas
 // Decor set, which never changes a hit.
 // A build lands in `.local/jingle/` and replaces the fixture only with --write.
 // Usage: tsx scripts/build-jingle-fixture.ts [--write] [--finalize] [--dress]
-//   --finalize re-applies the song, the Finishes, piece names and the film end to the existing fixture without
+//   --finalize re-applies the song, the Bowls, piece names and the film end to the existing fixture without
 //   rebuilding its pieces
 //   --dress only re-applies the theme and the Decor to the existing fixture
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as toneMidi from '@tonejs/midi';
 import { buildTrack, localBuildDeps } from '../src/modules/compose/build-track';
-import { withFinishes } from '../src/modules/compose/finish-assist';
+import { withBowls } from '../src/modules/compose/bowl-assist';
 import { builtInSource, newDecor, setDecorList } from '../src/modules/design/decor';
 import { scatterDecorCommands } from '../src/modules/design/decor-scatter';
 import { preflightExport } from '../src/modules/design/export-preflight';
 import { filmCamera } from '../src/modules/design/film-camera';
-import { fittedSongEnd } from '../src/modules/camera/finish-exit';
+import { fittedSongEnd } from '../src/modules/camera/bowl-exit';
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '../src/modules/music';
 import {
 	applyProjectCommands,
@@ -167,7 +167,7 @@ say(`separation: ${describeSeparation(project, finalResult)}`);
 for (const line of describePace(project, finalResult)) say(line);
 say(`heights every 4 s (melody | bass | y*, m): ${describeHeights(finalResult)}`);
 for (const hit of outcome.attention) say(`needs attention: ${hit.hitId} at ${hit.time.toFixed(2)} s, ${hit.status}`);
-for (const line of outcome.finishes) say(`finish: ${line}`);
+for (const line of outcome.bowls) say(`bowl: ${line}`);
 say(`export preflight: ${preflightExport(project, finalResult).issues.map((issue) => `${issue.title} (${issue.detail})`).join('; ') || 'clean'}`);
 
 const json = serializeProject(dressed(await finalized(apply(project, [], 0), simulate), simulate));
@@ -179,16 +179,16 @@ writeFileSync(new URL('build-log.txt', OUT), `${log.join('\n')}\n`);
 
 /**
  * What the import sheet records besides the marbles: the MIDI file as the project's song, starting where its
- * first note plays, its tempo, the default camera of a new project, a Finish for each marble after its last note
+ * first note plays, its tempo, the default camera of a new project, a Bowl for each marble after its last note
  * and Fit to Song's film end. Pieces are named in time order last. None of it changes the run before its end.
  */
-async function finalized(fixture: TProject, simulateFinish: TSimulateFn): Promise<TProject> {
-	// Both marbles end in a Finish, the melody's 1.5 s before the bass's, which plays last
-	const finished = await withFinishes(fixture, { simulate: simulateFinish }, { lanes: fixture.music.lanes.map((lane) => lane.id) });
-	for (const message of finished.messages) console.log(`finish: ${message}`);
+async function finalized(fixture: TProject, simulateBowl: TSimulateFn): Promise<TProject> {
+	// Both marbles end in a Bowl, the melody's 1.5 s before the bass's, which plays last
+	const finished = await withBowls(fixture, { simulate: simulateBowl }, { lanes: fixture.music.lanes.map((lane) => lane.id) });
+	for (const message of finished.messages) console.log(`bowl: ${message}`);
 	const current = finished.project;
-	// The film ends just after the marble that plays last rolls out of its Finish and leaves the frame
-	const end = (await fittedSongEnd(current, simulateFinish)) ?? current.end;
+	// The film ends just after the marble that plays last settles in its Bowl
+	const end = (await fittedSongEnd(current, simulateBowl)) ?? current.end;
 	const source: TSource = { id: 'source-1', kind: 'midi', path: `audio/${SONG_NAME}`, name: SONG_NAME, offset: IMPORT_START };
 	const removed = current.music.sources.map((item) => ({ type: 'removeSource' as const, sourceId: item.id }));
 	const camera = { ...current.design.camera, distance: DEFAULT_CAMERA_DISTANCE, pitch: DEFAULT_CAMERA_PITCH };

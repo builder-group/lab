@@ -173,8 +173,8 @@ describe('MCP tools', () => {
 
 	it('should answer build.rebuildFrom only when its build is done, and say what it needs without a target', async () => {
 		const { cx, laneId, hitId } = studio();
-		let finishBuild: () => void = () => undefined;
-		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (finishBuild = () => resolve(null))));
+		let bowlBuild: () => void = () => undefined;
+		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (bowlBuild = () => resolve(null))));
 		const key = `hit:${laneId}:${hitId}`;
 		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { laneId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
 		cx.$compose.set({ assist } as never);
@@ -193,7 +193,7 @@ describe('MCP tools', () => {
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(buildTrack).toHaveBeenCalledWith({ laneId, hitId });
 		expect(isAnswered).toBe(false);
-		finishBuild();
+		bowlBuild();
 		expect((await answer).isError).toBe(false);
 	});
 

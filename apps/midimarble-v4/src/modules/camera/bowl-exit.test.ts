@@ -1,33 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { finishTail, SONG_TAIL, songEnd } from '@/modules/music';
+import { bowlTail, SONG_TAIL, songEnd } from '@/modules/music';
 import { type TProject } from '@/modules/project';
 import { createSimulator } from '@/modules/simulation/simulate';
-import { exitRunProject, finishExit, fittedSongEnd } from './finish-exit';
+import { exitRunProject, bowlExit, fittedSongEnd } from './bowl-exit';
 import { loadFixture } from '@/modules/project/test-helpers';
 
 const SIMULATION_TIMEOUT = 20_000;
 
-describe('finishExit', () => {
+describe('bowlExit', () => {
 	it(
-		'should measure when the last marble leaves the frame and what Fit to Song gives',
+		'should hold the marbles in frame in their Bowls and give the longest tail to Fit to Song',
 		async () => {
 			const simulator = await createSimulator();
 			const simulate = (project: TProject) => simulator.simulate(project);
 
-			// Its marbles leave through their Finishes' run-outs, so the film ends on that and not at the longest tail
 			const duet = loadFixture('two-marbles');
 			const trial = exitRunProject(duet) as TProject;
-			const exit = finishExit(trial, simulate(trial));
-			expect(exit).toBeGreaterThan(0);
-			expect(exit).toBeLessThan(1.4);
-			expect(await fittedSongEnd(duet, simulate)).toBe(songEnd(1.55, finishTail(exit ?? 0)));
+			const exit = bowlExit(trial, simulate(trial));
+			expect(exit).toBe(Number.POSITIVE_INFINITY);
+			expect(await fittedSongEnd(duet, simulate)).toBe(songEnd(1.55, bowlTail(exit ?? 0)));
 			simulator.dispose();
 		},
 		SIMULATION_TIMEOUT
 	);
 
 	it(
-		'should keep the song tail without a Finish',
+		'should keep the song tail without a Bowl',
 		async () => {
 			const simulator = await createSimulator();
 			const zigzag = loadFixture('zigzag');

@@ -110,21 +110,21 @@
 		},
 		{
 			"kind": "skin",
-			"id": "finish-chrome",
-			"label": "Chrome Finish",
-			"source": "finish:chrome"
+			"id": "bowl-chrome",
+			"label": "Chrome Bowl",
+			"source": "bowl:chrome"
 		},
 		{
 			"kind": "skin",
-			"id": "finish-wood",
-			"label": "Wood Finish",
-			"source": "finish:wood"
+			"id": "bowl-wood",
+			"label": "Wood Bowl",
+			"source": "bowl:wood"
 		},
 		{
 			"kind": "skin",
-			"id": "finish-glow",
-			"label": "Glow Finish",
-			"source": "finish:glow"
+			"id": "bowl-glow",
+			"label": "Glow Bowl",
+			"source": "bowl:glow"
 		},
 		{
 			"kind": "skin",

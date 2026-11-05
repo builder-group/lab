@@ -85,10 +85,10 @@ export interface TSceneCamera {
 	 */
 	holdAfter?: number | null;
 	/**
-	 * Mouths of the Finishes that catch the marbles playing last, in wall metres. With `holdAfter` the held ending
+	 * Mouths of the Bowls that catch the marbles playing last, in wall metres. With `holdAfter` the held ending
 	 * frames them and the last hit together. Absent or empty holds on the last pieces. Optional and additive.
 	 */
-	holdFinish?: TVec2Like[] | null;
+	holdBowl?: TVec2Like[] | null;
 }
 
 export interface TVec2Like {

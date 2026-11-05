@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
-import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnFinish, isAutoEnd, projectSongEnd, soundsNotes, startingLength, type TAudioEngine, type TSongMix } from '@/modules/music';
+import { audibleProject, autoEnd, changesHitsOnly, changesTail, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, soundsNotes, startingLength, type TAudioEngine, type TSongMix } from '@/modules/music';
 import {
 	amendHistory,
 	applyProjectCommands,
@@ -27,8 +27,8 @@ import {
 } from '@/modules/project';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
 import { shownRepeatRange, toggledRepeatRange, type TRepeatRange, type TRepeatSpan } from './repeat-range';
-import { fittedSongEnd } from '@/modules/camera/finish-exit';
-import { FINISH_TYPE } from '@/modules/simulation/finish';
+import { fittedSongEnd } from '@/modules/camera/bowl-exit';
+import { BOWL_TYPE } from '@/modules/simulation/bowl';
 import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
@@ -171,7 +171,7 @@ export class StudioCx {
 		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
-		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
+		// Tapping along belongs to the playback T started, so stopping playback bowls the tap session
 		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
 			this.finishTapSession();
@@ -669,7 +669,7 @@ export class StudioCx {
 		// Default piece names follow time order, so a new piece for an earlier hit takes the lower number
 		let named = releaseFollowsFirstHit(history.present, renumberDefaultNames(history.present, edited), commands);
 		// While the length follows the song, it ends with the last hit, or with the catch once the last marble has a
-		// Finish; taps fit it once tapping stops
+		// Bowl; taps fit it once tapping stops
 		if (this.tapSession == null && (changesHitsOnly(commands) || changesTail(commands, history.present, named))) {
 			const end = autoEnd(history.present, named);
 			if (end != null) named = { ...named, end };
@@ -677,7 +677,7 @@ export class StudioCx {
 		if (this.agentStep != null) this.agentStep.didEdit = true;
 		this.$history.set(options.amend === true ? amendHistory(history, named) : pushHistory(history, named, options.group ?? this.agentStep?.group));
 		this.scheduleSave();
-		if (this.tapSession == null && changesFinishEnding(commands)) this.measureFinishTail();
+		if (this.tapSession == null && changesBowlEnding(commands)) this.measureBowlTail();
 		return true;
 	}
 
@@ -765,7 +765,7 @@ export class StudioCx {
 	}
 
 	/**
-	 * Fit to Song: ends the film `filmTail` after the last note, measured on a what-if run when it ends on a Finish.
+	 * Fit to Song: ends the film `filmTail` after the last note, measured on a what-if run when it ends on a Bowl.
 	 * A newer edit in the meantime wins.
 	 */
 	async fitToSong(): Promise<void> {
@@ -779,17 +779,17 @@ export class StudioCx {
 	}
 
 	/**
-	 * While the length follows the song and ends on a Finish, an edit of the notes or the Finish measures the tail in a
+	 * While the length follows the song and ends on a Bowl, an edit of the notes or the Bowl measures the tail in a
 	 * what-if run shortly after and folds the length into that edit's undo step, so the length needs no run to be
 	 * known at the edit itself. A newer edit restarts it.
 	 */
-	private measureFinishTail(): void {
+	private measureBowlTail(): void {
 		if (this.tailTimer != null) clearTimeout(this.tailTimer);
 		this.tailTimer = setTimeout(() => {
 			this.tailTimer = null;
 			const project = this.project;
 			const client = this.simulation.assists;
-			if (project == null || client == null || !endsOnFinish(project) || !isAutoEnd(project)) return;
+			if (project == null || client == null || !endsOnBowl(project) || !isAutoEnd(project)) return;
 			void fittedSongEnd(project, (trial) => client.simulateAssist(trial)).then((end) => {
 				if (end == null || this.project !== project || Math.abs(end - project.end) < 0.005) return;
 				this.execute([{ type: 'setEnd', end }], { amend: true });
@@ -937,7 +937,7 @@ export class StudioCx {
 		if (fitted == null) return;
 		const end = Math.max(fitted, startingLength(project, project.end));
 		if (Math.abs(end - project.end) > 1e-6) this.execute([{ type: 'setEnd', end }], { amend: true });
-		this.measureFinishTail();
+		this.measureBowlTail();
 	}
 
 	undo(): void {
@@ -1066,15 +1066,15 @@ export class StudioCx {
 	}
 }
 
-/** Seconds after an edit before its Finish tail is measured, so a burst of edits measures once */
+/** Seconds after an edit before its Bowl tail is measured, so a burst of edits measures once */
 const TAIL_MEASURE_DELAY = 0.4 * 1000;
 // Seconds a T on an existing hit lands after it, while stopped
 const TAP_STEP = 0.5;
 
-/** Whether an edit can move when the last marble leaves the frame: it changes the notes or a Finish, and not the length */
-function changesFinishEnding(commands: readonly TProjectCommand[]): boolean {
+/** Whether an edit can move when the last marble leaves the frame: it changes the notes or a Bowl, and not the length */
+function changesBowlEnding(commands: readonly TProjectCommand[]): boolean {
 	if (commands.some((command) => command.type === 'setEnd')) return false;
-	return changesHitsOnly(commands) || commands.some((command) => (command.type === 'upsertEntity' && command.entity.components.piece?.type === FINISH_TYPE) || command.type === 'removeEntities');
+	return changesHitsOnly(commands) || commands.some((command) => (command.type === 'upsertEntity' && command.entity.components.piece?.type === BOWL_TYPE) || command.type === 'removeEntities');
 }
 
 /** A notice that offers a fix, or details to read, stays until it is used or closed, or the next edit */

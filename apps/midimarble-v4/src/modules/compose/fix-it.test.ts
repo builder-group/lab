@@ -5,7 +5,7 @@ import { loadFixture } from '@/modules/project/test-helpers';
 import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { hitSummary } from '@/modules/studio/timeline/hit-status';
-import { newlyBroken } from './finish-assist';
+import { newlyBroken } from './bowl-assist';
 import { addedProblems, brokenHits, fixedWords, fixPiece, moveClear, lookPieces, releaseFix, replaceBroken, replaceLabel, replacePlan, replaceResultMessage, replaceResultSummary, sceneryFix, withCommands, type TReplaceDeps } from './fix-it';
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
@@ -339,10 +339,10 @@ describe('moveClear function', () => {
 		expect(moved.message).toMatch(/^Windmill 1 moved \d+ cm, clear of .+'s run$/);
 	});
 
-	it('should keep a Blocked Finish, which is how its marble ends, even when moving it clear would break a hit', async () => {
+	it('should keep a Blocked Bowl, which is how its marble ends, even when moving it clear would break a hit', async () => {
 		// Prepare
 		const { project: blocked, result } = createBlocked();
-		const project = { ...blocked, entities: blocked.entities.map((entity) => (entity.id === 'windmill' && entity.components.piece != null ? { ...entity, components: { ...entity.components, piece: { ...entity.components.piece, type: 'finish' } } } : entity)) };
+		const project = { ...blocked, entities: blocked.entities.map((entity) => (entity.id === 'windmill' && entity.components.piece != null ? { ...entity, components: { ...entity.components, piece: { ...entity.components.piece, type: 'bowl' } } } : entity)) };
 		const laneId = project.music.lanes[0]?.id ?? '';
 		const onTime = { ...result, hits: [hit(1.5, 'onTime', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };
 		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { laneId, hitId: 'h1', pieceEntityId: 'p1' })] };

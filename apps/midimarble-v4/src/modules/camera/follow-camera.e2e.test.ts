@@ -1,13 +1,13 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { FINISH_TAIL_MAX, finishTail, songEnd } from '@/modules/music';
+import { BOWL_TAIL_MAX, bowlTail, songEnd } from '@/modules/music';
 import { type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { finishCatch } from '@/modules/simulation/finish';
+import { bowlCatch } from '@/modules/simulation/bowl';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
 import { compareCameraTrack, type TBlenderCameraDump } from './compare-track';
-import { finishExit } from './finish-exit';
+import { bowlExit } from './bowl-exit';
 import { pyRound, verticalFov } from './follow-camera';
 import { at, project, required } from './follow-camera-test-helpers';
 import { followCameraTrack } from './project-track';
@@ -217,26 +217,26 @@ describe('follow camera on whole songs', () => {
 		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
 	});
 
-	it('ends Jingle Bells just after its last marble leaves the frame, with both marbles landing in their Finishes in frame', () => {
+	it('ends Jingle Bells just after its last marble leaves the frame, with both marbles landing in their Bowls in frame', () => {
 		const { project: jingle, result } = fixture('jingle-bells');
 		const track = required(followCameraTrack(jingle, result, 30));
 		const lastNote = Math.max(
 			...jingle.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time))
 		);
 		const longer = required(results.get('jingle-bells-longer'));
-		const exit = required(finishExit(longer.project, longer.result));
-		expect(jingle.end).toBe(songEnd(lastNote, finishTail(exit)));
-		// Gone 0.1 s before the end, no empty chute after that
+		const exit = required(bowlExit(longer.project, longer.result));
+		expect(jingle.end).toBe(songEnd(lastNote, bowlTail(exit)));
+		// Gone 0.1 s before the end, no empty frame after that
 		expect(lastNote + exit).toBeLessThan(jingle.end);
 		expect(jingle.end - lastNote - exit).toBeLessThan(0.15);
 		const end = track.frameCount - 1;
-		const finishes = jingle.entities.filter((entity) => entity.components.piece?.type === 'finish');
-		expect(finishes).toHaveLength(2);
-		for (const finish of finishes) {
-			const caught = finishCatch(result, finish.id);
+		const bowls = jingle.entities.filter((entity) => entity.components.piece?.type === 'bowl');
+		expect(bowls).toHaveLength(2);
+		for (const bowl of bowls) {
+			const caught = bowlCatch(result, bowl.id);
 			expect(caught.status).toBe('caught');
-			const marble = required(result.marbles.find((item) => item.laneId === finish.components.hitLink?.laneId));
-			// The marble enters its Finish in frame, with a margin of 5 % of it
+			const marble = required(result.marbles.find((item) => item.laneId === bowl.components.hitLink?.laneId));
+			// The marble enters its Bowl in frame, with a margin of 5 % of it
 			const enter = pyRound(required(caught.enterTime) * 30);
 			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));
 			const [u, v] = project(track, enter, sample.position.x, sample.position.y);
@@ -244,17 +244,17 @@ describe('follow camera on whole songs', () => {
 			expect(Math.max(u, v)).toBeLessThan(0.95);
 			// A catch after the last hit stays in the held frame to the end
 			if (required(caught.enterTime) < Math.max(...result.hits.map((hit) => hit.actualTime ?? -Infinity))) continue;
-			const mouth = required(result.pieces.find((piece) => piece.entityId === finish.id)).position;
+			const mouth = required(result.pieces.find((piece) => piece.entityId === bowl.id)).position;
 			const [mu, mv] = project(track, end, mouth.x, mouth.y);
 			expect(Math.min(mu, mv)).toBeGreaterThan(0.05);
 			expect(Math.max(mu, mv)).toBeLessThan(0.95);
 		}
 	});
 
-	it('ends Reference 20 no later than the longest tail, on the frame its last marble leaves through its Finish', () => {
+	it('ends Reference 20 no later than the longest tail, on the frame its last marble leaves through its Bowl', () => {
 		const { project: reference, result } = fixture('reference-20');
 		const lastNote = Math.max(...reference.music.lanes.flatMap((lane) => lane.hits.map((hit) => hit.time)));
-		expect(reference.end).toBeLessThanOrEqual(songEnd(lastNote, FINISH_TAIL_MAX));
+		expect(reference.end).toBeLessThanOrEqual(songEnd(lastNote, BOWL_TAIL_MAX));
 		const track = required(followCameraTrack(reference, result, 30));
 		const end = track.frameCount - 1;
 		const marble = required(result.marbles[0]);
@@ -263,21 +263,21 @@ describe('follow camera on whole songs', () => {
 		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
 	});
 
-	it('frames the last hit and the Finish together in the held ending', () => {
+	it('frames the last hit and the Bowl together in the held ending', () => {
 		const { project: reference, result } = fixture('reference-20');
 		const held = required(followCameraTrack(reference, result, 30));
 		const without = required(
 			followCameraTrack(
-				{ ...reference, entities: reference.entities.filter((entity) => entity.components.piece?.type !== 'finish') },
-				{ ...result, pieces: result.pieces.filter((piece) => piece.type !== 'finish') },
+				{ ...reference, entities: reference.entities.filter((entity) => entity.components.piece?.type !== 'bowl') },
+				{ ...result, pieces: result.pieces.filter((piece) => piece.type !== 'bowl') },
 				30
 			)
 		);
 		const end = held.frameCount - 1;
-		const mouth = required(result.pieces.find((piece) => piece.type === 'finish')).position;
+		const mouth = required(result.pieces.find((piece) => piece.type === 'bowl')).position;
 		const [, before] = project(without, end, mouth.x, mouth.y);
 		const [u, v] = project(held, end, mouth.x, mouth.y);
-		// Held on the last pieces alone, the Finish sits lower in the frame than when the frame holds both
+		// Held on the last pieces alone, the Bowl sits lower in the frame than when the frame holds both
 		expect(v).toBeGreaterThan(before);
 		expect(Math.min(u, v)).toBeGreaterThan(0.1);
 		expect(Math.max(u, v)).toBeLessThan(0.9);

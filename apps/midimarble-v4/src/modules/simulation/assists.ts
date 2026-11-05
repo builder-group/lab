@@ -14,7 +14,7 @@ import { layoutOf } from './piece-layout';
 import { getPieceDefinition, isMusicalPiece, resolvePieceParams, soundsHit } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
-import { FINISH_TYPE } from './finish';
+import { BOWL_TYPE } from './bowl';
 import { bounceTakeoff, columnOffset, extraStrikes, filmGap, filmPitch, filmView, MIN_PIECE_GAP, riseAfterHit, rollingHits, touchingPairs } from './track-look';
 import {
 	HIT_TOLERANCE,
@@ -826,7 +826,7 @@ function evaluatePlacement(
 function filmGaps(context: TPlacementContext, own: TResolvedPiece | undefined, next: TResolvedPiece | undefined, placed: TResolvedPiece[]): { ownTouching: number; visualShortfall: number; shorter: number | undefined } {
 	const { project, later, marbleRadius, isMending, isBox } = context;
 	let visualShortfall = 0;
-	const nearby = placed.filter((other) => other !== own && other.type !== FINISH_TYPE && other.status !== 'free' && !later.has(other.entityId));
+	const nearby = placed.filter((other) => other !== own && other.type !== BOWL_TYPE && other.status !== 'free' && !later.has(other.entityId));
 	const pitch = filmPitch(project);
 	const nearbyViews = nearby.map((other) => ({ other, view: filmView(other, marbleRadius, pitch) }));
 	const touchingBy = (length: number | null): number => {

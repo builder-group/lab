@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { finishCatch } from '@/modules/simulation/finish';
+import { bowlCatch } from '@/modules/simulation/bowl';
 import { createSimulator } from '@/modules/simulation/simulate';
 import type { TSimulationResult } from '@/modules/simulation/types';
 import { quaternionToMatrix } from './compare-track';
@@ -298,15 +298,15 @@ describe('follow camera', () => {
 		expect(Math.min(u, v) < 0 || Math.max(u, v) > 1).toBe(true);
 	});
 
-	it('shows each marble landing in its Finish', () => {
+	it('shows each marble landing in its Bowl', () => {
 		const { project: duet, result } = fixture('two-marbles');
 		const track = required(followCameraTrack(duet, result, 30));
-		const finishes = duet.entities.filter((entity) => entity.components.piece?.type === 'finish');
-		expect(finishes).toHaveLength(2);
-		for (const finish of finishes) {
-			const caught = finishCatch(result, finish.id);
+		const bowls = duet.entities.filter((entity) => entity.components.piece?.type === 'bowl');
+		expect(bowls).toHaveLength(2);
+		for (const bowl of bowls) {
+			const caught = bowlCatch(result, bowl.id);
 			expect(caught.status).toBe('caught');
-			const marble = required(result.marbles.find((item) => item.laneId === finish.components.hitLink?.laneId));
+			const marble = required(result.marbles.find((item) => item.laneId === bowl.components.hitLink?.laneId));
 			const enter = pyRound(required(caught.enterTime) * 30);
 			const sample = required(marble.samples.find((item) => item.time >= enter / 30 - 1e-6));
 			const [u, v] = project(track, enter, sample.position.x, sample.position.y);

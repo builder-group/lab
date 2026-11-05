@@ -213,14 +213,14 @@ export interface TTouchingPair {
 
 /**
  * Pieces closer than `gap` as the film shows them, two bars seen through its pitch (`filmView`), in time order. Free pieces and Decor are the person's own composition
- * and a Finish stands apart from everything by its own search, so neither is judged.
+ * and a Bowl stands apart from everything by its own search, so neither is judged.
  */
 export function touchingPairs(project: TProject, result: TSimulationResult, gap = MIN_PIECE_GAP): TTouchingPair[] {
 	const radius = marbleRadiusOf(project);
 	const pitch = filmPitch(project);
 	const entities = new Map(project.entities.map((entity) => [entity.id, entity]));
 	const items = standingPieces(result)
-		.filter((piece) => entities.get(piece.entityId)?.components.hitLink != null && piece.type !== 'finish')
+		.filter((piece) => entities.get(piece.entityId)?.components.hitLink != null && piece.type !== 'bowl')
 		.map((piece) => ({ piece, view: filmView(piece, radius, pitch), time: piece.hitTime ?? piece.entryTime ?? 0 }));
 	const pairs: TTouchingPair[] = [];
 	for (let i = 0; i < items.length; i++) {
@@ -247,7 +247,7 @@ export function nearestPieceGap(project: TProject, result: TSimulationResult, en
 	const view = filmView(piece, radius, pitch);
 	let nearest = Infinity;
 	for (const other of pieces) {
-		if (other === piece || entities.get(other.entityId)?.components.hitLink == null || other.type === 'finish') continue;
+		if (other === piece || entities.get(other.entityId)?.components.hitLink == null || other.type === 'bowl') continue;
 		nearest = Math.min(nearest, filmGap(view, filmView(other, radius, pitch), limit));
 	}
 	return nearest;
@@ -270,7 +270,7 @@ const SAME_STRIKE = HIT_TOLERANCE + 0.01;
 
 /**
  * Platforms a marble strikes outside their note: a second bounce, a roll along the top, or a graze on the way to an
- * earlier note. Only platforms that sound a hit count: a marble riding a switchback or rail or landing in a Finish is
+ * earlier note. Only platforms that sound a hit count: a marble riding a switchback or rail or landing in a Bowl is
  * meant to, and a free platform is scenery. A hit that is already Blocked or Missed is reported as that.
  */
 export function extraStrikes(project: TProject, result: TSimulationResult): TExtraStrike[] {
@@ -349,7 +349,7 @@ export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: 
 }
 
 /**
- * Platforms a marble rolls along after its note. Rails, switchbacks and the Finish are exempt, since rolling is their
+ * Platforms a marble rolls along after its note. Rails, switchbacks and the Bowl are exempt, since rolling is their
  * job, a free platform is scenery, and after a marble's last note it may come to rest. A hit that is already Blocked or
  * Missed is reported as that.
  */

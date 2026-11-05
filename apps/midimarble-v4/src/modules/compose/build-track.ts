@@ -25,8 +25,8 @@ import {
 	type TSimulator
 } from '@/modules/simulation';
 import { checkFraming } from '@/modules/design/export-preflight';
-import { FINISH_TYPE, finishOfLane } from '@/modules/simulation';
-import { withFinishes } from './finish-assist';
+import { BOWL_TYPE, bowlOfLane } from '@/modules/simulation';
+import { withBowls } from './bowl-assist';
 import { openHits } from './step-loop';
 import { hitReach } from './reachability';
 
@@ -41,7 +41,7 @@ import { hitReach } from './reachability';
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
 // few millimetres over, as a person would, until `SEARCHES_PER_HIT` searches per hit are spent; the attempt that got
-// furthest then finishes past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
+// furthest then bowls past the hits nothing solves and names them, for Fix. The limit counts searches, not seconds,
 // so every choice follows from the project and the same project always gets the same track.
 
 const DEGREE = Math.PI / 180;
@@ -137,8 +137,8 @@ export interface TBuildOutcome {
 	releaseShift: number;
 	/** Hits that are not on time, in time order, or Open after the build */
 	attention: TBuildAttention[];
-	/** What each Finish search said */
-	finishes: string[];
+	/** What each Bowl search said */
+	bowls: string[];
 	counts: TBuildCounts;
 	/** Attempts started, the first included */
 	attempts: number;
@@ -205,7 +205,7 @@ interface TAttempt {
 	project: TProject;
 	/** Song time of the hit that stopped it, Infinity when it got through */
 	reached: number;
-	/** The same project with its Finishes, when it got through and asked for them */
+	/** The same project with its Bowls, when it got through and asked for them */
 	finished?: { project: TProject; messages: string[] };
 }
 
@@ -847,9 +847,9 @@ function lanesWithHits(project: TProject): string[] {
 	return project.music.lanes.filter((lane) => lane.hits.length > 0).map((lane) => lane.id);
 }
 
-/** A marble no Finish could catch: its last platforms go another way, so its fall ends somewhere a Finish fits */
-function finishTrouble(project: TProject): { laneId: string; from: number } | null {
-	const lane = project.music.lanes.find((item) => item.hits.length > 0 && finishOfLane(project, item.id) == null);
+/** A marble no Bowl could catch: its last platforms go another way, so its fall ends somewhere a Bowl fits */
+function bowlTrouble(project: TProject): { laneId: string; from: number } | null {
+	const lane = project.music.lanes.find((item) => item.hits.length > 0 && bowlOfLane(project, item.id) == null);
 	return lane != null ? { laneId: lane.id, from: lane.hits.at(-1)?.time ?? 0 } : null;
 }
 
@@ -896,7 +896,7 @@ function attentionOf(project: TProject, result: TSimulationResult): TBuildAttent
 }
 
 /**
- * The project without what Rebuild From Here builds again: platforms, switchbacks, rails, tunnels and Finishes that belong
+ * The project without what Rebuild From Here builds again: platforms, switchbacks, rails, tunnels and Bowls that belong
  * to later hits on any marble. A gap piece hangs on the hit before its gap, so one reaching past `from` goes with them,
  * and the marbles are built together, so every marble is cut at the same time. Scenery a person tied to a marble stays.
  */
@@ -915,7 +915,7 @@ export function withoutPiecesAfter(project: TProject, from: { laneId: string; hi
 		const { piece, hitLink } = entity.components;
 		if (piece == null || hitLink == null) return false;
 		const key = `${hitLink.laneId}/${hitLink.hitId}`;
-		if (piece.type === FINISH_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
+		if (piece.type === BOWL_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
 		if (isGapPiece(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
 		return isMusicalPiece(piece.type) && (timeOf.get(key) ?? Infinity) > time + 1e-9;
 	};
@@ -955,7 +955,7 @@ export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Pr
 }
 
 /**
- * Builds every marble's open hits of `project` in time order and ends each marble in a Finish. Pieces already there
+ * Builds every marble's open hits of `project` in time order and ends each marble in a Bowl. Pieces already there
  * stay; one is turned only when nothing else solves a hit, and the outcome names it. Releases move only for marbles
  * without pieces. Each accepted step goes to `deps.commit`, so the pieces appear as they are found.
  */
@@ -969,11 +969,11 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	if (best == null) throw new Error('Build Track started no attempt');
 	let current = await goOnPastStuck(build, best);
 
-	// Each marble ends in a Finish after its last note, and the film length follows
-	const finishes: string[] = [];
+	// Each marble ends in a Bowl after its last note, and the film length follows
+	const bowls: string[] = [];
 	if (!build.isStopped && !isCancelled(best.state)) {
-		const finished = best.finished ?? (await withFinishes(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) }));
-		finishes.push(...finished.messages);
+		const finished = best.finished ?? (await withBowls(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) }));
+		bowls.push(...finished.messages);
 		if (isCancelled(best.state)) build.isStopped = true;
 		else {
 			current = finished.project;
@@ -997,7 +997,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 		}).map(([id]) => id),
 		releaseShift: best.shift,
 		attention: attentionOf(current, result),
-		finishes,
+		bowls,
 		counts: build.counts,
 		attempts: build.attempts,
 		isStopped: build.isStopped
@@ -1110,12 +1110,12 @@ async function bestAttempt(build: TBuildRun): Promise<TBestAttempt | null> {
 	return best;
 }
 
-/** How far an attempt counts as having got: one through the song that leaves the pace, a Finish or the frame stopped at the end */
+/** How far an attempt counts as having got: one through the song that leaves the pace, a Bowl or the frame stopped at the end */
 async function reachedWhenChecked(state: TBuildState, attempted: TAttempt): Promise<number> {
 	if (attempted.reached !== Infinity) return attempted.reached;
 	const finished = await run(state, attempted.project);
-	if (!keepsPace(attempted.project, finished) || finishTrouble(attempted.finished?.project ?? attempted.project) != null) {
-		state.deps.onLog?.('  the dots leave the shared pace or a marble misses its Finish, so the build counts as stopped at the end');
+	if (!keepsPace(attempted.project, finished) || bowlTrouble(attempted.finished?.project ?? attempted.project) != null) {
+		state.deps.onLog?.('  the dots leave the shared pace or a marble misses its Bowl, so the build counts as stopped at the end');
 		return attempted.project.end;
 	}
 	if (framingTrouble(attempted.project, finished) != null) {
@@ -1210,10 +1210,10 @@ async function attemptBuild(build: TBuildRun, state: TBuildState, start: TProjec
 		const result = await run(state, current);
 		const target = nextTarget(state, current, result);
 		if (target == null) {
-			// The whole run is built, so the camera's answer, the pace and the Finishes are final
-			const finished = await withFinishes(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) });
+			// The whole run is built, so the camera's answer, the pace and the Bowls are final
+			const finished = await withBowls(current, { simulate: (next) => deps.simulate(next), isCancelled: deps.isCancelled }, { lanes: lanesWithHits(current) });
 			if (isCancelled(state)) return stopped();
-			const trouble = canForce ? null : (framingTrouble(finished?.project ?? current, finished != null ? await deps.simulate(finished.project) : result) ?? paceTrouble(current, result) ?? finishTrouble(finished?.project ?? current));
+			const trouble = canForce ? null : (framingTrouble(finished?.project ?? current, finished != null ? await deps.simulate(finished.project) : result) ?? paceTrouble(current, result) ?? bowlTrouble(finished?.project ?? current));
 			if (trouble != null && (await wentBack(trouble))) continue;
 			return { project: current, reached: Infinity, ...(finished != null ? { finished } : {}) };
 		}

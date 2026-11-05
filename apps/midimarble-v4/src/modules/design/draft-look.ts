@@ -94,8 +94,8 @@ export function draftPieceColors(
 	// Glowing skins: what reads is the glow, in their marble's or note's hue
 	if (style === 'neon' || style === 'glow') return neonColors(piece.type, accent ?? GLOW_SKIN, look.glowColor ?? overrides.glowColor ?? null);
 	if (style === 'pegboard' || style === 'wood') {
-		// A Wood Finish is chrome wires on wooden pegs and plays no note
-		if (piece.type === 'finish') return { bar: accent ?? CHROME, nub: WOOD };
+		// A Wood Bowl is chrome wires on wooden pegs and plays no note
+		if (piece.type === 'bowl') return { bar: accent ?? CHROME, nub: WOOD };
 		// Pieces take their marble's colour; a lighter tint keeps the marble readable as it rolls over them
 		const body = accent == null ? WOOD : accent === piece.color ? tint(piece.color, PEGBOARD_TINT) : accent;
 		return piece.type === 'tunnel' ? { bar: body, nub: shade(body, 0.75) } : { bar: body, nub: WOOD };
@@ -335,7 +335,7 @@ export function draftGlows(theme: string): boolean {
 /**
  * Neon pieces in the hue of their marble or note at full saturation, after `neon_colors` in skins.py: what reads
  * is the glow, so platforms, tunnels and windmills show their lit colour with a deeper body, and rails and
- * switchbacks and Finishes are tube lights on dark posts
+ * Bowls are tube lights on dark posts
  */
 function neonColors(type: string, color: string, glowColor: string | null): TDraftColors {
 	// A project theme's Glow lights every edge in one colour, like `neon_colors` with `glow`

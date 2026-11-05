@@ -4,7 +4,7 @@ import { preflightExport, problemSummary } from '@/modules/design/export-preflig
 import { alignNotes, createImportCommands, parseMidiFile, proposeLanes } from '@/modules/music';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { createSimulator, extraStrikes, finishOfLane, touchingPairs, type TSimulator } from '@/modules/simulation';
+import { createSimulator, extraStrikes, bowlOfLane, touchingPairs, type TSimulator } from '@/modules/simulation';
 import { buildTrack, localBuildDeps, type TBuildOutcome, type TBuildProgress } from './build-track';
 
 const MINUTES = 60_000;
@@ -69,7 +69,7 @@ describe('buildTrack function', () => {
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(115);
 		expect(outcome.attention).toEqual([]);
 		expect(problemsBesidesSong(outcome.project, outcome)).toEqual([]);
-		for (const lane of outcome.project.music.lanes) expect(finishOfLane(outcome.project, lane.id)).not.toBeNull();
+		for (const lane of outcome.project.music.lanes) expect(bowlOfLane(outcome.project, lane.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
 		expect(problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision })).label).toBe('115 of 115 hits on time');
 		// How it looks: nothing touches as the film shows it, each platform is struck once

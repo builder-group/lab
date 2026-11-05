@@ -16,7 +16,7 @@ Use these with the person. One word per thing.
 | Backing | dropped, unassigned | Notes no marble plays; heard in the film |
 | Track Piece | object, prop, asset | One of any kind of thing the marbles run on, when the kind doesn't matter; after the first mention, piece |
 | Platform | bar, pad, peg | The piece that plays a note |
-| Rail, Tunnel, Windmill, Switchback, Finish | scenery | The other pieces |
+| Rail, Tunnel, Windmill, Switchback, Bowl | scenery | The other pieces |
 | On Time, Early, Late, Missed, Stopped, Blocked, Open | | A hit's status |
 | Compose, Film | Design | The two workspaces |
 | Theme | style, preset | Dresses the whole film; one per project |

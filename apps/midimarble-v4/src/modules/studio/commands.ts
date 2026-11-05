@@ -3,7 +3,7 @@ import { fitsSong, lastHitTime } from '@/modules/music/lane-commands';
 import { removeSelectedHits } from './timeline/hand-notes';
 import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
-import { lanesWithoutFinish } from '@/modules/compose/finish-assist';
+import { lanesWithoutBowl } from '@/modules/compose/bowl-assist';
 import { newProjectTitle } from '@/environment';
 import type { ComposeCx } from '@/modules/compose/ComposeCx';
 import { followKey, toolKeys, tunnelPathKey, type TComposeTool } from '@/modules/compose/keys';
@@ -211,10 +211,10 @@ function selectedShotIds(cx: StudioCx): string[] {
 }
 
 /**
- * The marble Add Finish works on: the selected marble's (or the selected piece's), else the first marble that plays
- * last and has no Finish yet; null when there is none
+ * The marble Add Bowl works on: the selected marble's (or the selected piece's), else the first marble that plays
+ * last and has no Bowl yet; null when there is none
  */
-function finishLane(cx: StudioCx): string | null {
+function bowlLane(cx: StudioCx): string | null {
 	const project = cx.project;
 	if (project == null) return null;
 	const selected = cx.$selection.get().flatMap((id) => {
@@ -224,7 +224,7 @@ function finishLane(cx: StudioCx): string | null {
 	});
 	const lane = selected[0];
 	if (lane != null && project.music.lanes.some((item) => item.id === lane && item.hits.length > 0)) return lane;
-	return lanesWithoutFinish(project)[0] ?? null;
+	return lanesWithoutBowl(project)[0] ?? null;
 }
 
 /** The marble Add Suggested Hits works on: the selected one, else the first without hits, else the first */
@@ -401,7 +401,7 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => compose(cx)?.armTool('path', 'tunnel')
 	},
 	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
-	toolCommand('finish', 'Finish Tool', 'piece add end catch chute cup last note'),
+	toolCommand('bowl', 'Bowl Tool', 'piece add end catch collect cup last note'),
 	{
 		id: 'tool.insert',
 		title: 'Insert…',
@@ -422,7 +422,7 @@ export const commands: readonly TCommand[] = [
 		title: 'Build Track',
 		section: 'Track',
 		shortcut: '⇧N',
-		keywords: 'whole song all hits auto build everything finish solve assist',
+		keywords: 'whole song all hits auto build everything bowl solve assist',
 		isEnabled: (cx) => compose(cx) != null && compose(cx)?.assist.isBuilding !== true && compose(cx)?.assist.hasOpenHits === true,
 		run: (cx) => void compose(cx)?.assist.buildTrack()
 	},
@@ -462,14 +462,14 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => void compose(cx)?.assist.replace()
 	},
 	{
-		id: 'build.addFinish',
-		title: 'Add Finish',
+		id: 'build.addBowl',
+		title: 'Add Bowl',
 		section: 'Track',
-		keywords: 'finish end catch chute cup last note ending tail',
-		isEnabled: (cx) => compose(cx) != null && finishLane(cx) != null,
+		keywords: 'bowl end catch collect cup last note ending tail',
+		isEnabled: (cx) => compose(cx) != null && bowlLane(cx) != null,
 		run: (cx) => {
-			const laneId = finishLane(cx);
-			if (laneId != null) void compose(cx)?.assist.addFinish(laneId);
+			const laneId = bowlLane(cx);
+			if (laneId != null) void compose(cx)?.assist.addBowl(laneId);
 		}
 	},
 	{
@@ -786,8 +786,8 @@ export type TCommandId =
 	| 'tool.platform'
 	| 'tool.tunnel'
 	| 'tool.windmill'
-	| 'tool.finish'
-	| 'build.addFinish'
+	| 'tool.bowl'
+	| 'build.addBowl'
 	| 'tool.insert'
 	| 'help.quickHelp'
 	| 'help.resetHints'

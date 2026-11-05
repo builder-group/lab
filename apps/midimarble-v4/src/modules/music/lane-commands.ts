@@ -73,33 +73,33 @@ export function createImportCommands(
 export const SONG_TAIL = 0.4;
 
 /**
- * Seconds a film runs on after the last note while every marble that plays last has a Finish but its run is not
- * measured yet, or a Finish misses: long enough to show the catch and the roll-out. A measured run replaces it
- * (`finishTail`).
+ * Seconds a film runs on after the last note while every marble that plays last has a Bowl but its run is not
+ * measured yet, or a Bowl misses: long enough to show the catch. A measured run replaces it
+ * (`bowlTail`).
  */
-export const FINISH_TAIL = 1.2;
+export const BOWL_TAIL = 1.2;
 
 /**
  * The bounds of a measured tail: below 0.6 s the catch has not read yet, and past 1.5 s the film holds on a marble that
- * stays in frame, as in a Cup or in Reference 20 (it leaves 1.71 s after its last note)
+ * stays in frame, as in a Bowl
  */
-export const FINISH_TAIL_MIN = 0.6;
-export const FINISH_TAIL_MAX = 1.5;
+export const BOWL_TAIL_MIN = 0.6;
+export const BOWL_TAIL_MAX = 1.5;
 
 /** Seconds the frame stays after the marble has left it, so the film does not cut on the marble's last pixel */
-const FINISH_TAIL_MARGIN = 0.1;
+const BOWL_TAIL_MARGIN = 0.1;
 
 /**
- * Tail for a marble that leaves the frame `exit` seconds after the last note (`finishExit`, `Infinity` if it stays),
- * clamped to `FINISH_TAIL_MIN` and `FINISH_TAIL_MAX`, or `FINISH_TAIL` without a measurement
+ * Tail for a marble that leaves the frame `exit` seconds after the last note (`bowlExit`, `Infinity` if it stays),
+ * clamped to `BOWL_TAIL_MIN` and `BOWL_TAIL_MAX`, or `BOWL_TAIL` without a measurement
  */
-export function finishTail(exit: number | null): number {
-	if (exit == null) return FINISH_TAIL;
-	return Math.round(Math.min(FINISH_TAIL_MAX, Math.max(FINISH_TAIL_MIN, exit + FINISH_TAIL_MARGIN)) * 100) / 100;
+export function bowlTail(exit: number | null): number {
+	if (exit == null) return BOWL_TAIL;
+	return Math.round(Math.min(BOWL_TAIL_MAX, Math.max(BOWL_TAIL_MIN, exit + BOWL_TAIL_MARGIN)) * 100) / 100;
 }
 
 /** The piece type that catches a marble after its last note */
-const FINISH_TYPE = 'finish';
+const BOWL_TYPE = 'bowl';
 
 /** Film length for a song whose last note starts at `lastNote`, rounded to 0.01 s */
 export function songEnd(lastNote: number, tail = SONG_TAIL): number {
@@ -107,35 +107,35 @@ export function songEnd(lastNote: number, tail = SONG_TAIL): number {
 }
 
 /**
- * The marbles that play last: those whose last hit falls within `FINISH_TAIL` of the song's last hit, so they
- * would still fall through the frame during a Finish's tail. Lane IDs, empty without hits.
+ * The marbles that play last: those whose last hit falls within `BOWL_TAIL` of the song's last hit, so they
+ * would still fall through the frame during a Bowl's tail. Lane IDs, empty without hits.
  */
 export function lastPlayingLanes(project: TProject): string[] {
 	const lasts = project.music.lanes.flatMap((lane) => (lane.hits.length ? [{ id: lane.id, time: Math.max(...lane.hits.map((hit) => hit.time)) }] : []));
 	if (!lasts.length) return [];
 	const last = Math.max(...lasts.map((item) => item.time));
-	return lasts.filter((item) => item.time >= last - FINISH_TAIL - 1e-9).map((item) => item.id);
+	return lasts.filter((item) => item.time >= last - BOWL_TAIL - 1e-9).map((item) => item.id);
 }
 
-/** Whether a marble's lane has a Finish, the piece that catches it after its last note */
-export function hasFinish(project: TProject, laneId: string): boolean {
-	return project.entities.some((entity) => entity.components.piece?.type === FINISH_TYPE && entity.components.hitLink?.laneId === laneId);
+/** Whether a marble's lane has a Bowl, the piece that catches it after its last note */
+export function hasBowl(project: TProject, laneId: string): boolean {
+	return project.entities.some((entity) => entity.components.piece?.type === BOWL_TYPE && entity.components.hitLink?.laneId === laneId);
 }
 
-/** Whether every marble that plays last has a Finish, so the film ends on the catch */
-export function endsOnFinish(project: TProject): boolean {
+/** Whether every marble that plays last has a Bowl, so the film ends on the catch */
+export function endsOnBowl(project: TProject): boolean {
 	const lanes = lastPlayingLanes(project);
-	return lanes.length > 0 && lanes.every((laneId) => hasFinish(project, laneId));
+	return lanes.length > 0 && lanes.every((laneId) => hasBowl(project, laneId));
 }
 
 /**
- * The one rule for how long a film runs on after its last note: `finishTail` when every marble that plays last has
- * a Finish, from `exit`, the seconds until the last marble leaves the frame (`finishExit`, null while unmeasured or
- * when a Finish misses its marble); else `SONG_TAIL`. The problem model says whether a Finish catches its marble
- * ("Melody misses the Finish").
+ * The one rule for how long a film runs on after its last note: `bowlTail` when every marble that plays last has
+ * a Bowl, from `exit`, the seconds until the last marble leaves the frame (`bowlExit`, null while unmeasured or
+ * when a Bowl misses its marble); else `SONG_TAIL`. The problem model says whether a Bowl catches its marble
+ * ("Melody misses the Bowl").
  */
 export function filmTail(project: TProject, exit: number | null = null): number {
-	return endsOnFinish(project) ? finishTail(exit) : SONG_TAIL;
+	return endsOnBowl(project) ? bowlTail(exit) : SONG_TAIL;
 }
 
 /** The length that fits the project's song: its last hit plus `filmTail`; null without notes */
@@ -156,7 +156,7 @@ export function lastHitTime(project: TProject): number | null {
 
 /**
  * Whether the length still follows the song: the untouched default of a new project, the last hit plus `SONG_TAIL`,
- * or plus a tail between `FINISH_TAIL_MIN` and `FINISH_TAIL_MAX` when the film ends on a Finish, as an import, Fit to
+ * or plus a tail between `BOWL_TAIL_MIN` and `BOWL_TAIL_MAX` when the film ends on a Bowl, as an import, Fit to
  * Song or the automatic fit left it. A length the user set to anything else is theirs and never changes silently.
  */
 export function isAutoEnd(project: TProject): boolean {
@@ -165,25 +165,25 @@ export function isAutoEnd(project: TProject): boolean {
 	if (last == null) return false;
 	if (Math.abs(project.end - songEnd(last, SONG_TAIL)) < 0.005) return true;
 	const tail = project.end - last;
-	return endsOnFinish(project) && tail > FINISH_TAIL_MIN - 0.005 && tail < FINISH_TAIL_MAX + 0.005;
+	return endsOnBowl(project) && tail > BOWL_TAIL_MIN - 0.005 && tail < BOWL_TAIL_MAX + 0.005;
 }
 
 /**
  * Whether the length already is what the tail rule gives, so Fit to Song has nothing to do: the last hit plus
- * `SONG_TAIL`, or plus a measured tail between the bounds when the film ends on a Finish
+ * `SONG_TAIL`, or plus a measured tail between the bounds when the film ends on a Bowl
  */
 export function fitsSong(project: TProject): boolean {
 	const last = lastHitTime(project);
 	if (last == null) return false;
-	if (!endsOnFinish(project)) return Math.abs(project.end - songEnd(last, SONG_TAIL)) < 0.005;
+	if (!endsOnBowl(project)) return Math.abs(project.end - songEnd(last, SONG_TAIL)) < 0.005;
 	const tail = project.end - last;
-	return tail > FINISH_TAIL_MIN - 0.005 && tail < FINISH_TAIL_MAX + 0.005;
+	return tail > BOWL_TAIL_MIN - 0.005 && tail < BOWL_TAIL_MAX + 0.005;
 }
 
 /**
- * The length after an edit of the hits or the Finishes, while it follows the song: the last hit plus `filmTail`, so
- * a tapped project ends with its last hit instead of filming 8 s of empty wall, and a Finish added for the last
- * marble lengthens the film to show the catch. A measured Finish tail carries over until the next measurement.
+ * The length after an edit of the hits or the Bowls, while it follows the song: the last hit plus `filmTail`, so
+ * a tapped project ends with its last hit instead of filming 8 s of empty wall, and a Bowl added for the last
+ * marble lengthens the film to show the catch. A measured Bowl tail carries over until the next measurement.
  * `before` is the project the edit started from; a length the user set, an edit without notes and an edit that keeps
  * the length give null.
  */
@@ -192,18 +192,18 @@ export function autoEnd(before: TProject, after: TProject): number | null {
 	const last = lastHitTime(after);
 	if (last == null) return null;
 	const lastBefore = lastHitTime(before);
-	const measured = endsOnFinish(before) && endsOnFinish(after) && lastBefore != null ? before.end - lastBefore : null;
-	const fitted = measured != null && measured > FINISH_TAIL_MIN - 0.005 && measured < FINISH_TAIL_MAX + 0.005 ? songEnd(last, measured) : songEnd(last, filmTail(after));
+	const measured = endsOnBowl(before) && endsOnBowl(after) && lastBefore != null ? before.end - lastBefore : null;
+	const fitted = measured != null && measured > BOWL_TAIL_MIN - 0.005 && measured < BOWL_TAIL_MAX + 0.005 ? songEnd(last, measured) : songEnd(last, filmTail(after));
 	const end = Math.max(fitted, startingLength(after, before.end));
 	return Math.abs(end - after.end) < 1e-6 ? null : end;
 }
 
 /**
  * The length a film just being started keeps, so its first hits do not collapse it around them: without a song, a
- * Finish or `FEW_HITS` hits it stays at the default, or at the shorter `current` once Fit to Song chose that. Else 0.
+ * Bowl or `FEW_HITS` hits it stays at the default, or at the shorter `current` once Fit to Song chose that. Else 0.
  */
 export function startingLength(project: TProject, current: number): number {
-	if (project.music.sources.length > 0 || endsOnFinish(project)) return 0;
+	if (project.music.sources.length > 0 || endsOnBowl(project)) return 0;
 	const hits = project.music.lanes.reduce((sum, lane) => sum + lane.hits.length, 0);
 	return hits < FEW_HITS ? Math.min(current, DEFAULT_PROJECT_END) : 0;
 }
@@ -217,7 +217,7 @@ export function changesHitsOnly(commands: readonly TProjectCommand[]): boolean {
 }
 
 /**
- * Whether an edit that does not set the length changes the film's tail, by adding or removing the Finish of a marble
+ * Whether an edit that does not set the length changes the film's tail, by adding or removing the Bowl of a marble
  * that plays last, so the length may follow the song (`autoEnd`)
  */
 export function changesTail(commands: readonly TProjectCommand[], before: TProject, after: TProject): boolean {

@@ -22,7 +22,7 @@ describe('Agent status line', () => {
 });
 
 describe('Presence words', () => {
-	const titleOf = (id: string): string | null => ({ 'build.track': 'Build Track', 'build.addFinish': 'Add Finish', 'view.compose': 'Compose' })[id] ?? null;
+	const titleOf = (id: string): string | null => ({ 'build.track': 'Build Track', 'build.addBowl': 'Add Bowl', 'view.compose': 'Compose' })[id] ?? null;
 
 	it('should say what a call is doing and nothing for what only reads', () => {
 		expect(presenceLabel('run_command', { id: 'build.track' }, titleOf)).toBe('Building Track');
@@ -39,7 +39,7 @@ describe('Presence words', () => {
 		expect(editPresenceLabel(undefined, 'Place Platform (3)', null)).toBe('Placing Platform (3)');
 		expect(editPresenceLabel('Swing wider', 'Place Platform', 'Platform 12')).toBe('Swing wider');
 		expect(editPresenceLabel(undefined, null, null)).toBe('Editing');
-		expect(doingWords('Add Finish…')).toBe('Adding Finish');
+		expect(doingWords('Add Bowl…')).toBe('Adding Bowl');
 	});
 });
 
@@ -58,9 +58,9 @@ describe('AgentPresenceCx', () => {
 		endFirst();
 		vi.advanceTimersByTime(PRESENCE_HOLD_MS - 1);
 		expect(presence.$current.get()?.label).toBe('Placing Platform');
-		const endSecond = presence.begin('Adding Finish');
+		const endSecond = presence.begin('Adding Bowl');
 		vi.advanceTimersByTime(PRESENCE_HOLD_MS * 2);
-		expect(presence.$current.get()?.label).toBe('Adding Finish');
+		expect(presence.$current.get()?.label).toBe('Adding Bowl');
 		endSecond();
 		vi.advanceTimersByTime(PRESENCE_HOLD_MS);
 		expect(presence.$current.get()).toBeNull();
@@ -218,11 +218,11 @@ describe('Stop and edits through McpCx', () => {
 		cx.$compose.set({ assist } as never);
 		cx.mcp.stop();
 		expect(assist.stopBuild).not.toHaveBeenCalled();
-		let finish: () => void = () => undefined;
-		const step = cx.runAgentStep('Agent: Build Track', () => new Promise<void>((resolve) => (finish = resolve)));
+		let bowl: () => void = () => undefined;
+		const step = cx.runAgentStep('Agent: Build Track', () => new Promise<void>((resolve) => (bowl = resolve)));
 		cx.mcp.stop();
 		expect(assist.stopBuild).toHaveBeenCalledTimes(1);
-		finish();
+		bowl();
 		await step;
 	});
 

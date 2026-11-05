@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { createState } from 'feature-state';
 import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
-import { CheckField, HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
+import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { FINISH_CHUTE, FINISH_CUP, finishCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { bowlCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, noteName } from '@/modules/studio/format';
 import { toHitKey } from '@/modules/studio/selection';
 import { lookProblems, struckPieces, type TPreflightIssue } from '@/modules/design/export-preflight';
@@ -72,8 +72,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
 	const look = isSingle ? looks.get(first.id) : undefined;
 	const status = isSingle ? lookStatus(struckStatus(pieceStatus(project, first, resolved, result), hitBy), look) : null;
-	const isFinish = kind === 'catcher';
-	const isFinishMissed = isFinish && status?.tone === 'bad';
+	const isBowl = kind === 'catcher';
+	const isBowlMissed = isBowl && status?.tone === 'bad';
 
 	return (
 		<>
@@ -87,13 +87,12 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					// The Fix-it sits under the problem
 					status == null || link == null ? null : (status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link) && look == null ? (
 						<ReplaceButton cx={cx} laneId={link.laneId} hitId={link.hitId} />
-					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isFinishMissed || look != null ? (
+					) : (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? (
 						<FixPieceButton cx={cx} entityId={first.id} isPlatform={soundsHit(type, link)} />
 					) : null
 				}
 			/>
 			{entities.every((entity) => isPathPieceType(entity.components.piece?.type)) ? <PathTypeSection cx={cx} project={project} entities={entities} /> : null}
-			{isFinish && isSameType ? <FinishSection cx={cx} project={project} entities={entities} /> : null}
 			<Panel id="piece.position" title="Position">
 				{isSingle && position != null ? (
 					<>
@@ -125,7 +124,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						/>
 					</>
 				) : null}
-				{(!isPath || isFree) && !isFinish ? (
+				{(!isPath || isFree) && !isBowl ? (
 					<ScrubField
 						id="piece-angle"
 						label="∠"
@@ -357,22 +356,22 @@ function pieceStatus(project: TProject, entity: TEntity, resolved: TResolvedPiec
 	}
 	const kind = pieceKind(entity.components.piece ?? { type });
 	if ((kind === 'path' || kind === 'tube' || kind === 'generated') && resolved != null && result != null) return rideStatus(project, resolved, result, link.laneId);
-	if (kind === 'catcher' && resolved != null && result != null) return finishStatus(project, entity, resolved, result, link.laneId);
+	if (kind === 'catcher' && resolved != null && result != null) return bowlStatus(project, entity, resolved, result, link.laneId);
 	if (resolved?.status === 'blocked') return timingStatus(resolved, undefined, { marble: project.music.lanes.find((item) => item.id === link.laneId)?.name });
 	return null;
 }
 
-/** Whether the Finish catches its marble: Catches, Missed, Bounces Out or Blocked, read from the simulation */
-function finishStatus(project: TProject, entity: TEntity, piece: TResolvedPiece, result: TSimulationResult, laneId: string): TTimingStatus {
+/** Whether the Bowl catches its marble: Catches, Missed, Bounces Out or Blocked, read from the simulation */
+function bowlStatus(project: TProject, entity: TEntity, piece: TResolvedPiece, result: TSimulationResult, laneId: string): TTimingStatus {
 	const marble = project.music.lanes.find((item) => item.id === laneId)?.name ?? 'The marble';
-	const caught = finishCatch(result, entity.id);
+	const caught = bowlCatch(result, entity.id);
 	const enters = piece.entryTime != null ? `Opens at ${formatTime(piece.entryTime)}.\n` : '';
 	switch (caught.status) {
 		case 'caught':
 			return {
 				tone: 'good',
 				label: 'Catches',
-				detail: `${enters}${marble} lands in it at ${formatTime(caught.enterTime ?? 0)}${caught.exitTime != null ? ` and rolls out at ${formatTime(caught.exitTime)}` : ''}.`
+				detail: `${enters}${marble} lands in it at ${formatTime(caught.enterTime ?? 0)}.`
 			};
 		case 'escaped':
 			return { tone: 'bad', label: 'Bounces Out', detail: `${enters}${marble} lands in it and bounces out.` };
@@ -492,37 +491,6 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; entity: TEntity
 		</Panel>
 	);
 };
-
-// MARK: - Finishes
-
-/** A Finish's Style (Chute or Cup) and Mirror, which side its backstop stands on */
-const FinishSection: React.FC<{ cx: StudioCx; project: TProject; entities: TEntity[] }> = (props) => {
-	const { cx, project, entities } = props;
-	const styles = new Set(entities.map((entity) => Math.round(resolvedParam(entity, 'style'))));
-	const style = styles.size === 1 ? [...styles][0] : null;
-	const mirrors = new Set(entities.map((entity) => Math.round(resolvedParam(entity, 'mirror'))));
-	const mirror = mirrors.size === 1 ? [...mirrors][0] : null;
-	const set = (params: Record<string, number>): void => {
-		cx.execute(applyPieceEdit(project, entities, { params }).commands);
-	};
-	return (
-		<Panel id="piece.finish" title="Finish">
-			<div className="mm-segmented" data-span="2" role="radiogroup" aria-label="Style">
-				{FINISH_STYLES.map((option) => (
-					<button key={option.value} role="radio" aria-checked={style === option.value} data-active={style === option.value} onClick={() => set({ style: option.value })} title={option.title} type="button">
-						{option.label}
-					</button>
-				))}
-			</div>
-			<CheckField id="finish-mirror" label="Mirror" span={2} checked={mirror === 1} title="Put the backstop on the other side" onChange={(checked) => set({ mirror: checked ? 1 : 0 })} />
-		</Panel>
-	);
-};
-
-const FINISH_STYLES = [
-	{ value: FINISH_CHUTE, label: 'Chute', title: 'A curved chute that catches the marble and rolls it out of the frame' },
-	{ value: FINISH_CUP, label: 'Cup', title: 'A bowl that catches the marble and holds it' }
-] as const;
 
 // MARK: - Rails and tunnels
 

@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2 } from '@/modules/project';
 import { preflightExport } from '@/modules/design/export-preflight';
 import { findLongGaps } from './assists';
-import { finishCatch, finishOfLane } from './finish';
+import { bowlCatch, bowlOfLane } from './bowl';
 import { paceAt } from './pace';
 import { frameBand } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
@@ -172,7 +172,7 @@ describe('fixtures', () => {
 		// No piece of one lane touches the other lane's marble
 		for (const contact of result.contacts.filter((item) => item.kind === 'piece')) {
 			const lane = contact.marbleEntityId.replace('marble-', '');
-			expect(contact.otherEntityId.startsWith(`piece-${lane}-`) || contact.otherEntityId === `finish-lane-${lane}`).toBe(true);
+			expect(contact.otherEntityId.startsWith(`piece-${lane}-`) || contact.otherEntityId === `bowl-lane-${lane}`).toBe(true);
 		}
 	});
 
@@ -268,17 +268,17 @@ describe('fixtures', () => {
 		);
 	}, 20_000);
 
-	it('jingle-bells, reference-20: their Finishes catch every marble and no Finish problem shows', () => {
+	it('jingle-bells, reference-20: their Bowls catch every marble and no Bowl problem shows', () => {
 		for (const [name, count] of [['jingle-bells', 115], ['reference-20', 48]] as const) {
 			const project = loadFixture(name);
 			const result = simulator.simulate(project);
 			expect(result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(count);
 			for (const lane of project.music.lanes) {
-				const finish = finishOfLane(project, lane.id);
-				expect(finish, `${name} ${lane.name}`).toBeDefined();
-				expect(finishCatch(result, finish?.id ?? '').status).toBe('caught');
+				const bowl = bowlOfLane(project, lane.id);
+				expect(bowl, `${name} ${lane.name}`).toBeDefined();
+				expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 			}
-			expect(preflightExport(project, result).issues.filter((issue) => issue.id.startsWith('finish:'))).toEqual([]);
+			expect(preflightExport(project, result).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
 		}
 	}, 20_000);
 

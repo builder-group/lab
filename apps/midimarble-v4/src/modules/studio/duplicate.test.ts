@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { newlyBroken } from '@/modules/compose/finish-assist';
+import { newlyBroken } from '@/modules/compose/bowl-assist';
 import { createProject, type TEntity, type TProject } from '@/modules/project';
 import { createSimulator, type TSimulationResult } from '@/modules/simulation';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';

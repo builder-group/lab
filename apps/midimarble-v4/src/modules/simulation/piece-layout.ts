@@ -93,7 +93,7 @@ export function layoutAtContact(
 	const kind = layoutOf(input.type, input.layout);
 	// Generated paths have no contact surface; the point is where the marble enters them
 	if (kind === 'generated') return generatedLayout(input, contactPoint, null);
-	// Nor has a Finish: the point is its mouth
+	// Nor has a Bowl: the point is its mouth
 	if (kind === 'catcher') return catcherLayout(input, contactPoint);
 	const n = normal ?? baseNormal(input);
 	if (kind === 'box') {
@@ -701,99 +701,61 @@ function generatedLayout(input: TLayoutInput, entry: TVec2, velocity: TVec2 | nu
 	};
 }
 
-// Finishes
+// Bowls
 
-// Slope of a Chute's run-out below the horizontal
-const RUN_OUT_SLOPE = 20 * DEGREE;
-// How far the Chute's backstop curls over the mouth, and the Cup's rims, above the arc's centre
-const CHUTE_HOOK = 15 * DEGREE;
-const CUP_RIM = 40 * DEGREE;
-// Room between the marble and the Chute's cover, and where the cover starts along the run-out, in arc radii
-const CHUTE_ROOM = 0.006;
-const COVER_START = 0.8;
-const COVER_FLARE = 0.02;
+// How far the rims curl over the arc's centre
+const BOWL_RIM = 40 * DEGREE;
 // Points per 90° of arc
 const ARC_POINTS = 16;
 
-export interface TFinishGeometry {
-	/** The wire the marble rides inside, from the backstop (Chute) or the far rim (Cup) to its other end */
+export interface TBowlGeometry {
+	/** The wire the marble rides inside, from the far rim down through the bottom to the near one */
 	wire: TVec2[];
-	/**
-	 * A Chute's cover over its run-out, from a little past the catch curve to the end, so a marble that lands at
-	 * speed and leaves the curve flying is led down the run-out instead of over it; null for a Cup
-	 */
-	cover: TVec2[] | null;
 	/** Centre of the catch curve */
 	centre: TVec2;
-	/** The mouth, where the marble is when the Finish enters the run */
+	/** The mouth, where the marble is when the Bowl enters the run */
 	mouth: TVec2;
-	/** Where a Chute's run-out ends and the marble rolls off; null for a Cup */
-	exit: TVec2 | null;
 	/** Highest and lowest wire point, wire thickness included */
 	top: number;
 	bottom: number;
 }
 
 /**
- * The wire of a Finish whose mouth is at `mouth`. The catch curve is an arc of radius `size` around a centre just
- * below the mouth, so a marble falling through the mouth lands on the inside of the arc, whatever its speed, and
- * loses most of its speed into the wire (restitution 0.1). A Chute's arc runs from a backstop that curls 35° over
- * the centre, on the side `mirror` picks (+x at 0), down to where it slopes at 20° the other way, then straight on
- * for `length` as the run-out the marble rolls off. A Cup's arc runs from rim to rim through the bottom, both rims
- * curling 30° over the centre, so the marble stays inside it.
+ * The wire of a Bowl whose mouth is at `mouth`. The catch curve is an arc of radius `size` around a centre just below
+ * the mouth, so a marble falling through the mouth lands on the inside of the arc, whatever its speed, and loses most
+ * of its speed into the wire (restitution 0.1). It runs from rim to rim through the bottom, both rims curling over the
+ * centre, so the marble stays inside it.
  */
-export function finishGeometry(params: Record<string, number>, mouth: TVec2, marbleRadius: number): TFinishGeometry {
+export function bowlGeometry(params: Record<string, number>, mouth: TVec2, marbleRadius: number): TBowlGeometry {
 	const size = params['size'] ?? 0.06;
 	const radius = params['radius'] ?? 0.0025;
-	const isCup = Math.round(params['style'] ?? 0) === 1;
-	// The side of the backstop: +x unless mirrored
 	const side = Math.round(params['mirror'] ?? 0) === 1 ? -1 : 1;
 	// Radius of the marble's centre when it touches the inside of the arc
 	const inner = Math.max(0.001, size - radius - marbleRadius);
-	const centre = isCup ? { x: mouth.x - side * 0.25 * inner, y: mouth.y - 0.25 * inner } : { x: mouth.x - side * 0.4 * inner, y: mouth.y - 0.1 * inner };
-	const at = (angle: number): TVec2 => ({ x: centre.x + side * size * Math.cos(angle), y: centre.y + size * Math.sin(angle) });
-	const arc = (from: number, to: number): TVec2[] => {
-		const count = Math.max(2, Math.ceil((Math.abs(to - from) / (Math.PI / 2)) * ARC_POINTS));
-		return Array.from({ length: count + 1 }, (_, index) => at(from + ((to - from) * index) / count));
-	};
-	let wire: TVec2[];
-	let cover: TVec2[] | null = null;
-	let exit: TVec2 | null = null;
-	if (isCup) {
-		// From the far rim down through the bottom to the near one, the far side being +x before the mirror
-		wire = arc(CUP_RIM, -Math.PI - CUP_RIM);
-	} else {
-		wire = arc(CHUTE_HOOK, -(Math.PI / 2 - RUN_OUT_SLOPE));
-		const end = wire[wire.length - 1] as TVec2;
-		const length = params['length'] ?? 0.2;
-		const along = { x: -side * Math.cos(RUN_OUT_SLOPE), y: -Math.sin(RUN_OUT_SLOPE) };
-		exit = { x: end.x + along.x * length, y: end.y + along.y * length };
-		wire.push(exit);
-		// Above the run-out on the marble's side, starting clear of the mouth
-		const lift = 2 * marbleRadius + 2 * radius + CHUTE_ROOM;
-		const normal = { x: -along.y * -side, y: along.x * -side };
-		const from = Math.min(length * 0.5, COVER_START * size);
-		const point = (distance: number, height: number): TVec2 => ({ x: end.x + along.x * distance + normal.x * height, y: end.y + along.y * distance + normal.y * height });
-		// Its start flares up toward the catch curve, so a marble flying in meets a slope rather than the wire's end
-		cover = [point(from - COVER_FLARE, lift + COVER_FLARE / 2), point(from, lift), point(length, lift)];
-	}
-	const ys = [...wire, ...(cover ?? [])].map((point) => point.y);
-	return { wire, cover, centre, mouth: { ...mouth }, exit, top: Math.max(...ys) + radius, bottom: Math.min(...ys) - radius };
+	const centre = { x: mouth.x - side * 0.25 * inner, y: mouth.y - 0.25 * inner };
+	const from = BOWL_RIM;
+	const to = -Math.PI - BOWL_RIM;
+	const count = Math.max(2, Math.ceil((Math.abs(to - from) / (Math.PI / 2)) * ARC_POINTS));
+	const wire = Array.from({ length: count + 1 }, (_, index) => {
+		const angle = from + ((to - from) * index) / count;
+		return { x: centre.x + side * size * Math.cos(angle), y: centre.y + size * Math.sin(angle) };
+	});
+	const ys = wire.map((point) => point.y);
+	return { wire, centre, mouth: { ...mouth }, top: Math.max(...ys) + radius, bottom: Math.min(...ys) - radius };
 }
 
 function catcherLayout(input: TLayoutInput, mouth: TVec2): TPieceLayout {
-	const geometry = finishGeometry(input.params, mouth, input.marbleRadius);
+	const geometry = bowlGeometry(input.params, mouth, input.marbleRadius);
 	const radius = input.params['radius'] ?? 0.0025;
 	return {
 		position: { ...mouth },
 		angle: 0,
 		contactPoint: null,
 		contactNormal: null,
-		shapes: [...capsuleChain(geometry.wire, radius), ...(geometry.cover != null ? capsuleChain(geometry.cover, radius) : [])],
+		shapes: capsuleChain(geometry.wire, radius),
 		box: null,
 		path: null,
 		rotor: null,
-		// The wire first, then the Chute's cover
-		paths: [geometry.wire, ...(geometry.cover != null ? [geometry.cover] : [])].map((line) => line.map((point) => ({ ...point })))
+		paths: [geometry.wire.map((point) => ({ ...point }))]
 	};
 }

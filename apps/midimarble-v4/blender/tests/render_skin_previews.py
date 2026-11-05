@@ -9,7 +9,7 @@ Run: Blender --background --factory-startup --python blender/tests/render_skin_p
 Writes `<prefix>-<type>.png` for the theme default of each type, and `<element>-<name>.png` for each `--variants` skin
 (applied to the first piece of the first type), such as `platform-copper.png`, the name `skin_catalog.json` gives it.
 `--marbles marble:glass,marble:metal` renders marble skins on their own the same way, close up. The committed previews in
-`public/skins/` were rendered from Jingle Bells (platform, switchback, finish, marbles), Long Gap (rail, tunnel) and
+`public/skins/` were rendered from Jingle Bells (platform, switchback, bowl, marbles), Long Gap (rail, tunnel) and
 Windmill, then quantized to 192 colours with Pillow to keep them small.
 """
 import argparse

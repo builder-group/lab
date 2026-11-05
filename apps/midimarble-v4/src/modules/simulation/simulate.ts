@@ -2077,10 +2077,10 @@ function signature(text: string): string {
 		b1 = Math.imul(b1 ^ code, 2654435761);
 		b2 = Math.imul(b2 ^ code, 1597334677);
 	}
-	return `${finishHash53(a1, a2)}${finishHash53(b1, b2)}`;
+	return `${bowlHash53(a1, a2)}${bowlHash53(b1, b2)}`;
 }
 
-function finishHash53(h1: number, h2: number): string {
+function bowlHash53(h1: number, h2: number): string {
 	h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
 	h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
 	return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36).padStart(11, '0');

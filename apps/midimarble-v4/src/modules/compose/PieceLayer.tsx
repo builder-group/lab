@@ -44,7 +44,7 @@ const PieceShape = React.memo(function PieceShape(props: { compose: TScreenProje
 	if (kind === 'path') return <RailShape compose={compose} piece={piece} scale={scale} opacity={1} />;
 	if (kind === 'tube') return <TunnelShape compose={compose} piece={piece} scale={scale} opacity={1} />;
 	if (kind === 'generated') return <RailPathsShape compose={compose} piece={piece} scale={scale} opacity={1} />;
-	if (kind === 'catcher') return <FinishShape compose={compose} piece={piece} scale={scale} opacity={1} />;
+	if (kind === 'catcher') return <BowlShape compose={compose} piece={piece} scale={scale} opacity={1} />;
 	return <MinimumShape compose={compose} piece={piece} />;
 });
 
@@ -140,10 +140,10 @@ export const RailPathsShape: React.FC<TShapeProps> = (props) => {
 };
 
 /**
- * A Finish as a clear chute: each of its wires (the catch curve with its run-out, then a Chute's cover) drawn like a
- * rail, two thin lines with a pale band between them, like the clear wire chute of the reference short
+ * A Bowl as a clear cage: its wire drawn like a rail, two thin lines with a pale band between them, like the clear wire
+ * catcher of the reference short
  */
-export const FinishShape: React.FC<TShapeProps> = (props) => {
+export const BowlShape: React.FC<TShapeProps> = (props) => {
 	const { piece } = props;
 	return (
 		<g>

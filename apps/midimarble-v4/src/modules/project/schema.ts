@@ -139,7 +139,7 @@ const SThemeParts = z.strictObject({
 	rail: SThemePart.optional(),
 	tunnel: SThemePart.optional(),
 	windmill: SThemePart.optional(),
-	finish: SThemePart.optional(),
+	bowl: SThemePart.optional(),
 	marble: SThemePart.optional()
 });
 

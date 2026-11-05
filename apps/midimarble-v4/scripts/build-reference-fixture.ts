@@ -4,7 +4,7 @@
 // their own brass skin (`platform:<skin>` skin asset IDs) and a wall title at its start, like the reference's skin
 // sets and song titles per song.
 // Usage: tsx scripts/build-reference-fixture.ts [--dress]
-//   --dress re-applies skins, titles, the Finish, piece names and the film end to the existing fixture without
+//   --dress re-applies skins, titles, the Bowl, piece names and the film end to the existing fixture without
 //   rebuilding its pieces
 import { readFileSync, writeFileSync } from 'node:fs';
 import {
@@ -17,8 +17,8 @@ import {
 	type TProject,
 	type TProjectCommand
 } from '../src/modules/project';
-import { withFinishes } from '../src/modules/compose/finish-assist';
-import { fittedSongEnd } from '../src/modules/camera/finish-exit';
+import { withBowls } from '../src/modules/compose/bowl-assist';
+import { fittedSongEnd } from '../src/modules/camera/bowl-exit';
 import { songEnd } from '../src/modules/music';
 import { autoPlace, continueSuggestions, mirrorPiece } from '../src/modules/simulation/assists';
 import { createBareRunProject } from '../src/modules/simulation/fixture-projects';
@@ -190,10 +190,10 @@ function withoutOpenHits(current: TProject): TProject {
 	return next;
 }
 
-/** The marble's Finish after its last note (Add Finish), with the film ending just after the marble leaves the frame */
+/** The marble's Bowl after its last note (Add Bowl), with the film ending just after the marble leaves the frame */
 async function finished(current: TProject): Promise<TProject> {
-	const result = await withFinishes(current, { simulate });
-	for (const message of result.messages) console.log(`finish: ${message}`);
+	const result = await withBowls(current, { simulate });
+	for (const message of result.messages) console.log(`bowl: ${message}`);
 	const end = await fittedSongEnd(result.project, simulate);
 	return end == null ? result.project : { ...result.project, end };
 }

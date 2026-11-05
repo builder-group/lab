@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import type { TBuildProgress } from '@/modules/compose/build-track';
-import { addFinishLabel, lanesWithoutFinish } from '@/modules/compose/finish-assist';
+import { addBowlLabel, lanesWithoutBowl } from '@/modules/compose/bowl-assist';
 import { createState } from 'feature-state';
 import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
@@ -78,7 +78,7 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const building = useFeatureState(compose?.assist.$building ?? NO_BUILDING);
 	const checks = useFeatureState(compose?.assist.$pieceFixes ?? NO_CHECKS);
 	const lastFix = useFeatureState(compose?.assist.$lastFix ?? NO_LAST_FIX);
-	const addingFinish = useFeatureState(compose?.assist.$addingFinish ?? NO_ADDING);
+	const addingBowl = useFeatureState(compose?.assist.$addingBowl ?? NO_ADDING);
 	const workspace = useFeatureState(cx.$workspace);
 	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const preflight = useRunPreflight(cx, project);
@@ -102,17 +102,17 @@ const HitSummary: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	// The latest fix result and Fit to Song where the user set a length the song no longer matches
 	const hasLastFix = lastFix != null && lastFix.projectId === project.id;
 	const fitEnd = fitToSongOffer(project);
-	// Add Finish for each marble that plays last and has none, so the film ends on the catch
-	const unfinished = lanesWithoutFinish(project);
+	// Add Bowl for each marble that plays last and has none, so the film ends on the catch
+	const unfinished = lanesWithoutBowl(project);
 	const extras: TMenuEntry[] = [
 		...(compose?.assist.hasOpenHits === true ? [{ label: 'Build Track', shortcut: '⇧N', onSelect: () => void compose.assist.buildTrack() }] : []),
 		...unfinished.map((laneId) => ({
-			label: addFinishLabel(project, laneId, unfinished.length),
-			disabled: compose == null || addingFinish != null,
-			onSelect: () => void compose?.assist.addFinish(laneId)
+			label: addBowlLabel(project, laneId, unfinished.length),
+			disabled: compose == null || addingBowl != null,
+			onSelect: () => void compose?.assist.addBowl(laneId)
 		})),
 		...(hasLastFix ? [{ label: 'Show Last Fix', onSelect: () => compose?.assist.showLastFix() }] : []),
-		// Ends the film `filmTail` after the last hit, measured with a Finish, like the ruler's Fit to Song
+		// Ends the film `filmTail` after the last hit, measured with a Bowl, like the ruler's Fit to Song
 		...(fitEnd != null ? [{ label: 'Fit to Song', onSelect: () => void cx.fitToSong() }] : [])
 	];
 	// Already in time order, as the summary keeps them

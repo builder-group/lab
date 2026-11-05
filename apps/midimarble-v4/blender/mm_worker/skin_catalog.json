@@ -370,46 +370,46 @@
 				}
 			]
 		},
-		"finish": {
-			"label": "Finish",
-			"plural": "Finishes",
+		"bowl": {
+			"label": "Bowl",
+			"plural": "Bowls",
 			"onHit": [
 				"none",
 				"glow"
 			],
 			"skins": [
 				{
-					"id": "finish:chrome",
-					"label": "Chrome Finish",
+					"id": "bowl:chrome",
+					"label": "Chrome Bowl",
 					"colour": "skin",
 					"colours": [
 						"skin",
 						"marble"
 					],
 					"reacts": "none",
-					"preview": "finish-chrome.png"
+					"preview": "bowl-chrome.png"
 				},
 				{
-					"id": "finish:wood",
-					"label": "Wood Finish",
+					"id": "bowl:wood",
+					"label": "Wood Bowl",
 					"colour": "skin",
 					"colours": [
 						"skin",
 						"marble"
 					],
 					"reacts": "none",
-					"preview": "finish-wood.png"
+					"preview": "bowl-wood.png"
 				},
 				{
-					"id": "finish:glow",
-					"label": "Glow Finish",
+					"id": "bowl:glow",
+					"label": "Glow Bowl",
 					"colour": "marble",
 					"colours": [
 						"skin",
 						"marble"
 					],
 					"reacts": "none",
-					"preview": "finish-glow.png",
+					"preview": "bowl-glow.png",
 					"glows": true
 				}
 			]
@@ -531,7 +531,7 @@
 			"rail": "rail:wood",
 			"tunnel": "tunnel:wood",
 			"windmill": "windmill:wood",
-			"finish": "finish:wood",
+			"bowl": "bowl:wood",
 			"marble": "marble:contrast"
 		},
 		"brass": {
@@ -539,7 +539,7 @@
 			"rail": "rail:chrome",
 			"tunnel": "tunnel:frosted",
 			"windmill": "windmill:gold",
-			"finish": "finish:chrome",
+			"bowl": "bowl:chrome",
 			"marble": "marble:contrast"
 		},
 		"neon": {
@@ -547,7 +547,7 @@
 			"rail": "rail:glow",
 			"tunnel": "tunnel:glow",
 			"windmill": "windmill:glow",
-			"finish": "finish:glow",
+			"bowl": "bowl:glow",
 			"marble": "marble:contrast"
 		}
 	}

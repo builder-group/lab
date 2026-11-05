@@ -4,7 +4,7 @@ Each marble falls and bounces. A **hit** is a moment in the song a marble must s
 
 ## Fastest way
 
-`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms, rails or switchbacks across long gaps, and ends each marble in a Finish. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
+`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms, rails or switchbacks across long gaps, and ends each marble in a Bowl. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
 
 A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.replace` (Fix Hits) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
 
@@ -18,7 +18,7 @@ Two arguments steer it, and neither is needed by default:
 Build Track, `build.next`, Continue and `build.replace` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
 
 - **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart as the film shows them, and a skin hangs up to 1.4 cm below its hitbox. A pair that comes closer is the tip "Platform 12 touches Platform 13".
-- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a switchback, rail or Finish don't count.
+- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a switchback, rail or Bowl don't count.
 - **Marbles may cross.** A marble's run may leave its lane and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its lane where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
 
 To fix a touching pair or a second strike, try these in order of how little they change. Each moves the run a little from there on, since every bounce follows the one before, so read `hits` in the reply and Undo a try that breaks one.
@@ -34,7 +34,7 @@ To fix a touching pair or a second strike, try these in order of how little they
 2. `build.placeAgain`, "Place Again", solves the selected platform's tilt and bounce so it lands on time, in that platform's Undo step. To place one at an open hit, select the hit through `args.select` and run `build.next`.
 3. `build.continue` accepts a suggested pattern. `build.repeat` and `build.mirror` copy the last platform's tilt, which makes zigzags.
 4. `build.replace` (Fix Hits) fixes broken hits. `edit.firstProblem` jumps to the first problem for the person.
-5. `build.addFinish` ends a marble's run in a catch once all its hits are on time.
+5. `build.addBowl` ends a marble's run in a catch once all its hits are on time.
 
 Build marbles together in time order, since they can collide with each other's pieces. The same project and the same calls always give the same track.
 
@@ -53,7 +53,7 @@ To choose the piece yourself, place it on the hit before the gap with `project.e
 `run_command('project.execute', { label: 'Place Platform', commands: [...] })` applies all commands as one Undo step. An invalid batch changes nothing and says why: a command with a field it doesn't know is refused, and commands that leave the project as it was answer `changed: false` with no Undo step. These read best:
 
 - `{ type: 'placePiece', pieceType: 'platform', hit: { laneId, hitId }, angle?, params? }`: tied to a hit, like clicking its dot. `angle` is in radians; without one the app picks.
-- `{ type: 'placePiece', pieceType: 'rail', position: { x, y }, path: [{ x, y }, ...] }`: a piece tied to nothing. Types: `platform`, `rail`, `tunnel`, `windmill`, `switchback`, `finish`.
+- `{ type: 'placePiece', pieceType: 'rail', position: { x, y }, path: [{ x, y }, ...] }`: a piece tied to nothing. Types: `platform`, `rail`, `tunnel`, `windmill`, `switchback`, `bowl`.
 - `{ type: 'applySkin', assetId, pieceType }` or `{ type: 'applySkin', assetId, entityIds }`
 - `{ type: 'placeDecor', source, at: { x, y } }` and `{ type: 'scatterDecor', sources, density?, seed? }`
 

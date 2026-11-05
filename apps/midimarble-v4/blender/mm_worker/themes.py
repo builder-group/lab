@@ -408,7 +408,7 @@ def chrome_material():
 
 
 def clear_material():
-    """Clear acrylic, for a Finish's covered run-out: nearly invisible but for its highlights, so the marble shows
+    """Clear acrylic: nearly invisible but for its highlights, so the marble shows
     through it"""
     def build(material):
         principled = _principled(material)

@@ -25,12 +25,12 @@ import type { StudioCx } from '@/modules/studio/StudioCx';
 import { preflightExport, problemSummary } from '@/modules/design/export-preflight';
 import { buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps } from './build-track';
 import { addedProblems, blockedScenery, brokenHits, fixPiece, lookPieces, replaceBroken, replaceCommands, replacePlan, replaceResultMessage, replaceResultSummary,type TPieceFix, type TReplaceDeps, type TReplaceOutcome, type TReplacePlan, type TSceneryFixKind } from './fix-it';
-import { findFinish } from './finish-assist';
+import { findBowl } from './bowl-assist';
 import { createEstimate } from './progress-estimate';
 import { canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor } from './reachability';
 import { unreachableActions } from './unreachable-fixes';
 import { displayPiece } from './attach-edit';
-import { newlyBroken } from './finish-assist';
+import { newlyBroken } from './bowl-assist';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, previousPiece, selectedPieceIds } from './step-loop';
 
@@ -531,7 +531,7 @@ export class AssistCx {
 	}
 
 	/**
-	 * Build Track: builds every open hit of every marble in time order and ends each marble in a Finish, as one undo
+	 * Build Track: builds every open hit of every marble in time order and ends each marble in a Bowl, as one undo
 	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
 	 * like Fix Hits, and what it built so far stays.
 	 */
@@ -919,20 +919,20 @@ export class AssistCx {
 		this.studio.notifyEdit('The marble is back on its run');
 	}
 
-	/** The marble Add Finish is searching a Finish for, while it runs */
-	readonly $addingFinish = createState<string | null>(null);
+	/** The marble Add Bowl is searching a Bowl for, while it runs */
+	readonly $addingBowl = createState<string | null>(null);
 
 	/**
-	 * Add Finish: a Finish on the marble's fall after its last note, which what-if runs found to catch it, break no
+	 * Add Bowl: a Bowl on the marble's fall after its last note, which what-if runs found to catch it, break no
 	 * hit and touch no other marble or its pieces, as one undo step. The film length follows when it follows the song.
 	 */
-	async addFinish(laneId: string): Promise<void> {
+	async addBowl(laneId: string): Promise<void> {
 		const project = this.studio.project;
 		const deps = this.fixDeps();
-		if (project == null || deps == null || this.$addingFinish.get() != null) return;
-		this.$addingFinish.set(laneId);
+		if (project == null || deps == null || this.$addingBowl.get() != null) return;
+		this.$addingBowl.set(laneId);
 		try {
-			const placed = await findFinish(project, laneId, { simulate: deps.simulate });
+			const placed = await findBowl(project, laneId, { simulate: deps.simulate });
 			// Another edit while the what-ifs ran makes them stale
 			if (this.studio.project?.revision !== project.revision) return;
 			if ('error' in placed) {
@@ -945,7 +945,7 @@ export class AssistCx {
 		} catch (error) {
 			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
 		} finally {
-			this.$addingFinish.set(null);
+			this.$addingBowl.set(null);
 		}
 	}
 
@@ -1098,7 +1098,7 @@ export interface TBuildReport {
 	added: number;
 	turned: string[];
 	releaseShift: number;
-	finishes: string[];
+	bowls: string[];
 	/** Hits that are not on time, as `marble`, 1-based `hit`, `time` and `status` */
 	attention: { marble: string; laneId: string; hitId: string; hit: number; time: number; status: string }[];
 }
@@ -1115,8 +1115,8 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const rebuilt = from != null ? `Rebuilt after Hit ${(fromLane?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromLane?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
-	const details = [message, ...outcome.finishes, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
-	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, finishes: outcome.finishes, attention };
+	const details = [message, ...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
+	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, bowls: outcome.bowls, attention };
 }
 
 /** A piece's Fix-it as its what-if found it for `revision`; `fix` is null while the what-if runs */

@@ -65,8 +65,8 @@ import {
 	withPathBend,
 	withPathEnd
 } from './scene';
-import { newlyBroken } from './finish-assist';
-import { asLaneFinish, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
+import { newlyBroken } from './bowl-assist';
+import { asLaneBowl, commitAtHit, findStepTarget, followerAt, linkedPieces, pieceAngle, pieceAngleCommands, pieceForHit, selectedPieceIds, withPieceAngles, type TStepMode } from './step-loop';
 import {
 	boundsOf,
 	fitBounds,
@@ -262,10 +262,10 @@ export class ComposeCx {
 			}),
 			// After the playhead moved, so the marble is read at its new time
 			this.studio.$playheadReveal.listen(() => this.revealPlayhead()),
-			// Switching tools finishes a rail in progress, like Figma's pen
+			// Switching tools bowls a rail in progress, like Figma's pen
 			this.$tool.listen(({ value }) => {
 				this.clearHoverPreview();
-				if (value !== 'path' && this.$pen.get() != null) this.finishPen();
+				if (value !== 'path' && this.$pen.get() != null) this.bowlPen();
 			})
 		);
 
@@ -931,7 +931,7 @@ export class ComposeCx {
 
 		const target = this.pickAt(point);
 		if (this.$playNoteFor.get() != null) {
-			this.finishPlayNote(target);
+			this.bowlPlayNote(target);
 			return;
 		}
 		switch (target?.kind) {
@@ -1243,10 +1243,10 @@ export class ComposeCx {
 		return 'platform';
 	}
 
-	/** True for a scenery tool (windmill, finish), which anchors its piece where the trajectory is clicked */
+	/** True for a scenery tool (windmill, bowl), which anchors its piece where the trajectory is clicked */
 	isSceneryTool(): boolean {
 		const tool = this.$tool.get();
-		return tool === 'windmill' || tool === 'finish';
+		return tool === 'windmill' || tool === 'bowl';
 	}
 
 	/** Arms a tool; the path tool takes the piece it draws, a rail unless asked for a tunnel */
@@ -1314,9 +1314,9 @@ export class ComposeCx {
 		const entity = drag.entity ?? createFreePiece(drag.item, pose, project.entities, path);
 		drag.entity = entity;
 		const snap = !isFree && this.studio.$snapping.get() ? this.findSnap(entity, pose, drag) : null;
-		// A marble has one Finish: dropped on its fall, the marble's own Finish moves there
+		// A marble has one Bowl: dropped on its fall, the marble's own Bowl moves there
 		const snapped = withSnap(project, entity, pose, snap);
-		const candidate = layoutOf(snapped.components.piece?.type ?? '') === 'catcher' && snapped.components.hitLink != null ? asLaneFinish(project, snapped, snap?.kind === 'anchor' ? this.velocityAt(snap.laneId, snap.time) : null) : snapped;
+		const candidate = layoutOf(snapped.components.piece?.type ?? '') === 'catcher' && snapped.components.hitLink != null ? asLaneBowl(project, snapped, snap?.kind === 'anchor' ? this.velocityAt(snap.laneId, snap.time) : null) : snapped;
 		const radius = this.marbleRadius(snap?.laneId);
 		this.$override.set(snap?.kind === 'link' ? displayPiece(candidate, { pose, dot: snap.dot, velocity: snap.velocity }, radius) : displayPiece(candidate, { pose }, radius));
 		this.$insertSnap.set({ position: world, snap });
@@ -1797,9 +1797,9 @@ export class ComposeCx {
 		const first = pen.nodes[0];
 		const last = pen.nodes[pen.nodes.length - 1];
 		const isNear = (node: TPathNode | undefined): boolean => node != null && Math.hypot(this.toScreen(node.point).x - point.x, this.toScreen(node.point).y - point.y) <= 8;
-		// Clicking the first or the last point finishes the rail
+		// Clicking the first or the last point bowls the rail
 		if (pen.nodes.length >= 2 && (isNear(first) || isNear(last))) {
-			this.finishPen();
+			this.bowlPen();
 			return;
 		}
 		this.$pen.set({ ...pen, nodes: [...pen.nodes, { point: world }], pointer: world, isDragging: true, downAt: point });
@@ -1856,7 +1856,7 @@ export class ComposeCx {
 	}
 
 	/** Return, or a click on the first or last point: adds the rail, anchored when it starts on a trajectory */
-	finishPen(): void {
+	bowlPen(): void {
 		const pen = this.$pen.get();
 		const project = this.project;
 		this.$pen.set(null);
@@ -2055,7 +2055,7 @@ export class ComposeCx {
 				this.placeAgain();
 				return true;
 			case 'finishPath':
-				this.finishPen();
+				this.bowlPen();
 				return true;
 			case 'undoPathPoint':
 				this.undoPenPoint();
@@ -2086,7 +2086,7 @@ export class ComposeCx {
 		this.$playNoteFor.set(entityId);
 	}
 
-	private finishPlayNote(target: TPick | null): void {
+	private bowlPlayNote(target: TPick | null): void {
 		const entityId = this.$playNoteFor.get();
 		this.$playNoteFor.set(null);
 		const project = this.project;

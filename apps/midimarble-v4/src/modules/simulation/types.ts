@@ -193,7 +193,7 @@ export interface TPieceDefinition {
 	/**
 	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
 	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub, `generated` a
-	 * Rail whose layout builds its paths from its parameters, `catcher` a Finish built from its parameters
+	 * Rail whose layout builds its paths from its parameters, `catcher` a Bowl built from its parameters
 	 */
 	layout?: TPieceLayoutKind;
 	/** Local control points used when a path piece has no `path` component */

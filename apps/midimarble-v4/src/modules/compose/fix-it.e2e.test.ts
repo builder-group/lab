@@ -72,7 +72,7 @@ describe('replaceBroken function on Jingle Bells', () => {
 		expect(performance.now() - startedAt).toBeLessThan(60_000);
 	}, 120_000);
 
-	it('should keep the Finish and say what is left when it cannot recover the run after 6 Melody notes', async () => {
+	it('should keep the Bowl and say what is left when it cannot recover the run after 6 Melody notes', async () => {
 		// Prepare: a released marble has no spin, so the run parts from the old one and no tilt brings it back by hit 15
 		const { before, edited, broken } = handFirstNotesToBacking(6);
 
@@ -81,7 +81,7 @@ describe('replaceBroken function on Jingle Bells', () => {
 
 		// Assert
 		expect(brokenHits(outcome.result.hits).length).toBeLessThan(brokenHits(broken.hits).length);
-		expect(outcome.removed).not.toContain('finish-lane-1');
+		expect(outcome.removed).not.toContain('bowl-lane-1');
 		expect(messageOf(edited, broken, outcome)).toMatch(/Turn them by hand or undo the edit/);
 	}, 120_000);
 });

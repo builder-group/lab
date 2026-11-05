@@ -12,8 +12,8 @@ export const PieceIcon: React.FC<{ type: string; size?: number }> = (props) => {
 			return <WindmillIcon size={size} />;
 		case 'switchback':
 			return <SwitchbackIcon size={size} />;
-		case 'finish':
-			return <FinishIcon size={size} />;
+		case 'bowl':
+			return <BowlIcon size={size} />;
 		case 'marble':
 			return <MarbleIcon size={size} />;
 		default:
@@ -69,8 +69,8 @@ function SwitchbackIcon(props: { size: number }): React.ReactElement {
 	);
 }
 
-/** A curved chute catching a marble */
-function FinishIcon(props: { size: number }): React.ReactElement {
+/** A bowl holding a marble */
+function BowlIcon(props: { size: number }): React.ReactElement {
 	return (
 		<svg width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
 			<path d="M19.5 5.5c1 5-1.5 9-6 10.5L3.5 19.5" />

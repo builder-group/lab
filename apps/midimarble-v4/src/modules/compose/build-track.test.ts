@@ -82,7 +82,7 @@ describe('buildTrack function', () => {
 		expect(outcome.project.entities.find((entity) => entity.id === 'mine')?.components.hitLink?.angle).toBe(angle);
 	}, MINUTES);
 
-	it('finishes the rest and names a hit no platform can play', async () => {
+	it('bowls the rest and names a hit no platform can play', async () => {
 		// The first note comes before the marble can have fallen at all
 		const project = fromHitTimes([[0.005, 1, 1.5, 2, 2.5, 3]]);
 		project.entities = project.entities.map((entity) => (entity.components.release != null ? { ...entity, components: { ...entity.components, release: { ...entity.components.release, time: 0 } } } : entity));

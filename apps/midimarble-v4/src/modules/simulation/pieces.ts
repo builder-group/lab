@@ -145,26 +145,17 @@ export const windmillDefinition: TPieceDefinition = {
 	layout: 'rotor'
 };
 
-/** `style` values of a Finish */
-export const FINISH_CHUTE = 0;
-export const FINISH_CUP = 1;
-
 /**
- * The end of a marble's run: a piece that catches the marble after its last note and plays none. `style` 0 is a
- * Chute, a curved open trough (one wire in the wall plane, drawn as a clear two-wire chute) that the marble drops
- * into and that rolls it out to the side and down, away from the frame; 1 is a Cup, a bowl with rims curling
- * inward that holds it. The catch curve is an arc of radius `size`; the Chute's backstop stands on the side the
- * marble moves toward and its run-out leads `length` the other way, `mirror` swapping the sides. A Finish anchored
- * to a marble's last hit enters the run at that marble, its mouth around the marble (`finishGeometry`).
+ * Bowl: what collects a marble. A piece that catches the marble and plays no note: an arc of radius `size` with rims
+ * curling inward, drawn as a clear wire cage, that holds it. `mirror` picks the side of the marble its centre lies on.
+ * A Bowl anchored to a marble's last hit enters the run at that marble, its mouth around the marble (`bowlGeometry`).
  */
-export const finishDefinition: TPieceDefinition = {
-	type: 'finish',
-	label: 'Finish',
+export const bowlDefinition: TPieceDefinition = {
+	type: 'bowl',
+	label: 'Bowl',
 	params: {
-		style: { default: FINISH_CHUTE, min: FINISH_CHUTE, max: FINISH_CUP, label: 'Chute rolls the marble away, Cup holds it', short: 'Style', unit: '', integer: true },
-		mirror: { default: 0, min: 0, max: 1, label: 'Which side the backstop stands on', short: 'Mirror', unit: '', integer: true },
+		mirror: { default: 0, min: 0, max: 1, label: 'Which side of the marble the centre lies on', short: 'Mirror', unit: '', integer: true },
 		size: { default: kit(0.04), min: 0.035, max: 0.15, label: 'Size of the curve that catches the marble', short: 'Size', unit: 'm' },
-		length: { default: kit(0.13), min: 0.04, max: 0.5, label: 'Length of the run-out the marble rolls away along', short: 'Run-Out', unit: 'm' },
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of the rails', short: 'Thickness', unit: 'm' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
@@ -179,7 +170,7 @@ export const pieceDefinitions: Record<string, TPieceDefinition> = {
 	[railDefinition.type]: railDefinition,
 	[tunnelDefinition.type]: tunnelDefinition,
 	[windmillDefinition.type]: windmillDefinition,
-	[finishDefinition.type]: finishDefinition
+	[bowlDefinition.type]: bowlDefinition
 };
 
 export function getPieceDefinition(type: string): TPieceDefinition | undefined {

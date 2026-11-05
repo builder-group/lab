@@ -107,7 +107,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 		// An answer for a search that was stopped or failed only frees the worker
 		if (owner === batch) {
 			if (!response.ok) {
-				finish(owner, new Error(response.error));
+				bowl(owner, new Error(response.error));
 			} else if ('proposal' in job) {
 				owner.value = response.value;
 				owner.left--;
@@ -117,7 +117,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 				answer.evaluations.forEach((evaluation, index) => (owner.evaluations[job.from + index] = evaluation));
 				owner.left--;
 			}
-			if (owner.left === 0) finish(owner, null);
+			if (owner.left === 0) bowl(owner, null);
 		}
 		dispatch();
 	}
@@ -129,11 +129,11 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 		slot.worker = null;
 		slot.pending = null;
 		slot.search = null;
-		if (sentJob != null) finish(sentJob.batch, error);
+		if (sentJob != null) bowl(sentJob.batch, error);
 		dispatch();
 	}
 
-	function finish(done: TBatch, error: Error | null): void {
+	function bowl(done: TBatch, error: Error | null): void {
 		if (batch !== done) return;
 		batch = null;
 		if (error != null) done.reject(error);
@@ -246,7 +246,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 		dispose() {
 			isDisposed = true;
 			queue.dispose();
-			if (batch != null) finish(batch, new Error('The assists pool is disposed'));
+			if (batch != null) bowl(batch, new Error('The assists pool is disposed'));
 			for (const slot of slots) {
 				slot.worker?.terminate();
 				slot.worker = null;

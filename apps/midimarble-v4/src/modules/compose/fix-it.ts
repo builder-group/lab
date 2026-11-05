@@ -1,6 +1,6 @@
 import type { TComponents, TEntity, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { FINISH_TYPE } from '@/modules/simulation/finish';
-import { finishFix, hitKeyOf, isBroken, newlyBroken } from './finish-assist';
+import { BOWL_TYPE } from '@/modules/simulation/bowl';
+import { bowlFix, hitKeyOf, isBroken, newlyBroken } from './bowl-assist';
 import {
 	extraStrikes,
 	rollingHits,
@@ -394,9 +394,9 @@ export async function fixPiece(
 			? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}, so nothing moved`
 			: `${what} would add a problem (${added[0]?.title ?? 'another marble'}), so nothing moved`;
 
-	// A Finish is placed again on its marble's fall, wherever it went wrong
-	if (type === FINISH_TYPE) {
-		const fix = await finishFix(project, result, entityId, deps);
+	// A Bowl is placed again on its marble's fall, wherever it went wrong
+	if (type === BOWL_TYPE) {
+		const fix = await bowlFix(project, result, entityId, deps);
 		return { commands: fix.commands, message: fix.message, label: fix.label, kind: fix.commands != null ? 'placeAgain' : undefined };
 	}
 	// Struck twice, rolled on or touching: another tilt, unless something more serious about the piece comes first
@@ -619,8 +619,8 @@ export async function sceneryFix(
 		if (run != null) return { kind: 'moveClear', commands: move.commands, run, message: `${name} moved ${Math.max(1, Math.round(move.distance * 100))} cm, clear of ${runs}'s run` };
 	} else refusal ||= `No spot within 40 cm clears ${name} of ${runs}'s run`;
 
-	// A Finish is how the marble ends, wherever the run now goes, so it stays for the person even when Blocked
-	if (isBlocked && type !== FINISH_TYPE) {
+	// A Bowl is how the marble ends, wherever the run now goes, so it stays for the person even when Blocked
+	if (isBlocked && type !== BOWL_TYPE) {
 		const commands: TProjectCommand[] = [{ type: 'removeEntities', entityIds: [entityId] }];
 		const run = await check(commands, `Deleting ${name}`);
 		if (run != null) return { kind: 'delete', commands, run, message: `${name} deleted: ${laneName(link.laneId)} already passes through its spot, so the run never used it` };

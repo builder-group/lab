@@ -626,7 +626,7 @@ const PenOverlay: React.FC<{ compose: ComposeCx }> = (props) => {
 			</svg>
 			{end != null && first != null ? (
 				<div className="mm-snap-chip" style={{ left: end.point.x + 14, top: end.point.y + 12 }}>
-					{pen.nodes.length < 2 ? <span>Click the next point · drag for a curve</span> : <span>Return to finish</span>}
+					{pen.nodes.length < 2 ? <span>Click the next point · drag for a curve</span> : <span>Return to bowl</span>}
 					<kbd className="opacity-60">esc</kbd>
 				</div>
 			) : null}
@@ -928,7 +928,7 @@ const AssistBar: React.FC<{ compose: ComposeCx }> = (props) => {
 				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
 				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
 			</AssistButton>
-			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Finish" shortcut="⇧N" onClick={() => void compose.assist.buildTrack()} isText>
+			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Bowl" shortcut="⇧N" onClick={() => void compose.assist.buildTrack()} isText>
 				Build Track
 			</AssistButton>
 			{continueCount > 0 ? (

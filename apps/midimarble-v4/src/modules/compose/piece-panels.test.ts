@@ -30,8 +30,8 @@ describe('pieceParamPanels function', () => {
 		expect(pieceParamPanels('rail', 'chain').hitbox).toContain('sweep');
 	});
 
-	it('should show a Finish\'s size in Hitbox, leaving Style and Mirror to its own panel', () => {
-		expect(pieceParamPanels('finish').hitbox).toEqual(['size', 'length', 'radius']);
+	it('should show a Bowl\'s size in Hitbox, leaving Style and Mirror to its own panel', () => {
+		expect(pieceParamPanels('bowl').hitbox).toEqual(['size', 'radius']);
 	});
 });
 

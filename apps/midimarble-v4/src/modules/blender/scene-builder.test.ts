@@ -317,7 +317,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			focusMarbleId: null,
 			descent: null,
 			holdAfter: lastStruckTime(result),
-			holdFinish: null
+			holdBowl: null
 		});
 	});
 
