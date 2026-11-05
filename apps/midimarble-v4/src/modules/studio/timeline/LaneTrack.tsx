@@ -208,7 +208,7 @@ function useMarquee(cx: StudioCx, lane: TLane, zoom: number, selection: string[]
 			}
 			const keys = lane.hits.filter((hit) => hit.time >= from && hit.time <= to).map((hit) => toHitKey(lane.id, hit.id));
 			cx.$selection.set(event.shiftKey ? [...new Set([...selection, ...keys])] : keys);
-			if (keys.length > 0) cx.$reveal.set({ ids: keys });
+			if (keys.length > 0) cx.$reveal.set({ ids: keys, isZoomKept: true });
 		}
 	};
 

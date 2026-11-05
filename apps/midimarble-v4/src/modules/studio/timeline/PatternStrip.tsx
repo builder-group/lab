@@ -54,7 +54,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		const selected = (to - from) * zoom < MIN_DRAG_PX ? [] : rangeSelection(project, lane.id, from, to);
 		cx.$selection.set(selected);
 		// The wall comes to the range, so its ghost and its pieces are in view from the start
-		if (selected.length > 0) cx.$reveal.set({ ids: selected });
+		if (selected.length > 0) cx.$reveal.set({ ids: selected, isZoomKept: true });
 	}
 
 	function endResize(group: TPatternGroup): void {

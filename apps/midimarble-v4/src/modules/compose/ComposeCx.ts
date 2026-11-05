@@ -901,7 +901,7 @@ export class ComposeCx {
 		const pending = this.studio.$reveal.get();
 		if (pending == null || this.result == null || this.$viewport.get().width <= 1) return;
 		this.studio.$reveal.set(null);
-		this.reveal(pending.ids, pending.point, pending.isFramed === true);
+		this.reveal(pending.ids, pending.point, pending.isFramed === true, pending.isZoomKept === true);
 	}
 
 	/**
