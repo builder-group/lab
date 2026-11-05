@@ -26,7 +26,7 @@ Source: `~/Downloads/Legendary-Meme-Songs-SnapYT.App.mp4` from [@virtual3dworld_
 
 **Camera.** Steeply down along the wall, which reads almost as a floor. Travels continuously, marble slightly above the frame's center. The roll changes slowly, turning the columns from diagonal to almost vertical and back. No hard moves.
 
-**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the upper left with long diagonal shadows, metallic and glossy materials with clear reflections.
+**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the left with soft sideways shadows, dark metal with thin bright edges, a clear marble. Measured on the film: wall L* 57, a 6, b -10, 6 L* across the frame; gold L* 41, chroma 33; 1 % of piece area over L* 80; marble L* 33, chroma 42. Brass's defaults aim at these.
 
 ## Second reference: pitch-colored tubes
 
@@ -110,7 +110,7 @@ Bounce doesn't lower tilt; Gravity does. Build Track on the same hits falls 35, 
 
 **Film endings.** The tail after the last note is 0.4 s (`SONG_TAIL`), the longest that keeps the last marble in the final frame on the song fixtures. With Bowls catching it, 0.6 to 1.5 s.
 
-**Flat Light against Fast.** The wall's median color stays within 8 per 8-bit channel per theme (`check_flat_colors.py`), at about 16 ms per 360 × 640 frame, through a per-theme exposure and sheen, and a wall sheen for the room a wall reflects whatever its color. A project theme's changed light or background isn't modeled in Flat Light, only its wall.
+**Flat Light against Fast.** The wall's median color stays within 9 per 8-bit channel per theme (`check_flat_colors.py`), at about 16 ms per 360 × 640 frame, through a per-theme exposure and sheen, and a wall sheen for the room a wall reflects whatever its color. A project theme's changed light or background isn't modeled in Flat Light, only its wall.
 
 **Bloom** is cheap at quality Low and only runs while `bloom > 0`; Flat Light skips it.
 

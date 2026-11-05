@@ -444,7 +444,6 @@ def glass_marble_material(color):
         nodes, links = tree.nodes, tree.links
         output = nodes.get('Material Output')
         nodes.remove(_principled(material))
-        linear = parse_color(color)
         material.diffuse_color = (*paint._hue(color, 0.5, 0.8), 1.0)
         clear = nodes.new('ShaderNodeBsdfTransparent')
         clear.inputs['Color'].default_value = (*paint._hue(color, 0.86, 0.72), 1.0)

@@ -790,11 +790,16 @@ def chrome_device_spec(frame, length, thickness):
     strip = length * 0.09
     for side in (-1, 1):
         pad.box((strip, back - pad_front, thickness * 0.82), (side * (length - strip) / 2, (back + pad_front) / 2, top - thickness * 0.41), bevel=strip * 0.25, material=1, segments=2)
+    # A grille of chrome slats across it, just proud of its top
+    slats = 7
+    slat_pitch = (back - pad_front) / slats
+    for index in range(slats):
+        pad.box((length - 2.4 * strip, slat_pitch * 0.42, 0.0005 * k), (0.0, pad_front + slat_pitch * (index + 0.5), top), bevel=0.0001 * k, material=2)
     gold = polished_material('gold')
     materials = [polished_material('chrome'), gold, polished_material('hazard'), polished_material('steel'), polished_material('black')]
     return {
         'root': body.to_mesh('MM chrome device', materials),
-        'parts': [{'role': 'bar', 'mesh': pad.to_mesh('MM pad', [frame.metal(polished_material('steel')), gold]), 'reactive': True}],
+        'parts': [{'role': 'bar', 'mesh': pad.to_mesh('MM pad', [frame.metal(polished_material('steel')), gold, polished_material('chrome')]), 'reactive': True}],
     }
 
 
