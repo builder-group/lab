@@ -124,6 +124,30 @@ describe('SimulationCx class', () => {
 			expect(cx.isSettling).toBe(false);
 			expect(cx.$result.get()?.revision).toBe(studio.project?.revision);
 		});
+
+		it('should show the run an undo goes back to before the worker answers, and still ask for it', async () => {
+			// Prepare
+			const { cx, studio, execute, flush } = await setup();
+			const $history = (studio as unknown as { $history: { get: () => TProjectHistory; set: (value: TProjectHistory) => void } }).$history;
+			const before = cx.$result.get();
+			execute(turn(studio.project as TProject, 'piece-1-5', 0.02));
+			await flush();
+			const asked: TProject[] = [];
+			(client.current as { simulate: unknown }).simulate = (project: TProject) => {
+				asked.push(project);
+				return new Promise(() => undefined);
+			};
+
+			// Act
+			$history.set(undoHistory($history.get()));
+			await flush();
+
+			// Assert
+			expect(asked).toHaveLength(1);
+			expect(cx.isCurrent).toBe(true);
+			expect(cx.$computing.get()).toBe(false);
+			expect(cx.$result.get()?.hits).toBe(before?.hits);
+		});
 	});
 
 	describe('a film edit', () => {

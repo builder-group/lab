@@ -18,7 +18,7 @@ export const HitboxOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	useFeatureState(draft.$frame);
 	const selection = useFeatureState(studio.$selection);
 	const showAll = useFeatureState(studio.$showHitboxes);
-	const pieces = draft.pieces().filter((piece) => showAll || selection.includes(piece.pieceId));
+	const pieces = showAll ? draft.shownPieces() : draft.pieces().filter((piece) => selection.includes(piece.pieceId));
 	if (!pieces.length) return null;
 
 	return (
