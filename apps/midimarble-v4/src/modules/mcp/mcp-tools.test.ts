@@ -415,6 +415,22 @@ describe('MCP tools', () => {
 			expect((await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 1.2 } })).isError).toBe(true);
 		});
 
+		it('should keep what a person edits while the call waits for the run', async () => {
+			// Prepare
+			const { cx } = studio();
+			const camera = cx.project?.film.camera;
+			if (camera == null) throw new Error('Missing camera');
+
+			// Act
+			const replying = execute(cx, { type: 'updateFilm', film: { camera: { distance: 0.6 } } });
+			await vi.advanceTimersByTimeAsync(100);
+			cx.execute([{ type: 'updateFilm', film: { camera: { ...camera, tilt: 0.9 } } }]);
+			await replying;
+
+			// Assert
+			expect(cx.project?.film.camera).toMatchObject({ distance: 0.6, tilt: 0.9 });
+		});
+
 		it('should refuse ids that are not there and fonts a title can not use', async () => {
 			const { cx } = studio();
 			expect(textOf(await execute(cx, { type: 'removePieces', pieceIds: ['nobody'] }))).toContain('There is nothing called nobody');

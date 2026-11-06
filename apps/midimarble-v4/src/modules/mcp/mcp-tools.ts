@@ -449,14 +449,16 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 		if (commands.length > 1) return fail(cx, 'applyPattern takes its own project.execute call, since it fits against the real run.');
 		return runApplyPattern(cx, commands[0], label);
 	}
-	const project = cx.project;
-	if (project == null) return noProject(cx);
+	if (cx.project == null) return noProject(cx);
 	const stopEpoch = cx.mcp.presence.stopEpoch;
 	await settled(cx);
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
 	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()) });
+	// Read after the waits, so an edit a person made meanwhile stays
+	const project = cx.project;
+	if (project == null) return noProject(cx);
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.film.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
