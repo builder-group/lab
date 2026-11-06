@@ -56,7 +56,7 @@ describe('withStartRails function', () => {
 		// Rolling down the rail, then in the air with room to spare at the note
 		const release = built.marbles[0]?.start;
 		expect(release?.time).toBeLessThan(0.5);
-		const leaving = samples.find((sample) => sample.time >= 0.4);
+		const leaving = samples.find((sample) => sample.time >= 0.6);
 		expect(Math.abs(leaving?.velocity.x ?? 0)).toBeGreaterThan(0.1);
 		const dot = result.hits[0]?.dot;
 		expect(dot).not.toBeNull();
@@ -65,7 +65,7 @@ describe('withStartRails function', () => {
 		expect(Math.abs(result.hits[0]?.velocity?.x ?? 1)).toBeLessThan(0.1);
 		// Struck firmly, as after a plain drop
 		const before = samples.filter((sample) => sample.time < 1).at(-1);
-		expect(Math.abs(before?.velocity.y ?? 0)).toBeGreaterThan(2);
+		expect(Math.abs(before?.velocity.y ?? 0)).toBeGreaterThan(1);
 		simulator.dispose();
 	}, 20_000);
 });

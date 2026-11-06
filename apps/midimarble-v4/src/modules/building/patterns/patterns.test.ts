@@ -137,7 +137,7 @@ describe('fitPattern function', () => {
 	});
 
 	it('should use a Switchback for a silence over the rail limit', () => {
-		const project = smallProject([1, 3]);
+		const project = { ...smallProject([1, 3]), gravity: 0.5 };
 		const placed = fitPattern({ project, marbleId: MARBLE, hitIds: ['h1'], kind: 'zigzag', width: 0.14, drop: 0.08 }, { sim });
 		const rail = fitPattern({ project: placed.project, marbleId: MARBLE, hitIds: ['h1', 'h2'], kind: 'longRail' }, { sim });
 

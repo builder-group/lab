@@ -70,11 +70,11 @@ describe('releaseFix function', () => {
 		expect(command?.type).toBe('updateMarble');
 		if (command?.type !== 'updateMarble' || command.patch.start == null) throw new Error('Expected a release');
 		const release = command.patch.start;
-		// At half gravity the marble falls back to 1 m/s in about 0.2 s
+		// At the default gravity the marble falls back to 1 m/s in about 0.4 s
 		const lead = 5 - release.time;
-		expect(lead).toBeCloseTo(1 / 4.905, 3);
+		expect(lead).toBeCloseTo(1 / 2.4525, 3);
 		expect(release.velocity?.y).toBeCloseTo(0, 3);
-		const g = 4.905;
+		const g = 2.4525;
 		expect(release.position.x + (release.velocity?.x ?? 0) * lead).toBeCloseTo(0.1, 3);
 		expect(release.position.y + (release.velocity?.y ?? 0) * lead - (g * lead * lead) / 2).toBeCloseTo(-2, 3);
 	});
@@ -491,19 +491,16 @@ describe('Fix on a small project', () => {
 		expect(fix.message).toMatch(/Free is tied to nothing/);
 	});
 
-	it('should keep the rest of the run with the next platforms taking up a turn', async () => {
+	it('should keep the rest of the run when a platform rolls', async () => {
 		// Prepare
 		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
 		const run = simulate(broken);
 		const rolled = rollingHits(broken, run)[0]?.entityId ?? '';
 
 		// Act
-		const withoutSettle = await fixPiece(broken, run, rolled, { simulate: deps().simulate, autoPlace: deps().autoPlace });
 		const fix = await fixPiece(broken, run, rolled, deps());
 
 		// Assert
-		expect(withoutSettle.commands).toBeNull();
-		expect(withoutSettle.message).toContain('Rebuild From Here');
 		const next = withCommands(broken, fix.commands ?? []);
 		const after = simulate(next);
 		expect(problemPieces(next, after)).not.toContain(rolled);

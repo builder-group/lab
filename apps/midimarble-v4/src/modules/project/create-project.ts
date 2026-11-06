@@ -9,7 +9,7 @@ export const DEFAULT_MARBLE_RADIUS = 0.012;
  * Gravity of new projects as a share of Earth's. Chosen by measurement so a default-kit zigzag hops about one
  * bar length per hit like the reference film; see `references.md`.
  */
-export const DEFAULT_GRAVITY = 0.5;
+export const DEFAULT_GRAVITY = 0.25;
 /**
  * Follow camera of new projects. Close through a wide lens, bars fan out from a point just beside the frame as in the
  * reference, and a single marble spans about 7.3 % of the frame width. Groups of marbles pull back only as far as they

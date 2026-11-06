@@ -17,7 +17,7 @@ const BACK_LENGTH = 0.012;
 /** Seconds the marble is in the air before its first note, so the note is a strike */
 const MIN_FALL = 0.12;
 /** Seconds it falls when there's time, as a marble released without a rail falls after import: what the track's first bounces are built on */
-const FALL = 0.5;
+const FALL = 0.3;
 /** Room beyond the marble between the run's end and the stop */
 const STOP_ROOM = 0.006;
 /** How far a marble drifts back from the stop as it falls to its note, at Jingle Bells' half gravity */

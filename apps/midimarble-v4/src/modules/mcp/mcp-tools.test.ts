@@ -216,7 +216,7 @@ describe('MCP tools', () => {
 		expect(JSON.parse(textOf(reply))).toMatchObject({ selection: ['wall'], changed: false });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.selection).toEqual([{ kind: 'layer', key: 'wall' }]);
-		expect(state.gravity).toEqual({ value: 0.5, default: 0.5, range: [0.05, 2] });
+		expect(state.gravity).toEqual({ value: 0.25, default: 0.25, range: [0.05, 2] });
 		expect(state.wall).toMatchObject({ own: {} });
 		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
 		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y', 'songId'], hitList: [['hit1', 1, 'C4', 'open', 0, -1, null]] });

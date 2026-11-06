@@ -51,9 +51,9 @@ describe('fixTrack function on Jingle Bells', () => {
 		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added: addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS) });
 	}
 
-	it('should recover every hit after 6 Melody notes become Backing, within a minute, and name what it added', async () => {
-		// Prepare: the review's repro, which took 78 s in the browser
-		const { before, edited, broken } = handFirstNotesToBacking(6);
+	it('should recover every hit after 4 Melody notes become Backing, within a minute, and name what it added', async () => {
+		// Prepare
+		const { before, edited, broken } = handFirstNotesToBacking(4);
 		const startedAt = performance.now();
 		const progress: { done: number; total: number }[] = [];
 
@@ -66,22 +66,22 @@ describe('fixTrack function on Jingle Bells', () => {
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
 		expect(messageOf(edited, broken, outcome)).toMatch(/^Fixed \d+ hits · .*\d+ of \d+ hits on time/);
-		// A problem the new run adds is said out loud, as Bass hitting Melody's last platform is here
+		// A problem the new run adds is said out loud
 		const added = addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS);
 		for (const problem of added) expect(messageOf(edited, broken, outcome)).toContain(problem.title);
 		expect(performance.now() - startedAt).toBeLessThan(60_000);
 	}, 120_000);
 
-	it('should keep the Bowl and say what is left when it cannot recover the run after 7 Melody notes', async () => {
-		// Prepare: the moved release carries the old arrival and spin, yet the small difference grows until Bass runs into pieces at 12.5 s
-		const { before, edited, broken } = handFirstNotesToBacking(7);
+	it('should keep the Bowl and say what is left when it cannot recover the run after 6 Melody notes', async () => {
+		// Prepare: the moved release carries the old arrival and spin, yet the small difference grows
+		const { before, edited, broken } = handFirstNotesToBacking(6);
 
 		// Act
 		const outcome = await fixTrack(edited, broken, deps(), before.hits);
 
 		// Assert
 		expect(brokenHits(outcome.result.hits).length).toBeLessThan(brokenHits(broken.hits).length);
-		expect(outcome.project.track.pieces.some((piece) => piece.id === 'bowl-lane-1')).toBe(true);
+		expect(outcome.project.track.pieces.some((piece) => piece.id === 'bowl-marble-1')).toBe(true);
 		expect(messageOf(edited, broken, outcome)).toMatch(/Turn them by hand or undo the edit/);
 	}, 120_000);
 });

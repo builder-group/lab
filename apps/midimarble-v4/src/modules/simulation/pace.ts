@@ -26,7 +26,7 @@ export const PACE_LIMIT = 0.25;
  */
 export const MAX_BOUNCE_RISE = 0.4;
 // The range of descent, in meters per second, Next and Build Track aim for: only what they aim at, never a limit on a person's edit
-const MIN_DEFAULT_RATE = 0.15;
+const MIN_DEFAULT_RATE = 0.05;
 const MAX_DEFAULT_RATE = 0.8;
 // Intervals longer than this are long notes, not the rhythm
 const RHYTHM_INTERVAL = 0.8;
@@ -34,20 +34,20 @@ const DEFAULT_INTERVAL = 0.3;
 const EARTH = -GRAVITY_Y;
 
 /**
- * Least height between the top of a bounce at the pace and the piece two hits back, the one a zigzag
- * passes under on its way to the next piece of that column. The default bounce at full gravity and a 0.5 s
- * rhythm leaves 7 cm; at half gravity it left 3.5 cm, and the marbles struck those pieces.
+ * Least height between the top of a bounce at the pace and the landing height on the piece the marble just left, which
+ * a zigzag passes under on its way back: a marble's diameter and a skin's body in the wall plane, with a little to spare.
+ * Less leaves Auto place no tilt that turns the marble back, and the run wanders off in a staircase.
  */
-export const COLUMN_CLEARANCE = 0.065;
+export const COLUMN_CLEARANCE = 0.05;
 
 /**
  * Descent rate for the project: (1 − e) / (1 + e) · g · T / 2 for the project's gravity g, the default platform bounce e and the
  * median interval T between consecutive hits of all marbles, ignoring long notes. A single regular marble
  * therefore keeps the descent its default bounce gives, and marbles with different rhythms share one.
  *
- * With several marbles the rate is at least `columnRate`, so a zigzag at the pace keeps `COLUMN_CLEARANCE`
- * under its earlier pieces. Every height at a rhythm scales with gravity but the pieces do not, so at low
- * gravity or fast rhythms the default bounce stacks the pieces of a narrow marble too densely.
+ * The rate is at least `columnRate`, so a zigzag at the pace keeps `COLUMN_CLEARANCE` under its earlier pieces. Every
+ * height at a rhythm scales with gravity but the pieces do not, so at low gravity or fast rhythms the default bounce
+ * stacks the pieces of a zigzag too densely.
  */
 export function paceRate(project: Pick<TProject, 'marbles' | 'gravity'>): number {
 	const intervals: number[] = [];
@@ -66,11 +66,7 @@ export function paceRate(project: Pick<TProject, 'marbles' | 'gravity'>): number
 		: DEFAULT_INTERVAL;
 	const bounce = platformDefinition.params['bounce']?.default ?? 0.65;
 	const g = -gravityOf(project);
-	const marbles = project.marbles.length;
-	const rate = Math.max(
-		(((1 - bounce) / (1 + bounce)) * g * median) / 2,
-		marbles > 1 ? columnRate(median, g) : 0
-	);
+	const rate = Math.max(((1 - bounce) / (1 + bounce)) * g * median / 2, columnRate(median, g));
 	return Math.min(MAX_DEFAULT_RATE, Math.max(MIN_DEFAULT_RATE, rate));
 }
 

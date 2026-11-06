@@ -212,6 +212,15 @@ export function passThroughs(project: TProject, result: TSimulationResult): TPas
 	return passes.sort((a, b) => a.time - b.time);
 }
 
+/** The first sample between two times with the marble's center inside this box piece's skin, past a graze of its edge */
+export function passingSample(samples: readonly TMarbleSample[], radius: number, piece: TResolvedPiece, from: number, until: number): TMarbleSample | undefined {
+	const limit = radius * (1 - PASS_DEPTH_RADII);
+	const shapes = visualShapes(piece, radius);
+	const reach = (piece.params['length'] ?? 0) / 2 + 3 * radius;
+	const { x, y } = piece.position;
+	return samples.find(({ time, position }) => time >= from && time <= until && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit));
+}
+
 const SAMPLE_CHUNK = 64;
 
 /** A marble's path in runs of samples with their bounds: asking every sample of a long song about every piece took half a second */

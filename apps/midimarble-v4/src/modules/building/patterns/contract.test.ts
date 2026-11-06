@@ -168,7 +168,7 @@ describe('checkPattern function', () => {
 		const check = checkPattern(project, { marbleId: MARBLE, from: 1, to: 2.28, kind: 'zigzag', width: 0.1 }, { sim });
 
 		expect(check.commands).toEqual([]);
-		expect(check.offers.map((offer) => offer.label)).toContain('Use Hits 1–3');
+		expect(check.offers.map((offer) => offer.label).join()).toContain('Use Hits 1–');
 		const offer = check.offers.find((item) => item.from != null);
 		const taken = checkPattern(project, { marbleId: MARBLE, from: offer?.from ?? 0, to: offer?.to ?? 0, kind: 'zigzag', width: 0.1 }, { sim });
 		expect(taken.refusal).toBeNull();

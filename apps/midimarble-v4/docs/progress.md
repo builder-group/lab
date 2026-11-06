@@ -11,13 +11,13 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
-- **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.5. Why: `references.md`.
+- **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.25. Why: `references.md`.
 - **Data:** `marble-project@6`, no migrations, since the app hasn't shipped.
 
 ## Verified
 
 - `test:e2e`: 40 of 40 in 221 s, after the 3×9 fixture rebuild, one Fix and the opening frame. Jingle Bells builds 115 of 115 on time with a clean preflight.
-- Fix on Jingle Bells: 6 Melody notes handed to Backing recover every hit in about 8 s; with 7, Fix cuts 16 broken hits to 10 in about 20 s and says what is left.
+- Fix on Jingle Bells: 4 Melody notes handed to Backing recover every hit in about 5 s; with 6, Fix cuts 44 broken hits to 33 in about 17 s and says what is left. Over 2 to 7 notes it recovers two counts fully and comes out worse on two, which it says.
 - Titles: a white wall title and a white screen title in Eevee stills on the Christmas wall. The wall title reads, with less contrast than the screen title.
 - `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
 - With the chosen look: `blender:design`.
@@ -34,7 +34,10 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 
 ## Known problems
 
-- Build Track on Jingle Bells gets stuck on its first release position and goes through on the second. That is one song's luck, not a fix.
+- Build Track on Jingle Bells goes through on its first release position at Gravity 0.25, where other settings needed the second. That is one song's luck, not a fix.
+- At the default Gravity 0.25 Patterns refuse more on a built track (Zigzag 112 of 144, against 132 at 0.35) and on fast uneven rhythm (17 of the reference's 58 hits, all at 0.35). `references.md` has the table.
+- At 3 s and 30 s of Jingle Bells the bass touches the frame's edge for a frame or two, half hidden at 3 s. A 9 % wider duet frame would clear it.
+- Fix on a two-marble song recovers less at 0.25: over 2 to 8 notes on Jingle Bells it recovers 2 of 7 fully and leaves more broken hits on 3, against 3 of 6 fully and none worse at 0.5. A result with more broken hits doesn't land. One-marble songs recover every time.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it

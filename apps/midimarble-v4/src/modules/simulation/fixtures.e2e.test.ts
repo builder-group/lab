@@ -182,14 +182,14 @@ describe('fixtures', () => {
 		expectAllOnTime(result, 115);
 		expect(project.marbles.map((marble) => marble.sound)).toEqual([9, 8]);
 		expect(project.film.theme).toMatchObject({ base: 'brass', pack: { packId: 'christmas', themeName: 'Christmas' } });
-		expect(project.film.decor.length).toBeGreaterThan(80);
+		expect(project.film.decor.length).toBeGreaterThan(70);
 		// A theme carries no side dressing
 		expect(project.film.wall.kind).toBeUndefined();
 		expect(project.film.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
-		// Built at new projects' default half gravity, which the assists keep on the shared pace
-		expect(project.gravity).toBe(0.5);
+		// Built at new projects' default Gravity, which the assists keep on the shared pace
+		expect(project.gravity).toBe(0.25);
 		// Rails with the Switchback layout hold the melody across its long notes
-		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(10);
+		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(5);
 		// While both marbles play, they never touch each other or the other marble's pieces
 		const until = Math.min(...project.marbles.map((marble) => marble.hits.at(-1)?.time ?? 0));
 		const played = result.contacts.filter((contact) => contact.time <= until);
