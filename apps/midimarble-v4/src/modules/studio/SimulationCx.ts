@@ -1,6 +1,7 @@
-import { createState } from 'feature-state';
+import { createComputed, createState } from 'feature-state';
+import { checkRun, pendingPreflight, type TExportPreflight } from '@/modules/building';
 import { type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
-import { createSimulationClient, isSuperseded, marbleEdits, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
+import { createSimulationClient, isSameRunInput, isSuperseded, marbleEdits, type TRunInput, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
 
@@ -20,6 +21,31 @@ export class SimulationCx {
 	readonly $computing = createState(false);
 	/** True from `startPreview` to `endPreview` */
 	readonly $previewing = createState(false);
+	/** What a drag keeps showing, so no pointer move checks the whole run on the main thread */
+	private heldProblems: TExportPreflight | null = null;
+	private problems: ReturnType<SimulationCx['createProblems']> | null = null;
+
+	/**
+	 * The open project's problems, the one source for the hit summary, its menu, Layers, the inspectors, the export
+	 * sheet, the Camera track and an agent's replies. Pending until the run has caught up with the project and while
+	 * Build Track works, so no step checks the whole run. Made on first read, as the states it reads are made after this Cx.
+	 */
+	get $problems(): ReturnType<SimulationCx['createProblems']> {
+		this.problems ??= this.createProblems();
+		return this.problems;
+	}
+
+	private createProblems() {
+		const { $history, film, assist } = this.studio;
+		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building] as const, ([history, result, isPreviewing, blenderObjects, building]) => {
+			const project = history?.present ?? null;
+			if (project == null || building != null) return pendingPreflight(project);
+			if (isPreviewing && this.heldProblems != null) return this.heldProblems;
+			this.heldProblems = result != null && result.revision === project.revision ? checkRun(project, result, blenderObjects) : null;
+			return this.heldProblems ?? pendingPreflight(project);
+		});
+	}
+
 	/** Why the platform being dragged can't play its note where the pointer is, for its chip */
 	readonly $moveLimit = createState<TMoveLimit | null>(null);
 	/** Wall time from the newest request to its result, in milliseconds */
@@ -34,6 +60,8 @@ export class SimulationCx {
 	private cancelFrame: (() => void) | null = null;
 	private sent = 0;
 	private accepted = 0;
+	/** What the newest request runs, when it runs whole: a project with the same input needs no run of its own */
+	private wholeRun: TRunInput | null = null;
 
 	constructor(private readonly studio: StudioCx) {}
 
@@ -45,6 +73,7 @@ export class SimulationCx {
 				projectId = null;
 				this.clearPreview();
 				this.$result.set(null);
+				this.wholeRun = null;
 				this.settled = null;
 				return;
 			}
@@ -53,6 +82,7 @@ export class SimulationCx {
 				projectId = value.present.id;
 				this.clearPreview();
 				this.$result.set(null);
+				this.wholeRun = null;
 			}
 			this.settleLatestEdit(value);
 			this.schedule();
@@ -64,6 +94,7 @@ export class SimulationCx {
 			this.cancelFrame = null;
 			this.client?.dispose();
 			this.client = null;
+			this.wholeRun = null;
 		};
 	}
 
@@ -303,13 +334,24 @@ export class SimulationCx {
 	}
 
 	private send(client: TSimulationClient, project: TProject): void {
+		if (this.wholeRun != null && isSameRunInput(this.wholeRun, project)) {
+			// A film edit leaves the run as it was. A request on its way stamps its own result when it lands.
+			const shown = this.$result.get();
+			if (shown != null && !this.$computing.get()) this.$result.set(atRevision(shown, project.revision));
+			return;
+		}
 		const id = ++this.sent;
+		const horizon = this.isMoving ? PREVIEW_HORIZON : undefined;
+		this.wholeRun = horizon == null ? project : null;
 		this.$computing.set(true);
-		client.simulate(project, this.isMoving ? PREVIEW_HORIZON : undefined).then(
-			(result) => {
+		client.simulate(project, horizon).then(
+			(answer) => {
 				// Requests replaced while waiting resolve with the same newer result, oldest first
 				if (id < this.accepted || this.studio.project?.id !== project.id) return;
 				this.accepted = id;
+				// Only the newest request's answer is its own run, and what has changed since may be film alone
+				const latest = this.preview ?? this.studio.project;
+				const result = id === this.sent && latest != null && isSameRunInput(project, latest) ? atRevision(answer, latest.revision) : answer;
 				// Before the result goes out, so what it broke offers its Fix on this notice
 				if (this.preview == null) this.sayPendingBreak(result);
 				if (result !== this.$result.get()) this.$result.set(result);
@@ -317,11 +359,19 @@ export class SimulationCx {
 			},
 			(error: unknown) => {
 				if (this.client == null) return;
-				if (id === this.sent) this.$computing.set(false);
+				if (id === this.sent) {
+					this.wholeRun = null;
+					this.$computing.set(false);
+				}
 				this.studio.notify(`Simulation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
 			}
 		);
 	}
+}
+
+/** A run under the revision it also answers for, since the edits after it left its input alone */
+function atRevision(result: TSimulationResult, revision: number): TSimulationResult {
+	return result.revision === revision ? result : { ...result, revision };
 }
 
 /** `project` with these pieces in place of the ones of the same id */

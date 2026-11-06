@@ -1,4 +1,3 @@
-mod commands;
 pub mod menu;
 pub mod window;
 
@@ -10,7 +9,6 @@ fn specta_builder() -> SpectaBuilder<tauri::Wry> {
     return SpectaBuilder::<tauri::Wry>::new()
         .events(collect_events![menu::MenuCommandEvent, mcp::McpRequestEvent, mcp::McpClientsEvent])
         .commands(collect_commands![
-            commands::get_app_info,
             package::commands::create_project,
             package::commands::open_project,
             package::commands::save_project,
@@ -48,7 +46,6 @@ fn specta_builder() -> SpectaBuilder<tauri::Wry> {
             mcp::commands::mcp_connections,
             mcp::commands::mcp_copy_server_command,
             library::commands::library_list,
-            library::commands::library_promote,
             library::commands::library_import,
             library::commands::library_remove,
             library::commands::library_add_asset,

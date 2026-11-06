@@ -1,8 +1,7 @@
-import type { TBlenderObject } from '@/modules/scene';
-import { PATTERN_KINDS, PATTERNS, preflightExport, problemSummary } from '@/modules/building';
+import { PATTERN_KINDS, PATTERNS, problemSummary, type TExportPreflight } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TPiece, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
+import { DEFAULT_GRAVITY, shownSongs, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSong } from '@/modules/music';
 
@@ -11,7 +10,7 @@ import { hasSong } from '@/modules/music';
 
 const MAX_PROBLEMS = 20;
 /** What each row of a marble's `hitList` holds; x and y are the hit's dot, null while the marble has not got there */
-const HIT_COLUMNS = ['hitId', 'time', 'note', 'status', 'x', 'y'];
+const HIT_COLUMNS = ['hitId', 'time', 'note', 'status', 'x', 'y', 'songId'];
 const MAX_PIECES = 200;
 
 export interface THitReport {
@@ -24,8 +23,7 @@ export interface THitReport {
 	tips?: string[];
 }
 
-export function hitReport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[]): THitReport {
-	const preflight = preflightExport(project, result, blenderObjects);
+export function hitReport(preflight: TExportPreflight): THitReport {
 	const summary = problemSummary(preflight);
 	const tips = preflight.issues.filter((issue) => issue.kind === 'fall').slice(0, MAX_PROBLEMS).map((issue) => issue.title);
 	return {
@@ -41,12 +39,12 @@ export function hitReport(project: TProject, result: TSimulationResult | null, b
 }
 
 /** The project in short. Hit keys in `openHits` work for `select` and `placePiece`. */
-export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly TSelectedItem[]; playhead: number; isPlaying: boolean; agentFolder: string | null; packThemes?: { id: string; name: string; pack: string }[]; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown; blenderObjects: readonly TBlenderObject[] }): Record<string, unknown> {
+export function projectState(project: TProject, result: TSimulationResult | null, view: { path: string | null; workspace: string; selection: readonly TSelectedItem[]; playhead: number; isPlaying: boolean; agentFolder: string | null; packThemes?: { id: string; name: string; pack: string }[]; references: { images: number; text: string }; building?: unknown; lastBuild?: unknown; problems: TExportPreflight }): Record<string, unknown> {
 	const film = project.film;
 	const theme = resolveTheme(film);
 	const wall = wallLayer(film);
 	const light = keyLightLayer(film);
-	const resolved = new Map(result?.pieces.map((piece) => [piece.entityId, piece]) ?? []);
+	const resolved = new Map(result?.pieces.map((piece) => [piece.pieceId, piece]) ?? []);
 	const pieces = project.track.pieces;
 	const countBy = (values: string[]): Record<string, number> => {
 		const counts: Record<string, number> = {};
@@ -67,7 +65,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		playhead: round(view.playhead),
 		isPlaying: view.isPlaying,
 		selection: view.selection,
-		song: hasSong(project) ? { songs: project.songs.filter((song) => song.path != null).map((song) => ({ id: song.id, name: song.name, kind: song.kind, start: song.start })), backingNotes: backingOf(project).length, tempo: tempoOf(project) ?? null } : null,
+		song: hasSong(project) ? { songs: shownSongs(project).map((song) => ({ id: song.id, name: song.name, kind: song.kind, start: song.start, backingNotes: song.backing.length, ...(song.backingSound != null ? { backingSound: song.backingSound } : {}) })), backingNotes: backingOf(project).length, tempo: tempoOf(project) ?? null } : null,
 		marbles: project.marbles.map((marble) => {
 			const own = hits.filter((hit) => hit.marbleId === marble.id);
 			return {
@@ -84,11 +82,11 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				hitColumns: HIT_COLUMNS,
 				hitList: marble.hits.map((hit) => {
 					const run = own.find((item) => item.hitId === hit.id);
-					return [hit.id, round(hit.time), hit.pitch != null ? noteName(hit.pitch) : null, run?.status ?? 'open', run?.dot != null ? round(run.dot.x) : null, run?.dot != null ? round(run.dot.y) : null];
+					return [hit.id, round(hit.time), hit.pitch != null ? noteName(hit.pitch) : null, run?.status ?? 'open', run?.dot != null ? round(run.dot.x) : null, run?.dot != null ? round(run.dot.y) : null, hit.songId ?? null];
 				})
 			};
 		}),
-		...hitReport(project, result, view.blenderObjects),
+		...hitReport(view.problems),
 		layers: {
 			pieceCounts: countBy(pieces.map((piece) => piece.type ?? 'piece')),
 			pieces: pieces.slice(0, MAX_PIECES).map((piece) => {
@@ -111,8 +109,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		// What the film uses, and in `own` what this project changed on top of its theme
 		wall: { color: wall.color, backgroundColor: wall.backgroundColor, kind: wall.kind, own: wall.own },
 		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: film.lights ?? {} },
-		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
-		projectThemes: film.themes.map((item) => ({ id: item.id, name: item.name })),
+		theme: { id: theme.id, name: theme.name, base: theme.base, ...(theme.glowColor != null ? { glowColor: theme.glowColor } : {}), ...(theme.pack != null ? { pack: theme.pack.packName } : {}), parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
 		...(view.packThemes != null && view.packThemes.length > 0 ? { packThemes: view.packThemes } : {}),
 		decor: { count: film.decor.length, sources: countBy(film.decor.map((item) => item.source)) },
 		quality: film.quality
@@ -130,7 +127,7 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 		const piece = project.track.pieces.find((item) => item.id === key);
 		if (piece != null) {
 			const pose = pieceInForm(result, piece);
-			const link = tieOf(piece) ?? result?.hits.find((item) => item.pieceEntityId === piece.id);
+			const link = tieOf(piece) ?? result?.hits.find((item) => item.pieceId === piece.id);
 			const played = link != null ? resolveHit(project, result, toHitKey(link.marbleId, link.hitId), link.marbleId, link.hitId) : null;
 			return { kind: 'piece', key, ...pose, params: piece.params ?? {}, hit: played != null ? { key: played.key, marbleId: played.marbleId, hitId: played.hitId, marble: played.marble, time: played.time, note: played.note, status: played.status } : null };
 		}
@@ -159,7 +156,7 @@ function resolveHit(project: TProject, result: TSimulationResult | null, key: st
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = marble?.hits.find((item) => item.id === hitId);
 	const run = result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
-	const platform = project.track.pieces.find((piece) => piece.id === run?.pieceEntityId || (tieOf(piece)?.marbleId === marbleId && tieOf(piece)?.hitId === hitId));
+	const platform = project.track.pieces.find((piece) => piece.id === run?.pieceId || (tieOf(piece)?.marbleId === marbleId && tieOf(piece)?.hitId === hitId));
 	return {
 		kind: 'hit',
 		key,
@@ -176,7 +173,7 @@ function resolveHit(project: TProject, result: TSimulationResult | null, key: st
 
 /** A piece's id, name, place, angle in radians and length, each only when it has one */
 function pieceInForm(result: TSimulationResult | null, piece: TPiece): TSelectedPiece {
-	const position = result?.pieces.find((item) => item.entityId === piece.id)?.position;
+	const position = result?.pieces.find((item) => item.pieceId === piece.id)?.position;
 	const { angle } = piece;
 	const length = piece.params['length'];
 	return {

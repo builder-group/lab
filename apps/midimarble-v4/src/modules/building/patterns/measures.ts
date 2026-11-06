@@ -26,9 +26,9 @@ export interface TPatternMeasures {
 export function measurePattern(project: TProject, result: TSimulationResult, marbleId: string, hitIds?: readonly string[]): TPatternMeasures {
 	const wanted = hitIds != null ? new Set(hitIds) : null;
 	const hits = result.hits.filter((hit) => hit.marbleId === marbleId && (wanted == null || wanted.has(hit.hitId)));
-	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
+	const pieces = new Map(result.pieces.map((piece) => [piece.pieceId, piece]));
 	const rows = hits.map((hit) => {
-		const piece = hit.pieceEntityId != null ? pieces.get(hit.pieceEntityId) : undefined;
+		const piece = hit.pieceId != null ? pieces.get(hit.pieceId) : undefined;
 		return piece?.type === 'platform' ? { x: piece.position.x, y: hit.dot?.y ?? piece.position.y, angle: piece.angle } : null;
 	});
 	const drops: number[] = [];

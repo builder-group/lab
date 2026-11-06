@@ -489,24 +489,6 @@ textarea {
 }
 
 /* GarageBand-style track toggles: a speaker for Mute that turns gray and crossed out, headphones for Solo that light up in the accent */
-/* A Part's Sound in its timeline row: plain text with a chevron until hovered, so a tall Song stays quiet */
-.mm-part-sound {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
-	max-width: 76px;
-	height: 20px;
-	padding: 0 4px;
-	border-radius: 5px;
-	font-size: 11px;
-	color: var(--text-secondary);
-}
-
-.mm-part-sound:hover {
-	background: var(--hover);
-	color: var(--text);
-}
-
 .mm-track-toggle {
 	display: inline-flex;
 	align-items: center;
@@ -592,6 +574,40 @@ textarea {
 	border-radius: 4px;
 	background: var(--pressed);
 	color: var(--text-secondary);
+}
+
+/* A song on the timeline, like a clip under a Final Cut storyline: quiet until hovered, and it drags */
+.mm-song-clip {
+	top: 3px;
+	bottom: 3px;
+	border-radius: 5px;
+	background: color-mix(in srgb, var(--song-tint) 10%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--song-tint) 22%, transparent);
+	cursor: grab;
+}
+
+.mm-song-clip:hover,
+.mm-song-clip[data-selected='true'] {
+	background: color-mix(in srgb, var(--song-tint) 16%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--song-tint) 45%, transparent);
+}
+
+.mm-song-clip[data-moving='true'] {
+	cursor: grabbing;
+}
+
+/* The hairline under a marble's hits that are tied to a song; hits of its own have none */
+.mm-tie-line {
+	position: absolute;
+	bottom: 2px;
+	height: 2px;
+	border-radius: 1px;
+	opacity: 0.55;
+	pointer-events: none;
+}
+
+.mm-tie-line[data-selected='true'] {
+	opacity: 1;
 }
 
 .mm-song-row {
@@ -1348,32 +1364,6 @@ button.mm-hit-summary:hover {
 
 .mm-tile-wrap > .mm-tile {
 	width: 100%;
-}
-
-.mm-tile-star {
-	position: absolute;
-	top: 7px;
-	right: 7px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 18px;
-	height: 18px;
-	border-radius: 5px;
-	background: rgb(0 0 0 / 0.4);
-	color: #fff;
-	opacity: 0;
-	transition: opacity 120ms;
-}
-
-.mm-tile-wrap:hover .mm-tile-star,
-.mm-tile-star:focus-visible,
-.mm-tile-star[data-kept='true'] {
-	opacity: 1;
-}
-
-.mm-tile-star[data-kept='true'] {
-	color: var(--accent-strong);
 }
 
 /* Text button like a link in a macOS inspector */

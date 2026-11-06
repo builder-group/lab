@@ -4,7 +4,7 @@ import { applyProjectCommands, BACKING_ID, createProject, type TProject, tieOf }
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from './export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
 import { hitSummary } from './hit-status';
 import { newlyBroken } from './bowl-assist';
 import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fixWorseWords, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixCount, type TFixDeps } from './fix-it';
@@ -14,7 +14,7 @@ function hit(time: number, status: THitResult['status'], options: Partial<THitRe
 		marbleId: 'marble-1',
 		hitId: `h${time}`,
 		targetTime: time,
-		pieceEntityId: status === 'open' ? null : `p${time}`,
+		pieceId: status === 'open' ? null : `p${time}`,
 		dot: { x: 0, y: -time },
 		velocity: { x: 0, y: -1 },
 		actualTime: null,
@@ -135,7 +135,7 @@ describe('fixTrack function', () => {
 
 	/** The result notice as Track shows it, with how the run stands from the problem model */
 	function resultMessage(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof fixTrack>>): string {
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		const added = addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS);
 		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
 	}
@@ -184,7 +184,7 @@ describe('fixTrack function', () => {
 		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted} hits? · .*moved the release · ${summary.label}`));
 	}, 60_000);
 
@@ -199,7 +199,7 @@ describe('fixTrack function', () => {
 		// Assert: the release stays, since the marble's first notes still play
 		expect(outcome.releases).toEqual([]);
 		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed .* · placed \\d+ platforms? again.* · ${summary.label}`));
 	}, 60_000);
 });
@@ -229,7 +229,7 @@ describe('moveClear function', () => {
 			marbles: [{ marbleId: marble.id, radius: 0.008, samples }],
 			pieces: [
 				{
-					entityId: 'windmill',
+					pieceId: 'windmill',
 					type: 'windmill',
 					position: { x: 0, y: 0 },
 					angle: 0,
@@ -276,9 +276,9 @@ describe('moveClear function', () => {
 		// Prepare: the move clears the windmill, but the run with it moved loses a hit that was on time
 		const { project, result } = createBlocked();
 		const marbleId = project.marbles[0]?.id ?? '';
-		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
 		const unused = (): Promise<never> => Promise.reject(new Error('Move Clear places no platform'));
-		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
 		const keeps = { ...breaks, hits: onTime.hits };
 
 		// Act
@@ -296,8 +296,8 @@ describe('moveClear function', () => {
 		const { project: blocked, result } = createBlocked();
 		const project = { ...blocked, track: { ...blocked.track, pieces: blocked.track.pieces.map((piece) => (piece.id === 'windmill' ? { ...piece, type: 'bowl' } : piece)) } };
 		const marbleId = project.marbles[0]?.id ?? '';
-		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
-		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceEntityId: 'p1' })] };
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
 		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.track.pieces.some((piece) => piece.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
 
 		// Act
@@ -377,7 +377,7 @@ describe('addedProblems function', () => {
 			] }
 		} as TProject;
 		const clear = contactResult(project, []);
-		const hitBy = contactResult(project, [{ kind: 'piece', marbleEntityId: 'bass', otherEntityId: 'switchback', time: 5, position: { x: 0, y: 0 } }] as TSimulationResult['contacts']);
+		const hitBy = contactResult(project, [{ kind: 'piece', marbleId: 'bass', otherId: 'switchback', time: 5, position: { x: 0, y: 0 } }] as TSimulationResult['contacts']);
 
 		// Act
 		const added = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS);

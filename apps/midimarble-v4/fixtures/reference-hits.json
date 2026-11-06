@@ -14,7 +14,7 @@
 			"params": {
 				"radius": 0.00375,
 				"gap": 0.015,
-				"laneOffset": 0.05802
+				"landingOffset": 0.05802
 			}
 		},
 		"transform": {

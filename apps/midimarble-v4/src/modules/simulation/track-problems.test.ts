@@ -5,7 +5,7 @@ import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes }
 import type { TResolvedPiece, TSimulationResult } from './types';
 
 function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0, depth = 0.03): TResolvedPiece {
-	return { entityId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012, depth }, status: 'placed', hitTime } as unknown as TResolvedPiece;
+	return { pieceId: entityId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012, depth }, status: 'placed', hitTime } as unknown as TResolvedPiece;
 }
 
 function project(hitIds: string[]): TProject {
@@ -20,9 +20,9 @@ function run(pieces: TResolvedPiece[], contacts: { time: number; other: string; 
 	return {
 		duration: 10,
 		pieces,
-		marbles: [{ entityId: 'marble', marbleId: 'marble', radius: 0.012, samples: [] }],
-		contacts: contacts.map((contact) => ({ time: contact.time, marbleEntityId: 'marble', otherEntityId: contact.other, kind: 'piece', position: { x: 0, y: 0 }, speed: contact.speed ?? 1 })),
-		hits: Object.entries(times).map(([hitId, time]) => ({ marbleId: 'marble', hitId, targetTime: time, pieceEntityId: `piece-${hitId}`, dot: { x: 0, y: 0 }, velocity: null, actualTime: time, error: 0, status: 'onTime' }))
+		marbles: [{ marbleId: 'marble', radius: 0.012, samples: [] }],
+		contacts: contacts.map((contact) => ({ time: contact.time, marbleId: 'marble', otherId: contact.other, kind: 'piece', position: { x: 0, y: 0 }, speed: contact.speed ?? 1 })),
+		hits: Object.entries(times).map(([hitId, time]) => ({ marbleId: 'marble', hitId, targetTime: time, pieceId: `piece-${hitId}`, dot: { x: 0, y: 0 }, velocity: null, actualTime: time, error: 0, status: 'onTime' }))
 	} as unknown as TSimulationResult;
 }
 
@@ -82,7 +82,7 @@ describe('rollingHits function', () => {
 			if (piece.id === 'piece-a') piece.type = type;
 		});
 		const result = run([piece], [{ time: 1, other: 'piece-a' }], { a: 1, b: 1.5 });
-		return { project: base, result: { ...result, marbles: [{ entityId: 'marble', marbleId: 'marble', radius: 0.012, samples }] } as unknown as TSimulationResult };
+		return { project: base, result: { ...result, marbles: [{ marbleId: 'marble', radius: 0.012, samples }] } as unknown as TSimulationResult };
 	}
 
 	it('should name a marble that stays on its platform after the note', () => {
@@ -120,7 +120,7 @@ describe('pathDepth function', () => {
 	});
 
 	it('should use the default Depth without bars, and stay clear of the wall', () => {
-		expect(pathDepth([{ type: 'rail', params: {} }], 0.012)).toBeCloseTo(0.045);
+		expect(pathDepth([{ type: 'rail', params: {} }], 0.012)).toBeCloseTo(0.075);
 		expect(pathDepth([bar(0.02)], 0.012)).toBeCloseTo(0.0125);
 	});
 });

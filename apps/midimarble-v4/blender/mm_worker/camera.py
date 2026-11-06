@@ -1,6 +1,6 @@
 """Follow camera baked from the marble motion.
 
-The camera looks steeply along the wall and travels with the marbles, like the reference short:
+The camera stands close through a wide lens, turned to the side, and travels with the marbles, like the reference short:
 
 1. Follow point per frame. With several marbles the camera frames the group: the follow point is the weighted center
    of the marbles in flight (a marble weighs 1 while its samples cover the time, up to a moment after its last note
@@ -15,9 +15,9 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    correction as slow as the frame's own move (KEEP_EASE) pulls the target along.
 3. Placement: the camera stands `distance` from the target at `pitch` from the wall normal, above and to the side
    of the run (the Turn, `side`, by default SIDE_ANGLE from straight below, following the run direction by SIDE_FOLLOW). Seen from there the
-   bars show their long sides and tops, the wall recedes like a floor and the two columns run diagonally.
-4. Roll: image up is the wall's up direction turned by a slow function of the run direction plus a slow drift
-   (ROLL_DRIFT over ROLL_PERIOD), so the columns turn between diagonal and near vertical. Shot markers scale the
+   bars fan out from a point just beside the frame and show their long sides and tops.
+4. Roll: image up stays nearly the wall's up direction, with a little of the run direction and a slow drift
+   (ROLL_DRIFT over ROLL_PERIOD), since the reference hardly rolls. Shot markers scale the
    automatic distance by their distance over the rig's with eased transitions (a Push In to 0.7 of the rig distance
    comes to 0.7 of the current framing and frames the leading marble); a shot with a `length` eases back to the rig's
    distance after it unless the next shot comes first.
@@ -29,7 +29,7 @@ The camera looks steeply along the wall and travels with the marbles, like the r
    come to rest with it.
 
 Everything is baked as keyframes on the studio camera (location, rotation, focus distance), so the camera works in
-plain Blender. A camera the user edited is taken over and never regenerated unless the app asks.
+plain Blender. A camera the user edited is left alone: the app turns Follow Marbles off, and turning it on bakes again.
 """
 import math
 
@@ -40,18 +40,16 @@ from mathutils import Euler, Matrix, Vector
 from . import anim
 from .util import path_depth
 
-# Image roll per radian of run direction, its limit, and a slow drift that turns the columns between diagonal and
-# near vertical like the reference
-ROLL_FOLLOW = 0.5
-ROLL_LIMIT = math.radians(40)
-ROLL_DRIFT = math.radians(8)
+# Image roll per radian of run direction and a slow drift: near zero, as the reference hardly rolls
+ROLL_FOLLOW = 0.05
+ROLL_DRIFT = math.radians(1)
 ROLL_PERIOD = 56.0
 # Where the camera stands around the target on the wall: 0 straight below, positive to the right
-SIDE_ANGLE = math.radians(95)
+SIDE_ANGLE = math.radians(90)
 SIDE_FOLLOW = 0.3
 HEADING_TAU = 1.5
 # The lead may move the target at most this fraction of the camera distance ahead of the marble
-LEAD_LIMIT = 0.0235
+LEAD_LIMIT = 0.0666
 # Fraction of the half frame the marble may move away from the target before the camera is pulled along
 FRAME_KEEP = 0.55
 # Time constant in seconds of that pull: a fast one would stand out as a lurch against the frame's steady scroll
@@ -62,12 +60,12 @@ LIMIT_EASE = 0.08
 # Width over height of the framing box; portrait films are 9:16
 ASPECT_GUESS = 0.56
 SHOT_EASE = 0.8
-LENS = 85.0
+LENS = 30.0
 # Fractions of the half frame width and height a framed group may use, seen along the camera's axes
 GROUP_KEEP_X = 0.85
 GROUP_KEEP_Y = 0.85
 # Margin on the distance a framed group needs
-GROUP_MARGIN = 1.2
+GROUP_MARGIN = 1.1
 # Weight in the group center of a marble past its `activeUntil`
 FINISHED_WEIGHT = 0.001
 SENSOR = 36.0
@@ -103,7 +101,9 @@ OPENING_STEPS = 3
 OPENING_ZOOM = 1.7
 OPENING_MARBLE_SHARE = 0.045
 # The opening's own margin: tighter than GROUP_MARGIN, as its box holds still pieces rather than marbles that swing out
-OPENING_MARGIN = 1.1
+OPENING_MARGIN = 1.065
+# The least share of the opening's distance a point's depth counts as while centering the box
+OPENING_NEAREST = 0.2
 # A view ray that misses the wall, or meets it further than this, counts this many camera heights away when sizing
 # the wall. A steep pitch (1.15 rad) meets the wall up to about 40 heights away at the far frame corner
 FAR_REACH = 60.0
@@ -126,7 +126,6 @@ def settings_from(description_camera, theme_settings):
         try:
             shots.append({
                 'time': float(shot['time']),
-                'kind': str(shot.get('kind', 'follow')),
                 'distance': max(0.05, float(shot.get('distance', camera.get('distance', 0.6)))),
                 'length': shot_length(shot.get('length')),
             })
@@ -330,7 +329,7 @@ def view_turn(times, heading, hold, base_side=SIDE_ANGLE, sway=1.0):
     Sway scales what moves on its own: at 0 the side holds the Turn and the wall's up stays straight up in the image."""
     side = base_side + sway * SIDE_FOLLOW * heading
     drift = ROLL_DRIFT * np.sin(2 * math.pi * drift_times(times, hold) / ROLL_PERIOD)
-    roll = sway * (np.clip(ROLL_FOLLOW * heading, -ROLL_LIMIT, ROLL_LIMIT) + drift)
+    roll = sway * (ROLL_FOLLOW * heading + drift)
     return side, roll
 
 
@@ -438,15 +437,17 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
     base = settings['distance']
     side, roll = view_turn(times, heading, hold, settings['side'], settings['sway'])
     axes = view_axes(side, roll, settings['pitch'])
-    raw = spread_need(marbles, motions, sample, center if aim is None else aim, settings['lens'], axes)
+    # A close shot frames the leading marble alone
+    push = np.clip((1 - scale) / (1 - PUSH_FOCUS), 0.0, 1.0)
+    # A close shot's target sits on its leading marble, so it's sized around the center: it scales what the group needs without it
+    sized_around = center if aim is None else aim + push[:, None] * (center - aim)
+    raw = spread_need(marbles, motions, sample, sized_around, settings['lens'], axes)
     # The opening frame sets the zoom while it leads: its box holds the marbles, and sizing them around its center would widen it again
     opening = opening_frame(marbles, motions, times, sample, settings, fps, axes)
     zoom_need = raw if opening is None else np.maximum(raw * (1 - opening['weight']), opening['need'] * opening['weight'])
     # Hold the widest need for a second so the zoom does not breathe with every bounce; a running median first drops
     # momentary spikes, such as one marble's bounce peak, that the frame margins absorb
     need = held(held(zoom_need, fps, GROUP_SPIKE / 2, np.median), fps, 1.0)
-    # A close shot frames the leading marble alone
-    push = np.clip((1 - scale) / (1 - PUSH_FOCUS), 0.0, 1.0)
     # The zoom follows what the group needs, slowly
     group_distance = np.maximum(need, base)
     distance = critically_damped(group_distance[:, None], fps, DISTANCE_TAU)[:, 0]
@@ -464,14 +465,15 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
         keep = (1 - push)[:, None]
         center = keep * center + (1 - keep) * lead
         ahead = keep * ahead + (1 - keep) * lead_ahead
+    followed = center
     if opening is not None:
         weight = opening['weight'][:, None]
         center = weight * opening['point'] + (1 - weight) * center
         ahead = weight * opening['point'] + (1 - weight) * ahead
     if hold is not None:
         bowl = settings.get('bowl')
-        center, ahead = settled(center, times, hold, bowl), settled(ahead, times, hold, bowl)
-    return {'current': center, 'ahead': ahead, 'depth': depth, 'distance': distance, 'opening_weight': None if opening is None else opening['weight']}
+        center, ahead, followed = settled(center, times, hold, bowl), settled(ahead, times, hold, bowl), settled(followed, times, hold, bowl)
+    return {'current': center, 'ahead': ahead, 'marbles': followed, 'depth': depth, 'distance': distance, 'opening_weight': None if opening is None else opening['weight']}
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes):
@@ -531,7 +533,8 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
             image_x, image_y = [], []
             for value_x, value_y in zip(xs, ys):
                 dx, dy = value_x - x, value_y - y
-                depth = max(reach_out - (dx * tx + dy * tz), 1e-6)
+                # A point at or behind the camera says nothing about the image, and dividing by its depth would throw the box far away
+                depth = max(reach_out - (dx * tx + dy * tz), OPENING_NEAREST * reach_out)
                 image_x.append((dx * rx + dy * rz) / depth)
                 image_y.append((dx * ux + dy * uz) / depth)
             want_x = (min(image_x) + max(image_x)) / 2 * reach_out
@@ -643,8 +646,8 @@ def follow_target(framing, settings, fps, times):
             if not np.any(excess):
                 break
             target = target + critically_damped(excess, fps, ease) * 1.3
-    # Safety net for extreme motion: never let a marble leave the frame
-    offset = current - target
+    # Safety net for extreme motion: never let a marble leave the frame, also while the opening's frame eases out
+    offset = framing['marbles'] - target
     hard = half_frame[:, None] * FRAME_KEEP * np.array([ASPECT_GUESS, 1.0]) * 1.5
     target = target + np.maximum(np.abs(offset) - hard, 0.0) * np.sign(offset)
     # Run direction from the smoothed target over one second, then smoothed again for slow heading changes
@@ -777,7 +780,7 @@ def write_shot_markers(scene, shots, fps):
         if marker.name.startswith('MM · '):
             scene.timeline_markers.remove(marker)
     for index, shot in enumerate(shots):
-        scene.timeline_markers.new('MM · ' + shot['kind'], frame=int(round(shot['time'] * fps)))
+        scene.timeline_markers.new('MM · Shot', frame=int(round(shot['time'] * fps)))
         following = shots[index + 1]['time'] if index + 1 < len(shots) else math.inf
         if shot.get('length') is not None and shot['time'] + shot['length'] < following - 1e-9:
             scene.timeline_markers.new('MM · follow', frame=int(round((shot['time'] + shot['length']) * fps)))

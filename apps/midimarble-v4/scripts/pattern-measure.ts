@@ -6,7 +6,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '../src/modules/building/export-preflight';
+import { checkRun, NO_BLENDER_OBJECTS, problemSummary } from '../src/modules/building/export-preflight';
 import { checkPattern } from '../src/modules/building/patterns/check-pattern';
 import { PATTERN_KINDS } from '../src/modules/building/patterns/registry';
 import type { TGroupChange } from '../src/modules/building/patterns/run-group';
@@ -121,7 +121,7 @@ function reasonOf(words: string): string {
 
 function standing(project: TProject, sim: TSimulator) {
 	const result = sim.simulate(project);
-	const summary = problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track');
+	const summary = problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS), 'track');
 	const onTime = new Set(result.hits.filter((hit) => hit.status === 'onTime' || hit.status === 'drifting').map((hit) => hit.hitId));
 	return { onTime, problems: summary.problems.map((issue) => issue.title) };
 }

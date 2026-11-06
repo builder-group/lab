@@ -7,7 +7,7 @@ import { PatternsCx } from './PatternsCx';
 
 const TARGET = { marbleId: '', from: 1, to: 2 };
 
-function studio(): { cx: StudioCx; patterns: PatternsCx; target: typeof TARGET; run: ReturnType<typeof vi.fn>; preview: ReturnType<typeof vi.fn>; fits: TPatternAnswer; refused: TPatternAnswer } {
+function studio(): { cx: StudioCx; patterns: PatternsCx; target: typeof TARGET; run: ReturnType<typeof vi.fn>; preview: ReturnType<typeof vi.fn>; cancelPreview: ReturnType<typeof vi.fn>; fits: TPatternAnswer; refused: TPatternAnswer } {
 	const created = createProject({ title: 'Song' });
 	const marble = { ...createMarble(0, { x: 0, y: 0 }), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
 	const project: TProject = { ...created, marbles: [marble] };
@@ -16,13 +16,14 @@ function studio(): { cx: StudioCx; patterns: PatternsCx; target: typeof TARGET; 
 	const patterns = new PatternsCx(cx);
 	const run = vi.fn();
 	const preview = vi.fn();
-	(patterns as unknown as { client: unknown }).client = { run, preview, cancel: () => undefined, dispose: () => undefined };
+	const client = { run, preview, cancelPreview: vi.fn(), cancel: () => undefined, dispose: () => undefined };
+	(patterns as unknown as { client: unknown }).client = client;
 	const piece = createLinkedPiece('platform', marble.id, 'hit1', 0.3, { id: 'bar' });
 	const base = { name: 'Zigzag', problems: [], blocking: [], later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], madePieces: [], measures: null, movedAfter: 0, ending: null, offers: [], pieces: [] };
 	const fits = { ...base, commands: [{ type: 'addPiece', piece }, { type: 'addGroup', group: { id: 'group-1', name: 'Zigzag', marbleId: marble.id, pieceIds: ['bar'], pattern: { kind: 'zigzag', hitIds: ['hit1'], width: 0.1, bounce: 0.5 } } }], groupId: 'group-1', refusal: null, verdicts: [{ hitId: 'hit1', fits: true, words: null }, { hitId: 'hit2', fits: true, words: null }] } as unknown as TPatternAnswer;
 	const refusal = { marbleId: marble.id, hitId: 'hit2', words: "Zigzag doesn't fit at Hit 2 of Marble 1. The marble can't reach this note on time. Nothing changed." };
 	const refused = { ...base, commands: [], groupId: null, refusal, offers: [{ label: 'Use Width 12 cm', words: 'Width 12 cm fits this range.', width: 0.12 }], verdicts: [{ hitId: 'hit1', fits: true, words: null }, { hitId: 'hit2', fits: false, words: "The marble can't reach this note on time." }] } as unknown as TPatternAnswer;
-	return { cx, patterns, target: { ...TARGET, marbleId: marble.id }, run, preview, fits, refused };
+	return { cx, patterns, target: { ...TARGET, marbleId: marble.id }, run, preview, cancelPreview: client.cancelPreview, fits, refused };
 }
 
 describe('Patterns asked first', () => {
@@ -37,7 +38,7 @@ describe('Patterns asked first', () => {
 		const { cx, patterns, target, preview, fits } = studio();
 		const project = cx.project;
 		preview.mockImplementation((_project, _change, onGhost: (pieces: unknown[]) => void) => {
-			onGhost([{ entityId: 'bar', position: { x: 0, y: 0 } }]);
+			onGhost([{ pieceId: 'bar', position: { x: 0, y: 0 } }]);
 			return Promise.resolve(fits);
 		});
 
@@ -112,9 +113,29 @@ describe('Patterns asked first', () => {
 		expect(cx.project?.track.groups[0]?.id).toBe('group-1');
 	});
 
+	it('should say it is checking at once, and stop asking when the selection or the project changes', async () => {
+		const { cx, patterns, target, preview, cancelPreview, fits } = studio();
+		patterns.mount();
+		preview.mockReturnValue(new Promise(() => undefined));
+
+		patterns.hover(target, 'zigzag');
+		await vi.advanceTimersByTimeAsync(200);
+		expect(patterns.$verdict.get()).toMatchObject({ isChecking: true, isHover: true });
+
+		cx.$selection.set([]);
+		expect(cancelPreview).toHaveBeenCalledTimes(1);
+		expect(patterns.$verdict.get()).toBeNull();
+
+		patterns.hover(target, 'zigzag');
+		await vi.advanceTimersByTimeAsync(200);
+		expect(cx.execute(fits.commands)).toBe(true);
+		expect(cancelPreview).toHaveBeenCalledTimes(2);
+		expect(patterns.$preview.get()).toBeNull();
+	});
+
 	it('should show a ghost that does not fit as such', async () => {
 		const { patterns, target, preview, refused } = studio();
-		preview.mockResolvedValue({ ...refused, pieces: [{ entityId: 'bar', position: { x: 0, y: 0 } }] });
+		preview.mockResolvedValue({ ...refused, pieces: [{ pieceId: 'bar', position: { x: 0, y: 0 } }] });
 
 		patterns.hover(target, 'zigzag');
 		await vi.advanceTimersByTimeAsync(200);

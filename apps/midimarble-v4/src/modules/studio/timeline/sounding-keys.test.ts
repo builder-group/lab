@@ -47,6 +47,6 @@ describe('soundingKeys function', () => {
 	it('should light nothing for a recording, whose hits make no sound of their own', () => {
 		const audio: TSong = { id: 'audio', kind: 'audio', path: 'a.wav', name: 'a.wav', start: 0, backing: [] };
 
-		expect(noteSpans(song([{ id: 'a', time: 1, pitch: 60 }], [], [audio]))).toEqual([]);
+		expect(noteSpans(song([{ id: 'a', time: 1, pitch: 60, songId: 'audio' }], [], [audio]))).toEqual([]);
 	});
 });

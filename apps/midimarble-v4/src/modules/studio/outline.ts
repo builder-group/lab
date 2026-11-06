@@ -1,9 +1,8 @@
-import { decorList, type TBlenderObject, addedLights } from '@/modules/scene';
+import { decorList, type TBlenderObject } from '@/modules/scene';
 import type { TDecor, TPiece, TGroup, TMarble, TLight, TProject, TShot, TSong, TTitle } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
-import { hasSongLayer, SONG_LAYER_LABEL } from './song-layer';
-import { songSource } from './SourcesCx';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, shownSongs, toSongKey, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
+import { SONG_LAYER_LABEL } from './song-layer';
 import type { TWorkspace } from './StudioCx';
 
 /**
@@ -19,7 +18,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	const { collapsed = [], workspace = 'film', blenderObjects = [] } = options;
 	const rows: TOutlineRow[] = [{ kind: 'scene', id: SCENE_KEY, depth: 0, parentId: null }];
 
-	if (hasSongLayer(project)) rows.push({ kind: 'song', id: SONG_KEY, depth: 0, parentId: null, source: songSource(project), label: SONG_LAYER_LABEL });
+	for (const song of shownSongs(project)) rows.push({ kind: 'song', id: toSongKey(song.id), depth: 0, parentId: null, source: song, label: SONG_LAYER_LABEL });
 
 	const shots = [...project.film.camera.shots].sort((a, b) => a.time - b.time);
 	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
@@ -58,7 +57,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	if (workspace === 'track') return rows;
 
-	const lights = addedLights(project.film);
+	const lights = project.film.lights.added;
 	const isLightsOpen = !collapsed.includes(LIGHTS_KEY);
 	rows.push({ kind: 'group', id: LIGHTS_KEY, depth: 0, parentId: null, label: 'Lights', groupKey: LIGHTS_KEY, childIds: [KEY_LIGHT_KEY, ...lights.map((light) => toLightKey(light.id))], isOpen: isLightsOpen });
 	if (isLightsOpen) {
@@ -131,7 +130,7 @@ export const FREE_PIECES_KEY = 'group:free';
 export const PIECES_GROUP_LABEL = 'Track Pieces';
 
 /** The ? beside the Track Pieces group: unlinked pieces still collide */
-export const PIECES_GROUP_HELP = 'Parts of the track no marble plays or follows; marbles can still hit them';
+export const PIECES_GROUP_HELP = 'Pieces no marble plays or follows; marbles can still hit them';
 
 /** Group row of the titles on the wall; its ID is never a selection key */
 export const TITLES_KEY = 'group:titles';
@@ -159,7 +158,7 @@ export type TOutlineRow =
 	// Selecting it empties the selection: see SCENE_KEY
 	| (TOutlineRowBase & { kind: 'scene' })
 	// Without a file the Song layer holds only Backing notes
-	| (TOutlineRowBase & { kind: 'song'; source: TSong | undefined; label: string })
+	| (TOutlineRowBase & { kind: 'song'; source: TSong; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; marble: TMarble; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TPiece; marbleId: string | null })
 	// What a Pattern made or a plain Group: selects as itself, with its pieces under it

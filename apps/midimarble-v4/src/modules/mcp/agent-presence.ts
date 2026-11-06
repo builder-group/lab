@@ -1,5 +1,5 @@
 import type { TProject } from '@/modules/project';
-import { formatTime, KEY_LIGHT_KEY, SONG_KEY, CAMERA_KEY, toDecorKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
+import { FILM_LAYERS, formatTime, KEY_LIGHT_KEY, CAMERA_KEY, toShotKey, WALL_KEY, toSongKey } from '@/modules/project';
 
 // The words and the edit diff behind an agent's presence in the window: who is connected, what it is doing, what it
 // just touched.
@@ -134,13 +134,11 @@ export function touchedKeys(before: TProject, after: TProject): string[] {
 	const is = after.film;
 	if (!isSame(was.wall, is.wall)) keys.push(WALL_KEY);
 	if (!isSame(was.lights.key, is.lights.key)) keys.push(KEY_LIGHT_KEY);
-	const lights = new Map((was.lights.added).map((light) => [light.id, light]));
-	for (const light of is.lights.added) {
-		if (!isSame(lights.get(light.id), light)) keys.push(toLightKey(light.id));
-	}
-	const decor = new Map((was.decor).map((item) => [item.id, item]));
-	for (const item of is.decor) {
-		if (!isSame(decor.get(item.id), item)) keys.push(toDecorKey(item.id));
+	for (const layer of FILM_LAYERS) {
+		const items = new Map((layer.items(was) ?? []).map((item) => [item.id, item]));
+		for (const item of layer.items(is) ?? []) {
+			if (!isSame(items.get(item.id), item)) keys.push(layer.toKey(item.id));
+		}
 	}
 	const wasCamera = was.camera;
 	const isCamera = is.camera;
@@ -148,16 +146,17 @@ export function touchedKeys(before: TProject, after: TProject): string[] {
 	const changedShots = isCamera.shots.filter((shot) => !isSame(shots.get(shot.id), shot));
 	for (const shot of changedShots) keys.push(toShotKey(shot.id));
 	if (!changedShots.length && !isSame(wasCamera, isCamera)) keys.push(CAMERA_KEY);
-	if (!isSame(songFiles(before), songFiles(after))) keys.push(SONG_KEY);
+	const songsBefore = new Map(before.songs.map((song) => [song.id, songFile(song)]));
+	for (const song of after.songs) if (!isSame(songsBefore.get(song.id), songFile(song))) keys.push(toSongKey(song.id));
 	return keys;
 }
 
 /** What has a row of its own in Layers: a marble without its notes, which are shown on their own */
 function layersOf(project: TProject): { id: string }[] {
-	return [...project.marbles.map(({ hits: _hits, ...marble }) => marble), ...project.track.pieces, ...project.film.titles];
+	return [...project.marbles.map(({ hits: _hits, ...marble }) => marble), ...project.track.pieces];
 }
 
 /** What says a song changed: not its notes, which are shown on their own */
-function songFiles(project: TProject): unknown[] {
-	return project.songs.map(({ id, name, kind, path, start }) => [id, name, kind, path, start]);
+function songFile({ id, name, kind, path, start }: TProject['songs'][number]): unknown[] {
+	return [id, name, kind, path, start];
 }

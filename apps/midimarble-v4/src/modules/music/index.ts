@@ -4,6 +4,6 @@ export * from './marble-commands';
 export * from './marble-proposal';
 export * from './midi';
 export * from './onsets';
-export * from './parts';
+export * from './mix';
 export * from './synthesize';
 export * from './waveform';

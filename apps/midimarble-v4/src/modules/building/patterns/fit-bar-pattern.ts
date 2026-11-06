@@ -67,16 +67,17 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		sims += fit.sims;
 		return scoreFit(sim, fit, marbleId, ids, isNextClose, asked, drop, last.time);
 	};
-	for (const drop of drops) {
-		if (tries >= maxTries) break;
-		const scored = attemptAt(runs, drop);
-		if (best == null || scored.score < best.score) best = scored;
-		if (scored.score === 0) break;
-	}
-	// A rail across a long hop can stand in the way of what comes before it: a bounce may still make that hop, and the fall is judged
-	if (best != null && best.score > 0 && runs.length > 1 && world.along == null && tries < maxTries + 1) {
-		const scored = attemptAt([[...hits]], best.drop);
-		if (scored.score < best.score) best = scored;
+	// A bounce across every hop first; if it can't, as when a long hop falls too far, a rail holds the marble there as Build Track's do.
+	// A track being followed keeps the rails it has
+	const whole: readonly THit[][] = [[...hits]];
+	const shapes = world.along != null ? [runs] : runs.length > 1 ? [whole, runs] : [whole];
+	for (const over of shapes) {
+		for (const drop of drops.slice(0, maxTries)) {
+			const scored = attemptAt(over, drop);
+			if (best == null || scored.score < best.score) best = scored;
+			if (scored.score === 0) break;
+		}
+		if ((best as TScoredFit | null)?.score === 0) break;
 	}
 	const chosen = best as TScoredFit;
 	const result = sim.simulate({ ...chosen.project, length: (next?.time ?? last.time + 0.3) + 0.01 });
@@ -144,7 +145,7 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 				endAt: end,
 				// The shape keeps the height the track has now, and a marble landing in the column nearer the end crosses toward it first
 				drop: Math.max(0.03, ((start.position.y - end.y) / hops) * dropShare),
-				dir: shape.kind === 'staircase' ? stairs : (along?.side ?? firstSide)
+				dir: shape.kind === 'staircase' ? stairs : along?.isOtherSide === true ? -firstSide : firstSide
 			} : {})
 		}, (bar) => onBar(done + bar, total));
 		made.project = fit.project;
@@ -188,7 +189,8 @@ function scoreFit(sim: TSimulator, fit: TBarsFit, marbleId: string, ids: string[
 	const off = fit.bars.filter((bar) => isOffColumn(bar) && bar.hitId !== ids.at(-1)).length;
 	const failures = fit.bars.filter((bar) => bar.why.length > 0 || Math.abs(bar.errX) > COLUMN_PROBLEM).length;
 	const short = fit.bars.length < mine.size ? 1000 : 0;
-	return { ...fit, width, drop, score: short + late.length * 100 + strikes.length * 20 + rolls.length * 20 + touching.length * 5 + off * 3 + failures, late, strikes, rolls, touching };
+	const falls = longFalls(result, ids, []).length;
+	return { ...fit, width, drop, score: short + (late.length + falls) * 100 + strikes.length * 20 + rolls.length * 20 + touching.length * 5 + off * 3 + failures, late, strikes, rolls, touching };
 }
 
 function problemsOf(fit: TScoredFit, hits: readonly THit[]): THitVerdict[] {

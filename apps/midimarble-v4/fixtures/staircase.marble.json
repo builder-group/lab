@@ -221,8 +221,9 @@
 		"groups": []
 	},
 	"film": {
-		"theme": "pegboard",
-		"themes": [],
+		"theme": {
+			"base": "pegboard"
+		},
 		"wall": {},
 		"lights": {
 			"added": []
@@ -233,9 +234,9 @@
 		"quality": "final",
 		"camera": {
 			"auto": true,
-			"distance": 1.166,
+			"distance": 0.32,
 			"sway": 1,
-			"tilt": 0.7,
+			"tilt": 0.54,
 			"shots": []
 		}
 	}

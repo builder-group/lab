@@ -1,4 +1,4 @@
-import { DEFAULT_GRAVITY, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TVec2, type TMarble, createMarble } from '@/modules/project';
+import { DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_TILT, DEFAULT_GRAVITY, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TVec2, type TMarble, createMarble } from '@/modules/project';
 import { KIT_SCALE } from './pieces';
 import { createLinkedPiece } from './placement';
 
@@ -25,7 +25,7 @@ export function createStaircaseProject(): TProject {
 			}
 		]
 	});
-	project.film.camera.distance = 1.166;
+	project.film.camera.distance = 0.32;
 	project.gravity = 1;
 	return project;
 }
@@ -121,16 +121,14 @@ export function createBareRunProject(options: {
 		track: { pieces: [], groups: [] },
 		gravity: options.gravity ?? DEFAULT_GRAVITY,
 		film: {
-			theme: 'pegboard',
-			themes: [],
+			theme: { base: 'pegboard' },
 			wall: {},
 			lights: { added: [] },
 			decor: [],
 			madeInBlender: [],
 			titles: [],
 			quality: 'final',
-			// 1.166 m frames the Marble Race Kit through the 85 mm lens; the default kit is KIT_SCALE times larger
-			camera: { auto: true, distance: 1.166 * KIT_SCALE, tilt: 0.7, sway: 1, shots: [] }
+			camera: { auto: true, distance: DEFAULT_CAMERA_DISTANCE, tilt: DEFAULT_CAMERA_TILT, sway: 1, shots: [] }
 		}
 	};
 }

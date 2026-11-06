@@ -1,4 +1,4 @@
-import { type TPiece, type TProject, type TVec2, tieOf, type TPlays } from '@/modules/project';
+import { type TMarble, type TPiece, type TProject, type TVec2, tieOf, type TPlays } from '@/modules/project';
 import { gravityOf } from './geometry';
 import { getPieceDefinition, soundsHit } from './pieces';
 import { trajectoryAt, type TSimulator } from './simulate';
@@ -348,7 +348,7 @@ function solveStep(simulator: TSimulator, project: TProject, marbleId: string, s
 }
 
 function isBroken(hit: THitResult): boolean {
-	return hit.pieceEntityId != null && (hit.status === 'blocked' || hit.status === 'missed');
+	return hit.pieceId != null && (hit.status === 'blocked' || hit.status === 'missed');
 }
 
 /** Hits the run broke that were fine in `base` */
@@ -364,7 +364,7 @@ function strayContacts(base: TSimulationResult, result: TSimulationResult): numb
 		for (const contact of run.contacts) {
 			// A touch with no speed is Rapier's early report of a contact that never comes
 			if (contact.kind !== 'piece' || (contact.speed ?? 1) < 0.02) continue;
-			const key = `${contact.marbleEntityId}|${contact.otherEntityId}`;
+			const key = `${contact.marbleId}|${contact.otherId}`;
 			map.set(key, (map.get(key) ?? 0) + 1);
 		}
 		return map;
@@ -396,7 +396,7 @@ function laterShift(base: TSimulationResult, result: TSimulationResult, edits: T
 	let shift = 0;
 	for (const edit of edits) {
 		const hits = result.hits.filter((hit) => hit.marbleId === edit.marbleId).sort((a, b) => a.targetTime - b.targetTime);
-		const last = hits.reduce((latest, hit, index) => (hit.pieceEntityId != null && taken.has(hit.pieceEntityId) ? index : latest), edit.afterIndex + 1);
+		const last = hits.reduce((latest, hit, index) => (hit.pieceId != null && taken.has(hit.pieceId) ? index : latest), edit.afterIndex + 1);
 		for (const hit of hits.slice(last + 1)) {
 			const was = base.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
 			if (hit.dot != null && was?.dot != null) shift = Math.max(shift, Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y));
@@ -539,6 +539,7 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 	for (const marble of after.marbles) {
 		const old = before.marbles.find((item) => item.id === marble.id);
 		if (old == null) continue;
+		if (isWholeRunMoved(old, marble) && physicsOfMarble(before, marble.id) === physicsOfMarble(after, marble.id)) continue;
 		let last = -2;
 		for (const [index, hit] of marble.hits.entries()) {
 			const was = old.hits.find((item) => item.id === hit.id);
@@ -568,6 +569,24 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 	return edits;
 }
 
+function physicsOfMarble(project: TProject, marbleId: string): string {
+	return project.track.pieces
+		.filter((piece) => tieOf(piece)?.marbleId === marbleId)
+		.map(physicsOf)
+		.join();
+}
+
+/** Whether a marble's start and every hit moved by the same time, as a song does with a marble that plays only it: the same run, later */
+function isWholeRunMoved(before: TMarble, after: TMarble): boolean {
+	const delta = after.start.time - before.start.time;
+	if (delta === 0 || before.hits.length !== after.hits.length) return false;
+	if (JSON.stringify({ ...before.start, time: 0 }) !== JSON.stringify({ ...after.start, time: 0 })) return false;
+	return after.hits.every((hit, index) => {
+		const was = before.hits[index];
+		return was?.id === hit.id && Math.abs(hit.time - was.time - delta) < 1e-5;
+	});
+}
+
 /**
  * Whether anything else of the marble's run changed: a slide along a bar, a longer bar, a moved release. It leaves how the
  * marble leaves alone, so nothing has to take it up, but the rides must hold: the last bits of a number change.
@@ -593,7 +612,7 @@ function hasOtherChange(before: TProject, after: TProject, marbleId: string): bo
 	});
 }
 
-/** `project` as commands on `from`: each component that differs */
+/** The pieces of `project` that differ from `from`, new ones too, in project order */
 export function changedPieces(from: TProject, project: TProject): TPiece[] {
 	const was = new Map(from.track.pieces.map((piece) => [piece.id, piece]));
 	return project.track.pieces.filter((piece) => was.get(piece.id) !== piece && JSON.stringify(was.get(piece.id)) !== JSON.stringify(piece));

@@ -1,4 +1,4 @@
-import { type TMarble, type TPiece, type TProject, type TProjectCommand, type TTitle, backingOf, freePosition, tieOf } from '@/modules/project';
+import { FILM_LAYERS, type TMarble, type TPiece, type TProject, type TProjectCommand, type TTitle, backingOf, freePosition, tieOf } from '@/modules/project';
 import { pieceLabel } from '@/modules/simulation';
 
 /**
@@ -91,11 +91,16 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 		case 'updateSong':
 			if (command.patch.tempo !== undefined) return 'Change Tempo';
 			return command.patch.backingSound !== undefined ? 'Change Backing' : null;
+		case 'moveSong':
+			return 'Move Song';
 		case 'addSong':
 			return 'Import Song';
 		case 'removeSong':
 			// Backing without a file is notes alone
-			return before.songs.some((song) => song.path != null) ? 'Delete Song' : `Delete ${counted(backingOf(before).length, 'Hit')}`;
+			{
+			const song = before.songs.find((item) => item.id === command.songId);
+			return song == null || song.path != null ? 'Delete Song' : `Delete ${counted(song.backing.length, 'Hit')}`;
+		}
 		case 'removeMarble':
 			return 'Delete Marble';
 		case 'addMarble':
@@ -128,10 +133,12 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 }
 
 function filmLabel(before: TProject, film: Extract<TProjectCommand, { type: 'updateFilm' }>['film']): string | null {
-	if (film.decor != null) return listLabel(before.film.decor, film.decor, 'Decor', 'Decor');
-	if (film.lights != null) return listLabel(before.film.lights.added, film.lights.added, 'Light', 'Lights');
+	for (const layer of FILM_LAYERS) {
+		const after = layer.items(film);
+		if (after != null && layer.words != null) return listLabel(layer.items(before.film) ?? [], after, layer.words.one, layer.words.many);
+	}
 	if (film.camera != null) return film.camera.shots.length !== before.film.camera.shots.length ? listLabel(before.film.camera.shots, film.camera.shots, 'Shot', 'Shots') : 'Change Camera';
-	if (film.theme != null || film.themes != null) return 'Change Theme';
+	if (film.theme != null) return 'Change Theme';
 	if (film.wall != null) return 'Change Wall';
 	return null;
 }

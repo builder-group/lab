@@ -42,7 +42,7 @@ scope.addEventListener('message', (event) => {
 			// The pieces as they'd stand, for a ghost
 			const resolved = (outcome: TGroupRunOutcome): TResolvedPiece[] => {
 				const made = new Set(outcome.madePieces.map((piece) => piece.id));
-				return made.size > 0 ? sim.simulate({ ...outcome.project, length: change.to + 0.5 }).pieces.filter((piece) => made.has(piece.entityId)) : [];
+				return made.size > 0 ? sim.simulate({ ...outcome.project, length: change.to + 0.5 }).pieces.filter((piece) => made.has(piece.pieceId)) : [];
 			};
 			const check = checkPattern(project, change, {
 				sim,

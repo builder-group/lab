@@ -5,7 +5,6 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 
 /** Commands */
 export const commands = {
-	getAppInfo: () => __TAURI_INVOKE<AppInfoDto>("get_app_info"),
 	createProject: (path: string, projectJson: string) => typedError<OpenedProjectDto, string>(__TAURI_INVOKE("create_project", { path, projectJson })),
 	openProject: (path: string) => typedError<OpenedProjectDto, string>(__TAURI_INVOKE("open_project", { path })),
 	saveProject: (path: string, projectJson: string) => typedError<null, string>(__TAURI_INVOKE("save_project", { path, projectJson })),
@@ -74,13 +73,11 @@ export const commands = {
 	mcpConnections: () => typedError<McpConnectionsDto, string>(__TAURI_INVOKE("mcp_connections")),
 	/**  Copy Command for Other Apps */
 	mcpCopyServerCommand: () => typedError<null, string>(__TAURI_INVOKE("mcp_copy_server_command")),
-	/**  Items of the project library (`<package>/assets/`) or the global library in the app's support folder */
-	libraryList: (scope: LibraryScope, packagePath: string | null) => typedError<LibraryItemDto[], string>(__TAURI_INVOKE("library_list", { scope, packagePath })),
-	/**  Copies a project item into the global library for use in other projects */
-	libraryPromote: (packagePath: string, itemId: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_promote", { packagePath, itemId })),
-	/**  Copies a global item, or an item of an imported Pack, into the project so the package stays portable */
-	libraryImport: (packagePath: string, itemId: string, packId: string | null) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_import", { packagePath, itemId, packId })),
-	libraryRemove: (scope: LibraryScope, packagePath: string | null, itemId: string) => typedError<null, string>(__TAURI_INVOKE("library_remove", { scope, packagePath, itemId })),
+	/**  Items of the project library, `<package>/assets/` */
+	libraryList: (packagePath: string) => typedError<LibraryItemDto[], string>(__TAURI_INVOKE("library_list", { packagePath })),
+	/**  Copies an item of an imported Pack into the project so the package stays portable */
+	libraryImport: (packagePath: string, itemId: string, packId: string) => typedError<LibraryItemDto, string>(__TAURI_INVOKE("library_import", { packagePath, itemId, packId })),
+	libraryRemove: (packagePath: string, itemId: string) => typedError<null, string>(__TAURI_INVOKE("library_remove", { packagePath, itemId })),
 	/**
 	 *  Adds an asset from outside the project: a folder with `asset.blend`, or a `.blend` file with its `preview.png`
 	 *  beside it, with the manifest the app validated
@@ -114,14 +111,6 @@ export type AgentReferencesDto = {
 	/**  Absolute paths of the images */
 	images: string[],
 	text: string,
-};
-
-export type AppDistribution = "appStore" | "direct";
-
-export type AppInfoDto = {
-	version: string,
-	stage: Stage,
-	distribution: AppDistribution,
 };
 
 export type BlenderInstallDto = {
@@ -174,8 +163,8 @@ export type LibraryItemDto = {
 export type LibraryScope = 
 /**  `<package>/assets/` */
 "project" | 
-/**  The app's support folder, shared by every project */
-"global";
+/**  An added Pack, in the app's support folder */
+"pack";
 
 export type McpAgentTool = "claude" | "codex";
 
@@ -271,8 +260,6 @@ export type RecentProjectDto = {
 	name: string,
 	openedAt: number | null,
 };
-
-export type Stage = "dev" | "prod";
 
 export type StandardMenuItem = "cut" | "copy" | "paste" | "minimize" | "zoom" | "fullScreen" | "bringAllToFront";
 

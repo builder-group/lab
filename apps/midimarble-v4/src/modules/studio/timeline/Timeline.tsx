@@ -2,24 +2,22 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 
 import { isEditingTarget } from '@/lib';
-import { currentMix, EMPTY_MIX, isAudioSong, isPartAudible, songParts } from '@/modules/music';
+import { currentMix } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
-import { CAMERA_KEY, parseHitKey, parseShotKey, toHitKey } from '@/modules/project';
-import { hasSongLayer, SONG_LAYER_LABEL } from '../song-layer';
-import { songSource } from '../SourcesCx';
+import { CAMERA_KEY, parseHitKey, parseShotKey, shownSongs, type TSong, toHitKey } from '@/modules/project';
+import { SONG_LAYER_LABEL } from '../song-layer';
 import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
 import { auditionNote, handNotes, isNoteSelection, ownerForKey, selectedNotes } from '@/modules/track';
 import { MarbleTrack, type TDrag, type TDragStart } from './MarbleTrack';
-import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange } from './piano-roll';
-import { PartRows } from './PartRows';
+import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange, type TPitchRange } from './piano-roll';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
-import { SongTrack } from './SongTrack';
-import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, PART_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT } from './timeline-layout';
-import { $songExpanded } from './timeline-state';
+import { SongTrack, type TSongMove } from './SongTrack';
+import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_DEAD_ZONE, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT, songTint } from './timeline-layout';
+import { $expandedSongs } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
 import { flashElement } from '@/modules/canvas';
@@ -27,9 +25,9 @@ import { Transport } from './Transport';
 
 /**
  * What changes over time, as a Blender-style dope sheet in a Logic-style track
- * area: the transport and hit summary in the header, the Song on top while the project has one, expandable into
- * every note and its Parts when it has notes, with mute and solo on the Song, then the Camera, one flat row per marble
- * with its hits by timing status, and in Film Titles when there are any
+ * area: the transport and hit summary in the header, one row per song on top, each expandable into
+ * every note when it has notes, then the Camera, one flat row per marble with its hits by timing status, and in Film
+ * Titles when there are any. Mute and Solo sit on the song's and each marble's header.
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -40,16 +38,14 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const mix = useFeatureState(cx.$mix);
 	const height = useFeatureState(cx.$timelineHeight);
 	const workspace = useFeatureState(cx.$workspace);
-	const isSongExpanded = useFeatureState($songExpanded);
+	const expandedSongs = useFeatureState($expandedSongs);
 	const scrollRef = React.useRef<HTMLDivElement>(null);
 	const [zoom, setZoom] = React.useState(80);
 	const [drag, setDrag] = React.useState<TDrag | null>(null);
+	const [move, setMove] = React.useState<TSongMove | null>(null);
 	const project = history?.present;
 
-	const song = project == null ? undefined : songSource(project);
-	const hasSong = project != null && hasSongLayer(project);
-	const audio = project?.songs.find((item) => item.kind === 'audio' && item.path != null);
-	const audioAnalysis = audio == null ? undefined : analysis[audio.id];
+	const songs = React.useMemo(() => (project == null ? [] : shownSongs(project)), [project]);
 	const trackWidth = Math.max((project?.length ?? 1) * zoom + 120, 0);
 
 	// Hit results by marble, so a marble row re-renders only with a new simulation result
@@ -64,8 +60,21 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	}, [result]);
 
 	// A recording has no notes to expand; MIDI or Backing notes without a file expand into every note
-	const songRows = React.useMemo(() => (project == null || !hasSong ? null : songRollRange(project, song)), [project, hasSong, song]);
-	const parts = React.useMemo(() => (project == null ? [] : songParts(project)), [project]);
+	const songRows = React.useMemo(() => new Map(songs.map((song) => [song.id, project == null ? null : songRollRange(project, song)])), [project, songs]);
+
+	const songTints = React.useMemo(() => new Map(project?.songs.map((item, index) => [item.id, songTint(index)]) ?? []), [project?.songs]);
+
+	// The marble a hit added on a recording goes to: the one selected last, which selecting the song itself doesn't change
+	const focusRef = React.useRef<string | null>(null);
+	const focused = selection.map((key) => parseHitKey(key)?.marbleId ?? key).find((id) => project?.marbles.some((marble) => marble.id === id) === true);
+	React.useEffect(() => {
+		if (focused != null) focusRef.current = focused;
+	}, [focused]);
+
+	function addSongHit(onSong: TSong, time: number, event: React.MouseEvent): void {
+		const marble = project?.marbles.find((item) => item.id === focusRef.current) ?? project?.marbles[0];
+		if (marble != null) addHit(cx, marble, snap(time, event.altKey), onSong.id);
+	}
 
 	// The hit a marble just landed flashes in its status color. Set on the element, so no row re-renders while playing.
 	React.useEffect(
@@ -127,27 +136,30 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 
 	const snap = React.useCallback(
 		(time: number, disabled: boolean): number => {
-			if (disabled || audio == null || audioAnalysis == null) return time;
+			if (disabled) return time;
 			let best = time;
 			let bestDistance = 8 / zoom;
-			for (const onset of audioAnalysis.onsets) {
-				const distance = Math.abs(onset + audio.start - time);
-				if (distance < bestDistance) {
-					best = onset + audio.start;
-					bestDistance = distance;
+			for (const song of songs) {
+				if (song.kind !== 'audio') continue;
+				for (const onset of analysis[song.id]?.onsets ?? []) {
+					const distance = Math.abs(onset + song.start - time);
+					if (distance < bestDistance) {
+						best = onset + song.start;
+						bestDistance = distance;
+					}
 				}
 			}
 			return best;
 		},
-		[audio, audioAnalysis, zoom]
+		[songs, analysis, zoom]
 	);
 
-	const startDrag: TDragStart = (hitKey, event, isPitched) => {
+	const startDrag: TDragStart = (hitKey, event, isPitched, range = null) => {
 		const keys = selection.includes(hitKey) ? selection : [hitKey];
 		const grabbed = parseHitKey(hitKey);
 		if (grabbed == null) return;
 		cx.$selection.set(keys);
-		setDrag({ originX: event.clientX, originY: event.clientY, delta: 0, pitchDelta: 0, isPitched, keys, grabbed });
+		setDrag({ originX: event.clientX, originY: event.clientY, delta: 0, pitchDelta: 0, isPitched, range, keys, grabbed });
 	};
 
 	/** Moves the dragged hits in time, and in pitch for a drag in the Song's piano roll, as one undo step */
@@ -160,7 +172,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			if (finished.isPitched && finished.keys.length > 1) cx.$selection.set([key]);
 			return;
 		}
-		if (!cx.execute(noteDragCommands(project, finished, songRows)) || finished.pitchDelta === 0) return;
+		if (!cx.execute(noteDragCommands(project, finished, finished.range)) || finished.pitchDelta === 0) return;
 		const current = cx.project;
 		if (current != null) auditionNote(cx, marbleId, selectedNotes(current, [key])[0]?.hit.pitch);
 	}
@@ -217,12 +229,14 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	}, [zoom, zoomTo]);
 
 	if (project == null) return null;
-	// A recording's mute and solo are the Song's alone, so they leave the marbles' hits as they are
-	const partMix = isAudioSong(project) ? EMPTY_MIX : currentMix(project, mix);
-	const showsParts = isSongExpanded && songRows != null;
+	const audible = currentMix(project, mix);
 	const showsTitles = workspace === 'film' && project.film.titles.length > 0;
-	const songHeight = isSongExpanded && songRows != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(songRows) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
-	const rowsHeight = project.marbles.length * ROW_HEIGHT + (hasSong ? songHeight : 0) + (showsParts ? parts.length * PART_ROW_HEIGHT : 0) + CAMERA_ROW_HEIGHT;
+	const rollOf = (songId: string): TPitchRange | null => (expandedSongs.includes(songId) ? (songRows.get(songId) ?? null) : null);
+	const songHeight = (songId: string): number => {
+		const roll = rollOf(songId);
+		return roll != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(roll) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
+	};
+	const rowsHeight = project.marbles.length * ROW_HEIGHT + songs.reduce((sum, song) => sum + songHeight(song.id), 0) + CAMERA_ROW_HEIGHT;
 
 	// MARK: - UI
 
@@ -248,29 +262,35 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<TimeGutter isRuler />
 						<Ruler cx={cx} end={project.length} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
-					{hasSong ? (
+					{songs.map((song, index) => (
 						<SongTrack
+							key={song.id}
 							cx={cx}
 							project={project}
 							song={song}
+							tint={songTints.get(song.id) ?? songTint(0)}
 							name={SONG_LAYER_LABEL}
-							analysis={song == null ? undefined : analysis[song.id]}
+							analysis={analysis[song.id]}
 							zoom={zoom}
 							width={trackWidth}
-							range={songRows}
-							isExpanded={isSongExpanded && songRows != null}
-							height={songHeight}
+							range={songRows.get(song.id) ?? null}
+							isExpanded={rollOf(song.id) != null}
+							isFirst={index === 0}
+							height={songHeight(song.id)}
 							selection={selection}
 							drag={drag}
 							onDragStart={startDrag}
+							move={move}
+							onMove={setMove}
+							onAddHit={addSongHit}
+							timeAt={timeAt}
 						/>
-					) : null}
-					{showsParts ? <PartRows cx={cx} project={project} parts={parts} zoom={zoom} width={trackWidth} isAudible={(id) => isPartAudible(partMix, id)} /> : null}
-					{/* The same layers as Layers, in the same order: Song, the Camera, marbles, then in Film Titles */}
+					))}
+					{/* The same layers as Layers, in the same order: the songs, the Camera, marbles, then in Film Titles */}
 					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
 					{project.marbles.map((marble) => (
 						<div key={marble.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
-							<TrackHeader cx={cx} marble={marble} selection={selection} />
+							<TrackHeader cx={cx} project={project} marble={marble} selection={selection} />
 							<TimeGutter />
 							<MarbleTrack
 								cx={cx}
@@ -280,7 +300,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 								selection={selection}
 								drag={drag}
 								statuses={hitStatus.get(marble.id)}
-								isAudible={isPartAudible(partMix, marble.id)}
+								mix={audible}
+									move={move}
+									songTints={songTints}
 								onDragStart={startDrag}
 								timeAt={timeAt}
 								onAdd={(time, event) => addHit(cx, marble, snap(time, event.altKey))}
@@ -373,8 +395,6 @@ const ResizeHandle: React.FC<{ cx: StudioCx }> = (props) => {
 
 // The horizontal scrollbar along the timeline's bottom edge, which a row scrolled into view stays clear of
 const SCROLLBAR_ROOM = 14;
-// Pixels a hit or a note must move sideways before its time changes, like the drag threshold of Logic's regions
-const TIME_DEAD_ZONE = 5;
 
 /**
  * Captures pointer movement for a hit drag across the whole window. Song roll drags also move in pitch. The time holds

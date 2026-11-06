@@ -49,8 +49,8 @@ TIMING_PATHS = ('["%s"]' % VISIBLE_PROPERTY, 'hide_render')
 INTERPOLATION_CONSTANT = 0
 SCREEN_STYLES = ('caption', 'songName', 'endCard')
 SCREEN_PROPERTY = 'mm_screen'
-# Screen titles sit this far along the way to the nearest wall in the frame's upper part, so they're as close to the focus as the steep wall allows
-SCREEN_DEPTH = 0.96
+# Screen titles sit this far along the way to the nearest wall in the frame, in front of bars on long posts at the default camera
+SCREEN_DEPTH = 0.65
 # Glow of a screen title: the themes darken the film (Brass exposure -1.25), so plain strength 1 reads gray
 SCREEN_GLOW = 3.0
 # Height of a screen title's center above the frame center, as a fraction of the half frame height; matches

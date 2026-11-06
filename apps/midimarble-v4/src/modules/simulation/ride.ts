@@ -64,7 +64,7 @@ export function rideLength(ride: TRide): number {
  */
 export function bakeRide(project: TProject, result: TSimulationResult, piece: TPiece): TRide | null {
 	const link = tieOf(piece);
-	const resolvedPiece = result.pieces.find((item) => item.entityId === piece.id);
+	const resolvedPiece = result.pieces.find((item) => item.pieceId === piece.id);
 	const track = result.marbles.find((marble) => marble.marbleId === link?.marbleId);
 	const shapes = resolvedPiece?.shapes;
 	if (link == null || resolvedPiece == null || track == null || shapes == null || resolvedPiece.status !== 'placed') return null;
@@ -113,7 +113,7 @@ export function bakeRide(project: TProject, result: TSimulationResult, piece: TP
 			angle,
 			spin: wrap(out.angle - beforeOut.angle) * PHYSICS_HZ
 		},
-		touches: [...new Set(result.contacts.filter((contact) => contact.marbleEntityId === track.marbleId && contact.kind === 'piece' && contact.time >= origin.time && contact.time <= out.time && contact.otherEntityId !== piece.id).map((contact) => contact.otherEntityId ?? ''))],
+		touches: [...new Set(result.contacts.filter((contact) => contact.marbleId === track.marbleId && contact.kind === 'piece' && contact.time >= origin.time && contact.time <= out.time && contact.otherId !== piece.id).map((contact) => contact.otherId ?? ''))],
 		frames
 	};
 }

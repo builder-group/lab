@@ -24,7 +24,7 @@ function scene(melody: number[], bass: number[], isClose = true): { result: TSim
 		marbleId,
 		hitId: `${marbleId}-${index}`,
 		targetTime: time,
-		pieceEntityId: null,
+		pieceId: null,
 		dot: null,
 		velocity: null,
 		actualTime: time,
@@ -44,7 +44,7 @@ function scene(melody: number[], bass: number[], isClose = true): { result: TSim
 		fps: 30,
 		duration: 10,
 		frame: { width: 1080, height: 1920 },
-		camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: isClose ? [{ time: -2, kind: 'pushIn', distance: 0.3 }] : [] },
+		camera: { mode: 'rig', distance: 0.7, pitch: 1.15, lead: 0.15, smoothing: 0.6, shots: isClose ? [{ time: -2, distance: 0.3 }] : [] },
 		marbles: marbles.map((marble, index) => ({
 			id: marble.marbleId,
 			radius: marble.radius,

@@ -1,6 +1,6 @@
 import { cachedFollowCameraTrack, framingStretches, isInFrame, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from './reachability';
-import { hasSong } from '@/modules/music';
+import { hasSong, marbleSounds } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, CAMERA_KEY, toHitKey, tieOf } from '@/modules/project';
@@ -10,27 +10,29 @@ import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } fro
 /** For a run with no Blender to ask: a worker, a script or a test */
 export const NO_BLENDER_OBJECTS: readonly TBlenderObject[] = [];
 
-/**
- * The project's problems, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
- * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
- * pieces that touch, the loop and a stale result. It is the one source for the hit summary in the timeline header, its menu, the export sheet and the
- * Camera track. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
- */
-export function preflightExport(project: TProject, result: TSimulationResult | null, blenderObjects: readonly TBlenderObject[]): TExportPreflight {
-	if (result == null || result.revision !== project.revision) {
-		return {
-			state: 'pending',
-			issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the track…', detail: 'The run is still updating after the latest edit.', target: null }],
-			summary: 'Checking the track…',
-			warnings: 0,
-			notes: 1,
-			hitCount: countHits(project),
-			onTimeCount: 0
-		};
-	}
+/** What the problem model says until the run has caught up with the project */
+export function pendingPreflight(project: TProject | null): TExportPreflight {
+	return {
+		state: 'pending',
+		issues: [{ id: 'simulation', kind: 'simulation', severity: 'info', title: 'Checking the track…', detail: 'The run is still updating after the latest edit.', target: null }],
+		summary: 'Checking the track…',
+		warnings: 0,
+		notes: 1,
+		hitCount: project != null ? countHits(project) : 0,
+		onTimeCount: 0
+	};
+}
 
-	const memo = preflightMemo.get(result.hits);
-	if (memo?.project === project && memo.blenderObjects === blenderObjects && isSameRun(memo.result, result)) return memo.preflight;
+/**
+ * The problems of `project` given its run, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
+ * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
+ * pieces that touch and the loop. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
+ * `SimulationCx.$problems` asks for the open project's, which everything on screen reads. Build Track, Fix and Patterns ask
+ * about their trials, whose run is theirs by construction, so nothing here reads its revision.
+ */
+export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[]): TExportPreflight {
+	const memo = preflightMemo.get(result);
+	if (memo?.project === project && memo.blenderObjects === blenderObjects) return memo.preflight;
 
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
@@ -59,25 +61,18 @@ export function preflightExport(project: TProject, result: TSimulationResult | n
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
 	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
-	preflightMemo.set(result.hits, { project, result, blenderObjects, preflight });
+	preflightMemo.set(result, { project, blenderObjects, preflight });
 	return preflight;
 }
 
-// Layers, the title bar, the hit summary, the inspector and the Camera track all ask about the same run. Fix and the
-// assists ask about a copy stamped with the project's revision, so the run is known by its hits, not by its object.
-const preflightMemo = new WeakMap<THitResult[], { project: TProject; result: TSimulationResult; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
-
-/** The same run under another revision stamp: nothing else differs, field by field */
-function isSameRun(a: TSimulationResult, b: TSimulationResult): boolean {
-	const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof TSimulationResult>;
-	return [...keys].every((key) => key === 'revision' || a[key] === b[key]);
-}
+// Fix judges a trial before and after, and a trial's run is checked again by whoever lands it
+const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
 
 export const ADD_SONG_LABEL = 'Add a Song';
 
-/** An older project can have hits without a Song; it plays silently and exports silently, which the sheet warns of */
+/** Hits without a Song or a note play silently and export silently, which the sheet warns of */
 function songIssues(project: TProject): TPreflightIssue[] {
-	if (hasSong(project) || countHits(project) === 0) return [];
+	if (hasSong(project) || countHits(project) === 0 || project.marbles.some((marble) => marbleSounds(project, marble))) return [];
 	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has hits but no song, so the film has no sound.', target: null }];
 }
 
@@ -197,7 +192,7 @@ function withoutBehindBreak(project: TProject, result: TSimulationResult, issues
 	const breaks = new Map<string, number>();
 	for (const hit of result.hits) {
 		if (hit.status !== 'missed' && hit.status !== 'blocked') continue;
-		const waits = tieOf(project.track.pieces.find((piece) => piece.id === hit.pieceEntityId))?.held != null;
+		const waits = tieOf(project.track.pieces.find((piece) => piece.id === hit.pieceId))?.held != null;
 		if (waits && hit.targetTime < (breaks.get(hit.marbleId) ?? Infinity)) breaks.set(hit.marbleId, hit.targetTime);
 	}
 	if (breaks.size === 0) return issues;
@@ -263,7 +258,7 @@ const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 
 
 function hitIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	const issues: TPreflightIssue[] = [];
-	const pieces = new Map(result.pieces.map((piece) => [piece.entityId, piece]));
+	const pieces = new Map(result.pieces.map((piece) => [piece.pieceId, piece]));
 	const open: THitResult[] = [];
 
 	const numbers = new Map(project.marbles.flatMap((marble) => marble.hits.map((hit, index) => [toHitKey(marble.id, hit.id), index + 1] as const)));
@@ -272,8 +267,8 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const key = toHitKey(hit.marbleId, hit.hitId);
 		// "Hit 12 of Melody is Blocked", as words.md names a hit by its number on its marble
 		const is = (label: string): string => `Hit ${numbers.get(key) ?? '?'} of ${marble} is ${label}`;
-		const piece = hit.pieceEntityId != null ? pieces.get(hit.pieceEntityId) : undefined;
-		const target: TPreflightTarget = { ids: hit.pieceEntityId != null ? [hit.pieceEntityId] : [key], point: hit.dot ?? undefined, time: hit.targetTime };
+		const piece = hit.pieceId != null ? pieces.get(hit.pieceId) : undefined;
+		const target: TPreflightTarget = { ids: hit.pieceId != null ? [hit.pieceId] : [key], point: hit.dot ?? undefined, time: hit.targetTime };
 		const id = `hit:${hit.marbleId}:${hit.hitId}`;
 
 		if (hit.status === 'blocked') {
@@ -352,7 +347,7 @@ function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
 function sceneryIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return result.pieces.flatMap((other) => {
 		if (other.status !== 'blocked') return [];
-		const piece = project.track.pieces.find((item) => item.id === other.entityId);
+		const piece = project.track.pieces.find((item) => item.id === other.pieceId);
 		const link = tieOf(piece);
 		// Platforms that play a note are reported with their hit
 		if (link == null || soundsHit(piece?.type ?? other.type, link)) return [];
@@ -361,14 +356,14 @@ function sceneryIssues(project: TProject, result: TSimulationResult, names: TNam
 		const type = (getPieceDefinition(other.type)?.label ?? 'piece').toLowerCase();
 		return [
 			{
-				id: `scenery:${other.entityId}`,
+				id: `scenery:${other.pieceId}`,
 				kind: 'scenery' as const,
 				severity: 'warning' as const,
 				marbleId: link.marbleId,
-				title: `${names.piece(other.entityId)} of ${marble} is Blocked`,
+				title: `${names.piece(other.pieceId)} of ${marble} is Blocked`,
 				detail: `${marble} already passes through this spot earlier in its run, so the ${type} is left out.`,
 				time,
-				target: { ids: [other.entityId], point: other.position, time }
+				target: { ids: [other.pieceId], point: other.position, time }
 			}
 		];
 	});
@@ -385,7 +380,7 @@ function bowlIssues(project: TProject, result: TSimulationResult, names: TNames)
 	return project.track.pieces.flatMap((piece) => {
 		const link = tieOf(piece);
 		if (piece.type !== BOWL_TYPE || link == null) return [];
-		const resolvedPiece = result.pieces.find((item) => item.entityId === piece.id);
+		const resolvedPiece = result.pieces.find((item) => item.pieceId === piece.id);
 		const caught = bowlCatch(result, piece.id);
 		if (resolvedPiece == null || caught.status === 'caught' || caught.status === 'blocked') return [];
 		const marble = names.marble(link.marbleId);
@@ -425,34 +420,34 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 		if (tie != null) marbleOfPiece.set(piece.id, tie.marbleId);
 	}
 	for (const hit of result.hits) {
-		if (hit.pieceEntityId != null) marbleOfPiece.set(hit.pieceEntityId, hit.marbleId);
+		if (hit.pieceId != null) marbleOfPiece.set(hit.pieceId, hit.marbleId);
 	}
 
-	const groups = new Map<string, { kind: 'marble' | 'piece'; marbleEntityId: string; otherId: string; first: TVec2; time: number; count: number }>();
+	const groups = new Map<string, { kind: 'marble' | 'piece'; marbleId: string; otherId: string; first: TVec2; time: number; count: number }>();
 	for (const contact of result.contacts) {
 		if (contact.time > result.duration) continue;
 		let kind: 'marble' | 'piece';
 		if (contact.kind === 'marble') {
 			// Every collision is reported once per marble; keep the pair once
-			if (contact.marbleEntityId > contact.otherEntityId) continue;
+			if (contact.marbleId > contact.otherId) continue;
 			kind = 'marble';
 		} else {
-			const pieceMarble = marbleOfPiece.get(contact.otherEntityId);
+			const pieceMarble = marbleOfPiece.get(contact.otherId);
 			// Free pieces are environment; only another marble's attached pieces are stray
-			if (pieceMarble == null || pieceMarble === contact.marbleEntityId) continue;
+			if (pieceMarble == null || pieceMarble === contact.marbleId) continue;
 			kind = 'piece';
 		}
-		const key = `${contact.marbleEntityId}:${contact.otherEntityId}`;
+		const key = `${contact.marbleId}:${contact.otherId}`;
 		const group = groups.get(key);
 		if (group != null) group.count++;
-		else groups.set(key, { kind, marbleEntityId: contact.marbleEntityId, otherId: contact.otherEntityId, first: contact.position, time: contact.time, count: 1 });
+		else groups.set(key, { kind, marbleId: contact.marbleId, otherId: contact.otherId, first: contact.position, time: contact.time, count: 1 });
 	}
 
 	return [...groups.values()].map((group) => {
-		const marble = names.piece(group.marbleEntityId);
+		const marble = names.piece(group.marbleId);
 		const other = names.piece(group.otherId);
 		const times = group.count > 1 ? `${group.count} times from ${formatTime(group.time)}` : `at ${formatTime(group.time)}`;
-		const id = `contact:${group.marbleEntityId}:${group.otherId}`;
+		const id = `contact:${group.marbleId}:${group.otherId}`;
 		if (group.kind === 'marble') {
 			return {
 				id,
@@ -461,7 +456,7 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 				title: `${marble} collides with ${other}`,
 				detail: `The marbles touch ${times}.`,
 				time: group.time,
-				target: { ids: [group.marbleEntityId, group.otherId], point: group.first, time: group.time }
+				target: { ids: [group.marbleId, group.otherId], point: group.first, time: group.time }
 			};
 		}
 		return {
@@ -570,7 +565,7 @@ function fallIssues(project: TProject, result: TSimulationResult, names: TNames)
 				title: `${names.marble(marble.id)} falls ${fall.toFixed(1)} m at ${wholeSeconds(from.targetTime)}: a Long Rail fills that gap`,
 				label: 'Long fall',
 				time: from.targetTime,
-				target: { ids: [from.pieceEntityId ?? '', marble.id].filter(Boolean), point: from.dot, time: from.targetTime }
+				target: { ids: [from.pieceId ?? '', marble.id].filter(Boolean), point: from.dot, time: from.targetTime }
 			});
 		}
 	}

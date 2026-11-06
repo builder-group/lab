@@ -6,16 +6,16 @@ import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
 import type { TrackCx } from '@/modules/track';
-import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, SONG_KEY, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf } from '@/modules/project';
-import { isSuperseded, soundsHit, type TSimulationResult } from '@/modules/simulation';
-import { deleteThemeCommands, resolveTheme, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
+import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf, parseSongKey, shownSongs, type TSong, toSongKey } from '@/modules/project';
+import { isSuperseded, PIECE_TYPES, pieceDefinitions, soundsHit, type TPieceType, type TSimulationResult } from '@/modules/simulation';
+import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
 import { openScatterPanel } from '@/modules/film';
 import { connectTitle } from '@/modules/mcp/agent-connect';
 import { shownRepeatRange } from './repeat-range';
 import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
 import { pasteFilmCommands } from './clipboard';
 import { duplicateClear, freePieces, pasteClear, type TClearDuplicate } from './duplicate';
-import { hasSongLayer } from './song-layer';
+import { hasSongLayer, targetSong } from './song-layer';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
@@ -64,9 +64,14 @@ function hasSong(cx: StudioCx): boolean {
 	return cx.project != null && hasSongLayer(cx.project);
 }
 
-/** Whether the Song layer is selected, in Layers or in the timeline */
+/** The song selected in Layers or the timeline, or the only one */
+function currentSong(cx: StudioCx): TSong | undefined {
+	return cx.project == null ? undefined : targetSong(cx.project, cx.$selection.get());
+}
+
+/** Whether a Song layer is selected, in Layers or in the timeline */
 function isSongSelected(cx: StudioCx): boolean {
-	return hasSong(cx) && cx.$selection.get().includes(SONG_KEY);
+	return hasSong(cx) && cx.$selection.get().some((key) => parseSongKey(key) != null);
 }
 
 /** Added lights in the selection; the Key Light can't be deleted */
@@ -97,16 +102,6 @@ function canRunBlender(cx: StudioCx): boolean {
 function unlinkedSelection(cx: StudioCx): string[] {
 	const links = cx.film.$links.get();
 	return cx.$selection.get().filter((id) => links[id]?.link === 'unlinked');
-}
-
-/** Delete Theme for a project theme; the film falls back to its base when it uses it */
-export function deleteTheme(cx: StudioCx, themeId: string): void {
-	const project = cx.project;
-	if (project == null) return;
-	const theme = resolveTheme(project.film, themeId);
-	if (theme.projectTheme == null || !cx.execute(deleteThemeCommands(project, themeId))) return;
-	const base = resolveTheme(project.film, theme.base).name;
-	cx.notifyEdit(project.film.theme === themeId ? `${theme.name} deleted; the film uses ${base} again` : `${theme.name} deleted`);
 }
 
 function hasPieces(cx: StudioCx): boolean {
@@ -311,6 +306,28 @@ function toolCommand(tool: Exclude<TTrackTool, 'marble'>, title: string, keyword
 	};
 }
 
+/** The id of the command that arms a piece's tool */
+export function pieceToolId(type: TPieceType): TCommandId {
+	return type === 'rail' ? 'tool.path' : `tool.${type}`;
+}
+
+/** The command that arms a piece's tool: Rail and Tunnel share the path tool */
+function pieceToolCommand(type: TPieceType): TCommand {
+	const { label, tile } = pieceDefinitions[type];
+	const title = `${label} Tool`;
+	if (type !== 'tunnel') return toolCommand(type === 'rail' ? 'path' : type, title, tile.keywords);
+	return {
+		id: 'tool.tunnel',
+		title,
+		section: 'Tools',
+		shortcut: tunnelPathKey.key,
+		keywords: tile.keywords,
+		isEnabled: (cx) => trackCx(cx) != null,
+		isChecked: (cx) => isTool(cx, 'path') && trackCx(cx)?.$pathType.get() === 'tunnel',
+		run: (cx) => trackCx(cx)?.armTool('path', 'tunnel')
+	};
+}
+
 export const commands: readonly TCommand[] = [
 	// MARK: - File
 	{ id: 'file.new', title: newProjectTitle(), section: 'File', shortcut: '⌘N', run: (cx) => void cx.newProject() },
@@ -321,8 +338,14 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.saveAs', title: 'Save As…', section: 'File', shortcut: '⇧⌘S', keywords: 'copy duplicate keep elsewhere', isEnabled: hasProject, run: (cx) => void cx.saveAs() },
 	{ id: 'file.revert', title: 'Revert to Opened…', section: 'File', keywords: 'back restore undo all discard last saved', isEnabled: (cx) => cx.canRevert(), run: (cx) => void cx.revertToOpened() },
 	{ id: 'file.importMidi', title: 'Import Song…', section: 'File', shortcut: '⌘I', keywords: 'midi recording audio wav mp3 music', isEnabled: hasProject, run: (cx) => void cx.importSong() },
-	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: hasSong, run: (cx) => void cx.sources.replaceSong() },
-	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: hasSong, run: (cx) => void cx.sources.deleteSong() },
+	{ id: 'file.replaceSong', title: 'Replace Song…', section: 'File', keywords: 'music midi audio soundtrack', isEnabled: (cx) => currentSong(cx)?.path != null, run: (cx) => {
+			const song = currentSong(cx);
+			if (song != null) void cx.sources.replaceSong(song);
+		} },
+	{ id: 'file.removeSong', title: 'Delete Song', section: 'File', keywords: 'music midi audio soundtrack remove backing', isEnabled: (cx) => currentSong(cx) != null, run: (cx) => {
+			const song = currentSong(cx);
+			if (song != null) void cx.sources.deleteSong(song.id);
+		} },
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.filmExport.openSheet() },
 
 	// MARK: - Edit
@@ -337,9 +360,10 @@ export const commands: readonly TCommand[] = [
 		keywords: 'remove',
 		isEnabled: (cx) => hasPieces(cx) || hasHits(cx) || selectedShotIds(cx).length > 0 || (inFilm(cx) && (selectedLightIds(cx).length > 0 || selectedDecorIds(cx.$selection.get()).length > 0 || selectedTitleIds(cx).length > 0)) || isSongSelected(cx),
 		run: (cx) => {
-			// The Song layer alone deletes the song file and Backing; the marbles keep their hits
-			if (isSongSelected(cx) && cx.$selection.get().length === 1) {
-				void cx.sources.deleteSong();
+			// A Song layer alone deletes its file and Backing; the marbles keep their hits
+			const songId = cx.$selection.get().length === 1 ? parseSongKey(cx.$selection.get()[0] ?? '') : null;
+			if (songId != null) {
+				void cx.sources.deleteSong(songId);
 				return;
 			}
 			if (trackCx(cx)?.deleteSelection() === true) return;
@@ -466,20 +490,7 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Tools
 	toolCommand('select', 'Move Tool', 'select pointer arrow'),
 	toolCommand('hand', 'Hand Tool', 'pan'),
-	toolCommand('platform', 'Platform Tool', 'piece add place bar'),
-	toolCommand('path', 'Rail Tool', 'path pen bezier spline curve draw'),
-	{
-		id: 'tool.tunnel',
-		title: 'Tunnel Tool',
-		section: 'Tools',
-		shortcut: tunnelPathKey.key,
-		keywords: 'tube path pen bezier curve draw',
-		isEnabled: (cx) => trackCx(cx) != null,
-		isChecked: (cx) => isTool(cx, 'path') && trackCx(cx)?.$pathType.get() === 'tunnel',
-		run: (cx) => trackCx(cx)?.armTool('path', 'tunnel')
-	},
-	toolCommand('windmill', 'Windmill Tool', 'piece add rotor blades'),
-	toolCommand('bowl', 'Bowl Tool', 'piece add end catch collect cup last note'),
+	...PIECE_TYPES.map(pieceToolCommand),
 	{
 		id: 'tool.insert',
 		title: 'Insert…',
@@ -580,14 +591,6 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => void cx.film.relink(unlinkedSelection(cx))
 	},
 	{
-		id: 'film.regenerateCamera',
-		title: 'Reset Camera',
-		section: 'Film',
-		keywords: 'regenerate rig follow automatic camera taken over discard blender changes',
-		isEnabled: (cx) => hasBlender(cx) && cx.film.$camera.get() === 'takenOver',
-		run: (cx) => void cx.film.regenerateCamera()
-	},
-	{
 		id: 'camera.addShot',
 		workspace: null,
 		title: 'Add Shot',
@@ -632,17 +635,6 @@ export const commands: readonly TCommand[] = [
 			if (cx.execute(commands)) cx.$selection.set([toLightKey(lightId)]);
 		}
 	},
-	{
-		id: 'film.deleteTheme',
-		title: 'Delete Theme',
-		section: 'Film',
-		keywords: 'remove theme',
-		isEnabled: (cx) => cx.project != null && resolveTheme(cx.project.film).projectTheme != null,
-		run: (cx) => {
-			const project = cx.project;
-			if (project != null) deleteTheme(cx, project.film.theme);
-		}
-	},
 	{ id: 'film.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.filmExport.isRunning, run: (cx) => cx.filmExport.cancel() },
 
 	// MARK: - Marble
@@ -654,9 +646,12 @@ export const commands: readonly TCommand[] = [
 		id: 'layer.song',
 		title: 'Song',
 		section: 'Marble',
-		keywords: 'solo mute listen hear isolate parts sound instrument tempo backing',
+		keywords: 'solo mute listen hear isolate sound instrument tempo backing',
 		isEnabled: hasSong,
-		run: (cx) => cx.$selection.set([SONG_KEY])
+		run: (cx) => {
+			const song = cx.project == null ? undefined : shownSongs(cx.project)[0];
+			if (song != null) cx.$selection.set([toSongKey(song.id)]);
+		}
 	},
 	{
 		id: 'film.format',
@@ -785,12 +780,10 @@ export type TCommandId =
 	| 'film.renderPreview'
 	| 'film.addText'
 	| 'film.resetToTrack'
-	| 'film.regenerateCamera'
 	| 'camera.addShot'
 	| 'light.add'
 	| 'decor.scatter'
 	| 'decor.add'
-	| 'film.deleteTheme'
 	| 'film.cancelExport'
 	| 'edit.undo'
 	| 'edit.redo'
@@ -818,9 +811,7 @@ export type TCommandId =
 	| 'play.nextHit'
 	| 'play.repeat'
 	| 'play.tap'
-	| 'tool.select'
-	| 'tool.hand'
-	| 'tool.path'
+	| `tool.${Exclude<TTrackTool, 'marble'>}`
 	| 'view.snap'
 	| 'view.track3d'
 	| 'view.trackCamera'
@@ -854,10 +845,7 @@ export type TCommandId =
 	| 'layer.camera'
 	| 'layer.song'
 	| 'marble.speed'
-	| 'tool.platform'
 	| 'tool.tunnel'
-	| 'tool.windmill'
-	| 'tool.bowl'
 	| 'build.addBowl'
 	| 'tool.insert'
 	| 'help.quickHelp'
@@ -951,7 +939,7 @@ function isOnlyOnTimePiece(cx: StudioCx): boolean {
 	const result = cx.simulation.$result.get();
 	const [only, ...others] = cx.$selection.get();
 	if (project == null || result == null || only == null || others.length > 0 || result.revision !== project.revision) return false;
-	const hit = result.hits.find((item) => item.pieceEntityId === only);
+	const hit = result.hits.find((item) => item.pieceId === only);
 	return hit?.status === 'onTime' && !problemPieces(project, result).includes(only);
 }
 

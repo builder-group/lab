@@ -104,7 +104,6 @@ export interface TSceneDescentPoint {
 
 export interface TSceneShot {
 	time: number;
-	kind: string;
 	distance: number;
 	/**
 	 * Seconds the shot holds before the camera eases back to the rig's distance without extra roll; absent or null

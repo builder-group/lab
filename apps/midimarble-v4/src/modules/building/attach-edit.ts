@@ -198,7 +198,7 @@ export function displayPiece(piece: TPiece, at: { pose: TPose } | { pose: TPose;
 	const layout: TPieceLayout = 'dot' in at ? layoutAtMarble(input, at.dot, at.velocity) : layoutFree(input, at.pose.position);
 	const railLayout = piece.layout;
 	return {
-		entityId: piece.id,
+		pieceId: piece.id,
 		type,
 		...(railLayout != null ? { layout: railLayout } : {}),
 		position: layout.position,

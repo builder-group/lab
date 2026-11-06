@@ -12,7 +12,7 @@ Use these with the person. One word per thing.
 | Marble | ball, lane | The ball |
 | Hit | contact, collision | The moment a marble strikes its note |
 | Dot | ghost, marker | Where a marble is at a hit's time |
-| Part | track, voice | One marble's slice of the song, or Backing |
+| Sound | instrument, voice, Part | The General MIDI program a marble's notes play with: `marble.sound`, and `song.backingSound` for Backing |
 | Backing | dropped, unassigned | Notes no marble plays; heard in the film |
 | Track Piece | object, prop, asset | One of any kind of thing the marbles run on, when the kind doesn't matter; after the first mention, piece |
 | Platform | bar, pad, peg | The piece that plays a note |

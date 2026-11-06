@@ -16,7 +16,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		marbleId: marble.id,
 		hitId: 'hit-1',
 		targetTime: 0.5,
-		pieceEntityId: 'piece-1',
+		pieceId: 'piece-1',
 		dot: null,
 		velocity: null,
 		actualTime: 0.501,
@@ -41,7 +41,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 		],
 		pieces: [
 			{
-				entityId: 'piece-1',
+				pieceId: 'piece-1',
 				type: 'platform',
 				position: { x: 0.1, y: 0.2 },
 				angle: 0.3,
@@ -57,7 +57,7 @@ function fixture(): { project: TProject; result: TSimulationResult; marbleId: st
 			hit({ hitId: 'hit-2', targetTime: 1.2, actualTime: 1.19 }),
 			hit({}),
 			hit({ hitId: 'hit-3', actualTime: null, status: 'missed' }),
-			hit({ hitId: 'hit-4', pieceEntityId: null, actualTime: 0.7, status: 'open' })
+			hit({ hitId: 'hit-4', pieceId: null, actualTime: 0.7, status: 'open' })
 		],
 		stats: { computeMs: 1, reusedUntil: 0, steps: 480 }
 	};
@@ -140,10 +140,10 @@ describe('buildSceneDescription', () => {
 
 	it('collects merged contact starts per piece and marks music pieces', () => {
 		const { project, result, marbleId } = fixture();
-		const contact = (time: number, otherEntityId: string, kind: 'piece' | 'marble' = 'piece') => ({
+		const contact = (time: number, otherId: string, kind: 'piece' | 'marble' = 'piece') => ({
 			time,
-			marbleEntityId: marbleId,
-			otherEntityId,
+			marbleId,
+			otherId,
 			kind,
 			position: { x: 0, y: 0 }
 		});
@@ -155,7 +155,7 @@ describe('buildSceneDescription', () => {
 			contact(0.9, 'piece-1', 'marble'),
 			contact(0.3, 'rail-1')
 		];
-		result.pieces.push({ ...firstPiece(result), entityId: 'rail-1', type: 'rail', hitTime: null });
+		result.pieces.push({ ...firstPiece(result), pieceId: 'rail-1', type: 'rail', hitTime: null });
 		const { description } = buildSceneDescription(project, result, { fps: 60 });
 		const [platform, rail] = description.pieces;
 		expect(platform?.contactTimes).toEqual([0.501, 0.7, 1.19]);
@@ -178,7 +178,7 @@ describe('buildSceneDescription', () => {
 		];
 		result.pieces.push({
 			...firstPiece(result),
-			entityId: 'rail-1',
+			pieceId: 'rail-1',
 			type: 'rail',
 			position: { x: 0.1, y: 0.3 },
 			angle: 0,
@@ -214,7 +214,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 	it('writes windmill motion as [time, angle] records', () => {
 		const { project, result } = fixture();
 		result.pieces.push({
-			entityId: 'windmill-1',
+			pieceId: 'windmill-1',
 			type: 'windmill',
 			position: { x: 0, y: 0.1 },
 			angle: 0,
@@ -243,7 +243,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			{ x: 0.15, y: 0.088 }
 		];
 		result.pieces.push({
-			entityId: 'rail-1',
+			pieceId: 'rail-1',
 			type: 'rail',
 			position: { x: 0, y: 0.1 },
 			angle: 0,
@@ -276,7 +276,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			]
 		];
 		result.pieces.push({
-			entityId: 'switchback-1',
+			pieceId: 'switchback-1',
 			type: 'rail',
 			position: { x: 0.05, y: 0.1 },
 			angle: -0.3,
@@ -294,7 +294,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 
 	it('passes the film camera rig settings', () => {
 		const { project, result } = fixture();
-		project.film.camera.shots.push({ id: 'shot-1', time: 1, kind: 'pushIn', distance: 0.4 });
+		project.film.camera.shots.push({ id: 'shot-1', time: 1, distance: 0.4, hold: 2 });
 		const { description } = buildSceneDescription(project, result, { fps: 60 });
 		expect(description.camera).toEqual({
 			mode: 'rig',
@@ -303,8 +303,7 @@ describe('buildSceneDescription with moving and path pieces', () => {
 			lead: 0.15,
 			sway: 1,
 			smoothing: 0.6,
-			// A Push In without a length of its own holds 2 s before the camera eases back
-			shots: [{ time: 1, kind: 'pushIn', distance: 0.4, length: 2 }],
+			shots: [{ time: 1, distance: 0.4, length: 2 }],
 			focusMarbleId: null,
 			descent: null,
 			holdAfter: lastStruckTime(result),

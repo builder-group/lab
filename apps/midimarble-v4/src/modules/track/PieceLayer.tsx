@@ -26,7 +26,7 @@ export const PieceLayer: React.FC<TPieceLayerProps> = (props) => {
 	return (
 		<g transform={transform}>
 			{trackCx.displayPieces(result).map((piece) => (
-				<PieceShape key={piece.entityId} projection={projection} piece={piece} scale={scale} palette={trackPieceColors(cx.project, piece.entityId, piece.type)} />
+				<PieceShape key={piece.pieceId} projection={projection} piece={piece} scale={scale} palette={trackPieceColors(cx.project, piece.pieceId, piece.type)} />
 			))}
 		</g>
 	);

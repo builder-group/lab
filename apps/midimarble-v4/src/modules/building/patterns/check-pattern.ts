@@ -1,4 +1,4 @@
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary, type TProblemSummary } from '../export-preflight';
+import { checkRun, NO_BLENDER_OBJECTS, problemSummary, type TProblemSummary } from '../export-preflight';
 import type { TMarble, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { parseHitKey, tieOf } from '@/modules/project';
 import { answerSettle, changedPieces, frameBand, soundsHit } from '@/modules/simulation';
@@ -46,7 +46,7 @@ interface TStanding {
 
 function standing(project: TProject, result: TSimulationResult): TStanding {
 	return {
-		summary: problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track'),
+		summary: problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS), 'track'),
 		onTime: new Set(result.hits.filter((hit) => hit.status === 'onTime' || hit.status === 'drifting').map((hit) => `${hit.marbleId}/${hit.hitId}`))
 	};
 }
@@ -146,7 +146,7 @@ export function checkPattern(project: TProject, ask: TPatternAsk, options: TPatt
 	for (const [index, attempt] of attempts.entries()) {
 		if (runs > CHECK_RUNS && refused.length > 0) break;
 		const tried: TGroupChange = { ...change, width: attempt.width };
-		const outcome = runGroupChange(project, tried, { ...run, sim: counting, stopsAtBadBar: true, ...(attempt.along != null ? { along: attempt.along } : {}), ...(index > 0 ? { maxTries: 1 } : {}), ...scaled(run.onProgress, index, attempts.length) });
+		const outcome = runGroupChange(project, tried, { ...run, sim: counting, stopsAtBadBar: true, ...(attempt.along != null ? { along: attempt.along } : {}), ...(index > 0 || attempt.along != null ? { maxTries: 1 } : {}), ...scaled(run.onProgress, index, attempts.length) });
 		const answer = answerOf(project, outcome, tried, checkFor(project, outcome, ask.marbleId, sim, was), true);
 		if (answer.refusal == null) return answer;
 		refused.push(answer);
@@ -181,7 +181,7 @@ function attemptsOf(project: TProject, ask: TPatternAsk, sim: TSimulator): TAtte
 	for (const width of widths) {
 		if (isBuilt) {
 			attempts.push({ width, along: course });
-			if (ask.kind === 'zigzag') for (const side of [1, -1]) attempts.push({ width, along: { ...course, side } });
+			if (ask.kind === 'zigzag') attempts.push({ width, along: { ...course, isOtherSide: true } });
 		}
 		attempts.push({ width });
 	}
@@ -209,7 +209,7 @@ function courseOf(project: TProject, marble: TMarble, sim: TSimulator): TPattern
 	const dots = new Map<string, TVec2>();
 	const leaves = new Map<string, TPatternLeaving>();
 	for (const hit of result.hits) {
-		if (hit.marbleId !== marble.id || hit.pieceEntityId == null || hit.dot == null) continue;
+		if (hit.marbleId !== marble.id || hit.pieceId == null || hit.dot == null) continue;
 		dots.set(hit.hitId, hit.dot);
 		const rail = project.track.pieces.find((piece) => {
 			const tie = tieOf(piece);
@@ -259,8 +259,9 @@ function offersFor(project: TProject, ask: TPatternAsk, change: TGroupChange, an
 	const marble = project.marbles.find((item) => item.id === ask.marbleId);
 	const label = patternOfKind(ask.kind)?.label ?? 'Pattern';
 	if (marble == null || patternOfKind(ask.kind)?.takes !== 'notes') return [];
+	const course = courseOf(project, marble, sim);
 	const fits = (tried: TGroupChange): boolean => {
-		const outcome = runGroupChange(project, tried, { sim, along: courseOf(project, marble, sim) });
+		const outcome = runGroupChange(project, tried, { sim, along: course, maxTries: 1, stopsAtBadBar: true });
 		return checkFor(project, outcome, ask.marbleId, sim, was)?.refusal === null;
 	};
 	const hits = hitsInRange(marble, ask.from, ask.to);
@@ -327,10 +328,10 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 
 /** How many pieces outside the Pattern stand somewhere else in the run */
 function changedPlaces(before: TProject, after: TProject, sim: TSimulator, result: TSimulationResult): number {
-	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.entityId, piece.position]));
+	const was = new Map(sim.simulate(before).pieces.map((piece) => [piece.pieceId, piece.position]));
 	const made = new Set(changedPieces(before, after).map((piece) => piece.id));
 	return result.pieces.filter((piece) => {
-		const position = was.get(piece.entityId);
-		return !made.has(piece.entityId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > COLUMN_PROBLEM;
+		const position = was.get(piece.pieceId);
+		return !made.has(piece.pieceId) && position != null && Math.hypot(piece.position.x - position.x, piece.position.y - position.y) > COLUMN_PROBLEM;
 	}).length;
 }

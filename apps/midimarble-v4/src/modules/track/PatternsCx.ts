@@ -81,11 +81,15 @@ export class PatternsCx {
 		const unlisten = [
 			this.studio.$history.listen(({ value }) => {
 				if (this.$preview.get() != null && this.$preview.get()?.revision !== value?.present.revision) this.$preview.set(null);
+				// What a resting pointer asked was about the project as it was
+				if (this.run == null) this.endAsking();
 				// A new Undo step or an Undo is an edit; the song's length and a settled run amend the step they follow
 				if (this.run != null && value != null && stepKey(value) !== this.run.key) this.client?.cancel();
 			}),
 			this.studio.$selection.listen(() => {
 				if (this.$verdict.get() != null) this.$verdict.set(null);
+				// A question about the old selection is only in the way of the next one
+				if (this.run == null) this.endAsking();
 			})
 		];
 		return () => {
@@ -128,6 +132,12 @@ export class PatternsCx {
 					if (!(error instanceof PatternCanceledError)) console.warn(error);
 				});
 		}, HOVER_DELAY);
+	}
+
+	/** Stops what a resting pointer asked, with its ghost */
+	private endAsking(): void {
+		this.endHover();
+		this.client?.cancelPreview();
 	}
 
 	endHover(): void {

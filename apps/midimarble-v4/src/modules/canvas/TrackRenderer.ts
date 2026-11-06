@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { CAMERA_CLIP_END, CAMERA_CLIP_START, verticalFov, type TCameraPose } from '@/modules/camera';
 import type { TWallLook } from '@/modules/scene';
 import type { TVec2 } from '@/modules/project';
-import { getPieceDefinition, layoutOf, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
+import { BAR_BODY_DEPTH, getPieceDefinition, layoutOf, platformDefinition, rotorLocalShapes, shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import { pathMeshes } from './path-meshes';
 import { worldToScreen, type TView, type TViewport } from '@/modules/scene';
 
@@ -210,16 +210,16 @@ export class TrackRenderer {
 			const kind = layoutOf(piece.type);
 			if (kind !== 'box' && kind !== 'rotor') {
 				if (item.hasSolidPaths === true) {
-					seen.add(piece.entityId);
+					seen.add(piece.pieceId);
 					this.setPathPiece(item);
 				}
 				return;
 			}
-			seen.add(piece.entityId);
-			let object = this.pieces.get(piece.entityId);
+			seen.add(piece.pieceId);
+			let object = this.pieces.get(piece.pieceId);
 			if (object == null) {
 				object = { group: new THREE.Group(), parts: [], geometryKey: '' };
-				this.pieces.set(piece.entityId, object);
+				this.pieces.set(piece.pieceId, object);
 				this.scene.add(object.group);
 			}
 			// A run's pieces are never changed in place, so the same one needs no second look at its params
@@ -269,10 +269,10 @@ export class TrackRenderer {
 	/** A path piece's meshes in wall coordinates, rebuilt only when the piece or its depth changes */
 	private setPathPiece(item: TRenderPiece): void {
 		const { piece, pathZ = MARBLE_Z } = item;
-		let object = this.pieces.get(piece.entityId);
+		let object = this.pieces.get(piece.pieceId);
 		if (object == null) {
 			object = { group: new THREE.Group(), parts: [], geometryKey: '' };
-			this.pieces.set(piece.entityId, object);
+			this.pieces.set(piece.pieceId, object);
 			this.scene.add(object.group);
 		}
 		if (object.pathSource !== piece || object.pathZ !== pathZ) {
@@ -528,13 +528,14 @@ export class TrackRenderer {
 		return geometry;
 	}
 
-	/** A bar on the wall with the round bracket nub that holds it */
+	/** A bar on the wall with the round bracket nub that holds it; a deep bar stands out on the nub as on a post, as in the film */
 	private platformParts(piece: TResolvedPiece): TPiecePart[] {
 		const length = piece.params['length'] ?? 0.06;
 		const thickness = piece.params['thickness'] ?? 0.008;
 		const depth = shownDepth(piece);
-		const bar = new THREE.Mesh(this.boxGeometry(length, thickness, depth));
-		bar.position.z = depth / 2;
+		const body = Math.min(depth, BAR_BODY_DEPTH);
+		const bar = new THREE.Mesh(this.boxGeometry(length, thickness, body));
+		bar.position.z = depth - body / 2;
 		const nub = new THREE.Mesh(this.nubGeometry);
 		const nubRadius = Math.min(thickness * 0.32, 0.0028);
 		nub.scale.set(nubRadius, nubRadius, depth + 0.0012);
@@ -570,7 +571,7 @@ export class TrackRenderer {
 		const key = colors != null ? `piece:${colors.bar}:${colors.nub}:${part}` : `piece:${type}:${part}`;
 		let material = this.materials.get(key);
 		if (material == null) {
-			const palette = colors ?? piecePalette[type] ?? piecePalette['platform'];
+			const palette = colors ?? paletteOf(type);
 			const color = (part === 'nub' ? palette?.nub : palette?.bar) ?? '#888888';
 			// A Tunnel's tube is clear, with both its sides showing
 			material = part === 'shell' ? new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.32, side: THREE.DoubleSide, depthWrite: false }) : new THREE.MeshLambertMaterial({ color });
@@ -590,23 +591,13 @@ export class TrackRenderer {
 	}
 }
 
-/** Flat toy colors per piece type: the body and a darker shade for brackets, hubs and outlines */
-export const piecePalette: Record<string, { bar: string; nub: string }> = {
-	platform: { bar: '#f2845c', nub: '#c4603d' },
-	rail: { bar: '#3c9ee0', nub: '#2373ad' },
-	tunnel: { bar: '#9a7bf0', nub: '#6c4fd0' },
-	windmill: { bar: '#4fb879', nub: '#2f8a52' },
-	// Clear wires: pale steel
-	bowl: { bar: '#8fa3b8', nub: '#5f7287' }
-};
-
 /** Blender world to scene: a quarter turn around x, so Blender's y (into the wall) becomes -z */
 const blenderToScene = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
 const filmRotation = new THREE.Quaternion();
 const orbitTarget = new THREE.Vector3();
 
 export function paletteOf(type: string): { bar: string; nub: string } {
-	return piecePalette[type] ?? (piecePalette['platform'] as { bar: string; nub: string });
+	return getPieceDefinition(type)?.palette ?? platformDefinition.palette;
 }
 
 interface TPiecePart {

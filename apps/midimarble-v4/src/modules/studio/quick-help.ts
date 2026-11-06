@@ -17,7 +17,7 @@ export const quickHelpRegions: TQuickHelpRegion[] = [
 	{ id: 'blender', title: 'Blender', line: 'Renders the film; its logo shows the state and its menu opens the scene in Blender', gutter: 'right' },
 	{ id: 'inspector', title: 'Inspector', line: 'Settings of the selection: its skin, or the Scene with its theme', gutter: 'right' },
 	{ id: 'timelineLayers', title: 'Timeline', line: 'The same layers along the time: the song, each marble and the camera, in Film also titles', gutter: 'bottom' },
-	{ id: 'song', title: 'Song', line: "The only sound; each marble plays some of its notes. Expand it to mute, solo or change a marble's Part", gutter: 'bottom' },
+	{ id: 'song', title: 'Song', line: 'The music; each marble plays some of its notes. Expand it to see and edit every note', gutter: 'bottom' },
 	{ id: 'hitSummary', title: 'Hit Summary', line: 'Says when every hit is on time; click it to find a problem', gutter: 'bottom' },
 	{ id: 'transport', title: 'Transport', line: 'Play, step from hit to hit and see the time', gutter: 'bottom' }
 ];

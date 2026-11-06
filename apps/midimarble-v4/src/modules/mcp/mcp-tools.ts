@@ -2,10 +2,11 @@ import { isTauri } from '@tauri-apps/api/core';
 import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
-import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan, preflightExport } from '@/modules/building';
+import type { TReadyPackTheme } from './project-commands';
+import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
+import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseDecorKey, parseHitKey, parseLightKey, SONG_KEY, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -36,11 +37,11 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.open': 'args.path, the .marble package to open',
 	'file.saveAs': 'args.path, where to save',
 	'file.importMidi': 'the add_song tool',
-	'file.replaceSong': 'the add_song tool',
+	'file.replaceSong': 'removeSong, then the add_song tool',
 	'file.export': 'the export_film tool',
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
-	'camera.addShot': 'args.time, kind, distance and hold if wanted',
+	'camera.addShot': 'args.time, distance and hold if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
@@ -77,11 +78,11 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				selection: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get()),
 				building: cx.assist.$building.get(),
 				lastBuild: cx.assist.$lastBuild.get(),
-				blenderObjects: cx.film.$blenderObjects.get(),
+				problems: cx.simulation.$problems.get(),
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
-				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.film.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -204,7 +205,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		await settled(cx);
 		const [isFrameOk, frameErr, frame] = await cx.film.renderStill(time, quality === 'blender' ? BLENDER_WIDTH : DRAFT_WIDTH);
 		if (!isFrameOk) return fail(cx, frameErr.message);
-		const framing = framingProblemAt(preflightExport(cx.project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), time);
+		const framing = framingProblemAt(cx.simulation.$problems.get(), time);
 		const words = `${frame.width} × ${frame.height} at ${time} s, ${Math.round(frame.renderMs)} ms${framing != null ? `. ${framing.title} here: this frame may not show it` : ''}`;
 		return { content: [{ type: 'imagePath', path: frame.path }, { type: 'text', text: words }], isError: false, packagePath: cx.$path.get() };
 	},
@@ -283,10 +284,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
-		const { time, kind, distance, hold } = SShotArgs.parse(args);
+		const { time, distance, hold } = SShotArgs.parse(args);
 		const project = cx.project;
 		if (project == null) return;
-		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
 		cx.$workspace.set('film');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
@@ -319,7 +320,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		}
 		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
 		if (!isAddedOk) throw addedErr;
-		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'updateFilm', film: { theme: id } }.`);
+		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'applyTheme', theme: id }.`);
 	},
 	'film.restartBlender': async (cx) => {
 		await cx.film.restart();
@@ -338,9 +339,8 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	}
 };
 
-const SShotArgs = z.object({
+const SShotArgs = z.strictObject({
 	time: z.number().min(0).optional(),
-	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
 	distance: z.number().positive().optional(),
 	hold: z.number().nonnegative().optional()
 });
@@ -380,15 +380,15 @@ async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<
 	return text(cx, { removed: pack.name, changed: false });
 }
 
-/** The themes of added Packs that `commands` apply, as a project stores them: their items copied in */
-async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TProjectTheme[]> {
-	const wanted = commands.flatMap((command) => (command.type === 'updateFilm' ? [(command as { film?: { theme?: unknown } }).film?.theme] : []));
-	const themes: TProjectTheme[] = [];
+/** The themes of added Packs that `commands` apply, with their items copied in */
+async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TReadyPackTheme[]> {
+	const wanted = commands.flatMap((command) => (command.type === 'applyTheme' ? [(command as { theme?: unknown }).theme] : []));
+	const themes: TReadyPackTheme[] = [];
 	for (const pack of addedPacks.get()) {
 		for (const theme of pack.themes) {
-			if (!wanted.includes(theme.id) || cx.project?.film.themes.some((item) => item.id === theme.id) === true) continue;
+			if (!wanted.includes(theme.id)) continue;
 			const ready = await cx.library.packThemeInProject(pack, theme);
-			if (ready != null) themes.push(ready);
+			if (ready != null) themes.push({ theme: ready, origin: packOriginOf(pack) });
 		}
 	}
 	return themes;
@@ -456,12 +456,12 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
-	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()) });
+	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()) });
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.film.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
 		applySelection(cx, args);
-		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
+		return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()), notices: ['Those commands leave the project as it was, so there is no Undo step.'] });
 	}
 	const created = expanded.createdIds.length === 1 ? expanded.commands.find((command) => command.type === 'addPiece' && command.piece.id === expanded.createdIds[0]) : undefined;
 	cx.mcp.presence.relabel(editPresenceLabel(label, expanded.summary, created?.type === 'addPiece' ? (created.piece.name ?? null) : null));
@@ -490,7 +490,7 @@ async function editStep(cx: StudioCx, title: string, work: () => Promise<void> |
 		...(extra.redid != null ? { redid: extra.redid } : {}),
 		...after?.(),
 		selection: cx.$selection.get(),
-		...(project != null ? hitReport(project, cx.simulation.$result.get(), cx.film.$blenderObjects.get()) : {}),
+		...(project != null ? hitReport(cx.simulation.$problems.get()) : {}),
 		...(notices.length > 0 ? { notices } : {}),
 		...(errors.length > 0 ? { errors } : {})
 	};
@@ -559,7 +559,7 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 		if ([...project.marbles, ...project.track.pieces, ...project.film.titles].some((piece) => piece.id === key)) return true;
 		const hit = parseHitKey(key);
 		if (hit != null) return project.marbles.some((marble) => marble.id === hit.marbleId && marble.hits.some((item) => item.id === hit.hitId));
-		return key === WALL_KEY || key === CAMERA_KEY || key === SONG_KEY || parseLightKey(key) != null || parseDecorKey(key) != null || key.includes(':');
+		return key === WALL_KEY || key === CAMERA_KEY || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));
 	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:marbleId:hitId, wall, light:key, camera or song.` : null;

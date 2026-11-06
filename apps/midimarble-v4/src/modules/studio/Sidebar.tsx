@@ -5,7 +5,7 @@ import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/compon
 import { attachState, decorTips, pieceProblems, struckPieces, type TPreflightIssue, patternOfPiece } from '@/modules/building';
 import { PieceIcon, useRunPreflight } from '@/modules/canvas';
 import { badgeStatus, StatusIcon, type TBadgeStatus, groupSelection } from '@/modules/track';
-import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands, updateLightCommands, shotKindLabel } from '@/modules/scene';
+import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands, updateLightCommands } from '@/modules/scene';
 import { $scatterPanel, revealMadeInBlender } from '@/modules/film';
 import { isPatternGroup, type TPiece, type TProject, formatTime, SCENE_KEY, tieOf } from '@/modules/project';
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
@@ -66,15 +66,15 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 	}, [hasScattered]);
 	const wasRenamingRef = React.useRef(false);
 
-	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.entityId, piece])), [result]);
+	const pieceResults = React.useMemo(() => new Map((result?.pieces ?? []).map((piece) => [piece.pieceId, piece])), [result]);
 	// Pieces another marble hits, from the problem model the hit summary and the inspector read
 	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
 	// Badges wait while Build Track works: each step would check the whole run again, and the hit summary says Building…
-	const preflight = useRunPreflight(cx, project);
+	const preflight = useRunPreflight(cx);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
 	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
 	const tips = React.useMemo(() => (preflight != null ? decorTips(preflight) : null), [preflight]);
-	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceEntityId == null ? [] : [[hit.pieceEntityId, hit] as const]))), [result]);
+	const hitResults = React.useMemo(() => new Map((result?.hits ?? []).flatMap((hit) => (hit.pieceId == null ? [] : [[hit.pieceId, hit] as const]))), [result]);
 	const rows = React.useMemo(() => buildOutline(project, { collapsed, workspace, blenderObjects }), [project, collapsed, workspace, blenderObjects]);
 	const isFilm = workspace === 'film';
 	// Rows that Shift ranges and the arrow keys visit; Track's arrows stay out of the Film rows
@@ -201,7 +201,7 @@ const Layers: React.FC<{ cx: StudioCx; project: TProject; workspace: TWorkspace 
 		if (!isTinted(row) || row.kind === 'group') select(row);
 		if (row.kind === 'marble') openContextMenu(event, marbleMenu(cx, row.marble));
 		else if (row.kind === 'piece' || row.kind === 'patternGroup') openContextMenu(event, pieceMenu(cx));
-		else if (row.kind === 'song') openContextMenu(event, songMenu(cx));
+		else if (row.kind === 'song') openContextMenu(event, songMenu(cx, row.source));
 		else if (row.kind === 'light') openContextMenu(event, [commandItem(cx, 'light.add'), ...(row.light != null ? [commandItem(cx, 'edit.delete')] : [])]);
 		else if (row.kind === 'title') openContextMenu(event, titleMenu(cx, row.title));
 		else if (row.kind === 'decor') openContextMenu(event, decorMenu(cx, tips?.has(row.id) === true));
@@ -362,12 +362,12 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'scene':
 			return { icon: <Globe size={14} strokeWidth={1.75} />, label: 'Scene', title: 'The film as a whole: Gravity in Track, the theme and Format in Film' };
 		case 'song': {
-			const isRecording = row.source?.kind === 'audio';
+			const isRecording = row.source.path != null && row.source.kind === 'audio';
 			return {
 				icon: isRecording ? <AudioLines size={14} strokeWidth={1.75} /> : <Music size={14} strokeWidth={1.75} />,
 				label: row.label,
-				title: row.source == null ? 'Song · Backing' : isRecording ? `Song · Recording · ${row.source.name}` : `Song · MIDI · ${row.source.name}`,
-				subtitle: row.source?.name
+				title: row.source.path == null ? 'Song · Backing' : isRecording ? `Song · Recording · ${row.source.name}` : `Song · MIDI · ${row.source.name}`,
+				subtitle: row.source.name
 			};
 		}
 		case 'marble':
@@ -383,7 +383,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'camera':
 			return { icon: <Video size={14} strokeWidth={1.75} />, label: 'Camera', isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'shot':
-			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: shotKindLabel(row.shot.kind), time: row.shot.time };
+			return { icon: <Bookmark size={13} strokeWidth={1.75} />, label: 'Shot', time: row.shot.time };
 		case 'title':
 			return { icon: <Type size={14} strokeWidth={1.75} style={{ color: row.title.labelColor }} />, label: row.title.name ?? row.title.text };
 		case 'piece':

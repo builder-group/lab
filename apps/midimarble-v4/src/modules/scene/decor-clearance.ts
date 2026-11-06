@@ -1,4 +1,4 @@
-import { pieceOutline } from './track-geometry';
+import { pieceKind, pieceOutline } from './track-geometry';
 import { isPointInPolygon } from './picking';
 import type { TVec2 } from '@/modules/project';
 import type { TResolvedPiece, TSimulationResult } from '@/modules/simulation';
@@ -64,7 +64,7 @@ function addPiece(field: TObstacleField, piece: TResolvedPiece): void {
 	const outline = pieceOutline(piece);
 	if (!outline.length) return;
 	// A windmill's blades sweep a disc around its hub
-	const blades = piece.type === 'windmill' ? (piece.params['bladeLength'] ?? 0) : 0;
+	const blades = pieceKind(piece) === 'rotor' ? (piece.params['bladeLength'] ?? 0) : 0;
 	if (blades > 0) {
 		fillDisc(field, piece.position, blades);
 		return;

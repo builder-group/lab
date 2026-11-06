@@ -3,6 +3,7 @@ export * from './attach';
 export * from './bowl';
 export * from './build-track-defaults';
 export * from './clearance';
+export { isSameRunInput, type TRunInput } from './create-plan';
 export * from './client';
 export * from './gap-pieces';
 export * from './geometry';

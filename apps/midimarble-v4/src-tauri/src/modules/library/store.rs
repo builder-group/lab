@@ -14,8 +14,8 @@ const ITEM_FILES: [&str; 3] = [MANIFEST_FILE, ASSET_FILE, PREVIEW_FILE];
 pub enum LibraryScope {
     /// `<package>/assets/`
     Project,
-    /// The app's support folder, shared by every project
-    Global,
+    /// An added Pack, in the app's support folder
+    Pack,
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -211,11 +211,11 @@ mod tests {
         assert!(items[0].has_asset);
         assert!(items[0].preview_path.is_some());
 
-        let global = root.join("Library");
-        copy_item(&target, &global, "brass-bar", None).unwrap();
+        let added = root.join("Pack");
+        copy_item(&target, &added, "brass-bar", None).unwrap();
         assert_eq!(
-            list(&global, LibraryScope::Global)[0].scope,
-            LibraryScope::Global
+            list(&added, LibraryScope::Pack)[0].scope,
+            LibraryScope::Pack
         );
 
         remove(&assets, "brass-bar").unwrap();
@@ -247,7 +247,7 @@ mod tests {
             copy_item(&source, &assets, "other", None),
             Err(LibraryError::MissingAsset(_))
         ));
-        assert!(list(&root.join("missing"), LibraryScope::Global).is_empty());
+        assert!(list(&root.join("missing"), LibraryScope::Pack).is_empty());
         fs::remove_dir_all(root).unwrap();
     }
 }

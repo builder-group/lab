@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TPiece, TProject, TTitle } from '@/modules/project';
 import { startRailId } from '@/modules/simulation';
 import { buildOutline, DECOR_KEY, FREE_PIECES_KEY, isFilmRow, LIGHTS_KEY, TITLES_KEY } from './outline';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, SONG_KEY, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, toSongKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 
 function piece(id: string, tie?: { marbleId: string; hitId: string }): TPiece {
 	return { id, type: 'platform', params: {}, angle: 0, place: tie != null ? { kind: 'plays', ...tie, contactAt: 0.5 } : { kind: 'free', position: { x: 0, y: 0 } } };
@@ -17,7 +17,7 @@ function project(options: { hasSong?: boolean; pieces?: TPiece[]; titles?: TTitl
 			{ id: 'marble-2', name: 'Bass', hits: [] }
 		],
 		track: { pieces, groups: [] },
-		film: { theme: 'pegboard', themes: [], wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles, camera: { shots } }
+		film: { theme: { base: 'pegboard' }, wall: {}, lights: { added: [] }, decor: [], madeInBlender: [], titles, camera: { shots } }
 	} as unknown as TProject;
 }
 
@@ -26,7 +26,7 @@ describe('buildOutline function', () => {
 		const rows = buildOutline(project({ pieces: [piece('p-a', { marbleId: 'marble-1', hitId: 'a' }), piece('free-1'), piece(startRailId('marble-1'))] }), { workspace: 'track' });
 		const rail = rows.find((row) => row.id === startRailId('marble-1'));
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, CAMERA_KEY, WALL_KEY, 'marble-1', startRailId('marble-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, toSongKey('source'), CAMERA_KEY, WALL_KEY, 'marble-1', startRailId('marble-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
 		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', marbleId: 'marble-1', depth: 1 });
 	});
 
@@ -45,7 +45,7 @@ describe('buildOutline function', () => {
 
 		expect(rows.map((row) => row.id)).toEqual([
 			SCENE_KEY,
-			SONG_KEY,
+			toSongKey('source'),
 			CAMERA_KEY,
 			toShotKey('early'),
 			toShotKey('late'),
@@ -84,7 +84,7 @@ describe('buildOutline function', () => {
 		const group = rows.find((row) => row.id === FREE_PIECES_KEY);
 
 		expect(group?.kind === 'group' ? group.label : null).toBe('Track Pieces');
-		expect(group?.kind === 'group' ? group.help : null).toBe('Parts of the track no marble plays or follows; marbles can still hit them');
+		expect(group?.kind === 'group' ? group.help : null).toBe('Pieces no marble plays or follows; marbles can still hit them');
 	});
 
 	it('should leave out the Song without one and empty groups: Pieces, Titles and Decor', () => {
@@ -108,7 +108,7 @@ describe('buildOutline function', () => {
 			collapsed: ['marble-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, SONG_KEY, CAMERA_KEY, WALL_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, LIGHTS_KEY, KEY_LIGHT_KEY]);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, toSongKey('source'), CAMERA_KEY, WALL_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, LIGHTS_KEY, KEY_LIGHT_KEY]);
 		expect(rows.find((row) => row.id === 'marble-1')).toMatchObject({ hasChildren: true, isOpen: false });
 	});
 

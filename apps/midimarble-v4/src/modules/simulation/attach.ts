@@ -197,7 +197,7 @@ function findPiece(
 	if (piece == null) return Err(new Error(`Piece ${entityId} not found`));
 	if (result.revision !== project.revision)
 		return Err(new Error('The run is out of date; wait for the simulation to catch up'));
-	const resolved = result.pieces.find((item) => item.entityId === entityId);
+	const resolved = result.pieces.find((item) => item.pieceId === entityId);
 	if (resolved == null) return Err(new Error(`${piece.name ?? entityId} has no pose in this run`));
 	return Ok({ piece, resolved });
 }

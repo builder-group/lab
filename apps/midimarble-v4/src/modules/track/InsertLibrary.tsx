@@ -71,7 +71,7 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 							<span className="mm-library-label">
 								<span>Song…</span>
 							</span>
-							<span className="mm-tooltip">Add a MIDI file or a recording: the only sound of the film</span>
+							<span className="mm-tooltip">Add a MIDI file or a recording</span>
 						</button>
 					</div>
 				</section>

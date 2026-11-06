@@ -1,7 +1,9 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { applyProjectCommands, createProject, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createProject, parseProject, type TProject, type TProjectCommand } from '@/modules/project';
+import convert from '../../../../scripts/convert-project-5-to-6';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from '../export-preflight';
+import { checkRun, NO_BLENDER_OBJECTS, problemSummary } from '../export-preflight';
 import { checkPattern } from './check-pattern';
 import { arrivalAt } from './arrival';
 import { fitPattern } from './fit-pattern';
@@ -107,7 +109,7 @@ describe('A Pattern', () => {
 describe('checkPattern function', () => {
 	const standing = (project: TProject) => {
 		const result = sim.simulate(project);
-		return { result, summary: problemSummary(preflightExport(project, { ...result, revision: project.revision }, NO_BLENDER_OBJECTS), 'track') };
+		return { result, summary: problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS), 'track') };
 	};
 
 	it('should start a marble with nothing before its notes just above them, with no new Problems', () => {
@@ -229,6 +231,32 @@ describe('checkPattern function', () => {
 		expect(check.madePieces.map((piece) => piece.id)).toEqual([rail?.id]);
 		expect(after.track.pieces.find((piece) => piece.id === rail?.id)?.params).toEqual(rail?.params);
 		expect(after.track.groups[0]?.pieceIds).toEqual([rail?.id]);
+	});
+});
+
+describe('Project files', () => {
+	const FIXTURES = new URL('../../../../fixtures/', import.meta.url);
+
+	it('should parse every fixture', () => {
+		for (const name of readdirSync(FIXTURES).filter((file) => file.endsWith('.marble.json'))) {
+			const [isOk, err] = parseProject(readFileSync(new URL(name, FIXTURES), 'utf8'));
+			expect(err, name).toBeUndefined();
+			expect(isOk, name).toBe(true);
+		}
+	});
+
+	it('should open a project that stored what its Pattern could not do, once converted', () => {
+		const project = smallProject([1, 1.4]);
+		const pattern = { kind: 'zigzag', hitIds: ['h1'], width: 0.1, bounce: 0.5, problems: [{ hitId: 'h1', words: 'Old words.' }] };
+		const stored = { ...project, track: { ...project.track, groups: [{ id: 'g', name: 'Zigzag', marbleId: MARBLE, pieceIds: [], pattern }] } };
+
+		const [isOkBefore] = parseProject(JSON.stringify(stored));
+		const [isOk, err, opened] = parseProject(JSON.stringify(convert(stored)));
+
+		expect(isOkBefore).toBe(false);
+		expect(err).toBeUndefined();
+		expect(isOk).toBe(true);
+		expect(opened?.track.groups[0]?.pattern).toEqual({ kind: 'zigzag', hitIds: ['h1'], width: 0.1, bounce: 0.5 });
 	});
 });
 

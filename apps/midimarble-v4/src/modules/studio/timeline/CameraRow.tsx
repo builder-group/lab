@@ -1,7 +1,7 @@
 import { Video } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { addShotCommands, shotKindLabel, updateShotCommands } from '@/modules/scene';
+import { addShotCommands, updateShotCommands } from '@/modules/scene';
 import type { TProject } from '@/modules/project';
 import { commandItem } from '../commands';
 import { formatTime, CAMERA_KEY, parseShotKey, toShotKey } from '@/modules/project';
@@ -56,7 +56,7 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 			>
 				<CameraShotSpans project={project} zoom={zoom} selection={selection} dragged={drag?.moved ? drag : null} />
 				{/* Framing problems are Film's */}
-				{cx.$workspace.get() === 'film' ? <CameraIssues cx={cx} project={project} zoom={zoom} /> : null}
+				{cx.$workspace.get() === 'film' ? <CameraIssues cx={cx} zoom={zoom} /> : null}
 				{shots.map((shot) => {
 					const key = toShotKey(shot.id);
 					const isSelected = selection.includes(key);
@@ -66,9 +66,9 @@ export const CameraRow: React.FC<TCameraRowProps> = (props) => {
 							key={shot.id}
 							className="absolute top-0 z-20 flex h-full w-4 -translate-x-1/2 cursor-ew-resize items-start justify-center pt-[3px]"
 							style={{ left: time * zoom }}
-							aria-label={`${shotKindLabel(shot.kind)} shot at ${formatTime(time)}`}
+							aria-label={`Shot at ${formatTime(time)}`}
 							aria-pressed={isSelected}
-							title={`${shotKindLabel(shot.kind)} · ${formatTime(time)}`}
+							title={`Shot · ${formatTime(time)}`}
 							onPointerDown={(event) => {
 								if (event.button !== 0) return;
 								event.stopPropagation();

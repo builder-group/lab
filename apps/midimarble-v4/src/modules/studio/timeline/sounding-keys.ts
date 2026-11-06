@@ -1,6 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
-import { audibleProject, BACKING_COLOR, backingNoteLength, marbleNoteLength, soundsNotes } from '@/modules/music';
+import { audibleProject, BACKING_COLOR, backingNoteLength, marbleNoteLength, soundingMarbles } from '@/modules/music';
 import { type THit, type TProject, backingOf } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 
@@ -19,14 +19,13 @@ const SCRUB_HOLD_MS = 180;
 
 const NOTHING_SOUNDS: ReadonlyMap<number, string> = new Map();
 
-/** The notes a project plays, in the order they start: marbles in their colors, Backing in gray */
-export function noteSpans(project: TProject): TNoteSpan[] {
-	if (!soundsNotes(project)) return [];
+/** The notes a project plays, or one song of it, in the order they start: marbles in their colors, Backing in gray */
+export function noteSpans(project: TProject, songId?: string): TNoteSpan[] {
 	const pitched = (hits: THit[]): TPitchedHit[] => hits.filter((hit): hit is TPitchedHit => hit.pitch != null).sort((a, b) => a.time - b.time);
-	const marbles = project.marbles.flatMap((marble) =>
-		pitched(marble.hits).map((hit, index, hits) => ({ pitch: hit.pitch, color: marble.labelColor, start: hit.time, end: hit.time + marbleNoteLength(hit, hits[index + 1]) }))
+	const marbles = soundingMarbles(project).flatMap((marble) =>
+		pitched(marble.hits.filter((hit) => songId == null || hit.songId === songId)).map((hit, index, hits) => ({ pitch: hit.pitch, color: marble.labelColor, start: hit.time, end: hit.time + marbleNoteLength(hit, hits[index + 1]) }))
 	);
-	const backing = pitched(backingOf(project)).map((hit, index, hits) => {
+	const backing = pitched(songId == null ? backingOf(project) : (project.songs.find((song) => song.id === songId)?.backing ?? [])).map((hit, index, hits) => {
 		const next = hits.slice(index + 1).find((item) => item.pitch === hit.pitch);
 		return { pitch: hit.pitch, color: BACKING_COLOR, start: hit.time, end: hit.time + backingNoteLength(hit, next) };
 	});
@@ -48,9 +47,9 @@ export function soundingKeys(spans: readonly TNoteSpan[], time: number): Map<num
  * elements like `flashElement` so the keyboard never re-renders per frame. A key lit or released is state, not motion,
  * so Reduce Motion leaves this on.
  */
-export function useSoundingKeys(cx: StudioCx, project: TProject, container: React.RefObject<HTMLElement | null>): void {
+export function useSoundingKeys(cx: StudioCx, project: TProject, songId: string, container: React.RefObject<HTMLElement | null>): void {
 	const mix = useFeatureState(cx.$mix);
-	const spans = React.useMemo(() => noteSpans(audibleProject(project, mix)), [project, mix]);
+	const spans = React.useMemo(() => noteSpans(audibleProject(project, mix), songId), [project, mix, songId]);
 
 	React.useEffect(() => {
 		let lit: ReadonlyMap<number, string> = NOTHING_SOUNDS;

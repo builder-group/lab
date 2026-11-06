@@ -1,10 +1,10 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
-import { createId, marbleColors, type TPiece, type TMarble, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
+import { createId, marbleColors, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
 import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
-import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested-hits';
+import { suggestedHitChoices } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
@@ -174,13 +174,12 @@ export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntr
 export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuEntry[] {
 	const project = cx.project;
 	if (project == null) return [];
-	const suggested = suggestedHits(cx, marble).length;
 
 	return tidyMenu([
 		{ section: marble.name },
 		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, marble, time) } : null,
 		{ label: 'Select All Hits', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
-		suggested > 0 ? { label: suggestedHitsLabel(suggested), onSelect: () => addSuggestedHits(cx, marble) } : null,
+		...suggestedHitChoices(cx, marble),
 		'separator',
 		{
 			label: 'Rename…',
@@ -195,13 +194,17 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 	]);
 }
 
-export function addHit(cx: StudioCx, marble: TMarble, time: number): void {
-	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone
-	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000 };
+export function addHit(cx: StudioCx, marble: TMarble, time: number, songId?: string): void {
+	// A hit has a pitch only when it comes from a MIDI note; one placed by hand is timing alone. Added in a song, it is tied to it.
+	const hit = { id: createId('hit'), time: Math.round(time * 10000) / 10000, ...(songId != null ? { songId } : {}) };
 	if (cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [hit] }])) cx.$selection.set([toHitKey(marble.id, hit.id)]);
 }
 
-/** The Song layer's menu, in Layers and on its timeline row */
-export function songMenu(cx: StudioCx): TMenuEntry[] {
-	return [{ section: 'Song' }, commandItem(cx, 'file.replaceSong'), commandItem(cx, 'file.removeSong')];
+/** A Song layer's menu, in Layers and on its timeline row */
+export function songMenu(cx: StudioCx, song: TSong): TMenuEntry[] {
+	return [
+		{ section: song.path != null ? song.name : 'Song' },
+		{ label: 'Replace Song…', disabled: song.path == null, onSelect: () => void cx.sources.replaceSong(song) },
+		{ label: 'Delete Song', onSelect: () => void cx.sources.deleteSong(song.id) }
+	];
 }

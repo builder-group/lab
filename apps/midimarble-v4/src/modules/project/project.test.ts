@@ -60,21 +60,15 @@ describe('project document', () => {
 		expect(parseProject(JSON.stringify({ ...project, film: { ...project.film, themeOptions: { glow: 1 } } }))[0]).toBe(false);
 	});
 
-	it('should round-trip project themes and reject malformed ones', () => {
+	it('should round-trip the theme and reject a malformed one', () => {
 		const project = createProject();
-		const themes = [
-			{ id: 'theme-1', name: 'Neon Copy', base: 'neon', overrides: { wallColor: '#336699', glowColor: '#00ff88' } },
-			{ id: 'theme-2', name: 'Sunset', base: 'brass', overrides: {}, origin: 'agent' as const }
-		];
-		const withThemes = { ...project, film: { ...project.film, theme: 'theme-1', themes } };
-		const [isParsedOk, parsedErr, parsed] = parseProject(serializeProject(withThemes));
+		const theme = { base: 'neon', glowColor: '#00ff88', parts: { rail: { skin: 'rail:candy' } }, pack: { packId: 'christmas', packName: 'Christmas', version: '1.0', themeId: 'theme-1', themeName: 'Night' } };
+		const [isParsedOk, parsedErr, parsed] = parseProject(serializeProject({ ...project, film: { ...project.film, theme } }));
 		expect(isParsedOk, parsedErr?.message).toBe(true);
-		expect(parsed?.film.themes).toEqual(themes);
-		expect(parsed?.film.theme).toBe('theme-1');
-		const badColor = { ...project, film: { ...project.film, themes: [{ ...themes[0], overrides: { wallColor: 'blue' } }] } };
-		expect(parseProject(JSON.stringify(badColor))[0]).toBe(false);
-		const unknownField = { ...project, film: { ...project.film, themes: [{ ...themes[0], overrides: { fog: '#ffffff' } }] } };
-		expect(parseProject(JSON.stringify(unknownField))[0]).toBe(false);
+		expect(parsed?.film.theme).toEqual(theme);
+		expect(parseProject(JSON.stringify({ ...project, film: { ...project.film, theme: { ...theme, glowColor: 'blue' } } }))[0]).toBe(false);
+		expect(parseProject(JSON.stringify({ ...project, film: { ...project.film, theme: { ...theme, overrides: {} } } }))[0]).toBe(false);
+		expect(parseProject(JSON.stringify({ ...project, film: { ...project.film, theme: 'neon' } }))[0]).toBe(false);
 	});
 
 	it('rejects unknown versions and malformed files', () => {
@@ -290,7 +284,7 @@ describe('applyProjectCommands function', () => {
 			{ type: 'addPiece', piece: { ...piece('p1'), skin: { assetId: 'platform:copper' } } },
 			{ type: 'addPiece', piece: piece('p2') },
 			{ type: 'addGroup', group: group('g', ['p1']) },
-			{ type: 'updateFilm', film: { camera: { auto: true, distance: 1, tilt: 1, sway: 1, shots: [{ id: 'shot-2', time: 2, kind: 'wide', distance: 1 }, { id: 'shot-1', time: 1, kind: 'wide', distance: 1 }] } } }
+			{ type: 'updateFilm', film: { camera: { auto: true, distance: 1, tilt: 1, sway: 1, shots: [{ id: 'shot-2', time: 2, distance: 1 }, { id: 'shot-1', time: 1, distance: 1 }] } } }
 		]);
 	}
 
@@ -298,7 +292,8 @@ describe('applyProjectCommands function', () => {
 	const commands: { [GType in TProjectCommand['type']]: Extract<TProjectCommand, { type: GType }> } = {
 		updateProject: { type: 'updateProject', patch: { title: 'New', length: 20 } },
 		addSong: { type: 'addSong', song: { ...song('s2'), backing: [{ id: 'y', time: 2 }, { id: 'x', time: 1 }] } },
-		updateSong: { type: 'updateSong', songId: 's', patch: { start: 2, path: null } },
+		updateSong: { type: 'updateSong', songId: 's', patch: { name: 'Mine', path: null } },
+		moveSong: { type: 'moveSong', songId: 's', start: 2 },
 		removeSong: { type: 'removeSong', songId: 's' },
 		addMarble: { type: 'addMarble', marble: { ...createMarble(2, { x: 1, y: 0 }, 'marble-2'), hits: [{ id: 'z', time: 2 }, { id: 'w', time: 1 }] } },
 		updateMarble: { type: 'updateMarble', marbleId: 'marble-1', patch: { name: 'Bass', hits: [{ id: 'd', time: 2 }, { id: 'e', time: 1 }] } },
@@ -312,7 +307,7 @@ describe('applyProjectCommands function', () => {
 		addGroup: { type: 'addGroup', group: group('g2', ['p2']) },
 		updateGroup: { type: 'updateGroup', groupId: 'g', patch: { name: 'Bridge' } },
 		removeGroups: { type: 'removeGroups', groupIds: ['g'] },
-		updateFilm: { type: 'updateFilm', film: { theme: 'brass', titles: [], camera: { auto: false, distance: 2, tilt: 1, sway: 0, shots: [{ id: 'shot-4', time: 4, kind: 'wide', distance: 1 }, { id: 'shot-3', time: 3, kind: 'wide', distance: 1 }] } } }
+		updateFilm: { type: 'updateFilm', film: { theme: { base: 'brass' }, titles: [], camera: { auto: false, distance: 2, tilt: 1, sway: 0, shots: [{ id: 'shot-4', time: 4, distance: 1 }, { id: 'shot-3', time: 3, distance: 1 }] } } }
 	};
 
 	it.each(Object.values(commands))('should never mutate its input: $type', (command) => {
@@ -357,7 +352,7 @@ describe('applyProjectCommands function', () => {
 		expect(pieceEdit.track.groups).toBe(project.track.groups);
 		expect(pieceEdit.track.pieces[1]).toBe(project.track.pieces[1]);
 
-		const filmEdit = apply(project, [{ type: 'updateFilm', film: { theme: 'brass' } }]);
+		const filmEdit = apply(project, [{ type: 'updateFilm', film: { theme: { base: 'brass' } } }]);
 		expect(filmEdit.track).toBe(project.track);
 		expect(filmEdit.marbles).toBe(project.marbles);
 		expect(filmEdit.songs).toBe(project.songs);

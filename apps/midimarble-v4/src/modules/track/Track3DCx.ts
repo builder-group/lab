@@ -139,7 +139,7 @@ export class Track3DCx {
 		const result = this.trackCx.studio.simulation.$result.get();
 		const hidden = this.trackCx.studio.$hidden.get();
 		if (this.shown?.result !== result || this.shown?.hidden !== hidden) {
-			this.shown = { result, hidden, pieces: (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.entityId)) };
+			this.shown = { result, hidden, pieces: (result?.pieces ?? []).filter((piece) => !hidden.includes(piece.pieceId)) };
 		}
 		return this.shown.pieces;
 	}
@@ -193,14 +193,14 @@ export class Track3DCx {
 				pieces.map((piece) => ({
 					piece,
 					angle: pieceAngleAt(piece, playhead),
-					colors: trackPieceColors(project, piece.entityId, piece.type),
+					colors: trackPieceColors(project, piece.pieceId, piece.type),
 					pathZ: this.pathZ,
 					hasSolidPaths: true
 				}))
 			);
 			this.synced = { pieces, project, pathZ: this.pathZ, moving: pieces.filter((piece) => piece.motion != null) };
 		} else {
-			for (const piece of this.synced.moving) renderer.setPieceAngle(piece.entityId, pieceAngleAt(piece, playhead));
+			for (const piece of this.synced.moving) renderer.setPieceAngle(piece.pieceId, pieceAngleAt(piece, playhead));
 		}
 		const hidden = studio.$hidden.get();
 		renderer.setWallHidden(hidden.includes(WALL_KEY));

@@ -1,3 +1,4 @@
+import { createState } from 'feature-state';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Ok } from 'tuple-result';
 import { host } from '@/environment';
@@ -24,7 +25,7 @@ function resultFor(project: TProject, marbleId: string, hitId: string): TSimulat
 		marbles: [],
 		pieces: [],
 		contacts: [],
-		hits: [{ marbleId, hitId, targetTime: 1, pieceEntityId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' }],
+		hits: [{ marbleId, hitId, targetTime: 1, pieceId: null, dot: { x: 0, y: -1 }, velocity: { x: 0, y: -3 }, actualTime: null, error: null, status: 'open' }],
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
 	} as unknown as TSimulationResult;
 }
@@ -178,7 +179,7 @@ describe('MCP tools', () => {
 		let bowlBuild: () => void = () => undefined;
 		const buildTrack = vi.fn(() => new Promise<null>((resolve) => (bowlBuild = () => resolve(null))));
 		const key = `hit:${marbleId}:${hitId}`;
-		const assist = { get rebuildTarget() { return cx.$selection.get().includes(key) ? { marbleId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
+		const assist = { $building: createState(null), get rebuildTarget() { return cx.$selection.get().includes(key) ? { marbleId, hitId } : null; }, buildTrack, isBuilding: false, isAnswering: false };
 		Object.assign(cx, { assist });
 		cx.$trackCx.set({} as never);
 		cx.$workspace.set('track');
@@ -203,7 +204,7 @@ describe('MCP tools', () => {
 	it('should show the running build and its result in get_state', async () => {
 		const { cx } = studio();
 		const lastBuild = { message: 'Built' };
-		Object.assign(cx, { assist: { $building: { get: () => ({ done: 2, total: 5 }) }, $lastBuild: { get: () => lastBuild } } });
+		Object.assign(cx, { assist: { $building: createState({ done: 2, total: 5 }), $lastBuild: { get: () => lastBuild } } });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.building).toEqual({ done: 2, total: 5 });
 		expect(state.lastBuild).toEqual(lastBuild);
@@ -218,7 +219,7 @@ describe('MCP tools', () => {
 		expect(state.gravity).toEqual({ value: 0.5, default: 0.5, range: [0.05, 2] });
 		expect(state.wall).toMatchObject({ own: {} });
 		expect((state.wall as { kind: string }).kind).toBeTypeOf('string');
-		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y'], hitList: [['hit1', 1, 'C4', 'open', 0, -1]] });
+		expect(state.marbles[0]).toMatchObject({ marbleId, hitColumns: ['hitId', 'time', 'note', 'status', 'x', 'y', 'songId'], hitList: [['hit1', 1, 'C4', 'open', 0, -1, null]] });
 	});
 
 	it('should select a marble and a title by their IDs', async () => {
@@ -269,10 +270,10 @@ describe('MCP tools', () => {
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.project.format).toEqual({ width: 9, height: 16 });
 		expect(state.quality).toBe('final');
-		expect(state.song.songs).toEqual([{ id: 'song-1', name: 'Song.wav', kind: 'audio', start: 1 }]);
+		expect(state.song.songs).toEqual([{ id: 'song-1', name: 'Song.wav', kind: 'audio', start: 1, backingNotes: 0 }]);
 		expect(state.marbles[0]).toMatchObject({ marbleId, start: { x: 0, y: 0 } });
 		expect(state.marbles[0]).not.toHaveProperty('entityId');
-		expect(state.camera).toEqual({ auto: true, distance: 1.36, tilt: 1, sway: 1, shots: [] });
+		expect(state.camera).toEqual({ auto: true, distance: 0.48, tilt: 0.54, sway: 1, shots: [] });
 	});
 
 	it('should set Gravity from args.value and refuse it without one', async () => {
@@ -350,11 +351,11 @@ describe('MCP tools', () => {
 	describe('updateFilm', () => {
 		it('should refuse an unknown theme and name the ones there are', async () => {
 			const { cx } = studio();
-			const reply = await execute(cx, { type: 'updateFilm', film: { theme: 'theme-nope' } });
+			const reply = await execute(cx, { type: 'applyTheme', theme: 'theme-nope' });
 			expect(reply.isError).toBe(true);
 			expect(textOf(reply)).toContain('There is no theme theme-nope');
 			expect(textOf(reply)).toContain('pegboard');
-			expect(cx.project?.film.theme).not.toBe('theme-nope');
+			expect(cx.project?.film.theme.base).not.toBe('theme-nope');
 		});
 
 		it('should change only the fields it names', async () => {
@@ -380,13 +381,13 @@ describe('MCP tools', () => {
 
 		it("should apply an added Pack's theme by its id", async () => {
 			const { cx } = studio();
-			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', overrides: { wallColor: '#ffefc8' } };
+			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', wall: { color: '#ffefc8' } };
 			addedPacks.set([{ id: 'xmas', name: 'Christmas', version: '1.0', themes: [theme], items: [], builtInDecor: [] } as unknown as TPack]);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { packThemes: { id: string; pack: string }[] };
 			expect(state.packThemes).toEqual([{ id: 'theme-pack', name: 'Golden', pack: 'Christmas' }]);
-			expect((await execute(cx, { type: 'updateFilm', film: { theme: 'theme-pack' } })).isError).toBe(false);
-			expect(cx.project?.film.theme).toBe('theme-pack');
-			expect(cx.project?.film.themes[0]?.pack?.packName).toBe('Christmas');
+			expect((await execute(cx, { type: 'applyTheme', theme: 'theme-pack' })).isError).toBe(false);
+			expect(cx.project?.film.theme).toMatchObject({ base: 'brass', pack: { packName: 'Christmas', themeId: 'theme-pack', themeName: 'Golden' } });
+			expect(cx.project?.film.wall.color).toBe('#ffefc8');
 			addedPacks.set([]);
 		});
 	});
@@ -440,9 +441,9 @@ describe('MCP tools', () => {
 
 		it('should add a shot from its arguments, readable in get_state', async () => {
 			const { cx } = studio();
-			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', distance: 1.2, hold: 2 } });
+			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, distance: 1.2, hold: 2 } });
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { camera: { shots: unknown[]; distance: number } };
-			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, hold: 2 })]);
+			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, distance: 1.2, hold: 2 })]);
 			expect(state.camera.distance).toBeGreaterThan(0);
 		});
 	});

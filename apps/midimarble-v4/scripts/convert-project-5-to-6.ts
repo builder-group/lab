@@ -60,12 +60,15 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 
 	const groups = (raw.groups ?? []).map((group: TAny) => convertGroup(group, lanes, marbleId, notes));
 	const songs = convertSongs(raw.music, notes);
+	// A MIDI note belongs to its file; in a project with only a recording every hit was made against it
 	const midiSongId = songs.find((song: TAny) => song.kind === 'midi' && song.path != null)?.id;
-	const tied = midiSongId == null ? marbles : marbles.map((marble) => ({ ...marble, hits: marble.hits.map((hit: TAny) => (hit.pitch != null ? { ...hit, songId: midiSongId } : hit)) }));
+	const recordingId = songs.find((song: TAny) => song.kind === 'audio' && song.path != null)?.id;
+	const songOf = (hit: TAny): string | undefined => (midiSongId != null ? (hit.pitch != null ? midiSongId : undefined) : recordingId);
+	const tied = marbles.map((marble) => ({ ...marble, hits: marble.hits.map((hit: TAny) => (songOf(hit) != null ? { ...hit, songId: songOf(hit) } : hit)) }));
 
 	// A marble's start Rail is found by its ID, which says whose it is
 	const startRails = new Map([...marbleIdOf].map(([laneId, id]) => [`start-rail-${laneId}`.slice(0, 64), `start-rail-${id}`.slice(0, 64)]));
-	const { renderPreset, camera, ...film } = raw.design;
+	const { renderPreset, camera, theme, themes, wall, lights, ...film } = raw.design;
 	if (renderPreset !== 'draft' && renderPreset !== 'final') notes.push(`The render preset ${renderPreset} is gone; it's final now`);
 	const { mode, pitch, lead, smoothing, side, shots, ...rig } = camera;
 	if (lead !== CAMERA_LEAD || smoothing !== CAMERA_SMOOTHING) notes.push(`The camera's lead ${lead} and smoothing ${smoothing} become the constants ${CAMERA_LEAD} and ${CAMERA_SMOOTHING}`);
@@ -82,6 +85,7 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 		track: { pieces, groups },
 		film: {
 			...film,
+			...convertTheme(theme, themes, wall, lights, notes),
 			titles,
 			quality: renderPreset === 'draft' ? 'draft' : 'final',
 			camera: {
@@ -89,10 +93,44 @@ export function convertProject(raw: TAny, notes: string[] = []): TAny {
 				...rig,
 				tilt: pitch,
 				...(side != null ? { turn: side } : {}),
-				shots: shots.map(({ length, ...shot }: TAny) => ({ ...shot, ...(length != null ? { hold: length } : {}) }))
+				shots: shots.map(({ length, hold, ...shot }: TAny) => convertShot({ ...shot, hold: length ?? hold }))
 			}
 		}
 	});
+}
+
+/** A shot is a time, a distance and a hold: a Push In and a Close-Up without a hold of their own held 2 s */
+function convertShot({ kind, hold, ...shot }: TAny): TAny {
+	const held = hold ?? (kind === 'pushIn' || kind === 'closeUp' ? 2 : undefined);
+	return { ...shot, ...(held != null ? { hold: held } : {}) };
+}
+
+/** A @6 project from before `themes` and shot kinds went */
+function trimProject(raw: TAny, notes: string[]): TAny {
+	const { theme, themes, wall, lights, camera, ...film } = raw.film;
+	return { ...raw, film: { ...film, ...convertTheme(theme, themes, wall, lights, notes), camera: { ...camera, shots: camera.shots.map(convertShot) } } };
+}
+
+/** The one theme worn: the rest of `themes` is dropped, and its colors, Wall skin and light go on the Wall and Lights underneath the project's own */
+function convertTheme(id: string, themes: TAny[], wall: TAny, lights: TAny, notes: string[]): TAny {
+	for (const other of themes) if (other.id !== id) notes.push(`The theme ${other.name} wasn't worn, so it's dropped`);
+	const worn = themes.find((item) => item.id === id);
+	if (worn == null) return { theme: { base: id }, wall, lights };
+	const { wallColor, lightColor, glowColor, backgroundColor } = worn.overrides;
+	if (worn.pack == null) notes.push(`The theme ${worn.name} isn't from a Pack, so the film now reads as ${worn.base}`);
+	return {
+		theme: {
+			base: worn.base,
+			...(worn.parts != null ? { parts: worn.parts } : {}),
+			...(glowColor != null ? { glowColor } : {}),
+			...(worn.pack != null ? { pack: { ...worn.pack, themeId: worn.id, themeName: worn.name } } : {})
+		},
+		wall: { ...(wallColor != null ? { color: wallColor } : {}), ...(backgroundColor != null ? { backgroundColor } : {}), ...(worn.wallKind != null ? { kind: worn.wallKind } : {}), ...wall },
+		lights: {
+			...(lightColor != null || worn.keyLight != null || lights.key != null ? { key: { ...(lightColor != null ? { color: lightColor } : {}), ...worn.keyLight, ...lights.key } } : {}),
+			added: [...(worn.lights ?? []), ...lights.added]
+		}
+	};
 }
 
 /** The project with some IDs replaced, wherever they're used: as a piece's ID, in a Group, among what a ride touches */
@@ -116,7 +154,7 @@ function convertPiece(entity: TAny, marbleId: (laneId: string) => string, notes:
 		...(entity.labelColor != null ? { labelColor: entity.labelColor } : {}),
 		type: parts.piece.type,
 		...(parts.piece.layout != null ? { layout: parts.piece.layout } : {}),
-		params: parts.piece.params
+		params: Object.fromEntries(Object.entries(parts.piece.params ?? {}).map(([key, value]) => [key === 'laneOffset' ? 'landingOffset' : key, value]))
 	};
 	const rest = {
 		...(parts.path != null ? { path: parts.path } : {}),
@@ -203,6 +241,18 @@ function convertSongs(music: TAny, notes: string[]): TAny[] {
 	return songs;
 }
 
+/** A Pattern's verdict is worked out each time now, so what the last run said goes */
+function withoutPatternProblems(project: TAny): TAny {
+	const groups = project.track.groups.map(({ pattern, ...group }: TAny) => {
+		if (pattern == null) return group;
+		const { problems: _problems, ...kept } = pattern;
+		return { ...group, pattern: kept };
+	});
+	return { ...project, track: { ...project.track, groups } };
+}
+
 export default function convert(raw: unknown): unknown {
-	return convertProject(raw);
+	const project = raw as TAny;
+	if (project.$schema !== 'marble-project@6') return withoutPatternProblems(convertProject(project));
+	return withoutPatternProblems(project.film?.themes != null ? trimProject(project, []) : project);
 }

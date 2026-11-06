@@ -129,10 +129,10 @@ describe('settling an edit', () => {
 				const link = tieOf(project.track.pieces.find((piece) => piece.id === id));
 				return hits.find((hit) => hit.id === link?.hitId)?.time ?? Infinity;
 			};
-			const earlier = before.pieces.filter((piece) => timeOf(piece.entityId) < aiming.time);
+			const earlier = before.pieces.filter((piece) => timeOf(piece.pieceId) < aiming.time);
 			expect(earlier.length).toBeGreaterThan(0);
 			for (const piece of earlier) {
-				const now = run.pieces.find((item) => item.entityId === piece.entityId);
+				const now = run.pieces.find((item) => item.pieceId === piece.pieceId);
 				expect(now?.position).toEqual(piece.position);
 				expect(now?.angle).toEqual(piece.angle);
 			}
@@ -205,8 +205,8 @@ describe('settling an edit', () => {
 			expect(run.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked')).toHaveLength(1);
 			const first = answer.heldFrom[0]?.time ?? 0;
 			for (const piece of run.pieces) {
-				const was = before.pieces.find((item) => item.entityId === piece.entityId);
-				if ((piece.hitTime ?? 0) >= first && piece.status === 'held' && piece.entityId !== 'piece-1-5') expect(Math.hypot(piece.position.x - (was?.position.x ?? 0), piece.position.y - (was?.position.y ?? 0))).toBeLessThan(0.002);
+				const was = before.pieces.find((item) => item.pieceId === piece.pieceId);
+				if ((piece.hitTime ?? 0) >= first && piece.status === 'held' && piece.pieceId !== 'piece-1-5') expect(Math.hypot(piece.position.x - (was?.position.x ?? 0), piece.position.y - (was?.position.y ?? 0))).toBeLessThan(0.002);
 			}
 		});
 

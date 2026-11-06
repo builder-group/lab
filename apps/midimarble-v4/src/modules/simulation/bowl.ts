@@ -41,24 +41,24 @@ export function isBowl(piece: TPiece | undefined): boolean {
  * `CATCH_MARGIN` of the wire until the run ends
  */
 export function bowlCatch(result: TSimulationResult, entityId: string): TBowlCatch {
-	const piece = result.pieces.find((item) => item.entityId === entityId);
+	const piece = result.pieces.find((item) => item.pieceId === entityId);
 	const none: TBowlCatch = { status: 'missed', enterTime: null, enterPoint: null };
 	if (piece == null) return none;
 	if (piece.status === 'blocked') return { ...none, status: 'blocked' };
-	const contact = result.contacts.find((item) => item.otherEntityId === entityId && item.kind === 'piece' && trackOf(result, item.marbleEntityId) != null && isOwnMarble(result, piece, item.marbleEntityId));
+	const contact = result.contacts.find((item) => item.otherId === entityId && item.kind === 'piece' && trackOf(result, item.marbleId) != null && isOwnMarble(result, piece, item.marbleId));
 	if (contact == null) return none;
-	const track = trackOf(result, contact.marbleEntityId) as TMarbleTrack;
+	const track = trackOf(result, contact.marbleId) as TMarbleTrack;
 	return catchAlong(piece, track, contact.time, contact.position);
 }
 
-function trackOf(result: TSimulationResult, marbleEntityId: string): TMarbleTrack | undefined {
-	return result.marbles.find((track) => track.marbleId === marbleEntityId);
+function trackOf(result: TSimulationResult, marbleId: string): TMarbleTrack | undefined {
+	return result.marbles.find((track) => track.marbleId === marbleId);
 }
 
 /** The marble that meets an anchored Bowl first is its own: the Bowl enters the run at that marble */
-function isOwnMarble(result: TSimulationResult, piece: TResolvedPiece, marbleEntityId: string): boolean {
-	const first = result.contacts.find((item) => item.otherEntityId === piece.entityId && item.kind === 'piece');
-	return first?.marbleEntityId === marbleEntityId;
+function isOwnMarble(result: TSimulationResult, piece: TResolvedPiece, marbleId: string): boolean {
+	const first = result.contacts.find((item) => item.otherId === piece.pieceId && item.kind === 'piece');
+	return first?.marbleId === marbleId;
 }
 
 function catchAlong(piece: TResolvedPiece, track: TMarbleTrack, enterTime: number, enterPoint: TVec2): TBowlCatch {

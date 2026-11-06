@@ -5,7 +5,7 @@ A song plays; marbles play its notes; you build the run they fall through; then 
 ## The work, in order
 
 1. `get_state`. It also tells you this project's **agent folder**: read its `AGENTS.md` for the goal and rules, and `references/` for the look. Keep what you decide in `notes/`.
-2. `add_song` if there is no Song. A project is made if none is open.
+2. `add_song` if there is no Song, and again for another: a project has any number, and a marble needs none. A project is made if none is open.
 3. Build the run: `run_command('build.track')` builds it all, then adjust; see the `building-a-track` guide. Read the hit summary in every reply and fix problems before going on.
 4. Make it look right: see `film-look`. `set_references` stores images and words the person gave you in `agent/references`, for this and every later agent; there is no panel for them, so tell the person what you stored.
 5. Look with `preview_frame`, show the person with `play_range`.

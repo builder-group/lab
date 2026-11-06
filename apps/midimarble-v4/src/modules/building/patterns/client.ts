@@ -19,6 +19,8 @@ export interface TPatternClient {
 	run: (project: TProject, change: TPatternAsk, onProgress?: (progress: TGroupRunProgress) => void, isChecked?: boolean) => Promise<TPatternAnswer>;
 	/** Asks a Pattern for a resting pointer, the ghost first. Only the newest waiting one runs; older ones reject as canceled */
 	preview: (project: TProject, change: TPatternAsk, onGhost: (pieces: TResolvedPiece[]) => void) => Promise<TPatternAnswer>;
+	/** Ends a resting pointer's question, running or waiting. A run a click took over goes on */
+	cancelPreview: () => void;
 	/** Ends what runs and what waits */
 	cancel: () => void;
 	dispose: () => void;
@@ -135,6 +137,10 @@ export function createPatternClient(): TPatternClient {
 				endCurrent();
 				start(job);
 			});
+		},
+		cancelPreview() {
+			dropWaiting();
+			if (current?.isPreview === true) endCurrent();
 		},
 		cancel() {
 			dropWaiting();

@@ -82,7 +82,7 @@ function pollWait(ms: number): Promise<void> {
 
 export interface TRenderFilmHelperOptions extends Partial<Pick<TRenderFilmOptions, 'preset' | 'samples'>> {
 	resolveSourceUrl: TResolveSourceUrl;
-	/** The project as the soundtrack hears it, with muted Parts left out (`soundtrackProject`); defaults to `project` */
+	/** The project as the soundtrack hears it, with what is muted left out (`soundtrackProject`); defaults to `project` */
 	soundtrack?: TProject;
 	/** Package-relative `.mp4` path; defaults to `renders/film-<preset>.mp4` */
 	outputPath?: string;

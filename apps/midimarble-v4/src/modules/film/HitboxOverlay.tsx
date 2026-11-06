@@ -18,7 +18,7 @@ export const HitboxOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 	useFeatureState(draft.$frame);
 	const selection = useFeatureState(studio.$selection);
 	const showAll = useFeatureState(studio.$showHitboxes);
-	const pieces = draft.pieces().filter((piece) => showAll || selection.includes(piece.entityId));
+	const pieces = draft.pieces().filter((piece) => showAll || selection.includes(piece.pieceId));
 	if (!pieces.length) return null;
 
 	return (
@@ -30,7 +30,7 @@ export const HitboxOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					.map((outline) => `M${toPoints(outline)}Z`)
 					.join(' ');
 				return (
-					<g key={piece.entityId}>
+					<g key={piece.pieceId}>
 						<path d={d} fill="none" stroke={HITBOX_HALO} strokeWidth={2.5} strokeLinejoin="round" />
 						<path d={d} fill="none" stroke={HITBOX_COLOR} strokeWidth={1} strokeLinejoin="round" />
 					</g>

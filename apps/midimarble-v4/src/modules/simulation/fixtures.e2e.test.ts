@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2, tieOf, tempoOf } from '@/modules/project';
-import { NO_BLENDER_OBJECTS, preflightExport } from '@/modules/building';
+import { NO_BLENDER_OBJECTS, checkRun } from '@/modules/building';
 import { findLongGaps } from './assists';
 import { bowlCatch, bowlOfMarble } from './bowl';
 import { paceAt } from './pace';
@@ -60,7 +60,7 @@ describe('fixtures', () => {
 			const project = loadFixture(name);
 			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', start: 0, backing: [] };
 			const withSong = { ...project, songs: project.songs.length > 0 ? project.songs : [song] };
-			expect(preflightExport(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
+			expect(checkRun(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
 		}
 	}, 20_000);
 
@@ -96,14 +96,14 @@ describe('fixtures', () => {
 			['rail-1', 0.75, 2.25],
 			['tunnel-1', 2.85, 4.35]
 		] as const) {
-			const piece = result.pieces.find((item) => item.entityId === id);
+			const piece = result.pieces.find((item) => item.pieceId === id);
 			expect(piece?.status).toBe('placed');
 			expect(piece?.entryTime).toBeGreaterThan(from);
 			expect(piece?.path?.length).toBeGreaterThanOrEqual(2);
 			// One contact for the whole roll, and the marble stays in frame through the gap. Scenery is
 			// environment, so a later touch after the gap is a plain contact.
-			expect(result.contacts.filter((contact) => contact.otherEntityId === id && contact.time < to)).toHaveLength(1);
-			const contact = result.contacts.find((item) => item.otherEntityId === id);
+			expect(result.contacts.filter((contact) => contact.otherId === id && contact.time < to)).toHaveLength(1);
+			const contact = result.contacts.find((item) => item.otherId === id);
 			expect(contact?.time).toBeCloseTo(piece?.entryTime ?? 0, 2);
 			const inGap = samples.filter((sample) => sample.time > from && sample.time < to);
 			expect(
@@ -125,11 +125,11 @@ describe('fixtures', () => {
 		const motion = windmill?.motion ?? [];
 		expect(motion[0]?.time).toBe(0);
 		// Scenery: no hit belongs to the windmill; the marble strikes it at its anchor, between two platforms
-		expect(result.hits.some((hit) => hit.pieceEntityId === windmill?.entityId)).toBe(false);
+		expect(result.hits.some((hit) => hit.pieceId === windmill?.pieceId)).toBe(false);
 		const anchor = windmill?.entryTime ?? 0;
 		expect(anchor).toBeGreaterThan(0.75);
 		expect(anchor).toBeLessThan(1.05);
-		const strike = result.contacts.find((contact) => contact.otherEntityId === windmill?.entityId);
+		const strike = result.contacts.find((contact) => contact.otherId === windmill?.pieceId);
 		expect(strike?.time).toBeCloseTo(anchor, 2);
 		const rest = motion.filter((sample) => sample.time <= anchor);
 		expect(rest.every((sample) => sample.angle === windmill?.angle)).toBe(true);
@@ -168,8 +168,8 @@ describe('fixtures', () => {
 		expect(marbleContacts[0]?.time).toBeCloseTo(0.18, 2);
 		// No piece of one marble touches the other marble
 		for (const contact of result.contacts.filter((item) => item.kind === 'piece')) {
-			const marble = contact.marbleEntityId.replace('marble-', '');
-			expect(contact.otherEntityId.startsWith(`piece-${marble}-`) || contact.otherEntityId === `bowl-lane-${marble}`).toBe(true);
+			const marble = contact.marbleId.replace('marble-', '');
+			expect(contact.otherId.startsWith(`piece-${marble}-`) || contact.otherId === `bowl-lane-${marble}`).toBe(true);
 		}
 	});
 
@@ -181,11 +181,10 @@ describe('fixtures', () => {
 		expect(counts).toEqual([51, 64]);
 		expectAllOnTime(result, 115);
 		expect(project.marbles.map((marble) => marble.sound)).toEqual([9, 8]);
-		expect(project.film.theme).toBe('theme-christmas');
-		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass' });
+		expect(project.film.theme).toMatchObject({ base: 'brass', pack: { packId: 'christmas', themeName: 'Christmas' } });
 		expect(project.film.decor.length).toBeGreaterThan(80);
 		// A theme carries no side dressing
-		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')?.wallKind).toBeUndefined();
+		expect(project.film.wall.kind).toBeUndefined();
 		expect(project.film.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
 		// Built at new projects' default half gravity, which the assists keep on the shared pace
 		expect(project.gravity).toBe(0.5);
@@ -200,7 +199,7 @@ describe('fixtures', () => {
 			return tieOf(piece)?.marbleId ?? project.marbles.find((marble) => marble.id === id || startRailId(marble.id) === id)?.id;
 		};
 		for (const contact of played.filter((item) => item.kind === 'piece'))
-			expect(marbleOf(contact.otherEntityId), contact.otherEntityId).toBe(marbleOf(contact.marbleEntityId));
+			expect(marbleOf(contact.otherId), contact.otherId).toBe(marbleOf(contact.marbleId));
 		// The dots keep to the shared descent pace, so one camera frames both marbles: at most two end beyond
 		// the limit, where the build had to rotate a piece by hand, and none by more than 0.15 m
 		const pace = result.pace;
@@ -221,7 +220,7 @@ describe('fixtures', () => {
 		const platforms = result.pieces.filter(
 			(item) =>
 				item.type === 'platform' &&
-				tieOf(project.track.pieces.find((piece) => piece.id === item.entityId))?.marbleId === melodyMarble
+				tieOf(project.track.pieces.find((piece) => piece.id === item.pieceId))?.marbleId === melodyMarble
 		);
 		const heights = platforms.map((piece) => piece.position.y);
 		expect(platforms.length / (Math.max(...heights) - Math.min(...heights))).toBeGreaterThan(5);
@@ -257,8 +256,8 @@ describe('fixtures', () => {
 		};
 		const at = bass.samples.filter((sample) => sample.time >= 10 && sample.time <= 25 && Math.round(sample.time * 240) % 24 === 0).reduce((best, sample) => (farthest(sample) > farthest(best) ? sample : best)).position;
 		const result = simulator.simulate(withFreeWindmill(project, { x: at.x + 0.02, y: at.y - 0.12 }, 0));
-		const strike = result.contacts.find((contact) => contact.otherEntityId === 'windmill-far');
-		expect(strike?.marbleEntityId).toBe(bass.marbleId);
+		const strike = result.contacts.find((contact) => contact.otherId === 'windmill-far');
+		expect(strike?.marbleId).toBe(bass.marbleId);
 		const strikeTime = strike?.time ?? 0;
 		const before = (samples: TMarbleSample[]): TMarbleSample[] =>
 			samples.filter((sample) => sample.time < strikeTime);
@@ -279,7 +278,7 @@ describe('fixtures', () => {
 				expect(bowl, `${name} ${marble.name}`).toBeDefined();
 				expect(bowlCatch(result, bowl?.id ?? '').status).toBe('caught');
 			}
-			expect(preflightExport(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
+			expect(checkRun(project, result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.id.startsWith('bowl:'))).toEqual([]);
 		}
 	}, 20_000);
 

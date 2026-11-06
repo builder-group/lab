@@ -72,7 +72,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.79,
 					"entryDelay": 0
 				},
@@ -91,7 +91,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.59,
 					"entryDelay": 0
 				},
@@ -110,7 +110,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -161,7 +161,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.34,
 					"entryDelay": 0
 				},
@@ -180,7 +180,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.46,
 					"entryDelay": 0
 				},
@@ -199,7 +199,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -251,7 +251,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.51,
 					"entryDelay": 0
 				},
@@ -270,7 +270,7 @@
 				"params": {
 					"length": 0.09,
 					"thickness": 0.012,
-					"depth": 0.09,
+					"depth": 0.15,
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
@@ -286,8 +286,9 @@
 		"groups": []
 	},
 	"film": {
-		"theme": "pegboard",
-		"themes": [],
+		"theme": {
+			"base": "pegboard"
+		},
 		"wall": {},
 		"lights": {
 			"added": []
@@ -298,9 +299,9 @@
 		"quality": "final",
 		"camera": {
 			"auto": true,
-			"distance": 1.7489999999999999,
+			"distance": 0.48,
 			"sway": 1,
-			"tilt": 0.7,
+			"tilt": 0.54,
 			"shots": []
 		}
 	}

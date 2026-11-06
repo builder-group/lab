@@ -11,13 +11,22 @@ export const DEFAULT_MARBLE_RADIUS = 0.012;
  */
 export const DEFAULT_GRAVITY = 0.5;
 /**
- * Follow camera of new projects. Through the 85 mm lens 1.36 m frames as much as 0.8 m did through 50 mm: a single
- * marble spans about 7.4 % of the frame width, and far rows no longer shrink to a pile. The steep tilt looks along
- * the wall like the reference, so a column shows several stacked bars. Groups of marbles pull back only as far as
- * they need (`camera.py`, readable distance). Measured in `references.md`, Tuned film view.
+ * Follow camera of new projects. Close through a wide lens, bars fan out from a point just beside the frame as in the
+ * reference, and a single marble spans about 7.3 % of the frame width. Groups of marbles pull back only as far as they
+ * need (`camera.py`). Measured in `references.md`.
  */
-export const DEFAULT_CAMERA_DISTANCE = 1.36;
-export const DEFAULT_CAMERA_TILT = 1;
+export const DEFAULT_CAMERA_DISTANCE = 0.48;
+export const DEFAULT_CAMERA_TILT = 0.54;
+/** The Turn of a project that sets none, `SIDE_ANGLE` in `camera.py` */
+export const DEFAULT_CAMERA_TURN = Math.PI / 2;
+/** Focal length of the film camera in mm, `LENS` in `camera.py`, and the sensor it's on: the sensor spans the frame's longer side */
+export const CAMERA_LENS = 30;
+export const CAMERA_SENSOR = 36;
+
+/** Width in meters of the film frame at `distance` from the camera, for a frame of `aspect`, width over height */
+export function frameWidthAt(distance: number, aspect: number): number {
+	return distance * (CAMERA_SENSOR / CAMERA_LENS) * Math.min(aspect, 1);
+}
 /** Distance between the releases of neighboring marbles, and between their marbles' bands in the frame */
 export const MARBLE_SPACING = 0.26;
 
@@ -40,8 +49,7 @@ export function createProject(options: TCreateProjectOptions = {}): TProject {
 		marbles: [createMarble(0, { x: 0, y: 0.6 })],
 		track: { pieces: [], groups: [] },
 		film: {
-			theme: 'pegboard',
-			themes: [],
+			theme: { base: 'pegboard' },
 			wall: {},
 			lights: { added: [] },
 			decor: [],

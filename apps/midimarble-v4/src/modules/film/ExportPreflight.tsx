@@ -1,17 +1,8 @@
-import { useFeatureState } from 'feature-react/state';
 import { ChevronRight, CircleCheck, Info, LoaderCircle, TriangleAlert } from 'lucide-react';
 import React from 'react';
 import type { StudioCx } from '@/modules/studio';
 import { formatTime } from '@/modules/project';
-import { preflightExport, type TExportPreflight, type TPreflightIssue } from '@/modules/building';
-
-/** The export preflight of the open project and its current simulation result */
-export function useExportPreflight(cx: StudioCx): TExportPreflight | null {
-	const project = useFeatureState(cx.$history)?.present ?? null;
-	const result = useFeatureState(cx.simulation.$result);
-	const blenderObjects = useFeatureState(cx.film.$blenderObjects);
-	return React.useMemo(() => (project != null ? preflightExport(project, result, blenderObjects) : null), [project, result, blenderObjects]);
-}
+import type { TExportPreflight, TPreflightIssue } from '@/modules/building';
 
 /**
  * Preflight in the export sheet, like Final Cut's share warnings with Xcode's issue list: a summary line

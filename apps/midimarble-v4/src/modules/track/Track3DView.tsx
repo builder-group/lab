@@ -195,16 +195,16 @@ const Outlines: React.FC<{ track: Track3DCx; hover: string | null }> = (props) =
 	return (
 		<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden data-selection-outlines>
 			{pieces
-				.filter((piece) => piece.entityId === hover && !selection.includes(piece.entityId))
+				.filter((piece) => piece.pieceId === hover && !selection.includes(piece.pieceId))
 				.map((piece) => (
-					<polygon key={piece.entityId} points={toPoints(track.outline(piece))} fill="none" stroke="var(--accent-strong)" strokeOpacity={0.6} strokeWidth={1.25} strokeLinejoin="round" />
+					<polygon key={piece.pieceId} points={toPoints(track.outline(piece))} fill="none" stroke="var(--accent-strong)" strokeOpacity={0.6} strokeWidth={1.25} strokeLinejoin="round" />
 				))}
 			{pieces
-				.filter((piece) => selection.includes(piece.entityId))
+				.filter((piece) => selection.includes(piece.pieceId))
 				.map((piece) => {
 					const points = toPoints(track.outline(piece));
 					return (
-						<g key={piece.entityId}>
+						<g key={piece.pieceId}>
 							<polygon points={points} fill="none" stroke="white" strokeOpacity={0.9} strokeWidth={3.75} strokeLinejoin="round" />
 							<polygon points={points} fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent-strong)" strokeWidth={1.75} strokeLinejoin="round" />
 						</g>

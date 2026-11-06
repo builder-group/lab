@@ -1,7 +1,6 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
 import type { TMarble, TProject, TSong } from '@/modules/project';
-import { backingVoice, mixAudioSource, renderMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
-import { hasSong } from './parts';
+import { backingVoices, mixAudioSource, renderMarbles, soundingMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
 import { createScrubber } from './scrub';
 import { decodeAudioFile } from './waveform';
 
@@ -156,8 +155,8 @@ export interface TAudioEngine {
 export type TResolveSourceUrl = (source: TSong) => string | null;
 
 /**
- * The Song is the only sound. Imported recordings already contain the music, so marbles and Backing are synthesized
- * only without an audio source, and a project without a Song renders as silence, whatever pitches its hits keep.
+ * Every song at its start and every note that isn't in a recording: recordings play as they are, a marble's notes with
+ * its Sound and each song's Backing with its own. A project with nothing of these renders as silence.
  */
 export async function renderProjectAudio(
 	project: TProject,
@@ -165,15 +164,12 @@ export async function renderProjectAudio(
 	options: { sampleRate?: number } = {}
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE } = options;
-	if (!hasSong(project)) return silentAudio(project.length, sampleRate);
 	const audioSources = project.songs.filter((song) => song.kind === 'audio' && song.path != null);
-	if (!audioSources.length) {
-		const bank = await loadInstrumentBank();
-		const audio = renderMarbles(project.marbles, { sampleRate, duration: project.length, bank, backing: backingVoice(project) });
-		fadeOut(audio, FILM_AUDIO_FADE);
-		return audio;
-	}
-	const audio = silentAudio(project.length, sampleRate);
+	const marbles = soundingMarbles(project);
+	const backing = backingVoices(project);
+	if (!audioSources.length && !backing.length && marbles.every((marble) => !marble.hits.length)) return silentAudio(project.length, sampleRate);
+	const hasNotes = backing.length > 0 || marbles.some((marble) => marble.hits.length > 0);
+	const audio = hasNotes ? renderMarbles(marbles, { sampleRate, duration: project.length, bank: await loadInstrumentBank(), backing }) : silentAudio(project.length, sampleRate);
 	const decodedSources = await Promise.all(
 		audioSources.map(async (source) => ({
 			source,
@@ -194,16 +190,12 @@ export function createAudioSignature(
 	const audioSources = project.songs
 		.filter((song) => song.kind === 'audio' && song.path != null)
 		.map((song) => ({ url: resolveSourceUrl(song), offset: song.start }));
-	const isSynthesized = !audioSources.length && hasSong(project);
-	const marbles = isSynthesized
-		? project.marbles.map((marble) => ({
-				instrument: marble.sound,
-				hits: marble.hits.flatMap((hit) => (hit.pitch == null ? [] : [[hit.time, hit.pitch, hit.velocity ?? null, hit.duration ?? null]]))
-			}))
-		: [];
-	const backing = isSynthesized ? backingVoice(project) : undefined;
-	const backingKey = backing == null ? null : { instrument: backing.instrument, hits: backing.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) };
-	return JSON.stringify({ end: project.length, audioSources, marbles, backing: backingKey });
+	const marbles = soundingMarbles(project).filter((marble) => marble.hits.length > 0).map((marble) => ({
+		instrument: marble.sound,
+		hits: marble.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null])
+	}));
+	const backing = backingVoices(project).map((voice) => ({ instrument: voice.instrument, hits: voice.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) }));
+	return JSON.stringify({ end: project.length, audioSources, marbles, backing });
 }
 
 let bankPromise: Promise<BasicSoundBank> | null = null;

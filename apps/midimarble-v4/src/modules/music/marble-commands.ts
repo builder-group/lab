@@ -11,7 +11,7 @@ export function createImportCommands(
 	project: TProject,
 	options: TImportCommandsOptions
 ): TProjectCommand[] {
-	const { marbles, names = [], backing = [], backingInstrument, source, instrument } = options;
+	const { marbles, names = [], backing = [], backingInstrument, source, keepsBacking = false, instrument } = options;
 	const hasHits = project.marbles.some((marble) => marble.hits.length > 0);
 	const commands: TProjectCommand[] = [];
 	let index = project.marbles.length;
@@ -21,7 +21,7 @@ export function createImportCommands(
 	if (source != null) commands.push({ type: 'addSong', song: { ...source, backing: [...source.backing, ...backingHits], ...backingSound } });
 	if (!hasHits) {
 		for (const marble of project.marbles) commands.push({ type: 'removeMarble', marbleId: marble.id });
-		if (backingOf(project).length > 0) {
+		if (!keepsBacking && backingOf(project).length > 0) {
 			commands.push({ type: 'removeHits', marbleId: BACKING_ID, hitIds: backingOf(project).map((hit) => hit.id) });
 		}
 		index = 0;
@@ -193,6 +193,8 @@ export interface TImportCommandsOptions {
 	backingInstrument?: number;
 	source?: TSong;
 	instrument?: number;
+	// Another song stays, so its Backing does too
+	keepsBacking?: boolean;
 }
 
 export function noteToHit(note: TMidiNote, songId?: string): THit {

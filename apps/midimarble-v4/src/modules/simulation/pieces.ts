@@ -15,6 +15,9 @@ export function shownDepth(piece: { type: string; params: Record<string, number>
 	return piece.params['depth'] ?? 0.03;
 }
 
+/** How deep a bar's body gets, `POST_BODY_DEPTH` in skins.py at the default kit: a deeper bar stands out on a post */
+export const BAR_BODY_DEPTH = 0.09;
+
 /** Bar length that hops, columns and the canvas's fit are spaced by, whatever a bar's own length: a thin bar doesn't crowd the run */
 export const PLACEMENT_LENGTH = 0.09;
 
@@ -31,7 +34,7 @@ export function pathDepth(pieces: readonly { type: string; params: Record<string
 		.filter((piece) => piece.type === 'platform')
 		.map(shownDepth)
 		.sort((a, b) => a - b);
-	const depth = depths[Math.floor(depths.length / 2)] ?? platformDefinition.params['depth']?.default ?? 0.09;
+	const depth = depths[Math.floor(depths.length / 2)] ?? platformDefinition.params['depth']?.default ?? BAR_BODY_DEPTH;
 	return Math.max(depth / 2, marbleRadius + MARBLE_WALL_GAP);
 }
 
@@ -49,14 +52,17 @@ function kit(value: number): number {
  */
 export const platformDefinition: TPieceDefinition = {
 	type: 'platform',
+	layout: 'box',
 	label: 'Platform',
+	palette: { bar: '#f2845c', nub: '#c4603d' },
+	tile: { description: 'Click or drag to place, click a dot to play its note', shortcut: 'P', keywords: 'piece add place bar' },
 	params: {
 		// A thin plate seen end on, 3 cm along the wall: the collider's length too
 		length: { default: kit(0.02), min: 0.02, max: 0.3, label: 'Length', unit: 'm' },
 		thickness: { default: kit(0.008), min: 0.003, max: 0.03, label: 'Thickness', unit: 'm' },
-		// How far the plate stands out of the wall, 9 cm by default: visual only, as the marble moves in the wall plane. Past
-		// 9 cm skins keep the bar's size and stand it out on a long post (`post_standoff` in skins.py)
-		depth: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Depth', unit: 'm' },
+		// How far the plate stands out of the wall, 15 cm by default: visual only, as the marble moves in the wall plane. Past
+		// `BAR_BODY_DEPTH` skins keep the bar's size and stand it out on a long post (`post_standoff` in skins.py)
+		depth: { default: kit(0.1), min: 0.02, max: 0.2, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
 		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
 	},
@@ -109,6 +115,8 @@ export function railParams(layout: TRailLayout, values: Record<string, number>):
 const railDefinition: TPieceDefinition = {
 	type: 'rail',
 	label: 'Rail',
+	palette: { bar: '#3c9ee0', nub: '#2373ad' },
+	tile: { description: 'Draw a rail: click points, drag for curves', shortcut: 'B', keywords: 'path pen bezier spline curve draw' },
 	params: {
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of each rail', short: 'Thickness', unit: 'm' },
 		gap: { default: kit(0.01), min: 0.004, max: 0.02, label: 'Width between the two rails', short: 'Spread', unit: 'm' },
@@ -140,6 +148,8 @@ const railDefinition: TPieceDefinition = {
 export const tunnelDefinition: TPieceDefinition = {
 	type: 'tunnel',
 	label: 'Tunnel',
+	palette: { bar: '#9a7bf0', nub: '#6c4fd0' },
+	tile: { description: 'The marble drops in and rolls through, hidden', shortcut: 'U', keywords: 'tube path pen bezier curve draw' },
 	params: {
 		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall thickness', short: 'Wall', unit: 'm' },
 		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Room around the marble', short: 'Room', unit: 'm' },
@@ -164,6 +174,8 @@ export const tunnelDefinition: TPieceDefinition = {
 const windmillDefinition: TPieceDefinition = {
 	type: 'windmill',
 	label: 'Windmill',
+	palette: { bar: '#4fb879', nub: '#2f8a52' },
+	tile: { description: 'The marble strikes a blade and sets it turning', shortcut: 'W', keywords: 'piece add rotor blades' },
 	params: {
 		bladeCount: { default: 4, min: 2, max: 8, label: 'Number of arms', short: 'Arms', unit: '', integer: true },
 		bladeLength: { default: kit(0.06), min: 0.02, max: 0.2, label: 'Arm length', short: 'Arm Length', unit: 'm' },
@@ -189,6 +201,9 @@ const windmillDefinition: TPieceDefinition = {
 export const bowlDefinition: TPieceDefinition = {
 	type: 'bowl',
 	label: 'Bowl',
+	// Clear wires: pale steel
+	palette: { bar: '#8fa3b8', nub: '#5f7287' },
+	tile: { description: 'Collects the marble, so the film can end on the catch', keywords: 'piece add end catch collect cup last note' },
 	params: {
 		mirror: { default: 0, min: 0, max: 1, label: 'Which side of the marble the center lies on', short: 'Mirror', unit: '', integer: true },
 		size: { default: kit(0.04), min: 0.035, max: 0.15, label: 'Size of the curve that catches the marble', short: 'Size', unit: 'm' },
@@ -201,16 +216,21 @@ export const bowlDefinition: TPieceDefinition = {
 	layout: 'catcher'
 };
 
-const pieceDefinitions: Record<string, TPieceDefinition> = {
-	[platformDefinition.type]: platformDefinition,
-	[railDefinition.type]: railDefinition,
-	[tunnelDefinition.type]: tunnelDefinition,
-	[windmillDefinition.type]: windmillDefinition,
-	[bowlDefinition.type]: bowlDefinition
+export const pieceDefinitions = {
+	platform: platformDefinition,
+	rail: railDefinition,
+	tunnel: tunnelDefinition,
+	windmill: windmillDefinition,
+	bowl: bowlDefinition
 };
 
+export type TPieceType = keyof typeof pieceDefinitions;
+
+/** Every piece type, in the order Insert and the command palette show them */
+export const PIECE_TYPES = Object.keys(pieceDefinitions) as TPieceType[];
+
 export function getPieceDefinition(type: string): TPieceDefinition | undefined {
-	return pieceDefinitions[type];
+	return (pieceDefinitions as Record<string, TPieceDefinition>)[type];
 }
 
 /** Parameters with defaults filled in and values clamped to their limits */

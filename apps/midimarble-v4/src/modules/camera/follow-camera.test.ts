@@ -40,7 +40,9 @@ describe('follow camera', () => {
 			});
 		};
 		expect(Math.max(...tilts(0))).toBeLessThan(1e-6);
-		expect(Math.max(...tilts(undefined))).toBeGreaterThan(0.05);
+		// The reference hardly rolls: under a degree or so, and only with Sway
+		expect(Math.max(...tilts(undefined))).toBeGreaterThan(0.005);
+		expect(Math.max(...tilts(undefined))).toBeLessThan(0.05);
 		expect(Math.max(...tilts(0.5))).toBeLessThan(Math.max(...tilts(undefined)));
 	});
 
@@ -64,7 +66,7 @@ describe('follow camera', () => {
 		const { project: zigzag, result } = fixture('zigzag');
 		const track = required(followCameraTrack(zigzag, result, 30));
 		expect(track.frameCount).toBe(Math.ceil(result.duration * 30 - 1e-6) + 1);
-		expect(track.lens).toBe(85);
+		expect(track.lens).toBe(30);
 		const samples = required(result.marbles[0]).samples;
 		const release = required(samples[0]).time;
 		for (let frame = 0; frame < track.frameCount; frame += 5) {
@@ -94,7 +96,7 @@ describe('follow camera', () => {
 				pitch: 1.15,
 				lead: 0.15,
 				smoothing: 0.6,
-				shots: [{ time: -2, kind: 'pushIn', distance: 0.35 }]
+				shots: [{ time: -2, distance: 0.35 }]
 			},
 			marbles: [
 				{
@@ -202,7 +204,7 @@ describe('follow camera', () => {
 				return Math.min(u, v) > 0 && Math.max(u, v) < 1;
 			}).length;
 		const automatic = required(bakeFollowCamera(input([])));
-		const wide = required(bakeFollowCamera(input([{ time: 2, kind: 'wide', distance: 0.7 * 1.6, length: 6 }])));
+		const wide = required(bakeFollowCamera(input([{ time: 2, distance: 0.7 * 1.6, length: 6 }])));
 		for (const seconds of [4, 5, 6, 7]) {
 			expect(shown(automatic, seconds)).toBe(2);
 			expect(shown(wide, seconds)).toBe(2);
@@ -282,7 +284,7 @@ describe('follow camera', () => {
 		const rig = zigzag.film.camera.distance;
 		const withShot = (length?: number): TProject => ({
 			...zigzag,
-			film: { ...zigzag.film, camera: { ...zigzag.film.camera, shots: [{ id: 'shot', time: 1, kind: 'pushIn', distance: rig * 0.7, ...(length != null ? { hold: length } : {}) }] } }
+			film: { ...zigzag.film, camera: { ...zigzag.film.camera, shots: [{ id: 'shot', time: 1, distance: rig * 0.7, ...(length != null ? { hold: length } : {}) }] } }
 		});
 		const automatic = required(followCameraTrack(zigzag, result, 30));
 		const held = required(followCameraTrack(withShot(1), result, 30));

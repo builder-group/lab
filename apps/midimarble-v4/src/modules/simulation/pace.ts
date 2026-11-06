@@ -49,7 +49,7 @@ export const COLUMN_CLEARANCE = 0.065;
  * under its earlier pieces. Every height at a rhythm scales with gravity but the pieces do not, so at low
  * gravity or fast rhythms the default bounce stacks the pieces of a narrow marble too densely.
  */
-export function paceRate(project: TProject): number {
+export function paceRate(project: Pick<TProject, 'marbles' | 'gravity'>): number {
 	const intervals: number[] = [];
 	for (const marble of project.marbles) {
 		for (let i = 1; i < marble.hits.length; i++) {
@@ -88,7 +88,7 @@ export function columnRate(interval: number, g = EARTH): number {
 
 /** The pace of a project, anchored at its earliest hit that has a dot; null without one */
 export function descentPace(
-	project: TProject,
+	project: Pick<TProject, 'marbles' | 'gravity'>,
 	hits: { targetTime: number; dot: TVec2 | null }[]
 ): TDescentPace | null {
 	let anchor: { time: number; y: number } | null = null;

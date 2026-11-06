@@ -4,8 +4,8 @@ import { gravityOf, nextPieceName, railLayoutInfo, resolvePieceParams, startRail
 // Start on a Rail: Build Track puts a short rail at each marble's release, so the marble rolls into its first hit
 // instead of dropping. It is a normal Rail tied to nothing, which anyone can delete. The marble then falls as long as one
 // released without a rail, so it strikes its first note as firmly, so the release moves earlier by the time the rail
-// takes, and back along the rail so the note lands where it would have. The rail keeps that distance as `laneOffset`,
-// since the marble lies where the marble lands (`frameBand`).
+// takes, and back along the rail so the note lands where it would have. The rail keeps that distance as `landingOffset`,
+// since the marble's column lies where it lands (`frameBand`).
 
 const DEGREE = Math.PI / 180;
 /** The shortest and steepest a start rail gets: gentler or shorter and the leave time stops following the formula */
@@ -93,7 +93,7 @@ function startRail(pieces: TPiece[], marbleId: string, marbleRadius: number, slo
 		at: (marble) => ({
 			id: startRailId(marbleId),
 			name: nextPieceName('rail', pieces),
-			type: 'rail', params: { ...kept, laneOffset: round(toFall) }, angle: round(-slope), place: { kind: 'free', position: { x: round(marble.x - sin * (onWire + CLEARANCE)), y: round(marble.y - cos * (onWire + CLEARANCE)) } }, path: {
+			type: 'rail', params: { ...kept, landingOffset: round(toFall) }, angle: round(-slope), place: { kind: 'free', position: { x: round(marble.x - sin * (onWire + CLEARANCE)), y: round(marble.y - cos * (onWire + CLEARANCE)) } }, path: {
 					points: [{ x: -BACK_LENGTH, y: 0 }, { x: 0, y: 0 }, { x: ROLL_LENGTH, y: 0 }],
 					paths: [[local(gap, 2 * onWire), local(gap, -2 * marbleRadius)]]
 				}

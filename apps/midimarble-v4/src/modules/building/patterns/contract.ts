@@ -70,8 +70,8 @@ export interface TPatternOptions {
 export interface TPatternCourse {
 	dots: ReadonlyMap<string, TVec2>;
 	leaves: ReadonlyMap<string, TPatternLeaving>;
-	/** The first bar's side, instead of the one heading for the next note */
-	side?: number;
+	/** Start on the other side from the way the track crosses */
+	isOtherSide?: boolean;
 }
 
 /** How a marble leaves a bar: where it is this long after, from the hit. Leaving the same way, it meets what follows the same way */

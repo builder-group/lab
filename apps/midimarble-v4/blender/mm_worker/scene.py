@@ -127,7 +127,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     if camera_settings is not None:
         camera_settings['opening'] = camera.opening_pieces(pieces)
     report['camera'] = studio.update_camera(
-        scene, bounds, camera_settings, marbles, marble_motion, fps, regenerate=bool(args.get('regenerateCamera')))
+        scene, bounds, camera_settings, marbles, marble_motion, fps)
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
     # Captions and end cards hang from the film camera, which exists only once the studio is set up
     report['texts']['screen'] = walltext.attach_screen_texts(managed, studio.studio_object('studio.camera'), scene)

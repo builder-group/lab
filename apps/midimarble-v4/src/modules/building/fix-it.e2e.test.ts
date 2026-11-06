@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { NO_BLENDER_OBJECTS, preflightExport, problemSummary } from './export-preflight';
+import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
 import { assignNotesCommands } from './assign-notes';
 import { applyProjectCommands, BACKING_ID, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
@@ -47,7 +47,7 @@ describe('fixTrack function on Jingle Bells', () => {
 	}
 
 	function messageOf(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof fixTrack>>): string {
-		const summary = problemSummary(preflightExport(outcome.project, { ...outcome.result, revision: outcome.project.revision }, NO_BLENDER_OBJECTS));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added: addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS) });
 	}
 

@@ -218,7 +218,7 @@ pub fn tool_definitions() -> Vec<Value> {
         ),
         tool(
             "add_song",
-            "Imports a MIDI file or a recording as the project's Song, making a new project when none is open.",
+            "Adds a MIDI file or a recording as a Song of the project, at the playhead beside other songs, making a new project when none is open.",
             json!({ "path": { "type": "string", "description": "Absolute path of the file" } }),
             &["path"],
         ),

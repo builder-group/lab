@@ -114,7 +114,7 @@ function expectClearRun(project: TProject, travels: number[], chosenFrom = 0): v
 		for (const other of result.pieces.slice(i + 1))
 			expect(
 				shapesGap(resolvedPieceShapes(piece), resolvedPieceShapes(other)),
-				`${piece.entityId} and ${other.entityId}`
+				`${piece.pieceId} and ${other.pieceId}`
 			).toBeGreaterThanOrEqual(MIN_GAP);
 	});
 }
@@ -334,7 +334,7 @@ describe('assists', () => {
 		expect(findLongGaps(bridged, 'marble-1')[0]?.bridgedBy).toBe('rail');
 		// The rail follows hit 3 and does not take over its result
 		const after = simulate(bridged);
-		expect(after.hits[2]?.pieceEntityId).toBe('piece-1-3');
+		expect(after.hits[2]?.pieceId).toBe('piece-1-3');
 		expect(after.hits[2]?.status).toBe('onTime');
 
 		const [isBadOk, badErr] = createRailForGap(project, result, 'marble-1', 'hit-1-4', 'hit-1-3');
@@ -398,7 +398,7 @@ describe('assists', () => {
 		expect(hop.some((sample) => sample.position.y < dot.y)).toBe(true);
 		for (const sample of hop)
 			expect(Math.abs(sample.position.x - band.centerX), sample.time.toFixed(3)).toBeLessThanOrEqual(band.halfWidth);
-		expect(after.contacts.filter((contact) => contact.otherEntityId === 'launch' && contact.time > 2.05 && contact.time < 2.5)).toEqual([]);
+		expect(after.contacts.filter((contact) => contact.otherId === 'launch' && contact.time > 2.05 && contact.time < 2.5)).toEqual([]);
 	});
 
 	it('holds the marble across a 2 s gap at half gravity in a switchback near the pace', () => {
@@ -463,7 +463,7 @@ describe('assists', () => {
 			const band = frameBand(project, marbleId);
 			expect(Math.abs((hit?.dot?.x ?? Infinity) - band.centerX), hitId).toBeLessThanOrEqual(band.halfWidth);
 		}
-		expect(result.hits.filter((hit) => hit.pieceEntityId != null).every((hit) => hit.status === 'onTime')).toBe(true);
+		expect(result.hits.filter((hit) => hit.pieceId != null).every((hit) => hit.status === 'onTime')).toBe(true);
 		expect(result.contacts.filter((contact) => contact.kind === 'marble' && contact.time < 1.5)).toHaveLength(0);
 	});
 });
@@ -489,7 +489,7 @@ describe('crossesOtherMarbles', () => {
 		marbleId,
 		hitId,
 		targetTime,
-		pieceEntityId: null,
+		pieceId: null,
 		dot: null,
 		velocity: null,
 		actualTime: null,
@@ -502,7 +502,7 @@ describe('crossesOtherMarbles', () => {
 		duration: 4,
 		marbles: [],
 		pieces: [],
-		contacts: contacts.map((contact) => ({ time: 0.8, marbleEntityId: 'marble-1', otherEntityId: '', kind: 'piece', position: { x: 0, y: 0 }, ...contact })),
+		contacts: contacts.map((contact) => ({ time: 0.8, marbleId: 'marble-1', otherId: '', kind: 'piece', position: { x: 0, y: 0 }, ...contact })),
 		hits,
 		stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
 	});
@@ -510,19 +510,19 @@ describe('crossesOtherMarbles', () => {
 		crossesOtherMarbles(run([]), trial, project, 'marble-1', 'piece-1-2', 0.5, 3.5, frontiers);
 
 	it('should let the marble strike its own pieces and free pieces', () => {
-		expect(crosses(run([{ otherEntityId: 'piece-1-1' }, { otherEntityId: 'free-piece' }]))).toBe(false);
+		expect(crosses(run([{ otherId: 'piece-1-1' }, { otherId: 'free-piece' }]))).toBe(false);
 	});
 
 	it("should refuse another marble's platforms and gap pieces and the other marble", () => {
-		expect(crosses(run([{ otherEntityId: 'piece-2-2' }]))).toBe(true);
-		expect(crosses(run([{ otherEntityId: 'switchback-2-1' }]))).toBe(true);
-		expect(crosses(run([{ otherEntityId: 'marble-2', kind: 'marble' }]))).toBe(true);
+		expect(crosses(run([{ otherId: 'piece-2-2' }]))).toBe(true);
+		expect(crosses(run([{ otherId: 'switchback-2-1' }]))).toBe(true);
+		expect(crosses(run([{ otherId: 'marble-2', kind: 'marble' }]))).toBe(true);
 	});
 
 	it('should refuse the other marble striking the new piece before its frontier only', () => {
-		expect(crosses(run([{ marbleEntityId: 'marble-2', otherEntityId: 'piece-1-2', time: 1.5 }]))).toBe(true);
-		expect(crosses(run([{ marbleEntityId: 'marble-2', otherEntityId: 'piece-1-2', time: 2.5 }]))).toBe(false);
-		expect(crosses(run([{ otherEntityId: 'marble-2', kind: 'marble', time: 2.5 }]))).toBe(false);
+		expect(crosses(run([{ marbleId: 'marble-2', otherId: 'piece-1-2', time: 1.5 }]))).toBe(true);
+		expect(crosses(run([{ marbleId: 'marble-2', otherId: 'piece-1-2', time: 2.5 }]))).toBe(false);
+		expect(crosses(run([{ otherId: 'marble-2', kind: 'marble', time: 2.5 }]))).toBe(false);
 	});
 
 	it("should refuse a piece that breaks another marble's built hits, not its unbuilt ones", () => {

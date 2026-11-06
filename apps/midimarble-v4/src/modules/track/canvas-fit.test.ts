@@ -6,8 +6,8 @@ import { pickTrack, type TScreenTrack, fitTargets, nearestMoment, struckAt, plac
 const viewport = { width: 800, height: 600 };
 
 describe('fitTargets', () => {
-	function openHit(marbleId: string, time: number, y: number, pieceEntityId: string | null = null): THitResult {
-		return { marbleId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: pieceEntityId == null ? 'open' : 'onTime' };
+	function openHit(marbleId: string, time: number, y: number, pieceId: string | null = null): THitResult {
+		return { marbleId, hitId: `h${time}`, targetTime: time, pieceId, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: pieceId == null ? 'open' : 'onTime' };
 	}
 
 	it('frames tapped hits only down to the first open dot, not the free fall after it', () => {
@@ -80,8 +80,8 @@ describe('placeBar', () => {
 
 describe('struckAt', () => {
 	it('names the dots struck at a time and their pieces, for every marble of a chord', () => {
-		const hit = (marbleId: string, time: number, pieceEntityId: string | null): THitResult =>
-			({ marbleId, hitId: `h${time}`, targetTime: time, pieceEntityId, dot: { x: 0, y: -time }, velocity: null, actualTime: null, error: null, status: 'onTime' }) as THitResult;
+		const hit = (marbleId: string, time: number, pieceId: string | null): THitResult =>
+			({ marbleId, hitId: `h${time}`, targetTime: time, pieceId, dot: { x: 0, y: -time }, velocity: null, actualTime: null, error: null, status: 'onTime' }) as THitResult;
 		const hits = [hit('a', 1, 'p1'), hit('b', 1, null), hit('a', 1.5, 'p2')];
 
 		expect(struckAt(hits, 1)).toEqual(['hit:a:h1', 'p1', 'hit:b:h1']);

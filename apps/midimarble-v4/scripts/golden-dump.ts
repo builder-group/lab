@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { buildSceneDescription } from '../src/modules/scene/scene-builder';
 import { buildTrack, localBuildDeps } from '../src/modules/building/build-track';
-import { backingVoice } from '../src/modules/music/synthesize';
+import { backingVoices } from '../src/modules/music/synthesize';
 import { parseProject } from '../src/modules/project/project-file';
 import { tempoOf } from '../src/modules/project/commands';
 import { type THit, type TProject } from '../src/modules/project/schema';
@@ -37,7 +37,7 @@ function marblesOf(project: TProject) {
 
 /** Everything that changes what's heard, by marble and not by lane, since lanes go in @6 */
 function audioInputs(project: TProject) {
-	const backing = backingVoice(project);
+	const backing = backingVoices(project)[0];
 	return {
 		marbles: marblesOf(project).map(({ id, sound, hits }) => ({ id, sound, hits: sortedHits(hits) })),
 		backing: backing == null ? null : { sound: backing.instrument, hits: sortedHits(backing.hits.map(plainHit)) },
@@ -60,7 +60,8 @@ function madeIds(project: TProject): string[] {
 /** The pieces a Build Track run left in the project, in order, as @5 stored them, so they compare with the baseline's */
 function storedPieces(project: TProject): unknown[] {
 	return project.track.pieces.map((piece) => {
-		const { id, name, labelColor, type, layout, params, angle, place, path, skin, ride } = piece;
+		const { id, name, labelColor, type, layout, params: { landingOffset, ...rest }, angle, place, path, skin, ride } = piece;
+		const params = landingOffset != null ? { ...rest, laneOffset: landingOffset } : rest;
 		const laneId = place.kind === 'free' ? '' : place.marbleId.replace('marble-', 'lane-');
 		const tie = place.kind === 'free' ? {} : (({ kind: _kind, marbleId: _marbleId, ...rest }) => rest)(place);
 		const anchored = place.kind === 'follows' && (type === 'bowl' || getPieceDefinition(type)?.musical === true) ? { anchored: true } : {};
@@ -133,17 +134,17 @@ function sectionsOf(project: TProject, result: TSimulationResult): Record<string
 	const { revision: _revision, ...scene } = build.description;
 	const hits = result.hits
 		.map((hit) => {
-			const { marbleId, ...rest } = hit;
-			return { ...rest, marble: marbleOfLane.get(marbleId) ?? `marble:${marbleId}` };
+			const { marbleId, pieceId, ...rest } = hit;
+			return { ...rest, pieceEntityId: pieceId, marble: marbleOfLane.get(marbleId) ?? `marble:${marbleId}` };
 		})
 		.sort((a, b) => compareText(a.marble, b.marble) || a.targetTime - b.targetTime || compareText(a.hitId, b.hitId));
 	const pieces = result.pieces
-		.map(({ motion, ...rest }) => ({ ...rest, motion: motion == null ? null : blocks(motion) }))
+		.map(({ motion, pieceId, ...rest }) => ({ ...rest, entityId: pieceId, motion: motion == null ? null : blocks(motion) }))
 		.sort((a, b) => compareText(a.entityId, b.entityId));
 	return {
 		hits: { duration: result.duration, onTime: hits.filter((hit) => hit.status === 'onTime').length, total: hits.length, hits },
 		pieces,
-		contacts: result.contacts,
+		contacts: result.contacts.map(({ marbleId, otherId, ...rest }) => ({ ...rest, marbleEntityId: marbleId, otherEntityId: otherId })),
 		scene,
 		motion: {
 			marbles: result.marbles

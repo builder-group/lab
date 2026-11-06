@@ -17,7 +17,7 @@ const viewport = { width: 900, height: 600 };
 const padding = { top: 56, right: 56, bottom: 72, left: 56 };
 
 function openHit(marbleId: string, time: number, y: number): THitResult {
-	return { marbleId, hitId: `h${time}`, targetTime: time, pieceEntityId: null, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: 'open' };
+	return { marbleId, hitId: `h${time}`, targetTime: time, pieceId: null, dot: { x: 0, y }, velocity: null, actualTime: null, error: null, status: 'open' };
 }
 
 describe('firstHitsView', () => {
@@ -314,7 +314,7 @@ describe('an added note', () => {
 		const marble = project.marbles[0];
 		if (marble == null) throw new Error('expected a marble');
 		const last = Math.max(...marble.hits.map((hit) => hit.time));
-		const { hit, commands } = addNoteCommands(marble.id, { time: last + 0.5, pitch: 67, duration: 0.25 });
+		const { hit, commands } = addNoteCommands(marble.id, 'song', { time: last + 0.5, pitch: 67, duration: 0.25 });
 		const [isOk, error, added] = applyProjectCommands(project, commands);
 		if (!isOk) throw error;
 		const history = pushHistory(createHistory(project), added);
@@ -356,7 +356,7 @@ describe('dragging a platform that plays a note', () => {
 		const project = createStaircaseProject();
 		const before = simulate(project);
 		const piece = project.track.pieces.find((item) => item.id === 'piece-1-5');
-		const resolved = before.pieces.find((piece) => piece.entityId === 'piece-1-5');
+		const resolved = before.pieces.find((piece) => piece.pieceId === 'piece-1-5');
 		if (piece == null || resolved == null) throw new Error('missing piece');
 
 		// Waiting where it was, the run keeps it exactly there and the marble passes

@@ -178,15 +178,15 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 			const hit = trial.result.hits.find((item) => item.hitId === id);
 			if (hit?.status !== 'onTime' && hit?.status !== 'drifting') out.push(hit?.reason === 'resting' ? 'resting' : 'late');
 			for (const contact of trial.result.contacts) {
-				if (contact.kind !== 'piece' || contact.marbleEntityId !== marbleId || contact.time > nextTime - 0.004) continue;
-				if (contact.otherEntityId === trial.piece.id) {
+				if (contact.kind !== 'piece' || contact.marbleId !== marbleId || contact.time > nextTime - 0.004) continue;
+				if (contact.otherId === trial.piece.id) {
 					if (contact.time > time + 0.03) {
 						out.push('restrike');
 						break;
 					}
 					continue;
 				}
-				if (contact.time > time + 0.004 && project.track.pieces.find((item) => item.id === contact.otherEntityId)?.type === 'platform') {
+				if (contact.time > time + 0.004 && project.track.pieces.find((item) => item.id === contact.otherId)?.type === 'platform') {
 					out.push('stray');
 					break;
 				}

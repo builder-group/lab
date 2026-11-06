@@ -60,7 +60,7 @@ export interface TMarbleSample {
 }
 
 export interface TResolvedPiece {
-	entityId: string;
+	pieceId: string;
 	type: string;
 	/** Pose of the piece origin. For platforms the origin is the center of the collider box. */
 	position: TVec2;
@@ -112,9 +112,9 @@ export type TPieceStatus =
 
 export interface TContact {
 	time: number;
-	marbleEntityId: string;
+	marbleId: string;
 	/** Piece piece ID, or the other marble's piece ID for marble collisions */
-	otherEntityId: string;
+	otherId: string;
 	kind: 'piece' | 'marble';
 	position: TVec2;
 	/**
@@ -129,7 +129,7 @@ export interface THitResult {
 	hitId: string;
 	targetTime: number;
 	/** Piece of the piece linked to this hit, if any */
-	pieceEntityId: string | null;
+	pieceId: string | null;
 	/** Marble center at the target time on the current trajectory: the dot the user clicks */
 	dot: TVec2 | null;
 	/** Marble velocity at the target time, used for default angles and guardrails */
@@ -143,8 +143,6 @@ export interface THitResult {
 	status: THitStatus;
 	/** Why a hit with a piece is missed: `resting` when the first contact is slower than `IMPACT_SPEED` */
 	reason?: 'resting';
-	/** Set on open hits with a dot: true when the dot lies out of frame, outside the band covering every marble */
-	outOfFrame?: boolean;
 }
 
 export type THitStatus =
@@ -164,6 +162,17 @@ export type TPieceLayoutKind = 'box' | 'path' | 'tube' | 'rotor' | 'generated' |
 export interface TPieceDefinition {
 	type: string;
 	label: string;
+	/** Flat toy colors on the Track canvas: the body and a darker shade for brackets, hubs and outlines */
+	palette: { bar: string; nub: string };
+	/** The piece's tile in the Insert library and its tool in the command palette */
+	tile: {
+		/** One line for the tile tooltip: what the piece does to the marble */
+		description: string;
+		/** The letter key that arms its tool */
+		shortcut?: string;
+		/** Search words for its tool in the command palette */
+		keywords: string;
+	};
 	/** Parameter defaults and limits, in meters or radians */
 	params: Record<
 		string,
@@ -192,11 +201,11 @@ export interface TPieceDefinition {
 	musical?: boolean;
 	friction: number;
 	/**
-	 * How the piece is built: `box` (default) is a platform bar, `path` a rail along `path` points,
+	 * How the piece is built and drawn: `box` is a platform bar, `path` a rail along `path` points,
 	 * `tube` a tunnel along `path` points, `rotor` a windmill turning around its hub, `generated` a
 	 * Rail whose layout builds its paths from its parameters, `catcher` a Bowl built from its parameters
 	 */
-	layout?: TPieceLayoutKind;
+	layout: TPieceLayoutKind;
 	/** Local control points used when a path piece has no `path` component */
 	defaultPath?: TVec2[];
 }
