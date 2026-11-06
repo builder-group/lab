@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternLockWords, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type THitVerdict, type TPatternAsk, type TPatternClient, type TPatternKind, type TPatternOffer, type TPatternRefusal } from '@/modules/building';
+import { createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternLockWords, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type THitVerdict, type TPatternAsk, type TPatternClient, type TPatternKind, type TPatternOffer, type TPatternRefusal } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject, TProjectHistory } from '@/modules/project';
@@ -273,9 +273,13 @@ export class PatternsCx {
 			}
 			const project = this.studio.project;
 			if (project == null) throw new PatternCanceledError();
+			const startedAt = performance.now();
+			const estimate = createEstimate({ minElapsedMs: 3000 });
 			const answer = await this.clientNow().run(project, change, (progress: TGroupRunProgress) => {
-				const steps = progress.steps > 1 ? ` · ${progress.step} of ${progress.steps} Groups` : '';
-				this.studio.updateNotice(noticeId, { message: `Fitting ${progress.name}${steps}`, progress: progress.fraction });
+				const percent = Math.round(progress.fraction * 100);
+				const steps = progress.steps > 1 ? `${progress.step} of ${progress.steps} Groups` : `${percent}%`;
+				const left = estimate.update(performance.now() - startedAt, progress.fraction, percent, 100);
+				this.studio.updateNotice(noticeId, { message: [`Fitting ${progress.name}`, steps, left].filter(Boolean).join(' · '), progress: progress.fraction });
 			}, isChecked);
 			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
 			// A cancel can't reach an answer already on its way
@@ -396,6 +400,29 @@ export function withWholeGroups(project: TProject, selection: readonly string[])
 /** Selecting a Group selects its pieces with it, so the wall and the hits show them and Delete takes them */
 export function groupSelection(group: TGroup): string[] {
 	return [toGroupKey(group.id), ...group.pieceIds];
+}
+
+/** How far apart notes can be and still read as one phrase for a Pattern, in seconds */
+const PHRASE_GAP = 1.2;
+/** A phrase's most notes: a first choice to change, not a whole verse */
+const PHRASE_NOTES = 8;
+
+/**
+ * Pattern…: the hits a Pattern starts from, around a hit. Several selected stay as they are; otherwise this hit and the
+ * ones after it in the same phrase, so the tiles have a range to fit.
+ */
+export function patternPhrase(project: TProject, marbleId: string, hitId: string, selection: readonly string[] = []): string[] {
+	const key = toHitKey(marbleId, hitId);
+	if (selection.length > 1 && selection.includes(key)) return [...selection];
+	const hits = [...(project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [])].sort((a, b) => a.time - b.time);
+	const first = hits.findIndex((hit) => hit.id === hitId);
+	if (first < 0) return [key];
+	const phrase = [hits[first]];
+	for (const hit of hits.slice(first + 1, first + PHRASE_NOTES)) {
+		if (hit.time - (phrase[phrase.length - 1]?.time ?? hit.time) > PHRASE_GAP) break;
+		phrase.push(hit);
+	}
+	return phrase.flatMap((hit) => (hit != null ? [toHitKey(marbleId, hit.id)] : []));
 }
 
 /** Selection for a range dragged in the strip: its notes as hits, the same as dragging over them, or the silence itself */

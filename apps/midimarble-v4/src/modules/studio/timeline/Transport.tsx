@@ -1,10 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
+import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
+import { MenuButton, openContextMenu } from '@/components';
 import { problemSummary } from '@/modules/building';
-import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
+import { problemMenu } from '../menus';
 import { askedFilmLength, formatTime, parseTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
@@ -38,7 +39,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 				</div>
 				<TimeReadout cx={cx} />
 			</div>
-			<div className="flex flex-1 items-center justify-end">
+			<div className="mm-transport-end flex flex-1 items-center justify-end">
 				<ZoomControl zoom={zoom} onZoom={onZoom} onZoomToFit={onZoomToFit} />
 			</div>
 		</div>
@@ -56,16 +57,16 @@ interface TTransportProps {
 
 /**
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
- * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. An indicator:
- * with problems a click goes to the first in time order, and the export sheet lists them all. Until the run for the
- * current edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
+ * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. With problems a
+ * click goes to the first in time order, and the chevron or a right-click lists them all. Until the run for the current
+ * edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
  */
 const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
+	// Build Track and Fix say how far they are in the notice, the one place for progress; the count waits until they end
 	const fixing = useFeatureState(cx.assist.$fixing);
 	const building = useFeatureState(cx.assist.$building);
 	const workspace = useFeatureState(cx.$workspace);
-	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const problems = useFeatureState(cx.simulation.$problems);
 	const summary = React.useMemo(() => problemSummary(problems, workspace), [problems, workspace]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
@@ -74,31 +75,25 @@ const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 		return (
 			<span className="mm-hit-summary" data-tone="pending" role="status" aria-live="polite" data-quick-help="hitSummary">
 				<LoaderCircle size={12} strokeWidth={2} className="animate-spin" aria-hidden />
-				{building != null ? 'Building…' : fixing != null ? 'Fixing…' : 'Checking…'}
+				Checking…
 			</span>
-		);
-	}
-	// Nothing placed yet: what the summary would count is what Build Track does
-	if (!summary.problems.length && summary.onTime === 0 && workspace === 'track') {
-		const build = getCommand('build.track');
-		return (
-			<button className="mm-hit-summary" data-tone="action" data-quick-help="hitSummary" onClick={() => build.run(cx)} title={`Build every open hit, in time order (${build.shortcut ?? ''})`} type="button">
-				{build.title}
-			</button>
 		);
 	}
 	if (!summary.problems.length) {
 		return (
-			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
-				{summary.label}
+			<span className="mm-hit-summary" data-tone={summary.tone} role="status" title={summary.label} data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
+				<span className="min-w-0 truncate">{summary.label}</span>
 			</span>
 		);
 	}
 	return (
-		<button className="mm-hit-summary" data-tone="warn" data-quick-help="hitSummary" onClick={() => cx.showFirstProblem()} title="Show the first problem" type="button">
-			<span className="mm-hit-summary-dot" aria-hidden />
-			{summary.label}
-		</button>
+		<span className="mm-hit-summary-group" data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
+			<button className="mm-hit-summary" data-tone="warn" onClick={() => cx.showFirstProblem()} title="Show the first problem" type="button">
+				<span className="mm-hit-summary-dot" aria-hidden />
+				<span className="min-w-0 truncate">{summary.label}</span>
+			</button>
+			<MenuButton className="mm-hit-summary mm-hit-summary-chevron" title="Show every problem" items={problemMenu(cx)} label={<ChevronDown size={12} strokeWidth={2} />} />
+		</span>
 	);
 };
 
@@ -223,6 +218,7 @@ const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZo
 	const position = zoomToSlider(zoom);
 	return (
 		<div className="flex items-center gap-1" role="group" aria-label="Timeline zoom">
+			<span className="mm-zoom-range flex items-center gap-1">
 			<button className="mm-icon-button !h-6 !w-6" onClick={() => onZoom(zoom / 1.5)} title="Zoom Out (⌘ Scroll)" aria-label="Zoom Out" type="button">
 				<Minus size={13} strokeWidth={1.75} />
 			</button>
@@ -241,6 +237,7 @@ const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZo
 				<Plus size={13} strokeWidth={1.75} />
 			</button>
 			<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
+			</span>
 			<button className="mm-icon-button !h-6 !w-6" onClick={onZoomToFit} title="Zoom to Fit" aria-label="Zoom to Fit" type="button">
 				<MoveHorizontal size={15} strokeWidth={1.75} />
 			</button>

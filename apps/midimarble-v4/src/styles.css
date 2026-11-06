@@ -898,12 +898,6 @@ textarea {
 	color: var(--text);
 }
 
-/* Nothing placed yet: the summary is the action that places it */
-.mm-hit-summary[data-tone='action'] {
-	color: var(--accent);
-	font-weight: 500;
-}
-
 /* Checking… or Fixing…: dimmed, never a stale count */
 .mm-hit-summary[data-tone='pending'] {
 	opacity: 0.6;
@@ -925,8 +919,23 @@ textarea {
 	background: var(--warn);
 }
 
-button.mm-hit-summary:hover {
+button.mm-hit-summary:hover,
+.mm-hit-summary-chevron[data-active='true'] {
 	background: var(--hover);
+}
+
+/* The summary and the chevron of its problem list, like Xcode's issue count */
+.mm-hit-summary-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	min-width: 0;
+}
+
+.mm-hit-summary-chevron {
+	flex-shrink: 0;
+	padding: 0 4px;
+	color: var(--text-secondary);
 }
 
 .mm-hit-summary-dot {
@@ -1002,7 +1011,7 @@ button.mm-hit-summary:hover {
 	position: fixed;
 	z-index: 100;
 	min-width: 200px;
-	max-width: 320px;
+	max-width: 400px;
 	/* A long menu, such as every problem of the run, scrolls inside the window */
 	max-height: calc(100vh - 12px);
 	overflow-y: auto;
@@ -2004,11 +2013,6 @@ button.mm-layer-disclosure:hover {
 }
 
 /* The eye and lock's slot at the row's right edge is always reserved, so the eye keeps one column down the list and hover moves and hides nothing */
-/* A hovered row's actions take the time's place, so the name keeps its room */
-.mm-layer:hover .mm-layer-meta {
-	display: none;
-}
-
 .mm-layer-actions {
 	display: inline-flex;
 	align-items: center;
@@ -2474,6 +2478,18 @@ button.mm-layer-disclosure:hover {
 	padding: 0 10px;
 	border-bottom: 1px solid var(--separator);
 	background: var(--band);
+	container: transport / inline-size;
+}
+
+/* A narrow timeline keeps the summary readable: the slider goes first, as pinch and Zoom to Fit still zoom */
+@container transport (max-width: 760px) {
+	.mm-zoom-range {
+		display: none;
+	}
+
+	.mm-transport-end {
+		flex: none;
+	}
 }
 
 /* Plain glyph buttons like Logic's control bar; Play has no circle and only fills while playing */

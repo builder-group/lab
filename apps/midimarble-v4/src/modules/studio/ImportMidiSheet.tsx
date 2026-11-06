@@ -2,6 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Minus, Plus } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from '@/components';
+import { asksAboutChords } from '@/modules/music';
 import { marbleColors } from '@/modules/project';
 import { previewMidiImport } from './SourcesCx';
 import type { StudioCx } from './StudioCx';
@@ -33,6 +34,8 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 	if (pending == null || preview == null) return null;
 	const strategy = pending.options.strategy ?? 'split';
 	const maxMarbles = pending.options.maxMarbles ?? 4;
+	// A song of single-note parts has nothing to ask
+	const asksChords = asksAboutChords(pending.midi.tracks.filter((track) => pending.trackIds.includes(track.id)));
 	const end = Math.max(1, ...[...preview.marbles.flat(), ...preview.backing].map((note) => note.time + note.duration));
 	const rows = [
 		...preview.marbles.map((notes, index) => ({ key: `marble-${index}`, name: preview.names[index] ?? `Marble ${index + 1}`, color: marbleColors[index % marbleColors.length] ?? 'var(--accent)', notes })),
@@ -72,7 +75,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 					))}
 				</div>
 
-				<div className="flex items-center gap-3">
+				{asksChords ? <><div className="flex items-center gap-3">
 					<span className="w-[64px] text-right text-[var(--text-secondary)]">Chords</span>
 					<div className="mm-segmented">
 						<button
@@ -117,7 +120,7 @@ export const ImportMidiSheet: React.FC<TImportMidiSheetProps> = (props) => {
 							</button>
 						</div>
 					</div>
-				) : null}
+				) : null}</> : null}
 
 				<div className="flex flex-col gap-0.5 rounded-[8px] bg-[var(--canvas)] px-3 py-2" aria-label="Where the notes go">
 					{rows.map((row) => (

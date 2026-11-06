@@ -2,7 +2,7 @@ import { decorList, type TBlenderObject } from '@/modules/scene';
 import type { TDecor, TPiece, TGroup, TMarble, TLight, TProject, TShot, TSong, TTitle } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, shownSongs, toSongKey, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
-import { SONG_LAYER_LABEL } from './song-layer';
+import { songRowLabel } from './song-layer';
 import type { TWorkspace } from './StudioCx';
 
 /**
@@ -18,7 +18,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	const { collapsed = [], workspace = 'film', blenderObjects = [] } = options;
 	const rows: TOutlineRow[] = [{ kind: 'scene', id: SCENE_KEY, depth: 0, parentId: null }];
 
-	for (const song of shownSongs(project)) rows.push({ kind: 'song', id: toSongKey(song.id), depth: 0, parentId: null, source: song, label: SONG_LAYER_LABEL });
+	for (const song of shownSongs(project)) rows.push({ kind: 'song', id: toSongKey(song.id), depth: 0, parentId: null, source: song, label: songRowLabel(project, song) });
 
 	const shots = [...project.film.camera.shots].sort((a, b) => a.time - b.time);
 	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
@@ -93,7 +93,9 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
  */
 export function defaultCollapsed(project: TProject, workspace: 'track' | 'film'): string[] {
 	const groups = project.track.groups.map((group) => group.id);
-	return workspace === 'film' ? [...project.marbles.map((marble) => marble.id), DECOR_KEY, ...groups] : groups;
+	// Marbles start closed in both tabs, so a built track doesn't read as a wall of folders, and every marble is in view
+	const marbles = project.marbles.map((marble) => marble.id);
+	return workspace === 'film' ? [...marbles, DECOR_KEY, ...groups] : [...marbles, ...groups];
 }
 
 /** The closed groups: the defaults, with the ones the user toggled the other way */

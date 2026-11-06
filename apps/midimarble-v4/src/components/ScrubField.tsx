@@ -51,7 +51,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 	}
 
 	const isGlyph = typeof label === 'string' && label.length <= 1;
-	const [fieldRef, isCompact] = useCompactUnit(unit);
+	const [fieldRef, isCompact] = useCompactUnit(unit, draft.length);
 
 	return (
 		<div ref={fieldRef} className="mm-ifield" data-disabled={disabled} data-span={span} data-compact={isCompact}>
@@ -60,7 +60,8 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 				className="mm-ifield-label"
 				data-scrub={!disabled}
 				data-glyph={isGlyph}
-				title={`${name}${unit.length > 0 ? ` (${unit})` : ''}${disabled ? '' : ': drag to change, hold Shift for larger steps'}`}
+				// A name that already explains the field stays that one sentence, rather than a stack of clauses
+				title={name.length > NAME_ONLY_LENGTH ? name : `${name}${unit.length > 0 ? ` (${unit})` : ''}${disabled ? '' : ': drag to change, hold Shift for larger steps'}`}
 				onPointerDown={(event) => {
 					if (event.button !== 0 || disabled) return;
 					event.preventDefault();
@@ -95,6 +96,8 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 				id={id}
 				aria-label={name}
 				disabled={disabled}
+				// The value it holds always shows whole, leaving the rest for the unit
+				style={{ minWidth: `calc(${Math.max(draft.length, 3)}ch + 8px)` }}
 				value={draft}
 				placeholder={value == null ? 'Mixed' : undefined}
 				inputMode={parse != null ? 'text' : 'decimal'}
@@ -118,11 +121,14 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 	);
 };
 
+// Longer than a field's name, a `name` is a sentence of its own
+const NAME_ONLY_LENGTH = 24;
+
 /**
- * True when the field is too narrow for its label, a five-character value and the unit, so the unit steps
- * aside and the value stays whole; the label's tooltip still names the unit
+ * True when the field is too narrow for its label, its value and the unit, so the unit steps aside and the value stays
+ * whole; the label's tooltip still names the unit
  */
-function useCompactUnit(unit: string): [React.RefObject<HTMLDivElement | null>, boolean] {
+function useCompactUnit(unit: string, valueLength: number): [React.RefObject<HTMLDivElement | null>, boolean] {
 	const ref = React.useRef<HTMLDivElement>(null);
 	const [value, setValue] = React.useState(false);
 	React.useLayoutEffect(() => {
@@ -140,7 +146,7 @@ function useCompactUnit(unit: string): [React.RefObject<HTMLDivElement | null>, 
 		const observer = new ResizeObserver(measure);
 		observer.observe(field);
 		return () => observer.disconnect();
-	}, [unit]);
+	}, [unit, valueLength]);
 	return [ref, value];
 }
 

@@ -12,6 +12,11 @@ export function hasSongLayer(project: TProject): boolean {
 /** A Song layer's name in Layers and the timeline; its file is the subtitle */
 export const SONG_LAYER_LABEL = 'Song';
 
+/** A song's row name: "Song" while it's the only one, its file's name once there are several, so the rows differ */
+export function songRowLabel(project: TProject, song: TSong): string {
+	return shownSongs(project).length > 1 && song.path != null ? song.name : SONG_LAYER_LABEL;
+}
+
 /** What notices call a song: its file's name, or "Song" for Backing notes left without a file */
 export function songLayerName(song: TSong): string {
 	return song.path != null ? song.name : SONG_LAYER_LABEL;

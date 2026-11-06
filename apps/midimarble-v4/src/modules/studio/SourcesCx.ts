@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
 import { moveSongCommands } from '@/modules/building';
 import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, missingRecordings, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
-import { createId, earliestSongStart, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
+import { createId, earliestSongStart, formatTime, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
@@ -36,10 +36,10 @@ export class SourcesCx {
 		if (url == null) return;
 		const [isBytesOk, bytesErr, bytes] = await host.readFile(url);
 		if (!isBytesOk) {
-			this.studio.notify(`${file.name} could not be read: ${bytesErr.message}`, 'error');
+			this.studio.notifyFailed(`${file.name} couldn't be read. Choose the file again.`, bytesErr);
 			return;
 		}
-		const [isMidiOk, midiErr, midi] = parseMidiFile(bytes);
+		const [isMidiOk, midiErr, midi] = parseMidiFile(bytes, file.name);
 		if (!isMidiOk) {
 			this.studio.notify(midiErr.message, 'error');
 			return;
@@ -72,7 +72,7 @@ export class SourcesCx {
 		const preview = previewMidiImport(pending);
 		const [isImportedOk, importedErr, relativePath] = await host.importSource(packagePath, pending.file);
 		if (!isImportedOk) {
-			this.studio.notify(`${pending.file.name} could not be copied: ${importedErr.message}`, 'error');
+			this.studio.notifyFailed(`${pending.file.name} couldn't be copied into the project. Check there's room on the disk, then import it again.`, importedErr);
 			return;
 		}
 		const replaced = project.songs.filter((item) => item.id === pending.replaces);
@@ -104,7 +104,8 @@ export class SourcesCx {
 		this.studio.$fitFirstHits.set(true);
 		const marbles = `${preview.marbles.length} ${preview.marbles.length === 1 ? 'marble' : 'marbles'}`;
 		const backing = preview.backing.length;
-		this.studio.notify(backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`);
+		const lands = shownSongs(project).length > 0 && pending.replaces == null ? ` It starts at ${formatTime(preview.offset)}, at the playhead.` : '';
+		this.studio.notify(`${backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`}${lands}`);
 	}
 
 	// MARK: - Audio
@@ -121,7 +122,7 @@ export class SourcesCx {
 		if (project == null || packagePath == null) return;
 		const [isImportedOk, importedErr, relativePath] = await host.importSource(packagePath, file);
 		if (!isImportedOk) {
-			this.studio.notify(`${file.name} could not be copied: ${importedErr.message}`, 'error');
+			this.studio.notifyFailed(`${file.name} couldn't be copied into the project. Check there's room on the disk, then import it again.`, importedErr);
 			return;
 		}
 		const replaced = project.songs.find((item) => item.id === replaces);
@@ -139,7 +140,8 @@ export class SourcesCx {
 			{ type: 'addSong', song: source },
 			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
 		]);
-		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.`);
+		const lands = shownSongs(project).length > 0 && replaced == null ? ` It starts at ${formatTime(source.start)}, at the playhead.` : '';
+		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.${lands}`);
 	}
 
 	// MARK: - Song
@@ -170,6 +172,16 @@ export class SourcesCx {
 		return true;
 	}
 
+	/** The length stays with a move, so hits it took past the film's end say so, with what brings them back */
+	private sayHitsPastEnd(): void {
+		const project = this.studio.project;
+		if (project == null) return;
+		const past = project.marbles.flatMap((marble) => marble.hits).filter((hit) => hit.time > project.length).length;
+		if (past === 0) return;
+		const words = past === 1 ? '1 hit now falls' : `${past} hits now fall`;
+		this.studio.notifyEdit(`${words} after the film's end at ${formatTime(project.length)}.`, [{ label: 'Fit to Song', title: 'End the film just after the song', run: () => void this.studio.fitToSong() }], { isUndoFirst: true });
+	}
+
 	/** Where a new song starts: after the lead-in when it is the first, at the playhead beside other songs, like Logic */
 	private nextStart(): number {
 		const project = this.studio.project;
@@ -183,7 +195,9 @@ export class SourcesCx {
 		const song = project?.songs.find((item) => item.id === songId);
 		if (project == null || song == null) return false;
 		const to = Math.round(Math.max(earliestSongStart(project, songId), start) * 10000) / 10000;
-		return to !== song.start && this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to));
+		if (to === song.start || !this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to))) return false;
+		this.sayHitsPastEnd();
+		return true;
 	}
 
 	/** Loads waveform and onsets for audio sources of a reopened project */
@@ -221,7 +235,7 @@ export class SourcesCx {
 		try {
 			const [isBytesOk, bytesErr, bytes] = await host.readFile(url);
 			if (!isBytesOk) {
-				this.studio.notify(`${source.name} could not be read: ${bytesErr.message}`, 'error');
+				this.studio.notifyFailed(`${source.name} couldn't be read. Put the file back, or choose Replace Song… on its row.`, bytesErr);
 				return null;
 			}
 			const decoded = await decodeAudioFile(bytes);
@@ -235,7 +249,7 @@ export class SourcesCx {
 			this.$analysis.set({ ...this.$analysis.get(), [source.id]: analysis });
 			return analysis;
 		} catch (error) {
-			this.studio.notify(`${source.name} could not be decoded: ${(error as Error).message}`, 'error');
+			this.studio.notifyFailed(`${source.name} isn't a recording MidiMarble can play. Choose Replace Song… on its row and pick a .wav, .mp3 or .m4a file.`, error);
 			return null;
 		} finally {
 			this.loading.delete(source.id);

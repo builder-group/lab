@@ -1,5 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fittedHeight, HEADER_WIDTH, MIN_HEIGHT, sliderToZoom, TIME_INSET, TIME_ORIGIN, zoomToSlider, tieSpans } from './timeline-layout';
+import { fittedHeight, HEADER_WIDTH, MIN_HEIGHT, playheadScroll, sliderToZoom, TIME_INSET, TIME_ORIGIN, zoomToSlider, tieSpans } from './timeline-layout';
+
+describe('playheadScroll function', () => {
+	const view = TIME_ORIGIN + 800;
+
+	it('should stay put while the playhead shows past the Layers column', () => {
+		expect(playheadScroll(0, 80, 0, view)).toBeNull();
+		expect(playheadScroll(9, 80, 0, view)).toBeNull();
+		expect(playheadScroll(12, 80, 400, view)).toBeNull();
+	});
+
+	it('should bring a playhead Go to Beginning left off the rows back to the start', () => {
+		expect(playheadScroll(0, 80, 1360, view)).toBe(0);
+	});
+
+	it('should page to a playhead that runs off the right', () => {
+		expect(playheadScroll(22, 80, 0, view)).toBe(22 * 80 - 24);
+	});
+});
 
 describe('tieSpans function', () => {
 	it('should give one stretch per song, ended by a hit of its own or of another song', () => {

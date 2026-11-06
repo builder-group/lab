@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { type TProject, tieOf } from '@/modules/project';
+import { createMarble, type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { bowlCatch, createSimulator } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
@@ -25,6 +25,18 @@ describe('follow camera', () => {
 		const longer = { ...fixture('zigzag').project, length: fixture('zigzag').project.length + 3 };
 		results.set('zigzag-longer', { project: longer, result: simulator.simulate(longer) });
 		simulator.dispose();
+	});
+
+	it('should frame as if a marble with no hits were not there, while another marble plays', async () => {
+		const { project, result } = fixture('zigzag');
+		const idle = createMarble(project.marbles.length, { x: 0.8, y: 0.6 });
+		const withIdle = { ...project, marbles: [...project.marbles, idle] };
+		const simulator = await createSimulator();
+		const run = simulator.simulate(withIdle);
+		simulator.dispose();
+		const alone = required(followCameraTrack(project, result, 30));
+		const framed = required(followCameraTrack(withIdle, run, 30));
+		expect(Array.from(framed.position)).toEqual(Array.from(alone.position));
 	});
 
 	it('should keep the wall upright at Sway 0, and roll on its own at the default', () => {

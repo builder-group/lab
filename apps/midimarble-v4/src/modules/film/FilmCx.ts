@@ -6,7 +6,7 @@ import { buildSceneDescription, renderFps } from '@/modules/scene';
 import type { TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import type { TCameraAngles } from '@/modules/camera';
-import type { TBlenderObject } from '@/modules/scene';
+import type { TBlenderObject, TDecorSource } from '@/modules/scene';
 import { sceneSignature } from './live-preview';
 import { LivePreviewCx } from './LivePreviewCx';
 
@@ -26,7 +26,8 @@ export class FilmCx {
 	/** Link state of app-owned holders by piece ID, from `inspect` after each sync */
 	readonly $links = createState<Record<string, TFilmLink>>({});
 	/** Set while the next click on the preview places something on the wall */
-	readonly $placing = createState<'text' | null>(null);
+	/** What the next click on the preview places: a Wall Title, or Decor chosen in Insert */
+	readonly $placing = createState<'text' | TDecorSource | null>(null);
 	/** A title just placed, whose Text field takes focus with its contents selected; the inspector clears it */
 	readonly $editingTitle = createState<string | null>(null);
 	/** Turn and Tilt of a camera drag in the preview, drawn by the Draft Preview until Blender's still has caught up */
@@ -357,13 +358,13 @@ function toPreview(frame: TPreviewFrameResult, revision: number): TFilmPreview {
 async function loadIdPixels(url: string): Promise<TResult<TIdPixels, Error>> {
 	try {
 		const response = await fetch(url);
-		if (!response.ok) return Err(new Error(`The object ID image could not be loaded (${response.status})`));
+		if (!response.ok) return Err(new Error(`What's under the pointer couldn't be read from the frame (status ${response.status}). Click again.`));
 		const bitmap = await createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
 		const canvas = document.createElement('canvas');
 		canvas.width = bitmap.width;
 		canvas.height = bitmap.height;
 		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (context == null) return Err(new Error('No 2D canvas for the object ID image'));
+		if (context == null) return Err(new Error("What's under the pointer couldn't be read from the frame. Click again."));
 		context.drawImage(bitmap, 0, 0);
 		bitmap.close();
 		return Ok({ url, width: canvas.width, height: canvas.height, data: context.getImageData(0, 0, canvas.width, canvas.height).data });

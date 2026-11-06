@@ -290,7 +290,7 @@ export class StudioCx {
 		const project = this.project;
 		if (project == null || this.$playing.get() || !this.$audioScrubbing.get()) return;
 		this.audio.beginScrub(audibleProject(project, this.$mix.get()), this.resolveSourceUrl).catch((error: unknown) => {
-			this.notify(`Playback failed: ${(error as Error).message}`, 'error');
+			this.notifyFailed('Playback stopped. Press Play to try again.', error);
 		});
 	}
 
@@ -373,7 +373,8 @@ export class StudioCx {
 	showFirstProblem(): void {
 		const project = this.project;
 		if (project == null) return;
-		const summary = problemSummary(this.simulation.$problems.get());
+		const inWorkspace = problemSummary(this.simulation.$problems.get(), this.$workspace.get());
+		const summary = inWorkspace.problems.length > 0 ? inWorkspace : problemSummary(this.simulation.$problems.get());
 		if (summary.state === 'pending') {
 			this.notify('Checking the track…');
 			return;
@@ -474,6 +475,7 @@ export class StudioCx {
 			this.notify(projectErr.message, 'error');
 			return false;
 		}
+		void host.rememberRecentProject(opened.path);
 		this.load(project, opened.path);
 		return true;
 	}
@@ -494,7 +496,9 @@ export class StudioCx {
 			writeText(OPEN_PROJECT_KEY, null);
 			return;
 		}
-		if (this.$history.get() == null) this.load(project, opened.path, isTemporary);
+		if (this.$history.get() != null) return;
+		void host.rememberRecentProject(opened.path);
+		this.load(project, opened.path, isTemporary);
 	}
 
 	/** Returns false when the user cancels closing an unsaved document with changes */
@@ -614,6 +618,11 @@ export class StudioCx {
 	private async confirmClose(): Promise<boolean> {
 		const project = this.project;
 		if (project == null || !this.hasUnsavedChanges()) return true;
+		// No one answers the alert for an agent, and its call must not wait for a person who may not be there
+		if (this.isInAgentStep) {
+			this.notify(`${project.title} has unsaved changes, so it stays open. Save it first with file.save and a path, or ask the person.`, 'error');
+			return false;
+		}
 		this.answerClosePrompt?.('cancel');
 		const choice = await new Promise<TClosePromptChoice>((resolve) => {
 			this.answerClosePrompt = resolve;
@@ -728,7 +737,8 @@ export class StudioCx {
 		const stepName = this.stepLabels.get(present) ?? label;
 		this.stepLabels.set(present, stepName);
 		const said = step.notices.filter((notice) => notice.tone !== 'error').pop()?.message;
-		this.notifyEdit(said != null ? `${stepName}: ${said}` : stepName);
+		// What the step reported says more than its name: "Agent: Built the track: 115 of 115 hits on time"
+		this.notifyEdit(said != null ? `Agent: ${said}` : stepName);
 		return { stepName, notices: step.notices };
 	}
 
@@ -771,7 +781,7 @@ export class StudioCx {
 		if (path == null || project == null) return;
 		const result = await specta.commands.agentFolderEnsure(path, project.title);
 		if (result.status === 'error') {
-			this.notify(`The agent folder couldn't be made: ${result.error}`, 'error');
+			this.notifyFailed("The agent folder couldn't be made. Check the project's folder is writable, then try again.", result.error);
 			return;
 		}
 		const [isShownOk, shownErr] = await host.revealInFinder(result.data);
@@ -1065,13 +1075,22 @@ export class StudioCx {
 	 * with actions stays longer, one with `progress` until it is replaced. Returns the notice's id.
 	 */
 	notify(message: string, tone: TNotice['tone'] = 'info', options: TNoticeOptions = {}): number {
-		this.agentStep?.notices.push({ message, tone });
+		// An agent has no Details to open
+		this.agentStep?.notices.push({ message: tone === 'error' && options.details != null ? `${message} ${options.details}` : message, tone });
 		const id = ++this.noticeId;
 		this.noticeShownAt = this.project?.revision ?? null;
 		this.noticeGroup = this.editGroup;
 		this.$notice.set({ id, message, tone, ...options });
 		this.scheduleNoticeEnd();
 		return id;
+	}
+
+	/**
+	 * Says in plain words what stopped and what to do; what the app or the system said about it goes behind Details, as a
+	 * person can't act on it and it's what a bug report needs
+	 */
+	notifyFailed(message: string, error: unknown): number {
+		return this.notify(message, 'error', { details: error instanceof Error ? error.message : String(error) });
 	}
 
 	/** Reports an edit that just happened with an Undo action for it, such as "6 platforms removed" */

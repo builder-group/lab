@@ -1,4 +1,4 @@
-import { createId, isPatternGroup, type TPiece, type TGroup, type TMarble, type TPatternGroup,  type TProject, type TProjectCommand, parseGroupKey, tieOf } from '@/modules/project';
+import { createId, isPatternGroup, type TPiece, type TGroup, type TMarble, type TPatternGroup,  type TProject, type TProjectCommand, parseGroupKey, tieOf, toGroupKey } from '@/modules/project';
 import { startRailOf, type THitResult } from '@/modules/simulation';
 import { patternLockWords, patternOfPiece } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
@@ -50,6 +50,11 @@ export function selectedPattern(cx: StudioCx): TPatternGroup | null {
 	return cx.project?.track.groups.filter(isPatternGroup).find((group) => selection.some((key) => parseGroupKey(key) === group.id || group.pieceIds.includes(key))) ?? null;
 }
 
+/** The plain Group selected as a whole, as a click on its block or its row does */
+export function selectedPlainGroup(project: TProject, selection: readonly string[]): TGroup | null {
+	return project.track.groups.find((group) => !isPatternGroup(group) && selection.includes(toGroupKey(group.id))) ?? null;
+}
+
 export function canGroup(cx: StudioCx): boolean {
 	const project = cx.project;
 	return project != null && selectedPieces(project, cx.$selection.get()).length > 0;
@@ -99,11 +104,11 @@ export function plainGroupSpan(project: TProject, marble: TMarble, group: TGroup
 /** Share of the turns in a run of bars that go back the way they came, from which it reads as a Zigzag */
 const ZIGZAG_TURNS = 0.7;
 
-/** "Zigzag" when the run's dots go back and forth across the wall, else a neutral "Run" */
+/** "Zigzag" when the run's dots go back and forth across the wall, else what they are: "Platforms" */
 function runName(dots: readonly number[]): string {
 	const steps = dots.slice(1).map((x, index) => x - (dots[index] ?? x));
 	const turns = steps.slice(1).filter((step, index) => step * (steps[index] ?? 0) < 0).length;
-	return steps.length > 1 && turns / (steps.length - 1) >= ZIGZAG_TURNS ? 'Zigzag' : 'Run';
+	return steps.length > 1 && turns / (steps.length - 1) >= ZIGZAG_TURNS ? 'Zigzag' : 'Platforms';
 }
 
 /**

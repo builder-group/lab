@@ -98,7 +98,7 @@ export function useStudioShortcuts(cx: StudioCx): void {
 			const selection = cx.$selection.get();
 			const isLayersOnly = selection.every((key) => parseSongKey(key) != null || key === CAMERA_KEY || key === WALL_KEY || isFilmLayerKey(key) || parseMadeInBlenderKey(key) != null);
 			if ((event.key === 'Enter' || event.key === 'Home') && !cx.$playing.get() && isLayersOnly) {
-				cx.$playhead.set(0);
+				cx.seek(0);
 				return;
 			}
 			if (event.key === 'Backspace' || event.key === 'Delete' || (key === 'x' && !event.shiftKey)) {

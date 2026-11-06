@@ -8,7 +8,7 @@ import type { StudioCx } from '@/modules/studio';
 import { startCameraOrbit } from '@/modules/canvas';
 import type { FilmCx } from './FilmCx';
 import { decorAtWall } from '@/modules/scene';
-import { startDecorDrag } from './decor-actions';
+import { placeDecor, startDecorDrag } from './decor-actions';
 import { insertDropHandlers } from './FilmInsert';
 import { ScatterPanel } from './ScatterPanel';
 import { DraftPreview } from './DraftPreview';
@@ -80,7 +80,8 @@ export const FilmView: React.FC<TFilmViewProps> = (props) => {
 	 * second title; ⇧-click keeps the Title tool for another one
 	 */
 	function placeTitle(u: number, v: number, keepTool: boolean): void {
-		onPlace(u, v);
+		if (placing != null && placing !== 'text') placeDecor(studio, placing, u, v);
+		else onPlace(u, v);
 		if (!keepTool) cx.$placing.set(null);
 	}
 
@@ -90,7 +91,7 @@ export const FilmView: React.FC<TFilmViewProps> = (props) => {
 			return;
 		}
 		const { u, v } = toImage(event);
-		if (placing === 'text') {
+		if (placing != null) {
 			placeTitle(u, v, event.shiftKey);
 			return;
 		}
@@ -172,10 +173,10 @@ export const FilmView: React.FC<TFilmViewProps> = (props) => {
 				</div>
 			)}
 
-			{placing === 'text' ? (
+			{placing != null ? (
 				<div className="mm-floating absolute top-3 left-1/2 flex -translate-x-1/2 items-center gap-2 px-3 py-1.5 text-[12px]">
-					<Type size={13} strokeWidth={1.8} />
-					<span>Click the wall to place a title · ⇧-click to place more</span>
+					{placing === 'text' ? <Type size={13} strokeWidth={1.8} /> : null}
+					<span>Click the wall to place {placing === 'text' ? 'a title' : placing.label} · ⇧-click to place more</span>
 					<kbd className="mm-keycap">esc</kbd>
 				</div>
 			) : null}

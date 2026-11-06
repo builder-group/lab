@@ -21,18 +21,11 @@ function moved(from: TProject, start: number): TProject {
 }
 
 describe('moveSongCommands function', () => {
-	it('should take a length that follows the song along, in the same edit', () => {
-		// The last hit at 2 plus the 0.4 s tail
-		expect(moved(project([tied('a', 2)], 2.4), 3).length).toBeCloseTo(4.4);
-	});
-
-	it('should leave a length the person set', () => {
+	it('should leave the length, whatever it followed: an edit never changes it', () => {
+		expect(moved(project([tied('a', 2)], 2.4), 3).length).toBe(2.4);
 		expect(moved(project([tied('a', 2)], 30), 3).length).toBe(30);
-	});
-
-	it('should grow the default length when the song runs past it and never shorten it', () => {
 		expect(moved(project([tied('a', 2)], 12), 3).length).toBe(12);
-		expect(moved(project([tied('a', 2)], 12), 20).length).toBeCloseTo(21.4);
+		expect(moved(project([tied('a', 2)], 12), 20).length).toBe(12);
 	});
 });
 

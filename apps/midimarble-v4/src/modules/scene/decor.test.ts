@@ -353,13 +353,13 @@ function isInFrameAt(camera: TCameraTrack, frame: number, point: { x: number; y:
 }
 
 describe('Film Layers', () => {
-	it('should open with the marbles and Decor closed, and Track open, each toggled the other way by hand', () => {
+	it('should open with the marbles closed in both tabs and Decor closed in Film, each toggled the other way by hand', () => {
 		const project = createStaircaseProject();
 		const marbleId = project.marbles[0]?.id as string;
 		expect(collapsedGroups(project, 'film', [])).toEqual(expect.arrayContaining([marbleId, DECOR_KEY]));
-		expect(collapsedGroups(project, 'track', [])).toEqual([]);
+		expect(collapsedGroups(project, 'track', [])).toEqual([marbleId]);
 		expect(collapsedGroups(project, 'film', [marbleId])).not.toContain(marbleId);
-		expect(collapsedGroups(project, 'track', [marbleId])).toEqual([marbleId]);
+		expect(collapsedGroups(project, 'track', [marbleId])).toEqual([]);
 		const rows = buildOutline(project, { workspace: 'film', collapsed: collapsedGroups(project, 'film', []) });
 		expect(rows.some((row) => row.kind === 'piece')).toBe(false);
 		expect(rows.some((row) => row.kind === 'wall')).toBe(true);

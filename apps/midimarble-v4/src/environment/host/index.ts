@@ -44,6 +44,11 @@ export const host = {
 		return toResult(await specta.commands.openProject(path));
 	},
 
+	/** Adds a project that opened to Recent; the browser lists every stored project anyway */
+	async rememberRecentProject(path: string): Promise<void> {
+		if (isTauri()) await specta.commands.rememberRecentProject(path);
+	},
+
 	/**
 	 * An unsaved project, such as an opened example, in a temporary location the host controls: a folder in the
 	 * app's cache on macOS, a separate key range in the browser. It stays out of Recent until `moveProject` saves it.
@@ -159,7 +164,7 @@ export const host = {
 	async readFile(url: string): Promise<TResult<ArrayBuffer, Error>> {
 		try {
 			const response = await fetch(url);
-			if (!response.ok) return Err(new Error(`The file couldn't be read (status ${response.status})`));
+			if (!response.ok) return Err(new Error(`The file couldn't be read (status ${response.status})`, { cause: response.status }));
 			return Ok(await response.arrayBuffer());
 		} catch (error) {
 			return Err(error instanceof Error ? error : new Error(String(error)));

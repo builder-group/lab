@@ -150,8 +150,6 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 	const error = useFeatureState(cx.film.$error);
 	const isRenderingPreview = useFeatureState(cx.film.live.$isRendering);
 	const state = blenderState(status, version, error, isRenderingPreview);
-	const working = useWorkingWord(state.tone === 'busy' ? state.label : null);
-
 	let items: TMenuEntry[];
 	if (status === 'missing') {
 		items = [{ section: 'Blender Not Installed' }, { label: 'Install Blender…', onSelect: () => void openExternalUrl(BLENDER_DOWNLOAD_URL) }];
@@ -183,9 +181,6 @@ const BlenderChip: React.FC<{ cx: StudioCx }> = (props) => {
 				<>
 					<BlenderGlyph tone={state.tone} />
 					<span>Blender</span>
-					<span className="mm-titlebar-chip-state" data-shown={working.isShown}>
-						{working.word}
-					</span>
 				</>
 			}
 			items={items}

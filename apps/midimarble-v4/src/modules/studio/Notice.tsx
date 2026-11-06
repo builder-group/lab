@@ -17,6 +17,22 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	const presence = useFeatureState(cx.mcp.presence.$current);
 	useFeatureState(cx.$history);
 	const [openDetails, setOpenDetails] = React.useState<number | null>(null);
+	// Text past its two lines stays readable behind Details, as it's often the sentence that says what to do
+	const textRef = React.useRef<HTMLSpanElement>(null);
+	const [cutOff, setCutOff] = React.useState<number | null>(null);
+	const noticeId = notice?.id;
+	const message = notice?.message;
+	React.useLayoutEffect(() => {
+		const text = textRef.current;
+		if (text == null || noticeId == null) return undefined;
+		const measure = (): void => {
+			if (text.scrollHeight > text.clientHeight + 1) setCutOff(noticeId);
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(text);
+		return () => observer.disconnect();
+	}, [noticeId, message]);
 	if (notice == null && presence == null) return null;
 	// An agent's line wins over passing notices, but not over a failure the person should read
 	if (presence != null && notice?.tone !== 'error') {
@@ -36,7 +52,8 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	if (notice == null) return null;
 	// An Undo is shown only while its edit is the latest, as it would take back a later edit otherwise
 	const actions = (notice.actions ?? []).filter((action) => action.undoGroup === undefined || action.undoGroup === cx.editGroup);
-	const isOpen = notice.details != null && openDetails === notice.id;
+	const hasDetails = notice.details != null || cutOff === notice.id;
+	const isOpen = hasDetails && openDetails === notice.id;
 
 	return (
 		<div
@@ -44,24 +61,34 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 			className="mm-notice absolute bottom-3 left-3 z-30 w-max max-w-[min(560px,calc(100%-24px))] overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
 			style={{ boxShadow: 'var(--shadow-popover)' }}
 			onPointerEnter={() => cx.holdNotice(true)}
-			onPointerLeave={() => cx.holdNotice(false)}
+			onPointerLeave={() => {
+				if (!isOpen) cx.holdNotice(false);
+			}}
 		>
-			<div className="flex items-center gap-3 py-1.5 pr-1.5 pl-4" style={{ minHeight: 36 }}>
+			<div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1.5 pr-1.5 pl-4" style={{ minHeight: 36 }}>
 				<span
-					className="min-w-0 overflow-hidden"
+					ref={textRef}
+					// Over a narrow canvas its actions take the next line, so the words keep their room
+					className="min-w-[120px] flex-1 overflow-hidden"
 					// Two lines at most; the rest sits behind Details
-					style={{ color: notice.tone === 'error' ? 'var(--bad)' : undefined, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}
+					style={{ color: notice.tone === 'error' ? 'var(--bad)' : undefined, ...(isOpen ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }) }}
 				>
 					{notice.message}
 				</span>
-				{actions.length > 0 || notice.details != null ? (
+				{actions.length > 0 || hasDetails ? (
 					<span className="flex shrink-0 items-center gap-1">
-						{notice.details != null ? (
+						{hasDetails ? (
 							<button
 								className="mm-notice-action"
 								aria-expanded={isOpen}
-								onClick={() => setOpenDetails(isOpen ? null : notice.id)}
-								title={isOpen ? 'Hide the details' : 'Show everything this changed'}
+								// A click leaves no focus ring behind
+								onMouseDown={(event) => event.preventDefault()}
+								onClick={() => {
+									setOpenDetails(isOpen ? null : notice.id);
+									// Open, it stays until it's closed: it takes longer to read than a passing notice lasts
+									cx.holdNotice(!isOpen);
+								}}
+								title={isOpen ? 'Hide the details' : 'Show all of it'}
 								type="button"
 							>
 								Details
@@ -82,7 +109,7 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 								{action.label}
 							</button>
 						))}
-						{notice.details != null ? (
+						{hasDetails ? (
 							<button className="mm-icon-button !h-6 !w-6" aria-label="Close" onClick={() => cx.dismissNotice(notice.id)} title="Close" type="button">
 								<X size={13} strokeWidth={2} />
 							</button>
@@ -92,8 +119,8 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 					<span className="w-2.5" />
 				)}
 			</div>
-			{isOpen ? (
-				<p className="max-h-40 overflow-y-auto px-4 pb-2.5 text-[12px] leading-[1.45] text-[var(--text-secondary)] select-text" style={{ maxWidth: 640 }}>
+			{isOpen && notice.details != null ? (
+				<p className="max-h-40 overflow-y-auto px-4 pb-2.5 text-[12px] leading-[1.45] whitespace-pre-line text-[var(--text-secondary)] select-text" style={{ maxWidth: 640 }}>
 					{notice.details}
 				</p>
 			) : null}

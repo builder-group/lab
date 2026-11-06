@@ -11,6 +11,7 @@ fn specta_builder() -> SpectaBuilder<tauri::Wry> {
         .commands(collect_commands![
             package::commands::create_project,
             package::commands::open_project,
+            package::commands::remember_recent_project,
             package::commands::save_project,
             package::commands::keep_previous_save,
             package::commands::list_recent_projects,

@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { assignNotesCommands } from './assign-notes';
 import { applyProjectCommands, BACKING_ID, createProject, type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
+import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, passThroughs, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
 import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
 import { hitSummary } from './hit-status';
@@ -458,6 +458,38 @@ describe('Fix on a small project', () => {
 		expect(brokenHits(after.hits)).toEqual([]);
 		expect(problemPieces(outcome.project, after)).toEqual([]);
 	}, 60_000);
+
+	it('should act on a platform the marble passes through, not say it has nothing to fix', async () => {
+		// Prepare: the marble's path runs through the body below a platform's top
+		const run = simulate(track);
+		const piece = run.pieces.find((item) => item.type === 'platform');
+		const samples = run.marbles[0]?.samples ?? [];
+		const inside = samples[samples.length - 1];
+		if (piece == null || inside == null) throw new Error('Missing piece');
+		const below = { ...inside, time: Math.min(inside.time, run.duration), position: { x: piece.position.x, y: piece.position.y } };
+		const passed = { ...run, marbles: run.marbles.map((marble) => ({ ...marble, samples: [...marble.samples, below] })) };
+		expect(passThroughs(track, passed).some((pass) => pass.entityId === piece.pieceId)).toBe(true);
+
+		// Act
+		const fix = await fixPiece(track, passed, piece.pieceId, deps());
+
+		// Assert
+		expect(problemPieces(track, passed)).toContain(piece.pieceId);
+		expect(fix.message).not.toMatch(/nothing to fix/);
+	});
+
+	it('should say why when a piece with a problem is tied to nothing', async () => {
+		const run = simulate(track);
+		const free = withCommands(track, [{ type: 'addPiece', piece: { id: 'free', name: 'Free', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0.9, y: 0.9 } } } }]);
+		const samples = run.marbles[0]?.samples ?? [];
+		const inside = samples[samples.length - 1];
+		if (inside == null) throw new Error('Missing run');
+		const freeRun = simulate(free);
+		const passed = { ...freeRun, marbles: freeRun.marbles.map((marble) => ({ ...marble, samples: [...marble.samples, { ...inside, time: Math.min(inside.time, freeRun.duration), position: { x: 0.9, y: 0.9 } }] })) };
+		const fix = await fixPiece(free, passed, 'free', deps());
+		expect(fix.commands).toBeNull();
+		expect(fix.message).toMatch(/Free is tied to nothing/);
+	});
 
 	it('should keep the rest of the run with the next platforms taking up a turn', async () => {
 		// Prepare

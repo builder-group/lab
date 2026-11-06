@@ -7,7 +7,7 @@ import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
 import { CAMERA_KEY, parseHitKey, parseShotKey, shownSongs, type TSong, toHitKey } from '@/modules/project';
-import { SONG_LAYER_LABEL } from '../song-layer';
+import { songRowLabel } from '../song-layer';
 import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
@@ -16,7 +16,7 @@ import { MarbleTrack, type TDrag, type TDragStart } from './MarbleTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange, type TPitchRange } from './piano-roll';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
 import { SongTrack, type TSongMove } from './SongTrack';
-import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, TIME_DEAD_ZONE, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT, songTint } from './timeline-layout';
+import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, playheadScroll, TIME_DEAD_ZONE, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT, songTint } from './timeline-layout';
 import { $expandedSongs } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
@@ -106,6 +106,19 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		window.addEventListener('keydown', onKeyDown, true);
 		return () => window.removeEventListener('keydown', onKeyDown, true);
 	}, [cx]);
+
+	// A playhead that moves out of view brings the rows along, so what's playing or was jumped to is on the ruler. A drag on
+	// the ruler stays inside it, so it never pages while dragged.
+	React.useEffect(
+		() =>
+			cx.$playhead.listen(({ value }) => {
+				const element = scrollRef.current;
+				if (element == null) return;
+				const next = playheadScroll(value, zoom, element.scrollLeft, element.clientWidth);
+				if (next != null) element.scrollLeft = next;
+			}),
+		[cx, zoom]
+	);
 
 	// A layer selected in Layers scrolls its row into view below the sticky ruler, like Final Cut's timeline index
 	const first = selection[0];
@@ -269,7 +282,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							project={project}
 							song={song}
 							tint={songTints.get(song.id) ?? songTint(0)}
-							name={SONG_LAYER_LABEL}
+							name={songRowLabel(project, song)}
 							analysis={analysis[song.id]}
 							zoom={zoom}
 							width={trackWidth}

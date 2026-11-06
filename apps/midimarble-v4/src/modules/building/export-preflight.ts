@@ -3,7 +3,7 @@ import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong, marbleSounds } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, CAMERA_KEY, toHitKey, toSongKey, tieOf } from '@/modules/project';
+import { formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 
@@ -158,6 +158,22 @@ export function framingProblemAt(preflight: TExportPreflight, time: number): TPr
 }
 
 /**
+ * The problems about exactly what is selected, so a piece or several selected by a problem say what's wrong in words:
+ * the problems of a selected piece, of a selected hit, or the one about two pieces when both are selected. A framing
+ * problem has the Camera's own panel.
+ */
+export function selectionProblems(preflight: TExportPreflight, selection: readonly string[]): TPreflightIssue[] {
+	if (!selection.length || preflight.state !== 'checked') return [];
+	const hit = selection.length === 1 && selection[0] != null ? parseHitKey(selection[0]) : null;
+	const hitId = hit != null ? `hit:${hit.marbleId}:${hit.hitId}` : null;
+	return preflight.issues.filter((issue) => {
+		if (issue.severity !== 'warning' || issue.kind === 'framing' || issue.target == null) return false;
+		const ids = issue.target.ids;
+		return issue.id === hitId || selection.every((id) => ids.includes(id));
+	});
+}
+
+/**
  * Platforms a marble strikes twice, rolls on or passes through and pieces that touch, by piece ID, with those problems: Layers badges them and the
  * inspector shows a pill and Fix, from the same list as the summary.
  */
@@ -271,6 +287,25 @@ export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' |
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
+/**
+ * What knocked a marble off its run on the way to its hit at `time`, in words: "Melody hits Platform 132 at 0:03.30". A
+ * piece tied to nothing is no problem of its own, since marbles may strike it, so a hit it breaks has to name it. Before
+ * a marble's first hit it may be riding its start rail, so that has no such cause.
+ */
+export function strayCause(project: TProject, result: TSimulationResult, marbleId: string, time: number): string | null {
+	const before = result.hits.filter((hit) => hit.marbleId === marbleId && hit.targetTime < time - 1e-6).map((hit) => hit.targetTime);
+	if (!before.length) return null;
+	const since = Math.max(...before);
+	const contact = result.contacts.find((item) => {
+		if (item.kind !== 'piece' || item.marbleId !== marbleId || item.time < since || item.time > time) return false;
+		const piece = project.track.pieces.find((other) => other.id === item.otherId);
+		return piece != null && tieOf(piece) == null;
+	});
+	if (contact == null) return null;
+	const names = createNames(project);
+	return `${names.marble(marbleId)} hits ${names.piece(contact.otherId)} at ${formatTime(contact.time)}`;
+}
+
 
 // MARK: - Hits
 
@@ -280,6 +315,11 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 	const open: THitResult[] = [];
 
 	const numbers = new Map(project.marbles.flatMap((marble) => marble.hits.map((hit, index) => [toHitKey(marble.id, hit.id), index + 1] as const)));
+	// A hit's reason starts with the piece tied to nothing that knocked the marble off on the way to it
+	const because = (hit: THitResult, detail: string): string => {
+		const cause = strayCause(project, result, hit.marbleId, hit.targetTime);
+		return cause != null ? `${cause}. ${detail}` : detail;
+	};
 	for (const hit of result.hits) {
 		const marble = names.marble(hit.marbleId);
 		const key = toHitKey(hit.marbleId, hit.hitId);
@@ -296,13 +336,13 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 				severity: 'warning',
 				marbleId: hit.marbleId,
 				title: is('Blocked'),
-				detail: `${marble} already passes through this spot earlier in its run, so the platform is left out.`,
+				detail: because(hit, `${marble} already passes through this spot earlier in its run, so the platform is left out.`),
 				time: hit.targetTime,
 				target
 			});
 		} else if (hit.status === 'missed') {
 			const label = hit.reason === 'resting' && piece?.status !== 'unreached' ? 'Stopped' : 'Missed';
-			issues.push({ id, kind: 'hit', severity: 'warning', marbleId: hit.marbleId, title: is(label), detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
+			issues.push({ id, kind: 'hit', severity: 'warning', marbleId: hit.marbleId, title: is(label), detail: because(hit, missDetail(hit, piece?.status, result.duration)), time: hit.targetTime, target });
 		} else if (hit.status === 'drifting') {
 			const ms = Math.round((hit.error ?? 0) * 1000);
 			issues.push({
@@ -350,7 +390,8 @@ function groupByMarble<T>(items: T[], marbleOf: (item: T) => string): Map<string
 	return groups;
 }
 
-function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
+function missDetail(hit: THitResult, pieceStatus: string | undefined, duration: number): string {
+	if (hit.targetTime > duration) return `The film ends at ${formatTime(duration)}, before this note. Fit to Song lengthens it.`;
 	if (pieceStatus === 'unreached') return 'The marble never reaches this platform.';
 	if (pieceStatus === 'held') return 'An edit before it keeps the marble from this platform. The pieces after it wait where they were until this is fixed.';
 	if (hit.reason === 'resting') return 'The marble stops on the platform instead of striking it.';

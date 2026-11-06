@@ -30,16 +30,24 @@ pub fn create_project(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn open_project(app: AppHandle, path: String) -> Result<OpenedProjectDto, String> {
+pub fn open_project(path: String) -> Result<OpenedProjectDto, String> {
     let package = PathBuf::from(path);
     let project_json = store::read_project(&package).map_err(|error| error.to_string())?;
-    if !is_temporary(&app, &package) {
-        let _ = recent::remember(&app, &package);
-    }
     return Ok(OpenedProjectDto {
         path: package.display().to_string(),
         project_json,
     });
+}
+
+/// Adds an opened project to Recent. The app calls it once the file proved to be a project it can open, so a broken
+/// file never joins the list; an unsaved project stays out of it.
+#[tauri::command(async)]
+#[specta::specta]
+pub fn remember_recent_project(app: AppHandle, path: String) {
+    let package = PathBuf::from(path);
+    if !is_temporary(&app, &package) {
+        let _ = recent::remember(&app, &package);
+    }
 }
 
 #[tauri::command(async)]

@@ -6,7 +6,7 @@ import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
 import { InsertPopover } from '@/modules/canvas';
 import type { StudioCx } from '@/modules/studio';
 import { builtInSource, type TDecorSource, type TLibraryItem, DECOR_HELP, listedDecorItems, usedDecorSources } from '@/modules/scene';
-import { libraryDecorSource, placeDecor, placeLibraryDecor } from './decor-actions';
+import { armLibraryDecor, libraryDecorSource, placeDecor } from './decor-actions';
 import { TileDetail } from './TilePicker';
 import { libraryEntries, libraryItemKey, notAddedPackAction, libraryItemLabel, libraryItemOrigin } from './FilmLibraryCx';
 import type { TTitleStyle } from './film-commands';
@@ -147,9 +147,10 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 						key={item.id}
 						label={item.label}
 						{...(item.origin != null ? { detail: item.origin } : {})}
-						title={item.effect === 'snowfall' ? 'Snow, dust or sparks in front of everything, over the whole film' : `Add ${item.label} at the playhead, or drag it onto the wall`}
+						title={item.effect === 'snowfall' ? 'Snow, dust or sparks in front of everything, over the whole film' : `Click the wall where ${item.label} goes, or drag it there`}
 						preview={<img alt="" src={item.previewUrl} draggable={false} />}
-						onAdd={() => add(() => placeDecor(cx, builtInSource(item.id)))}
+						// Particles fill the frame, so they have no spot to ask for; the rest wait for a click on the wall, as Track's tiles do
+						onAdd={() => add(() => (item.effect === 'snowfall' ? placeDecor(cx, builtInSource(item.id)) : cx.film.$placing.set(builtInSource(item.id))))}
 						{...drag(DECOR_DRAG_TYPE, item.id)}
 					/>
 				))}
@@ -244,9 +245,9 @@ const LibraryTile: React.FC<{ cx: StudioCx; item: TLibraryItem; onAdd: (action: 
 				label={label}
 				detail={libraryItemOrigin(item)}
 				onDetail={notAddedPackAction(cx, item)}
-				title={`Add ${label} at the playhead, or drag it onto the wall`}
+				title={`Click the wall where ${label} goes, or drag it there`}
 				preview={item.previewUrl != null ? <img alt="" src={item.previewUrl} draggable={false} /> : <Box size={22} strokeWidth={1.4} />}
-				onAdd={() => onAdd(() => void placeLibraryDecor(cx, item, label))}
+				onAdd={() => onAdd(() => void armLibraryDecor(cx, item, label))}
 				onContextMenu={(event) => openContextMenu(event, menu())}
 				{...drag(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope, packId: item.packId }))}
 			/>

@@ -89,6 +89,34 @@
 	border-bottom: 1px solid var(--separator);
 }
 
+/* What's wrong with the selection, in words: Xcode's issue beside the code */
+.mm-insp-problems {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px var(--insp-pad);
+	border-bottom: 1px solid var(--separator);
+}
+
+.mm-insp-problem {
+	display: flex;
+	gap: 8px;
+	font-size: 11px;
+	line-height: 15px;
+}
+
+.mm-insp-problem-title {
+	display: block;
+	font-weight: 600;
+	overflow-wrap: break-word;
+}
+
+.mm-insp-problem-detail {
+	display: block;
+	color: var(--text-secondary);
+	overflow-wrap: break-word;
+}
+
 .mm-insp-tile {
 	display: flex;
 	align-items: center;
@@ -101,17 +129,19 @@
 	color: var(--text-secondary);
 }
 
+/* Keeps room for a name: a pill that leaves less goes on a line of its own, and a name never breaks */
 .mm-insp-titles {
 	display: flex;
-	flex: 1 1 0;
+	flex: 1 1 90px;
 	flex-direction: column;
 	min-width: 0;
 }
 
-/* The status pill beside the title */
+/* The status pill beside the title, or under it when it's long */
 .mm-insp-status {
 	display: flex;
 	flex-shrink: 0;
+	margin-left: auto;
 }
 
 /* The Fix-it takes a row of its own under the title and the pill, so the title keeps its width */
@@ -383,7 +413,7 @@ input.mm-insp-name {
 	-webkit-appearance: none;
 }
 
-/* A value always shows five characters whole; a narrow field drops its unit first (see ScrubField) */
+/* A value always shows whole; a narrow field drops its unit first (see ScrubField) */
 .mm-ifield > input[aria-invalid='true'] {
 	color: var(--bad);
 }

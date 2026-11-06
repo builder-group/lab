@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
+import { checkRun, NO_BLENDER_OBJECTS, strayCause } from '@/modules/building';
 import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, editStart, marbleEdits, reconnect, release, settleBase, type TSettleAnswer, withRides } from './local-edit';
@@ -63,6 +64,54 @@ describe('settling an edit', () => {
 	});
 
 	describe('answerSettle function', () => {
+		const withFreePlatform = (project: TProject, position: { x: number; y: number }): TProject => ({
+			...project,
+			revision: project.revision + 1,
+			track: { ...project.track, pieces: [...project.track.pieces, { id: 'free', name: 'Free', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position } }] }
+		});
+
+		it('should leave every hit where it was when a piece clear of the run comes near a rail', async () => {
+			// Prepare: a platform within a marble's reach while it rides, so its collider enters that marble's world
+			const project = loadFixture('long-gap');
+			const before = await fresh(project);
+			const rail = project.track.pieces.find((piece) => piece.type === 'rail');
+			const entry = before.pieces.find((piece) => piece.pieceId === rail?.id)?.entryTime;
+			const sample = before.marbles[0]?.samples.find((item) => item.time >= (entry ?? Infinity));
+			if (sample == null) throw new Error('Missing ride');
+			const after = withFreePlatform(project, { x: sample.position.x - 0.13, y: sample.position.y });
+
+			// Act
+			const { answer, memo } = answerSettle(simulator, { before: project, after }, null);
+			const run = await fresh(landed(after, answer));
+
+			// Assert
+			expect(marbleEdits(project, after).every((edit) => edit.isElsewhere === true)).toBe(true);
+			expect(answer.broken).toEqual([]);
+			expect(run.contacts.some((contact) => contact.otherId === 'free')).toBe(false);
+			for (const hit of run.hits) expect(shift(run, memo.base, hit.hitId)).toBe(0);
+		});
+
+		it('should keep the break one problem and name the piece when a free piece stands in the run', async () => {
+			// Prepare: right on the marble's way to a later hit
+			const project = loadFixture('zigzag');
+			const before = await fresh(project);
+			const hit = before.hits[6];
+			if (hit?.dot == null) throw new Error('Missing dot');
+			const after = withFreePlatform(project, { x: hit.dot.x, y: hit.dot.y + 0.02 });
+
+			// Act
+			const { answer } = answerSettle(simulator, { before: project, after }, null);
+			const landedProject = landed(after, answer);
+			const run = await fresh(landedProject);
+			const broken = checkRun(landedProject, run, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind === 'hit');
+
+			// Assert
+			expect(answer.heldFrom).toHaveLength(1);
+			expect(broken.length).toBeLessThanOrEqual(2);
+			expect(strayCause(landedProject, run, 'marble-1', hit.targetTime)).toMatch(/hits Free at/);
+			expect(broken[0]?.detail).toMatch(/hits Free at/);
+		});
+
 		it('should keep every later platform where it was when one is tilted', async () => {
 			// Prepare
 			const project = loadFixture('zigzag');

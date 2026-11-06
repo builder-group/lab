@@ -217,6 +217,12 @@ def opening_pieces(pieces):
     return [item for item in struck if item[0] <= first + LEAD_AHEAD + 1e-9][:OPENING_PIECES]
 
 
+def framed_marbles(marbles):
+    """A marble with no hits only falls down the wall, so the camera leaves it out while another marble plays"""
+    playing = [marble for marble in marbles if marble.get('hitTimes')]
+    return playing if playing else marbles
+
+
 def in_flight(marble, motion, times):
     """Whether the camera frames the marble at each time: from its first sample to its last, or to `activeUntil`
     once its lane has finished playing"""
@@ -675,6 +681,7 @@ def bake(scene, camera, settings, marbles, motions, fps):
     """Writes the follow keyframes; returns the number of frames baked or 0 when there is no motion"""
     frames = np.arange(scene.frame_start, scene.frame_end + 1, dtype=np.float64)
     times = frames / fps
+    marbles = framed_marbles(marbles)
     # The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight
     # and sized around the group's center gives the run direction and the smoothed target that size the second
     framing = group_framing(marbles, motions, times, settings, fps, np.zeros(len(times)))

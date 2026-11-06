@@ -40,7 +40,7 @@ export class FilmExportCx {
 		if (!this.isRunning && this.$job.get().phase !== 'done') {
 			this.$settings.set((settings) => ({
 				...settings,
-				preset: project.film.quality,
+				preset: chosenQuality(project.id) ?? 'draft',
 				fileName: settings.chosenPath == null ? filmFileName(project.title) : settings.fileName
 			}));
 		}
@@ -55,6 +55,18 @@ export class FilmExportCx {
 
 	updateSettings(patch: Partial<TExportSettings>): void {
 		this.$settings.set((settings) => ({ ...settings, ...patch }));
+	}
+
+	/** The person's choice in the sheet, which it opens on next time for this project */
+	chooseQuality(preset: TRenderPreset): void {
+		this.updateSettings({ preset });
+		const project = this.source.getProject();
+		if (project == null) return;
+		try {
+			localStorage.setItem(`${CHOSEN_QUALITY_KEY}${project.id}`, preset);
+		} catch {
+			// Storage can be unavailable; the sheet then opens on Draft again
+		}
 	}
 
 	/** Save panel for the film; the package's Renders folder is the default location */
@@ -173,6 +185,18 @@ export interface TExportJob {
 	error: string | null;
 	/** The save panel pointed outside the package; the film was written to the package's Renders folder */
 	outsidePackage: boolean;
+}
+
+/** A first film should be quick to check, so the sheet opens on Draft until the person chooses for this project */
+const CHOSEN_QUALITY_KEY = 'midimarble-v4:export-quality:';
+
+function chosenQuality(projectId: string): TRenderPreset | null {
+	try {
+		const chosen = localStorage.getItem(`${CHOSEN_QUALITY_KEY}${projectId}`);
+		return chosen === 'draft' || chosen === 'final' ? chosen : null;
+	} catch {
+		return null;
+	}
 }
 
 const IDLE_JOB: TExportJob = {

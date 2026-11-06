@@ -220,7 +220,7 @@ pub fn write_package_file(
 ) -> Result<String, String> {
     let package = PathBuf::from(package_path);
     if !package.join("project.json").is_file() {
-        return Err(format!("{} is not a MidiMarble project", package.display()));
+        return Err(format!("{} isn't a MidiMarble project. Choose a .marble package.", package.file_name().map_or_else(|| package.display().to_string(), |name| name.to_string_lossy().into_owned())));
     }
     let path = mailbox::write_package_file(&package, &relative_path, &bytes)
         .map_err(|error| error.to_string())?;
@@ -239,7 +239,7 @@ pub async fn copy_file_out(
     return run_blocking(move || {
         let package = PathBuf::from(package_path);
         if !package.join("project.json").is_file() {
-            return Err(format!("{} is not a MidiMarble project", package.display()));
+            return Err(format!("{} isn't a MidiMarble project. Choose a .marble package.", package.file_name().map_or_else(|| package.display().to_string(), |name| name.to_string_lossy().into_owned())));
         }
         let path = mailbox::copy_file_out(&package, &relative_path, &PathBuf::from(destination_path))
             .map_err(|error| error.to_string())?;

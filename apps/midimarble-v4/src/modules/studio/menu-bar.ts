@@ -151,6 +151,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'build.next', showsKey: true },
 			{ command: 'build.track', showsKey: true },
 			{ command: 'build.rebuildFrom' },
+			{ command: 'pattern.choose' },
 			{ command: 'build.continue', showsKey: true },
 			{ command: 'build.mirror', showsKey: true },
 			{ command: 'build.repeat', showsKey: true },

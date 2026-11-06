@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { backingOf, type TMarble, type TPiece, type TProject, tieOf } from '@/modules/project';
 import type { THitResult, TResolvedPiece, TSimulationResult } from '@/modules/simulation';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { NO_BLENDER_OBJECTS, pendingPreflight, pieceProblems, checkRun, problemSummary, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
+import { NO_BLENDER_OBJECTS, pendingPreflight, pieceProblems, checkRun, problemSummary, selectionProblems, struckPieces, workspaceProblems, type TExportPreflight, type TPreflightIssue } from './export-preflight';
 import { loadFixture } from '@/modules/project/test-helpers';
 
 function withSongFixture(name: string): TProject {
@@ -454,5 +454,24 @@ describe('problemSummary function', () => {
 			expect(checkRun(project, result, NO_BLENDER_OBJECTS, missing)).toBe(first);
 			expect(checkRun(project, result, NO_BLENDER_OBJECTS, [])).not.toBe(first);
 		});
+	});
+});
+
+describe('selectionProblems function', () => {
+	const issue = (id: string, ids: string[], kind: TPreflightIssue['kind'] = 'touching'): TPreflightIssue => ({ id, kind, severity: 'warning', title: id, target: { ids } });
+	const preflight = (issues: TPreflightIssue[]): TExportPreflight => ({ state: 'checked', issues, summary: '', warnings: issues.length, notes: 0, hitCount: 0, onTimeCount: 0 });
+
+	it('should name what is wrong with two pieces a problem selected, and with either alone', () => {
+		const shown = preflight([issue('touching:a:b', ['b', 'a']), issue('other', ['c'])]);
+		expect(selectionProblems(shown, ['a', 'b']).map((item) => item.id)).toEqual(['touching:a:b']);
+		expect(selectionProblems(shown, ['a']).map((item) => item.id)).toEqual(['touching:a:b']);
+		expect(selectionProblems(shown, ['a', 'c'])).toEqual([]);
+		expect(selectionProblems(shown, [])).toEqual([]);
+	});
+
+	it('should find a broken hit from its hit key, and leave framing to the Camera', () => {
+		const shown = preflight([issue('hit:marble-1:h1', ['piece-1'], 'hit'), issue('frame:marble-1:1', ['camera'], 'framing')]);
+		expect(selectionProblems(shown, ['hit:marble-1:h1']).map((item) => item.id)).toEqual(['hit:marble-1:h1']);
+		expect(selectionProblems(shown, ['camera'])).toEqual([]);
 	});
 });
