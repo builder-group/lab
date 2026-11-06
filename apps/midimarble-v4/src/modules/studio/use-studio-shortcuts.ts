@@ -75,6 +75,11 @@ export function useStudioShortcuts(cx: StudioCx): void {
 				return;
 			}
 			if (command || event.altKey || event.ctrlKey) return;
+			if (event.shiftKey && key === 'z') {
+				event.preventDefault();
+				getCommand('view.timelineFit').run(cx);
+				return;
+			}
 			if (event.shiftKey && key === 'm') {
 				const target = getCommand('camera.addShot');
 				if (isCommandEnabled(cx, target)) {

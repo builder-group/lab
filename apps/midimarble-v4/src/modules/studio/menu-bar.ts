@@ -121,6 +121,7 @@ export const menuLayout: readonly TMenuSection[] = [
 			{ command: 'view.zoom100' },
 			{ command: 'view.fitAll' },
 			{ command: 'view.fitSelection' },
+			{ command: 'view.timelineFit', showsKey: true },
 			'separator',
 			{ command: 'view.track3d' },
 			{ command: 'view.trackCamera' },

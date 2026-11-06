@@ -1,10 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
+import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, Ellipsis, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { problemSummary } from '@/modules/building';
 import type { THitResult } from '@/modules/simulation';
-import { getCommand, type TCommandId } from '../commands';
+import { commandItem, getCommand, type TCommandId } from '../commands';
 import { problemMenu } from '../menus';
 import { askedFilmLength, formatTime, parseTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
@@ -16,7 +16,7 @@ import { sliderToZoom, zoomToSlider } from './timeline-layout';
  * at the right
  */
 export const Transport: React.FC<TTransportProps> = (props) => {
-	const { cx, zoom, onZoom, onZoomToFit } = props;
+	const { cx, zoom, onZoom } = props;
 	const playing = useFeatureState(cx.$playing);
 	const project = useFeatureState(cx.$history)?.present ?? null;
 
@@ -40,7 +40,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 				<TimeReadout cx={cx} />
 			</div>
 			<div className="mm-transport-end flex flex-1 items-center justify-end">
-				<ZoomControl zoom={zoom} onZoom={onZoom} onZoomToFit={onZoomToFit} />
+				<ZoomControl cx={cx} zoom={zoom} onZoom={onZoom} />
 			</div>
 		</div>
 	);
@@ -52,7 +52,6 @@ interface TTransportProps {
 	results: THitResult[] | null;
 	zoom: number;
 	onZoom: (zoom: number) => void;
-	onZoomToFit: () => void;
 }
 
 /**
@@ -213,8 +212,8 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 };
 
 /** Final Cut's timeline zoom: a slider between − and + glyphs, then Zoom to Fit */
-const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZoomToFit: () => void }> = (props) => {
-	const { zoom, onZoom, onZoomToFit } = props;
+const ZoomControl: React.FC<{ cx: StudioCx; zoom: number; onZoom: (zoom: number) => void }> = (props) => {
+	const { cx, zoom, onZoom } = props;
 	const position = zoomToSlider(zoom);
 	return (
 		<div className="flex items-center gap-1" role="group" aria-label="Timeline zoom">
@@ -238,8 +237,15 @@ const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZo
 			</button>
 			<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
 			</span>
-			<button className="mm-icon-button !h-6 !w-6" onClick={onZoomToFit} title="Zoom to Fit" aria-label="Zoom to Fit" type="button">
-				<MoveHorizontal size={15} strokeWidth={1.75} />
+			<button
+				className="mm-icon-button !h-6 !w-6"
+				onClick={(event) => openContextMenu(event, [{ ...commandItem(cx, 'view.timelineFit'), label: 'Zoom to Fit' }, commandItem(cx, 'film.fitToSong'), commandItem(cx, 'view.audioScrubbing')])}
+				title="Timeline Options"
+				aria-label="Timeline Options"
+				aria-haspopup="menu"
+				type="button"
+			>
+				<Ellipsis size={15} strokeWidth={1.75} />
 			</button>
 		</div>
 	);

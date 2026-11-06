@@ -92,6 +92,8 @@ export class StudioCx {
 	readonly $renaming = createState<string | null>(null);
 	/** Pieces hidden from the canvas and locked against canvas edits, like Figma's layer toggles. View state, not saved. */
 	readonly $hidden = createState<string[]>([]);
+	/** Counts requests for the timeline's Zoom to Fit, whose zoom is the timeline's own */
+	readonly $timelineFit = createState(0);
 	/** What ⌘C kept, for ⌘V; it lasts while the app runs, also into another project */
 	readonly $clipboard = createState<TClipboard | null>(null);
 	readonly $locked = createState<string[]>([]);

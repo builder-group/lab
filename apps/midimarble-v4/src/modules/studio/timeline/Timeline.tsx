@@ -219,6 +219,15 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		});
 	}
 
+	// Zoom to Fit from the ⋯ menu, its key and ⌘K
+	const fitRequest = useFeatureState(cx.$timelineFit);
+	const fitRequestRef = React.useRef(fitRequest);
+	React.useEffect(() => {
+		if (fitRequestRef.current === fitRequest) return;
+		fitRequestRef.current = fitRequest;
+		zoomToFit();
+	});
+
 	// A newly opened project shows its whole length, like View All in Blender
 	const projectId = project?.id;
 	React.useEffect(() => {
@@ -264,7 +273,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 			onMouseDown={keepFocusOnButtonClick}
 		>
 			<ResizeHandle cx={cx} />
-			<Transport cx={cx} results={result?.hits ?? null} zoom={zoom} onZoom={(next) => zoomTo(next)} onZoomToFit={zoomToFit} />
+			<Transport cx={cx} results={result?.hits ?? null} zoom={zoom} onZoom={(next) => zoomTo(next)} />
 			<div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
 				<div className="relative flex min-h-full min-w-full flex-col" style={{ width: TIME_ORIGIN + trackWidth }}>
 					<div className="sticky top-0 z-30 flex shrink-0" style={{ height: RULER_HEIGHT }}>

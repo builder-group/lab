@@ -417,6 +417,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'view.zoomOut', workspace: 'track', title: 'Zoom Out', section: 'View', shortcut: '⌘−', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.zoomBy(0.5) },
 	{ id: 'view.zoom100', workspace: 'track', title: 'Zoom to 100%', section: 'View', shortcut: '⌘0', keywords: 'actual size reset real', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.zoomTo100() },
 	{ id: 'view.fitAll', workspace: 'track', title: 'Zoom to Fit', section: 'View', shortcut: '⇧1', keywords: 'frame all home view all whole run overview everything', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.fitAll() },
+	{ id: 'view.timelineFit', title: 'Zoom Timeline to Fit', section: 'View', shortcut: '⇧Z', keywords: 'timeline frame all show whole song', isEnabled: hasProject, run: (cx) => cx.$timelineFit.set(cx.$timelineFit.get() + 1) },
 	{ id: 'view.fitSelection', workspace: 'track', title: 'Zoom to Selection', section: 'View', shortcut: '⇧2', keywords: 'frame selected', isEnabled: hasPieces, run: (cx) => trackCx(cx)?.fitSelection() },
 	{
 		id: 'view.snap',
@@ -813,6 +814,7 @@ export type TCommandId =
 	| 'view.zoomOut'
 	| 'view.zoom100'
 	| 'view.fitAll'
+	| 'view.timelineFit'
 	| 'view.fitSelection'
 	| 'view.showHitboxes'
 	| 'view.follow'
