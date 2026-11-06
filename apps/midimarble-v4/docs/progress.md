@@ -9,7 +9,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Compose:** Marbles, Song, hits and Backing; Platform, one Rail with Layouts (Drawn, Curve, C, Chain, Switchback), Tunnel, Windmill, Bowl. Next, Build Track, Rebuild From Here and one Fix. A run is hops, each from a stored hand-over; edits stay local (`simulation/edit-rule.ts`). Problems are physics only.
 - **Patterns:** Zigzag, Staircase and Long Rail, checked before they're applied with a ghost and a verdict per hit, Groups and Flatten.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
-- **Export:** Draft and Final, each at −14 LUFS with its true peak at −1 dB. A film opens 0.2 s before its first sound by default, and the sheet shows that first frame. The melody plays 10 dB over the other parts by default.
+- **Export:** Draft and Final, each at −14 LUFS with its true peak at −1 dB. The film's first frame is 0 on the timeline, and the sheet shows it. The melody plays 10 dB over the other parts by default.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
 - **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.25. Why: `references.md`.
 - **Data:** `marble-project@6`, no migrations, since the app hasn't shipped.

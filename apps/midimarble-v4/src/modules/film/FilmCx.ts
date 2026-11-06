@@ -2,7 +2,6 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, type TPreviewFrameResult } from '@/modules/blender';
-import { filmStartOf } from '@/modules/project';
 import { buildSceneDescription, renderFps } from '@/modules/scene';
 import type { StudioCx } from '@/modules/studio';
 import type { TCameraAngles } from '@/modules/camera';
@@ -69,9 +68,8 @@ export class FilmCx {
 			const project = this.studio.project;
 			const packagePath = this.studio.$path.get();
 			if (project == null || packagePath == null || !(await this.sync())) return;
-			const time = filmStartOf(project);
-			const [isFrameOk, , frame] = await blender.previewFrame(packagePath, { time, width: OPENING_FRAME_WIDTH });
-			if (isFrameOk) this.$openingFrame.set({ url: convertFileSrc(frame.path), width: frame.width, height: frame.height, time });
+			const [isFrameOk, , frame] = await blender.previewFrame(packagePath, { time: 0, width: OPENING_FRAME_WIDTH });
+			if (isFrameOk) this.$openingFrame.set({ url: convertFileSrc(frame.path), width: frame.width, height: frame.height });
 		});
 	}
 
@@ -342,7 +340,6 @@ export interface TOpeningFrameStill {
 	url: string;
 	width: number;
 	height: number;
-	time: number;
 }
 
 export interface TFilmLink {

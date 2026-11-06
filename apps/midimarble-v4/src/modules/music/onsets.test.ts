@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectOnsets, fft } from './onsets';
+import { detectOnsets, fft, suggestedHitTimes } from './onsets';
 
 const sampleRate = 44100;
 
@@ -92,3 +92,9 @@ function expectOnsets(onsets: number[], expected: number[]): void {
 	for (const [index, time] of expected.entries())
 		expect(Math.abs((onsets[index] ?? 0) - time)).toBeLessThan(0.015);
 }
+
+describe('suggestedHitTimes function', () => {
+	it('should leave out beats a recording that starts before 0 has cut from the film', () => {
+		expect(suggestedHitTimes([1, 2.5, 3.5], -2)).toEqual([0.5, 1.5]);
+	});
+});

@@ -58,7 +58,8 @@ export function suggestedHitTimes(onsets: number[], offset: number, existing: nu
 	let last = Number.NEGATIVE_INFINITY;
 	for (const onset of onsets) {
 		const time = Math.round((onset + offset) * 10000) / 10000;
-		if (time - last < MIN_HIT_GAP) continue;
+		// A recording that starts before 0 has its beginning cut from the film
+		if (time < 0 || time - last < MIN_HIT_GAP) continue;
 		if (existing.some((item) => Math.abs(item - time) < MIN_HIT_GAP)) continue;
 		times.push(time);
 		last = time;

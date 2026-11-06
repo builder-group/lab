@@ -14,3 +14,11 @@ export function parseTime(text: string): number | null {
 	const time = minutes * 60 + seconds;
 	return Number.isFinite(time) ? time : null;
 }
+
+/** A time that may lie before 0, as a song's start can: "-1.5" or "−0:01.50" */
+export function parseSignedTime(text: string): number | null {
+	const value = text.trim();
+	const isBefore = /^[-−]/.test(value);
+	const time = parseTime(isBefore ? value.slice(1) : value);
+	return time != null && isBefore ? -time : time;
+}

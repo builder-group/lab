@@ -1,13 +1,15 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
 import { moveSongCommands } from '@/modules/building';
-import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, missingRecordings, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
+import { computePeaks, createImportCommands, IMPORT_RELEASE_LEAD, decodeAudioFile, detectOnsets, instruments, missingRecordings, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
 import { createId, earliestSongStart, formatTime, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
-// Imported music starts after this lead-in so the first marble has time to fall
-export const IMPORT_START = 1;
+// A song's first note lands here, so the marble that plays it is released at 0: the film's first frame is 0 on the timeline
+export const IMPORT_START = IMPORT_RELEASE_LEAD;
+// What stays of a recording dragged before 0, so its clip can still be taken hold of
+const KEPT_OF_RECORDING = 1;
 // How often a missing recording is looked for again, so one put back counts without a restart
 export const RECORDING_RECHECK_MS = 2000;
 
@@ -126,16 +128,17 @@ export class SourcesCx {
 			return;
 		}
 		const replaced = project.songs.find((item) => item.id === replaces);
-		const source: TSong = {
+		const opened: TSong = {
 			id: replaced?.id ?? createId('song'),
 			kind: 'audio',
 			path: relativePath,
 			name: file.name,
-			start: replaced?.start ?? this.nextStart(),
+			start: replaced?.start ?? 0,
 			...carriedOver(replaced == null ? [] : [replaced])
 		};
-		const analysis = await this.analyze(source);
+		const analysis = await this.analyze(opened);
 		if (analysis == null) return;
+		const source = replaced != null ? opened : { ...opened, start: this.nextStart(analysis.onsets[0]) };
 		this.studio.execute([
 			{ type: 'addSong', song: source },
 			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
@@ -182,11 +185,24 @@ export class SourcesCx {
 		this.studio.notifyEdit(`${words} after the film's end at ${formatTime(project.length)}.`, [{ label: 'Fit to Song', title: 'End the film just after the song', run: () => void this.studio.fitToSong() }], { isUndoFirst: true });
 	}
 
-	/** Where a new song starts: after the lead-in when it is the first, at the playhead beside other songs, like Logic */
-	private nextStart(): number {
+	/**
+	 * Where a new song starts: at the playhead beside other songs, like Logic. The first one starts so its first note lands
+	 * at `IMPORT_START`; a recording at 0, later only by what its first beat, `firstBeat` into the file, needs for a marble to reach it.
+	 */
+	private nextStart(firstBeat?: number): number {
 		const project = this.studio.project;
 		const playhead = this.studio.$playhead.get();
-		return project != null && shownSongs(project).length > 0 && playhead > 0 ? Math.round(playhead * 1000) / 1000 : IMPORT_START;
+		if (project != null && shownSongs(project).length > 0 && playhead > 0) return Math.round(playhead * 1000) / 1000;
+		return firstBeat == null ? IMPORT_START : Math.max(0, Math.round((IMPORT_START - firstBeat) * 1000) / 1000);
+	}
+
+	/** The earliest this song can start, keeping a piece of a recording on the timeline */
+	earliestStart(songId: string): number {
+		const project = this.studio.project;
+		const song = project?.songs.find((item) => item.id === songId);
+		if (project == null || song == null) return 0;
+		const duration = this.$analysis.get()[songId]?.duration;
+		return Math.max(earliestSongStart(project, songId), Math.min(song.start, duration != null ? KEPT_OF_RECORDING - duration : 0));
 	}
 
 	/** Moves a song and everything tied to it as one undo step, no earlier than it can go */
@@ -194,7 +210,7 @@ export class SourcesCx {
 		const project = this.studio.project;
 		const song = project?.songs.find((item) => item.id === songId);
 		if (project == null || song == null) return false;
-		const to = Math.round(Math.max(earliestSongStart(project, songId), start) * 10000) / 10000;
+		const to = Math.round(Math.max(this.earliestStart(songId), start) * 10000) / 10000;
 		if (to === song.start || !this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to))) return false;
 		this.sayHitsPastEnd();
 		return true;

@@ -20,8 +20,6 @@ export interface TSceneDescription {
 	/** Render frame rate keyframes are written at */
 	fps: number;
 	duration: number;
-	/** Seconds of the film's first frame, on a whole frame; absent is 0. The film ends at `duration` as ever */
-	filmStart?: number;
 	frame: { width: number; height: number };
 	/**
 	 * Built-in theme the look starts from: `pegboard`, `brass` or `neon`; unknown themes fall back to `pegboard`. A

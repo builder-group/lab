@@ -498,9 +498,8 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
     # The film opens with a marble where it is on its first frame, and it falls inside this box: the box holds still
     # until the first hit, so the smoothed target doesn't drift off it. After that it takes in the marbles as they go on
     released = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']]) and motions[marble['id']][0, 0] <= first + 1e-9]
-    opens = settings.get('filmStart', 0.0)
-    still_x = [piece[1] for piece in pieces] + [float(np.interp(opens, motions[marble['id']][:, 0], motions[marble['id']][:, 1])) for marble in released]
-    still_y = [piece[2] for piece in pieces] + [float(np.interp(opens, motions[marble['id']][:, 0], motions[marble['id']][:, 2])) for marble in released]
+    still_x = [piece[1] for piece in pieces] + [float(motions[marble['id']][0, 1]) for marble in released]
+    still_y = [piece[2] for piece in pieces] + [float(motions[marble['id']][0, 2]) for marble in released]
     points = [marble_point(marble, motions, sample) for marble in released]
     right, image_up, toward = axes
     point = np.zeros((count, 2))

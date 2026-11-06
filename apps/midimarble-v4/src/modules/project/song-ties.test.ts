@@ -83,10 +83,16 @@ describe('moveSong command', () => {
 		expect(applyProjectCommands(from, [{ type: 'moveSong', songId: 'nope', start: 1 }])[0]).toBe(false);
 	});
 
-	it('should not cut a recording off at the start', () => {
-		const from = project([song('a', { kind: 'audio', start: 0.75 })], [own('x', 0.2)]);
+	it('should let a recording start before 0, like trimming a clip, as far as what goes with it allows', () => {
+		const alone = project([song('a', { kind: 'audio', start: 0.75 })], [own('x', 0.2)]);
+		expect(earliestSongStart(alone, 'a')).toBe(Number.NEGATIVE_INFINITY);
 
-		expect(earliestSongStart(from, 'a')).toBe(0);
+		const [isOk, error, moved] = applyProjectCommands(alone, [{ type: 'moveSong', songId: 'a', start: -3 }]);
+		if (!isOk) throw error;
+		expect(moved.songs[0]?.start).toBe(-3);
+
+		const withHit = project([song('a', { kind: 'audio', start: 0.75 })], [tied('t', 2)]);
+		expect(earliestSongStart(withHit, 'a')).toBeCloseTo(0.25, 6);
 	});
 
 	it('should not change a start through updateSong, which would leave the hits behind', () => {

@@ -65,7 +65,7 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
     }
 
     scene = bpy.context.scene
-    set_frame_rate(scene, fps, duration, float(description.get('filmStart') or 0.0))
+    set_frame_rate(scene, fps, duration)
     studio.set_resolution(scene, description.get('frame') or {'width': 9, 'height': 16})
     theme = themes.theme_name(description.get('theme'))
     # A project theme: its base in `theme`, its colors here. Every theme lookup of this apply reads them.
@@ -126,7 +126,6 @@ def apply_scene(project_dir, args, progress=lambda fraction, phase: None):
         camera_settings = camera.settings_from(description['camera'], themes.theme_settings(theme))
     if camera_settings is not None:
         camera_settings['opening'] = camera.opening_pieces(pieces)
-        camera_settings['filmStart'] = float(description.get('filmStart') or 0.0)
     report['camera'] = studio.update_camera(
         scene, bounds, camera_settings, marbles, marble_motion, fps)
     report['cameraFramed'] = report['camera'] in ('framed', 'baked')
@@ -446,13 +445,13 @@ def read_motion(project_dir, relative, columns, expected_count):
     return records
 
 
-def set_frame_rate(scene, fps, duration, film_start=0.0):
-    """Frame f shows time f / fps, so the timeline keeps its times and a film that opens later starts on a later frame"""
+def set_frame_rate(scene, fps, duration):
+    """Frame f shows time f / fps, so the timeline keeps its times"""
     whole = max(1, round(fps))
     scene.render.fps = whole
     scene.render.fps_base = whole / fps
     scene.frame_end = max(1, math.ceil(duration * fps - 1e-6))
-    scene.frame_start = min(scene.frame_end - 1, max(0, round(film_start * fps)))
+    scene.frame_start = 0
 
 
 def scene_bounds(marbles, marble_motion, pieces):

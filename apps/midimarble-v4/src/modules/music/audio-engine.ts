@@ -1,5 +1,5 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
-import { filmStartOf, type TMarble, type TProject, type TSong } from '@/modules/project';
+import type { TMarble, TProject, TSong } from '@/modules/project';
 import { levelSignature, melodyMarbleId, renderMix } from './default-mix';
 import { normalizeLoudness, type TLoudness } from './loudness';
 import { backingVoices, mixAudioSource, renderMarbles, soundingMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
@@ -194,7 +194,7 @@ export async function renderProjectAudio(
 
 /**
  * The film's sound as Export writes it, for every quality alike: what's heard of `project` (`heard`, with what is muted left
- * out), from the film's first frame on, at the film's loudness.
+ * out), at the film's loudness.
  */
 export async function renderFilmSoundtrack(
 	project: TProject,
@@ -202,9 +202,7 @@ export async function renderFilmSoundtrack(
 	options: { heard?: TProject; sampleRate?: number; bank?: BasicSoundBank } = {}
 ): Promise<{ audio: TStereoAudio; loudness: TLoudness }> {
 	const { heard = project, sampleRate = SAMPLE_RATE, bank } = options;
-	const whole = await renderProjectAudio(heard, resolveSourceUrl, { sampleRate, bank, mixedAs: project });
-	const from = Math.min(whole.left.length, Math.round(filmStartOf(project) * sampleRate));
-	const audio = { sampleRate, left: whole.left.slice(from), right: whole.right.slice(from) };
+	const audio = await renderProjectAudio(heard, resolveSourceUrl, { sampleRate, bank, mixedAs: project });
 	return { audio, loudness: normalizeLoudness(audio) };
 }
 

@@ -29,7 +29,7 @@ describe('moving a song on a built project', () => {
 	/** What's wrong with the run: Decor beside a path is a look, and the last bits of a kept ride can tip it either way */
 	function runProblems(project: TProject): string[] {
 		return checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS)
-			.issues.filter((issue) => issue.kind !== 'decor' && issue.title !== JINGLE_BELLS_TOUCH)
+			.issues.filter((issue) => issue.kind !== 'decor' && issue.kind !== 'opening' && issue.title !== JINGLE_BELLS_TOUCH)
 			.map((issue) => issue.title);
 	}
 

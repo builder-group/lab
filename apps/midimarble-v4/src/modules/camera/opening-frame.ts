@@ -1,13 +1,15 @@
 import { melodyMarbleId } from '@/modules/music';
-import { filmStartOf, type TProject } from '@/modules/project';
+import type { TProject, TVec2 } from '@/modules/project';
 import { decorItem, decorList } from '@/modules/scene';
-import type { TSimulationResult } from '@/modules/simulation';
+import type { TMarbleTrack, TSimulationResult } from '@/modules/simulation';
 import type { TCameraTrack } from './follow-camera';
-import { marbleFrameShare, marblePosition, projectToFrame } from './framing';
+import { marbleFrameShare, projectToFrame } from './framing';
 
 // What a viewer's first frame holds, in numbers anyone can check on the still. Measurable facts only, and never taste: each
 // one is a note a person can ignore.
 
+/** A marble released this soon after 0 counts as on the first frame */
+const RELEASED_WITHIN = 0.1;
 /** The marble's width as a share of the frame's width that still reads on a phone; top shorts show 6.5 to 8 % */
 export const MARBLE_SHARE = 0.06;
 /** Pieces a first frame shows, so it reads as a track rather than a marble on a wall */
@@ -34,17 +36,24 @@ export interface TOpeningFrame {
 	underButtons: string[];
 }
 
+/** Where a marble is on the first frame: its release, which an import puts at or just after 0. Null when it comes later */
+function openingPosition(track: TMarbleTrack): TVec2 | null {
+	const first = track.samples[0];
+	return first != null && first.time <= RELEASED_WITHIN ? first.position : null;
+}
+
 /** The first frame by the camera the film bakes. Null without a marble that has hits */
 export function measureOpeningFrame(project: TProject, result: TSimulationResult, track: TCameraTrack): TOpeningFrame | null {
 	const heroId = melodyMarbleId(project) ?? project.marbles.find((marble) => marble.hits.length > 0)?.id;
 	const hero = project.marbles.find((marble) => marble.id === heroId);
 	const heroTrack = result.marbles.find((marble) => marble.marbleId === heroId);
 	if (hero == null || heroTrack == null) return null;
-	const time = filmStartOf(project);
-	const frame = Math.min(track.frameCount - 1, Math.round(time * track.fps));
+	// The film's first frame is 0 on the timeline
+	const time = 0;
+	const frame = 0;
 	const inFrame = ([u, v]: [number, number]): boolean => u >= 0 && u <= 1 && v >= 0 && v <= 1;
 
-	const heroPoint = marblePosition(heroTrack, time);
+	const heroPoint = openingPosition(heroTrack);
 	const heroAt = heroPoint != null ? projectToFrame(track, frame, heroPoint.x, heroPoint.y) : null;
 	const isHeroShown = heroAt != null && inFrame(heroAt);
 	const heroShare = isHeroShown && heroPoint != null ? marbleFrameShare(track, frame, heroPoint, hero.radius) : 0;
@@ -66,7 +75,7 @@ export function measureOpeningFrame(project: TProject, result: TSimulationResult
 	const underButtons: string[] = [];
 	for (const marble of project.marbles) {
 		const track_ = result.marbles.find((item) => item.marbleId === marble.id);
-		const point = track_ != null && marble.hits.length > 0 ? marblePosition(track_, time) : null;
+		const point = track_ != null && marble.hits.length > 0 ? openingPosition(track_) : null;
 		if (point != null && isUnderButtons(projectToFrame(track, frame, point.x, point.y))) underButtons.push(marble.name);
 	}
 	const firstHit = result.hits.reduce<(typeof result.hits)[number] | null>((first, hit) => (hit.dot != null && (first == null || hit.targetTime < first.targetTime) ? hit : first), null);

@@ -32,7 +32,7 @@ const SRemovePieces = z.strictObject({ type: z.literal('removePieces'), pieceIds
 const SAddGroup = z.strictObject({ type: z.literal('addGroup'), group: SGroup });
 const SUpdateGroup = z.strictObject({ type: z.literal('updateGroup'), groupId: z.string(), patch: patchOf(SGroup) });
 const SRemoveGroups = z.strictObject({ type: z.literal('removeGroups'), groupIds: z.array(z.string()) });
-const SUpdateFilm = z.strictObject({ type: z.literal('updateFilm'), film: SFilm.partial().extend({ start: SFilm.shape.start.nullable() }) });
+const SUpdateFilm = z.strictObject({ type: z.literal('updateFilm'), film: SFilm.partial() });
 
 export const SProjectCommand = z.discriminatedUnion('type', [SUpdateProject, SAddSong, SUpdateSong, SMoveSong, SRemoveSong, SAddMarble, SUpdateMarble, SRemoveMarble, SUpsertHits, SRemoveHits, SAssignHits, SAddPiece, SUpdatePiece, SRemovePieces, SAddGroup, SUpdateGroup, SRemoveGroups, SUpdateFilm]);
 
@@ -146,7 +146,6 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok({ ...project, track: { ...project.track, groups: project.track.groups.filter((group) => !removed.has(group.id)) } });
 		}
 		case 'updateFilm': {
-			// A null `start` goes back to the automatic start
 			const film = patched(project.film, command.film);
 			// The follow camera reads shot markers in time order
 			const sorted = command.film.camera != null ? { camera: { ...film.camera, shots: [...film.camera.shots].sort((a, b) => a.time - b.time) } } : {};
@@ -213,14 +212,18 @@ export function songPlayingAt(project: Pick<TProject, 'songs'>, time: number): T
 		.sort((a, b) => b.start - a.start)[0];
 }
 
-/** The earliest a song can start: no note before 0, no recording cut off and no release of a marble that goes with it before 0 */
+/**
+ * The earliest a song can start: no note before 0 and no release of a marble that goes with it before 0. A recording may
+ * start before 0, which cuts what comes before 0 from the film like trimming a clip; on its own it has no limit here.
+ */
 export function earliestSongStart(project: Pick<TProject, 'songs' | 'marbles'>, songId: string): number {
 	const song = project.songs.find((item) => item.id === songId);
 	if (song == null) return 0;
 	const tied = project.marbles.flatMap((marble) => marble.hits.filter((hit) => hit.songId === songId).map((hit) => hit.time));
 	const releases = project.marbles.filter((marble) => playsOnlySong(marble, songId)).map((marble) => marble.start.time);
-	const room = Math.min(...tied, ...song.backing.map((hit) => hit.time), ...releases, ...(song.kind === 'audio' && song.path != null ? [song.start] : []));
-	return Number.isFinite(room) ? song.start - room : 0;
+	const room = Math.min(...tied, ...song.backing.map((hit) => hit.time), ...releases);
+	if (Number.isFinite(room)) return song.start - room;
+	return song.kind === 'audio' && song.path != null ? Number.NEGATIVE_INFINITY : 0;
 }
 
 /** Whether every hit of a marble is tied to the song, so its whole run moves with it */

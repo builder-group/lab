@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatTime } from './format';
-import { parseTime } from './parse-time';
+import { formatSignedTime, formatTime } from './format';
+import { parseSignedTime, parseTime } from './parse-time';
 
 describe('parseTime function', () => {
 	it('should read minutes, seconds and hundredths', () => {
@@ -24,5 +24,14 @@ describe('parseTime function', () => {
 		expect(parseTime('abc')).toBeNull();
 		expect(parseTime('-3')).toBeNull();
 		expect(parseTime('1:75')).toBeNull();
+	});
+});
+
+describe('parseSignedTime function', () => {
+	it('should read a time before 0 as formatSignedTime writes it', () => {
+		expect(parseSignedTime(formatSignedTime(-2.5))).toBeCloseTo(-2.5);
+		expect(parseSignedTime('-1.5')).toBeCloseTo(-1.5);
+		expect(parseSignedTime('0:03')).toBeCloseTo(3);
+		expect(parseSignedTime('-abc')).toBeNull();
 	});
 });

@@ -23,8 +23,8 @@ function studio(from: TProject, onsets: Record<string, number[]>): StudioCx {
 }
 
 describe('adding a second song', () => {
-	it('should start its first note where it is asked, after the lead-in by default', () => {
-		expect(previewMidiImport(midiImport()).marbles[0]?.map((item) => item.time)).toEqual([1, 2]);
+	it('should start its first note where it is asked, by default so its marble is released at 0', () => {
+		expect(previewMidiImport(midiImport()).marbles[0]?.map((item) => item.time)).toEqual([0.5, 1.5]);
 		expect(previewMidiImport(midiImport(8)).marbles[0]?.map((item) => item.time)).toEqual([8, 9]);
 	});
 

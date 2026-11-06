@@ -1,4 +1,4 @@
-import { filmStartOf, marbleFilmColor, type TFilm, type TPiece, type TProject, type TThemeParts, tieOf } from '@/modules/project';
+import { marbleFilmColor, type TFilm, type TPiece, type TProject, type TThemeParts, tieOf } from '@/modules/project';
 import { PLAIN_PIECE_COLOR } from './draft-look';
 import { pieceLabelColor } from './label-colors';
 import { baseThemeOf, defaultTitleColor, resolveElementLook, sceneThemeOverrides, sceneThemeParts } from './project-themes';
@@ -50,7 +50,6 @@ export function buildSceneDescription(
 	options: { fps: number }
 ): TSceneBuild {
 	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
-	const filmStart = filmStartOf(project);
 	const motionFiles: TMotionFile[] = [];
 
 	const marbleFor = (track: TMarbleTrack, id: string, samples: TMarbleSample[]): TSceneMarble => {
@@ -125,7 +124,6 @@ export function buildSceneDescription(
 			revision: project.revision,
 			fps: options.fps,
 			duration: result.duration,
-			...(filmStart > 0 ? { filmStart } : {}),
 			frame: { width: project.format.width, height: project.format.height },
 			theme: baseThemeOf(project.film),
 			...themeOverridesOf(project),

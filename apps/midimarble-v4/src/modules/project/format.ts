@@ -6,6 +6,11 @@ export function formatTime(seconds: number): string {
 	return `${minutes}:${rest.toFixed(2).padStart(5, '0')}`;
 }
 
+/** A time that may lie before 0, as a song's start can */
+export function formatSignedTime(seconds: number): string {
+	return seconds < 0 ? `−${formatTime(-seconds)}` : formatTime(seconds);
+}
+
 export const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 
 export function noteName(pitch: number): string {

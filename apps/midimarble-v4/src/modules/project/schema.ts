@@ -369,8 +369,6 @@ export const SFilm = z.strictObject({
 	// The titles, in Layers order
 	titles: z.array(STitle),
 	quality: z.enum(['draft', 'final']),
-	// Timeline seconds of the film's first frame, set by a person; absent is automatic (`filmStartOf`)
-	start: z.number().nonnegative().optional(),
 	camera: z.strictObject({
 		// Follow Marbles: on, the app moves the camera; off, it's moved in Blender
 		auto: z.boolean(),

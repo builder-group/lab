@@ -8,7 +8,7 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, selectionProble
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
 import { autoLevelLabel, DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, formatLevel, instruments, LEVEL_CHOICES, marbleSounds, melodyMarbleId, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, filmStartOf, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
+import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatSignedTime, formatTime, parseSignedTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { SONG_LAYER_LABEL } from './song-layer';
@@ -468,7 +468,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject; songId: string 
 						</span>
 					</ReadoutField>
 				) : null}
-				<ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="" step={0.01} format={formatTime} parse={parseTime} onCommit={(value) => cx.sources.moveSong(song.id, value)} />
+				<ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="" step={0.01} format={formatSignedTime} parse={parseSignedTime} onCommit={(value) => cx.sources.moveSong(song.id, value)} />
 				{tempo != null ? (
 					<>
 						<ReadoutField label="Tempo" name="Tempo">
@@ -522,18 +522,6 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Packs… exports a look as a Pack. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
 					<ThemeRow cx={cx} project={project} />
 					<FormatField cx={cx} project={project} />
-					<TextField
-						id="film-start"
-						label="Starts"
-						name="Where the film starts on the timeline. Empty: just before the first sound"
-						value={project.film.start != null ? formatTime(project.film.start) : ''}
-						placeholder={`Auto · ${formatTime(filmStartOf({ ...project, film: { ...project.film, start: undefined } }))}`}
-						onCommit={(text) => {
-							const start = text.trim() === '' ? null : parseTime(text);
-							if (start == null && text.trim() !== '') return;
-							cx.execute([{ type: 'updateFilm', film: { start } }]);
-						}}
-					/>
 				</Panel>
 			) : (
 				<Panel id="scene.track" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>

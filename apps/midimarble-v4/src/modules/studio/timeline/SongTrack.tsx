@@ -2,7 +2,7 @@ import { AudioLines, ChevronRight, Music } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, earliestSongStart, hitsOfSong, type TProject, type TSong, toHitKey, formatTime, toSongKey } from '@/modules/project';
+import { BACKING_ID, hitsOfSong, type TProject, type TSong, toHitKey, formatTime, toSongKey } from '@/modules/project';
 import { songMenu } from '../menus';
 import type { TSourceAnalysis } from '../SourcesCx';
 import type { StudioCx } from '../StudioCx';
@@ -51,7 +51,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 		onPointerMove: (event: React.PointerEvent<HTMLElement>) => {
 			if (moveStartRef.current == null) return;
 			const deltaX = event.clientX - moveStartRef.current;
-			onMove({ songId: song.id, delta: Math.abs(deltaX) < TIME_DEAD_ZONE ? 0 : Math.max(earliestSongStart(project, song.id) - song.start, Math.round(deltaX / zoom / SONG_MOVE_STEP) * SONG_MOVE_STEP) });
+			onMove({ songId: song.id, delta: Math.abs(deltaX) < TIME_DEAD_ZONE ? 0 : Math.max(cx.sources.earliestStart(song.id) - song.start, Math.round(deltaX / zoom / SONG_MOVE_STEP) * SONG_MOVE_STEP) });
 		},
 		onPointerUp: () => {
 			moveStartRef.current = null;

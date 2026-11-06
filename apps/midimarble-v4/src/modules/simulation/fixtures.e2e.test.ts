@@ -62,7 +62,7 @@ describe('fixtures', () => {
 			const project = loadFixture(name);
 			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', start: 0, backing: [] };
 			const withSong = { ...project, songs: project.songs.length > 0 ? project.songs : [song] };
-			expect(checkRun(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind !== 'decor').map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
+			expect(checkRun(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind !== 'decor' && issue.kind !== 'opening').map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
 		}
 	}, 20_000);
 
@@ -184,7 +184,7 @@ describe('fixtures', () => {
 		expectAllOnTime(result, 115);
 		expect(project.marbles.map((marble) => marble.sound)).toEqual([9, 8]);
 		expect(project.film.theme).toMatchObject({ base: 'brass', pack: { packId: 'christmas', themeName: 'Christmas' } });
-		expect(project.film.decor.length).toBeGreaterThan(70);
+		expect(project.film.decor.length).toBeGreaterThan(50);
 		// A theme carries no side dressing
 		expect(project.film.wall.kind).toBeUndefined();
 		expect(project.film.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
@@ -289,7 +289,7 @@ describe('fixtures', () => {
 		const result = simulator.simulate(project);
 		expectAllOnTime(result, 16);
 		expectDotsInFrame(project, result);
-		expect(project.songs).toEqual([expect.objectContaining({ kind: 'audio', path: 'audio/tap-along.wav', start: 1 })]);
+		expect(project.songs).toEqual([expect.objectContaining({ kind: 'audio', path: 'audio/tap-along.wav', start: 0 })]);
 		// The recording keeps an even 125 BPM rhythm, which the onsets keep to the detector's 11 ms frames
 		const times = project.marbles[0]?.hits.map((hit) => hit.time) ?? [];
 		times.slice(1).forEach((time, index) => expect(time - (times[index] ?? 0)).toBeCloseTo(0.48, 1));

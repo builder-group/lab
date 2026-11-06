@@ -30,7 +30,7 @@ function studio(project: TProject) {
 		$playing: createState(false),
 		$playhead: createState(0),
 		$selection: createState<string[]>([]),
-		audio: { isPlaying: () => true, getTime: () => 1 },
+		audio: { isPlaying: () => true, getTime: () => 1.2 },
 		notify: vi.fn(),
 		execute: vi.fn(() => true),
 		tapHit: StudioCx.prototype.tapHit
@@ -109,7 +109,7 @@ describe('hits work without a Song', () => {
 		cx.tapHit();
 
 		const commands = cx.execute.mock.calls[0] as unknown as [{ hits: { time: number }[] }[]];
-		expect(commands[0][0]?.hits[0]?.time).toBe(1);
+		expect(commands[0][0]?.hits[0]?.time).toBe(1.2);
 	});
 });
 
