@@ -523,7 +523,7 @@ function addHop(walker: TMarbleWalk, hop: TWalkHop): void {
 function advanceWalker(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): void {
 	const track = hop.record.marbles[hop.track];
 	addHop(walker, hop);
-	applyRotors(walk, hop.record, hop.origin);
+	applyRotors(walk, hop.record);
 	if (track == null) return;
 	walker.status = track.status;
 	walker.state = track.end;
@@ -750,21 +750,25 @@ function applyPlacements(walk: TWalk, record: THopRecord, origin: TVec2, walkers
 	}
 }
 
+/** Places a piece where it waits while its marble is released; false when it follows the marble */
+function placeHeld(walk: TWalk, event: TPlanEvent, radius: number, marbleIndex: number): boolean {
+	const held = heldBy(walk, event);
+	if (held == null) return false;
+	const input = eventLayoutInput(event, radius);
+	const { dot, velocity } = held;
+	const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
+	const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
+	if (event.isAnchor) resolved.entryTime = event.time;
+	walk.placements.set(event.pieceId, { piece: resolved, dot, velocity, marbleIndex, step: event.step });
+	placeOnWall(walk, event, layout, marbleIndex, zeroOrigin(), layout.shapes);
+	return true;
+}
+
 function applyPlaced(walk: TWalk, record: THopRecord, track: THopMarble, placed: THopPlaced, origin: TVec2): void {
 	const event = walk.plan.events[placed.eventIndex];
 	const marble = walk.plan.marbles[track.index];
 	if (event == null || marble == null) return;
-	const held = heldBy(walk, event);
-	if (held != null) {
-		const input = eventLayoutInput(event, marble.radius);
-		const { dot, velocity } = held;
-		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
-		const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
-		if (event.isAnchor) resolved.entryTime = event.time;
-		walk.placements.set(event.pieceId, { piece: resolved, dot, velocity, marbleIndex: track.index, step: event.step });
-		placeOnWall(walk, event, layout, track.index, zeroOrigin(), layout.shapes);
-		return;
-	}
+	if (placeHeld(walk, event, marble.radius, track.index)) return;
 	const layout = keptLayout(record, event, marble.radius, placed, origin);
 	const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, placed.isBlocked ? 'blocked' : 'placed', event.railLayout);
 	if (event.isAnchor) resolved.entryTime = event.time;
@@ -802,8 +806,7 @@ function placeOnWall(walk: TWalk, event: TPlanEvent, layout: TPieceLayout, marbl
 	walk.lowestPieceY = Math.min(walk.lowestPieceY, lowPointOf(layout));
 }
 
-function applyRotors(walk: TWalk, record: THopRecord, origin: TVec2): void {
-	void origin;
+function applyRotors(walk: TWalk, record: THopRecord): void {
 	for (const run of record.rotors) {
 		const rotor = walk.rotors.find((item) => item.pieceId === run.pieceId);
 		if (rotor == null) continue;
@@ -827,16 +830,7 @@ function placeRemaining(walk: TWalk): void {
 	for (const event of plan.events) {
 		if (walk.placements.has(event.pieceId)) continue;
 		const marble = plan.marbles[event.marbleIndex];
-		const held = heldBy(walk, event);
-		if (held != null && marble != null && event.step <= plan.endStep) {
-			const input = eventLayoutInput(event, marble.radius);
-			const { dot, velocity } = held;
-			const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
-			const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
-			if (event.isAnchor) resolved.entryTime = event.time;
-			walk.placements.set(event.pieceId, { piece: resolved, dot, velocity, marbleIndex: event.marbleIndex, step: event.step });
-			continue;
-		}
+		if (marble != null && event.step <= plan.endStep && placeHeld(walk, event, marble.radius, event.marbleIndex)) continue;
 		const unreached: TResolvedPiece = {
 			pieceId: event.pieceId,
 			type: event.definition.type,
@@ -982,7 +976,7 @@ function runShared(walk: TWalk, store: THopStore, walkers: TMarbleWalk[], from: 
 		keepHop(store, record);
 	}
 	applyPlacements(walk, record, origin, walkers);
-	applyRotors(walk, record, origin);
+	applyRotors(walk, record);
 	marbles.forEach((entry, track) => {
 		const { walker } = entry;
 		const part = record.marbles[track];
@@ -1024,7 +1018,6 @@ interface TLiveRotor {
 	hub: TVec2;
 	angles: number[];
 	spins: number[];
-	struck: boolean;
 	/** The two last angles */
 	previous: number;
 	last: number;
@@ -1121,7 +1114,7 @@ function runStretch(walk: TWalk, stretch: TStretch): THopRecord {
 		let hasEntered = false;
 		for (const marble of live) {
 			if (marble.entered || marble.from > step) continue;
-			enterMarble(walk, world, colliders, marble, step, origin);
+			enterMarble(world, colliders, marble, step);
 			hasEntered = true;
 		}
 		while (eventIndex < stretch.events.length && (stretch.events[eventIndex]?.event.step ?? Infinity) <= step) {
@@ -1138,7 +1131,7 @@ function runStretch(walk: TWalk, stretch: TStretch): THopRecord {
 		record.steps++;
 		if (step - from === CARRIED_STEPS) for (const marble of live) marble.carried.clear();
 		followRides(plan, live, step);
-		sampleMarbles(walk, world, colliders, live, step, record, stretch.fallY, origin);
+		sampleMarbles(world, colliders, live, step, record, stretch.fallY, origin);
 		for (const rotor of liveRotors) {
 			const rotation = rotor.body.rotation();
 			rotor.last = 2 * Math.atan2(rotation.z, rotation.w);
@@ -1173,7 +1166,7 @@ function bodyState(body: RAPIER.RigidBody): TBodyState {
 	return { x: position.x, y: position.y, vx: velocity.x, vy: velocity.y, qz: rotation.z, qw: rotation.w, spin: body.angvel().z };
 }
 
-function enterMarble(walk: TWalk, world: RAPIER.World, colliders: Map<number, TColliderInfo>, marble: TLiveMarble, step: number, origin: TVec2): void {
+function enterMarble(world: RAPIER.World, colliders: Map<number, TColliderInfo>, marble: TLiveMarble, step: number): void {
 	const { start } = marble;
 	const body = world.createRigidBody(
 		RAPIER.RigidBodyDesc.dynamic()
@@ -1202,8 +1195,6 @@ function enterMarble(walk: TWalk, world: RAPIER.World, colliders: Map<number, TC
 	const time = step / PHYSICS_HZ;
 	marble.last = { time, position: { x: start.x, y: start.y }, angle: 2 * Math.atan2(start.qz, start.qw), velocity: { x: start.vx, y: start.vy } };
 	marble.before = null;
-	void walk;
-	void origin;
 }
 
 /** Places an event's piece where its marble is, and returns its index on the wall, -1 when none enters */
@@ -1211,14 +1202,9 @@ function placeInWorld(walk: TWalk, ref: TEventRef, marble: TLiveMarble, step: nu
 	const { event } = ref;
 	const { plan } = walk;
 	const last = marble.last;
-	const held = heldBy(walk, event);
 	const placed: THopPlaced = { eventIndex: ref.index, x: 0, y: 0, vx: 0, vy: 0, sampleCount: marble.result.samples.length, isBlocked: false };
-	if (held != null) {
+	if (placeHeld(walk, event, marble.radius, marble.result.index)) {
 		marble.result.placed.push(placed);
-		const input = eventLayoutInput(event, marble.radius);
-		const { dot, velocity } = held;
-		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
-		placeOnWall(walk, event, layout, marble.result.index, zeroOrigin(), layout.shapes);
 		return walk.onWall.get(event.pieceId) ?? -1;
 	}
 	if (last == null || marble.result.status !== 'live' || event.step !== step) return -1;
@@ -1281,9 +1267,8 @@ function followRides(plan: TPlan, live: TLiveMarble[], step: number): void {
 	}
 }
 
-function sampleMarbles(walk: TWalk, world: RAPIER.World, colliders: Map<number, TColliderInfo>, live: TLiveMarble[], step: number, record: THopRecord, fallY: number, origin: TVec2): void {
+function sampleMarbles(world: RAPIER.World, colliders: Map<number, TColliderInfo>, live: TLiveMarble[], step: number, record: THopRecord, fallY: number, origin: TVec2): void {
 	const time = step / PHYSICS_HZ;
-	void walk;
 	for (const marble of live) {
 		const { body } = marble;
 		if (body == null || marble.result.status !== 'live') continue;
@@ -1443,7 +1428,7 @@ function addRotorBody(world: RAPIER.World, colliders: Map<number, TColliderInfo>
 		.setCanSleep(false);
 	const body = world.createRigidBody(bodyDesc);
 	const angle = 2 * Math.atan2(state.qz, state.qw);
-	const live: TLiveRotor = { run, from: step, body, hub, angles: [], spins: [], struck: false, previous: angle, last: angle };
+	const live: TLiveRotor = { run, from: step, body, hub, angles: [], spins: [], previous: angle, last: angle };
 	for (const shape of rotor.localShapes) {
 		let desc: RAPIER.ColliderDesc;
 		if (shape.kind === 'box') {
