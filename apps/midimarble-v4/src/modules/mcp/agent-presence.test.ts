@@ -34,7 +34,8 @@ describe('Presence words', () => {
 
 	it('should say what a call is doing and nothing for what only reads', () => {
 		expect(presenceLabel('run_command', { id: 'build.track' }, titleOf)).toBe('Building Track');
-		expect(presenceLabel('run_command', { id: 'view.track' }, titleOf)).toBe('Track');
+		expect(presenceLabel('run_command', { id: 'view.track' }, titleOf)).toBeNull();
+		expect(presenceLabel('run_command', { id: 'play.toggle' }, titleOf)).toBeNull();
 		expect(presenceLabel('run_command', { id: 'project.execute', args: { label: 'Tilt Platform 12' } }, titleOf)).toBe('Tilting Platform 12');
 		expect(presenceLabel('run_command', { id: 'project.execute', args: {} }, titleOf)).toBe('Editing');
 		expect(presenceLabel('preview_frame', { time: 12 }, titleOf)).toContain('Looking at');

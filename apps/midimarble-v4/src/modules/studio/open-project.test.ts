@@ -12,6 +12,7 @@ describe('StudioCx openProject function', () => {
 		const remembered = vi.fn(async () => undefined);
 		vi.spyOn(host, 'openProject').mockResolvedValue([true, null, { path: '/Song.marble', projectJson }] as never);
 		vi.spyOn(host, 'rememberRecentProject').mockImplementation(remembered);
+		vi.spyOn(host, 'listRecentProjects').mockResolvedValue([]);
 		return { cx: new StudioCx(), remembered };
 	}
 

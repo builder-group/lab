@@ -618,6 +618,11 @@ export class StudioCx {
 	private async confirmClose(): Promise<boolean> {
 		const project = this.project;
 		if (project == null || !this.hasUnsavedChanges()) return true;
+		// No one answers the alert for an agent, and its call must not wait for a person who may not be there
+		if (this.isInAgentStep) {
+			this.notify(`${project.title} has unsaved changes, so it stays open. Save it first with file.save and a path, or ask the person.`, 'error');
+			return false;
+		}
 		this.answerClosePrompt?.('cancel');
 		const choice = await new Promise<TClosePromptChoice>((resolve) => {
 			this.answerClosePrompt = resolve;
@@ -732,7 +737,8 @@ export class StudioCx {
 		const stepName = this.stepLabels.get(present) ?? label;
 		this.stepLabels.set(present, stepName);
 		const said = step.notices.filter((notice) => notice.tone !== 'error').pop()?.message;
-		this.notifyEdit(said != null ? `${stepName}: ${said}` : stepName);
+		// What the step reported says more than its name: "Agent: Built the track: 115 of 115 hits on time"
+		this.notifyEdit(said != null ? `Agent: ${said}` : stepName);
 		return { stepName, notices: step.notices };
 	}
 

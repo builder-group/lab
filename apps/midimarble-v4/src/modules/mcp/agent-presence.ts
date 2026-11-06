@@ -85,7 +85,8 @@ export function presenceLabel(tool: string, args: unknown, titleOf: (id: string)
 	switch (tool) {
 		case 'run_command': {
 			const id = given['id'];
-			if (typeof id !== 'string' || id === 'build.stop' || id === 'edit.select') return null;
+			// Looking changes nothing, so it's no work to report or stop
+			if (typeof id !== 'string' || id === 'build.stop' || id === 'edit.select' || /^(view|play|workspace)\./.test(id)) return null;
 			if (id === 'project.execute') {
 				const label = (given['args'] as Record<string, unknown> | undefined)?.['label'];
 				return typeof label === 'string' && label.trim() !== '' ? doingWords(label) : 'Editing';

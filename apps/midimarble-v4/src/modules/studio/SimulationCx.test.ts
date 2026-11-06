@@ -86,6 +86,7 @@ async function setup(makeClient?: () => unknown): Promise<{ cx: SimulationCx; st
 		},
 		execute: (commands: TProjectCommand[], options: { amend?: boolean } = {}) => apply(commands, options.amend === true),
 		notify: vi.fn(),
+		notifyFailed: vi.fn(),
 		notifyEdit: vi.fn()
 	} as unknown as StudioCx;
 	const cx = new SimulationCx(studio);
