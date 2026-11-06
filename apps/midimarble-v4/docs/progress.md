@@ -11,7 +11,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
-- **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.5. Why: `references.md`.
+- **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.25. Why: `references.md`.
 - **Data:** `marble-project@6`, no migrations, since the app hasn't shipped.
 
 ## Verified
@@ -34,7 +34,8 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 
 ## Known problems
 
-- Build Track on Jingle Bells gets stuck on its first release position and goes through on the second. That is one song's luck, not a fix.
+- Build Track on Jingle Bells goes through on its first release position at Gravity 0.25 and needs the second at 0.3. That is one song's luck, not a fix.
+- At the default Gravity 0.25 a Zigzag Pattern misses hits at hops under about 0.3 s: 17 of the reference's 58 at Width 10 cm, 58 of 58 at Gravity 0.35. It says so as Problems.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it

@@ -92,11 +92,20 @@ Physics stays out of it:
 
 ## Measured limits
 
-**Density needs the camera, not gravity.** The drop per hit is (1 − e) / (1 + e) · gT² / 2. Half a bar per column at 0.4 s hits needs about 0.15 to 0.2× gravity, where Build Track leaves 9 to 34 of 47 hits open. Half gravity is the default: columns stack 1.7 times denser than at full gravity, and the run covers 40 % less wall.
+**Density needs gravity and short hops.** The drop per hit is (1 − e) / (1 + e) · gT² / 2. Gravity 0.25 is the default, with hops spaced for a 3.5 cm bar (`PLACEMENT_LENGTH`) and a bounce per bar that aims at the pace's drop. Frames every third of a second over 19 s, by the study's measure:
+
+| | Blobs per frame | At most 6 blobs | Cut by the edge | Coverage | Flow |
+|---|---|---|---|---|---|
+| Reference | 13.3 | 0 % | 3.4 | 14.1 % | 0.10 W/s |
+| `reference-20`, Gravity 0.25 | 9.0 | 3.5 % | 1.5 | 8.6 % | 0.16 W/s |
+| The fixture as stored, Gravity 0.5 | 6.9 | 33 % | 1.2 | 4.7 % | 0.03 W/s |
+| Jingle Bells, Gravity 0.25 | 15.1 | 0 % | 2.6 | 7.1 % | 0.06 W/s |
+
+Jingle Bells' count includes two marbles' columns and its Rails. Build Track leaves every hit of every fixture on time at 0.25. Patterns set the floor for fast rhythm: Zigzag at Width 10 cm on the reference's 58 hits plays 58 at Gravity 0.35, 26 at 0.3 and 17 at 0.25, since its 0.23 s hops want more than the 40° limit, while even hits 0.3 s apart play 24 of 24 at 0.25.
 
 **Bounce.** Above e ≈ 0.71 a marble rises past the previous piece of the other column. The default is 0.65. A roll is a rise under 0.5 marble radii along the normal within 0.1 s: dead bars reach 0.11 to 0.19 radii, real bounces 0.71 and up.
 
-**Tight columns don't fit our rhythm.** A hop under about 1.4 L at half gravity and half-second notes gets stuck on restrikes. Columns stay 1.5 to 1.7 L apart on Jingle Bells. The reference's 0.25 s rhythm is half our 0.5 s, and hop height goes with its square, so this probably closes with faster notes or less gravity, not with placement.
+**Tight columns need low gravity.** A hop under about 1.4 L at half gravity and half-second notes gets stuck on restrikes, so Auto place's hops are spaced by 3.5 cm whatever a bar's own length. The reference's 0.25 s rhythm is half our 0.5 s, and hop height goes with its square, so this probably closes with faster notes or less gravity, not with placement.
 
 **Marbles side by side.** `MARBLE_SPACING` stays 0.26 m. Rebuilds at 0.16 to 0.22 m gave no clean build that frames closer, as built marbles stay 0.26 to 0.29 m apart at every spacing. Closer two-marble films need bands that interleave by design.
 

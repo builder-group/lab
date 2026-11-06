@@ -187,8 +187,8 @@ describe('fixtures', () => {
 		// A theme carries no side dressing
 		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')?.wallKind).toBeUndefined();
 		expect(project.film.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
-		// Built at new projects' default half gravity, which the assists keep on the shared pace
-		expect(project.gravity).toBe(0.5);
+		// Built at new projects' default Gravity, which the assists keep on the shared pace
+		expect(project.gravity).toBe(0.25);
 		// Rails with the Switchback layout hold the melody across its long notes
 		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(10);
 		// While both marbles play, they never touch each other or the other marble's pieces

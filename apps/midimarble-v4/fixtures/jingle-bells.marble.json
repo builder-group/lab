@@ -2,13 +2,13 @@
 	"$schema": "marble-project@6",
 	"id": "jingle-bells",
 	"title": "Jingle Bells",
-	"revision": 0,
+	"revision": 106,
 	"format": {
 		"width": 9,
 		"height": 16
 	},
 	"length": 34,
-	"gravity": 0.5,
+	"gravity": 0.25,
 	"songs": [
 		{
 			"id": "source-1",
@@ -16,11 +16,11 @@
 			"kind": "midi",
 			"path": "audio/jingle-bells.mid",
 			"start": 1,
-			"backing": [],
 			"tempo": {
 				"bpm": 120,
 				"beatsPerBar": 4
-			}
+			},
+			"backing": []
 		}
 	],
 	"marbles": [
@@ -32,7 +32,7 @@
 			"radius": 0.012,
 			"start": {
 				"position": {
-					"x": -0.188,
+					"x": -0.246,
 					"y": 0.6
 				},
 				"time": 0.0559
@@ -459,7 +459,7 @@
 			"radius": 0.012,
 			"start": {
 				"position": {
-					"x": 0.072,
+					"x": 0.014,
 					"y": 0.6
 				},
 				"time": 0.0559
@@ -998,7 +998,7 @@
 				"place": {
 					"kind": "free",
 					"position": {
-						"x": -0.19082,
+						"x": -0.24882,
 						"y": 0.584
 					}
 				},
@@ -1033,7 +1033,7 @@
 			},
 			{
 				"id": "start-rail-marble-2",
-				"name": "Rail 14",
+				"name": "Rail 2",
 				"type": "rail",
 				"params": {
 					"radius": 0.00375,
@@ -1044,7 +1044,7 @@
 				"place": {
 					"kind": "free",
 					"position": {
-						"x": 0.06918,
+						"x": 0.01118,
 						"y": 0.584
 					}
 				},
@@ -1085,10 +1085,10 @@
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.39,
+					"bounce": 0.58,
 					"entryDelay": 0
 				},
-				"angle": 0.07853981633974483,
+				"angle": 0.12217304763960307,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1098,16 +1098,16 @@
 			},
 			{
 				"id": "piece-2-1",
-				"name": "Platform 52",
+				"name": "Platform 2",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.39,
+					"bounce": 0.58,
 					"entryDelay": 0
 				},
-				"angle": 0.07853981633974483,
+				"angle": 0.12217304763960307,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -1117,13 +1117,13 @@
 			},
 			{
 				"id": "piece-1-2",
-				"name": "Platform 2",
+				"name": "Platform 3",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.55,
 					"entryDelay": 0
 				},
 				"angle": -0.22689280275926285,
@@ -1136,13 +1136,13 @@
 			},
 			{
 				"id": "piece-2-2",
-				"name": "Platform 53",
+				"name": "Platform 4",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.55,
 					"entryDelay": 0
 				},
 				"angle": -0.22689280275926285,
@@ -1155,16 +1155,16 @@
 			},
 			{
 				"id": "piece-1-3",
-				"name": "Platform 3",
+				"name": "Platform 5",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.59,
+					"bounce": 0.73,
 					"entryDelay": 0
 				},
-				"angle": 0.27052603405912107,
+				"angle": 0.026179938779914945,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1174,16 +1174,16 @@
 			},
 			{
 				"id": "piece-2-3",
-				"name": "Platform 54",
+				"name": "Platform 6",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.56,
 					"entryDelay": 0
 				},
-				"angle": 0.22689280275926285,
+				"angle": 0.20943951023931956,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -1193,16 +1193,16 @@
 			},
 			{
 				"id": "piece-2-4",
-				"name": "Platform 55",
+				"name": "Platform 7",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.59,
+					"bounce": 0.44,
 					"entryDelay": 0
 				},
-				"angle": -0.19198621771937624,
+				"angle": -0.27052603405912107,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -1212,162 +1212,6 @@
 			},
 			{
 				"id": "switchback-1-1",
-				"name": "Rail 2",
-				"type": "rail",
-				"layout": "switchback",
-				"params": {
-					"turns": 1,
-					"width": 0.12,
-					"drop": 0.0525,
-					"opening": 0.048,
-					"lip": 0.06,
-					"bend": 0.04,
-					"radius": 0.00375,
-					"gap": 0.015,
-					"entryDelay": 0.404
-				},
-				"angle": -0.20944,
-				"place": {
-					"kind": "follows",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-3"
-				}
-			},
-			{
-				"id": "piece-1-4",
-				"name": "Platform 4",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.66,
-					"entryDelay": 0
-				},
-				"angle": 0.2181661564992912,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-4",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-5",
-				"name": "Platform 56",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.59,
-					"entryDelay": 0
-				},
-				"angle": 0.19198621771937624,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-5",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-5",
-				"name": "Platform 5",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.6,
-					"entryDelay": 0
-				},
-				"angle": -0.2181661564992912,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-5",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-6",
-				"name": "Platform 57",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.59,
-					"entryDelay": 0
-				},
-				"angle": -0.19198621771937624,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-6",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-6",
-				"name": "Platform 6",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.58,
-					"entryDelay": 0
-				},
-				"angle": 0.2530727415391778,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-6",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-7",
-				"name": "Platform 58",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.59,
-					"entryDelay": 0
-				},
-				"angle": 0.19198621771937624,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-7",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-8",
-				"name": "Platform 59",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.64,
-					"entryDelay": 0
-				},
-				"angle": -0.22689280275926285,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-8",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "switchback-1-2",
 				"name": "Rail 3",
 				"type": "rail",
 				"layout": "switchback",
@@ -1380,18 +1224,19 @@
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.417
+					"entryDelay": 0.554
 				},
-				"angle": -0.20944,
+				"angle": 0.10472,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-6"
+					"hitId": "hit-1-3",
+					"contactAt": 0.25
 				}
 			},
 			{
-				"id": "piece-1-7",
-				"name": "Platform 7",
+				"id": "piece-1-4",
+				"name": "Platform 8",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
@@ -1400,415 +1245,130 @@
 					"bounce": 0.69,
 					"entryDelay": 0
 				},
-				"angle": 0.20943951023931956,
+				"angle": -0.10471975511965978,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-7",
+					"hitId": "hit-1-4",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-2-9",
-				"name": "Platform 60",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.64,
-					"entryDelay": 0
-				},
-				"angle": 0.22689280275926285,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-9",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-8",
-				"name": "Platform 8",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.20943951023931956,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-8",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-10",
-				"name": "Platform 61",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-10",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-9",
+				"id": "piece-2-5",
 				"name": "Platform 9",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.58,
+					"bounce": 0.63,
 					"entryDelay": 0
 				},
-				"angle": 0.2007128639793479,
+				"angle": -0.30543261909900765,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-5",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-5",
+				"name": "Platform 10",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.53,
+					"entryDelay": 0
+				},
+				"angle": 0.2181661564992912,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-9",
+					"hitId": "hit-1-5",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-2-11",
-				"name": "Platform 62",
+				"id": "piece-2-6",
+				"name": "Platform 11",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.63,
 					"entryDelay": 0
 				},
-				"angle": 0.2007128639793479,
+				"angle": 0.30543261909900765,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
-					"hitId": "hit-2-11",
+					"hitId": "hit-2-6",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-2-12",
-				"name": "Platform 63",
+				"id": "piece-1-6",
+				"name": "Platform 12",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.71,
 					"entryDelay": 0
 				},
-				"angle": -0.2007128639793479,
+				"angle": -0.03490658503988659,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-12",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-6",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-2-13",
-				"name": "Platform 64",
+				"id": "piece-2-7",
+				"name": "Platform 13",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.4,
 					"entryDelay": 0
 				},
-				"angle": 0.2007128639793479,
+				"angle": -0.17453292519943295,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
-					"hitId": "hit-2-13",
+					"hitId": "hit-2-7",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-2-14",
-				"name": "Platform 65",
+				"id": "piece-2-8",
+				"name": "Platform 14",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.59,
 					"entryDelay": 0
 				},
-				"angle": -0.2007128639793479,
+				"angle": 0.4014257279586958,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
-					"hitId": "hit-2-14",
+					"hitId": "hit-2-8",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-2-15",
-				"name": "Platform 66",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-15",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-16",
-				"name": "Platform 67",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-16",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-17",
-				"name": "Platform 68",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-17",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-18",
-				"name": "Platform 69",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-18",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-19",
-				"name": "Platform 70",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-19",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-20",
-				"name": "Platform 71",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-20",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-21",
-				"name": "Platform 72",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-21",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-22",
-				"name": "Platform 73",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-22",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-23",
-				"name": "Platform 74",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-23",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-24",
-				"name": "Platform 75",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-24",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-25",
-				"name": "Platform 76",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-25",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-26",
-				"name": "Platform 77",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-26",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-27",
-				"name": "Platform 78",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-27",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "switchback-1-3",
+				"id": "switchback-1-2",
 				"name": "Rail 4",
 				"type": "rail",
 				"layout": "switchback",
@@ -1821,27 +1381,185 @@
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.4
+					"entryDelay": 0.554
 				},
-				"angle": -0.29671,
+				"angle": -0.20944,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-9"
+					"hitId": "hit-1-6",
+					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-10",
-				"name": "Platform 10",
+				"id": "piece-1-7",
+				"name": "Platform 15",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.43,
+					"bounce": 0.85,
 					"entryDelay": 0
 				},
-				"angle": 0.35779249665883756,
+				"angle": -0.2530727415391778,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-7",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-9",
+				"name": "Platform 16",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.53,
+					"entryDelay": 0
+				},
+				"angle": -0.19198621771937624,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-9",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-8",
+				"name": "Platform 17",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.51,
+					"entryDelay": 0
+				},
+				"angle": 0.23561944901923448,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-8",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-10",
+				"name": "Platform 18",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.3,
+					"entryDelay": 0
+				},
+				"angle": 0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-10",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-9",
+				"name": "Platform 19",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.95,
+					"entryDelay": 0
+				},
+				"angle": -0.03490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-9",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-11",
+				"name": "Platform 20",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.3,
+					"entryDelay": 0
+				},
+				"angle": -0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-11",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-12",
+				"name": "Platform 21",
+				"type": "platform",
+				"params": {
+					"length": 0.025,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.58,
+					"entryDelay": 0
+				},
+				"angle": 0.12217304763960307,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-12",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "switchback-1-3",
+				"name": "Rail 5",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.0975,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.438
+				},
+				"angle": -0.20944,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-9",
+					"contactAt": 0.25
+				}
+			},
+			{
+				"id": "piece-1-10",
+				"name": "Platform 22",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": -0.5497787143782138,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1851,16 +1569,16 @@
 			},
 			{
 				"id": "piece-1-11",
-				"name": "Platform 11",
+				"name": "Platform 23",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.95,
+					"bounce": 0.92,
 					"entryDelay": 0
 				},
-				"angle": -0.3752457891787809,
+				"angle": 0.3490658503988659,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1869,40 +1587,117 @@
 				}
 			},
 			{
+				"id": "piece-2-13",
+				"name": "Platform 24",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.51,
+					"entryDelay": 0
+				},
+				"angle": 0.2792526803190927,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-13",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-14",
+				"name": "Platform 25",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.4,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-14",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-15",
+				"name": "Platform 26",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.36,
+					"entryDelay": 0
+				},
+				"angle": 0.24434609527920614,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-15",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-16",
+				"name": "Platform 27",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.36,
+					"entryDelay": 0
+				},
+				"angle": -0.24434609527920614,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-16",
+					"contactAt": 0.5
+				}
+			},
+			{
 				"id": "switchback-1-4",
-				"name": "Rail 5",
+				"name": "Rail 6",
 				"type": "rail",
 				"layout": "switchback",
 				"params": {
-					"turns": 6,
-					"width": 0.0975,
+					"turns": 3,
+					"width": 0.15,
 					"drop": 0.0525,
 					"opening": 0.048,
 					"lip": 0.06,
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.425
+					"entryDelay": 0.571
 				},
-				"angle": -0.03491,
+				"angle": 0.10472,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-11"
+					"hitId": "hit-1-11",
+					"contactAt": 0.75
 				}
 			},
 			{
 				"id": "piece-1-12",
-				"name": "Platform 12",
+				"name": "Platform 28",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.6,
+					"bounce": 0.54,
 					"entryDelay": 0
 				},
-				"angle": -0.09599310885968812,
+				"angle": -0.10471975511965978,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1911,17 +1706,36 @@
 				}
 			},
 			{
-				"id": "piece-1-13",
-				"name": "Platform 13",
+				"id": "piece-2-17",
+				"name": "Platform 29",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.62,
+					"bounce": 0.4,
 					"entryDelay": 0
 				},
-				"angle": 0.19198621771937624,
+				"angle": -0.2007128639793479,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-17",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-13",
+				"name": "Platform 30",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.52,
+					"entryDelay": 0
+				},
+				"angle": 0.20943951023931956,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1930,17 +1744,36 @@
 				}
 			},
 			{
-				"id": "piece-1-14",
-				"name": "Platform 14",
+				"id": "piece-2-18",
+				"name": "Platform 31",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.59,
+					"bounce": 0.5,
 					"entryDelay": 0
 				},
-				"angle": -0.2530727415391778,
+				"angle": 0.3839724354387525,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-18",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-14",
+				"name": "Platform 32",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.72,
+					"entryDelay": 0
+				},
+				"angle": -0.17453292519943295,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1949,41 +1782,55 @@
 				}
 			},
 			{
-				"id": "switchback-1-5",
-				"name": "Rail 6",
-				"type": "rail",
-				"layout": "switchback",
-				"params": {
-					"turns": 2,
-					"width": 0.12,
-					"drop": 0.0525,
-					"opening": 0.048,
-					"lip": 0.06,
-					"bend": 0.04,
-					"radius": 0.00375,
-					"gap": 0.015,
-					"entryDelay": 0.404
-				},
-				"angle": -0.03491,
-				"place": {
-					"kind": "follows",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-14",
-					"contactAt": 0.75
-				}
-			},
-			{
-				"id": "piece-1-15",
-				"name": "Platform 15",
+				"id": "piece-2-19",
+				"name": "Platform 33",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.55,
+					"bounce": 0.46,
 					"entryDelay": 0
 				},
-				"angle": -0.3752457891787809,
+				"angle": -0.4188790204786391,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-19",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-20",
+				"name": "Platform 34",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.54,
+					"entryDelay": 0
+				},
+				"angle": 0.22689280275926285,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-20",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-15",
+				"name": "Platform 35",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.25,
+					"entryDelay": 0
+				},
+				"angle": 0.34033920413889424,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -1993,16 +1840,16 @@
 			},
 			{
 				"id": "piece-1-16",
-				"name": "Platform 16",
+				"name": "Platform 36",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.94,
+					"bounce": 0.52,
 					"entryDelay": 0
 				},
-				"angle": 0.29670597283903605,
+				"angle": -0.6719517620178169,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2011,17 +1858,36 @@
 				}
 			},
 			{
-				"id": "piece-1-17",
-				"name": "Platform 17",
+				"id": "piece-2-21",
+				"name": "Platform 37",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.6,
+					"bounce": 0.47,
 					"entryDelay": 0
 				},
-				"angle": -0.14835298641951802,
+				"angle": -0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-21",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-17",
+				"name": "Platform 38",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.5,
+					"entryDelay": 0
+				},
+				"angle": 0.14835298641951802,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2030,17 +1896,36 @@
 				}
 			},
 			{
-				"id": "piece-1-18",
-				"name": "Platform 18",
+				"id": "piece-2-22",
+				"name": "Platform 39",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.54,
 					"entryDelay": 0
 				},
-				"angle": 0.2181661564992912,
+				"angle": 0.11344640137963143,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-22",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-18",
+				"name": "Platform 40",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.4,
+					"entryDelay": 0
+				},
+				"angle": -0.2007128639793479,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2049,17 +1934,36 @@
 				}
 			},
 			{
-				"id": "piece-1-19",
-				"name": "Platform 19",
+				"id": "piece-2-23",
+				"name": "Platform 41",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.38,
+					"bounce": 0.48,
 					"entryDelay": 0
 				},
-				"angle": -0.49741883681838395,
+				"angle": 0.3490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-23",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-19",
+				"name": "Platform 42",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.53,
+					"entryDelay": 0
+				},
+				"angle": 0.5323254218582705,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2068,17 +1972,36 @@
 				}
 			},
 			{
-				"id": "piece-1-20",
-				"name": "Platform 20",
+				"id": "piece-2-24",
+				"name": "Platform 43",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.42,
+					"bounce": 0.4,
 					"entryDelay": 0
 				},
-				"angle": 0.6981317007977318,
+				"angle": -0.29670597283903605,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-24",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-20",
+				"name": "Platform 44",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.44,
+					"entryDelay": 0
+				},
+				"angle": 0,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2088,16 +2011,16 @@
 			},
 			{
 				"id": "piece-1-21",
-				"name": "Platform 21",
+				"name": "Platform 45",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.95,
+					"bounce": 0.4,
 					"entryDelay": 0
 				},
-				"angle": 0,
+				"angle": -0.15707963267948966,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2106,17 +2029,36 @@
 				}
 			},
 			{
-				"id": "piece-1-22",
-				"name": "Platform 22",
+				"id": "piece-2-25",
+				"name": "Platform 46",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.4,
 					"entryDelay": 0
 				},
-				"angle": -0.2617993877991494,
+				"angle": 0.29670597283903605,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-25",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-22",
+				"name": "Platform 47",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.42,
+					"entryDelay": 0
+				},
+				"angle": -0.29670597283903605,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2125,17 +2067,36 @@
 				}
 			},
 			{
-				"id": "piece-1-23",
-				"name": "Platform 23",
+				"id": "piece-2-26",
+				"name": "Platform 48",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.37,
 					"entryDelay": 0
 				},
-				"angle": 0.2617993877991494,
+				"angle": -0.23561944901923448,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-26",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-23",
+				"name": "Platform 49",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.69,
+					"entryDelay": 0
+				},
+				"angle": -0.05235987755982989,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2144,17 +2105,36 @@
 				}
 			},
 			{
-				"id": "piece-1-24",
-				"name": "Platform 24",
+				"id": "piece-2-27",
+				"name": "Platform 50",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.59,
+					"bounce": 0.37,
 					"entryDelay": 0
 				},
-				"angle": -0.20943951023931956,
+				"angle": 0.23561944901923448,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-27",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-24",
+				"name": "Platform 51",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.41,
+					"entryDelay": 0
+				},
+				"angle": 0.34033920413889424,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2164,16 +2144,16 @@
 			},
 			{
 				"id": "piece-2-28",
-				"name": "Platform 79",
+				"name": "Platform 52",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.37,
 					"entryDelay": 0
 				},
-				"angle": -0.2007128639793479,
+				"angle": -0.23561944901923448,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -2183,16 +2163,16 @@
 			},
 			{
 				"id": "piece-1-25",
-				"name": "Platform 25",
+				"name": "Platform 53",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.57,
+					"bounce": 0.65,
 					"entryDelay": 0
 				},
-				"angle": 0.22689280275926285,
+				"angle": -0.14835298641951802,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2202,16 +2182,16 @@
 			},
 			{
 				"id": "piece-2-29",
-				"name": "Platform 80",
+				"name": "Platform 54",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.72,
 					"entryDelay": 0
 				},
-				"angle": 0.2007128639793479,
+				"angle": 0.034906585039886584,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -2221,286 +2201,20 @@
 			},
 			{
 				"id": "piece-2-30",
-				"name": "Platform 81",
+				"name": "Platform 55",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.29,
 					"entryDelay": 0
 				},
-				"angle": -0.2007128639793479,
+				"angle": 0.6981317007977318,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
 					"hitId": "hit-2-30",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-31",
-				"name": "Platform 82",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-31",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-32",
-				"name": "Platform 83",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-32",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-33",
-				"name": "Platform 84",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-33",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-34",
-				"name": "Platform 85",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-34",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-35",
-				"name": "Platform 86",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-35",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-36",
-				"name": "Platform 87",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-36",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-37",
-				"name": "Platform 88",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-37",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-38",
-				"name": "Platform 89",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-38",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-39",
-				"name": "Platform 90",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-39",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-40",
-				"name": "Platform 91",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-40",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-41",
-				"name": "Platform 92",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-41",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-42",
-				"name": "Platform 93",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-42",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-43",
-				"name": "Platform 94",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-43",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-44",
-				"name": "Platform 95",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-44",
 					"contactAt": 0.5
 				}
 			},
@@ -2510,39 +2224,78 @@
 				"type": "rail",
 				"layout": "switchback",
 				"params": {
-					"turns": 2,
-					"width": 0.12,
+					"turns": 1,
+					"width": 0.0975,
 					"drop": 0.0525,
 					"opening": 0.048,
 					"lip": 0.06,
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.417
+					"entryDelay": 0.558
 				},
-				"angle": 0.29671,
+				"angle": 0.20944,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-25"
+					"hitId": "hit-1-25",
+					"contactAt": 0.5
 				}
 			},
 			{
 				"id": "piece-1-26",
-				"name": "Platform 26",
+				"name": "Platform 56",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.83,
+					"bounce": 0.95,
 					"entryDelay": 0
 				},
-				"angle": 0.07853981633974481,
+				"angle": -0.34033920413889424,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
 					"hitId": "hit-1-26",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-31",
+				"name": "Platform 57",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.17,
+					"entryDelay": 0
+				},
+				"angle": -0.061086523819801536,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-31",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-32",
+				"name": "Platform 58",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.56,
+					"entryDelay": 0
+				},
+				"angle": -0.23561944901923448,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-32",
 					"contactAt": 0.5
 				}
 			},
@@ -2552,88 +2305,7 @@
 				"type": "rail",
 				"layout": "switchback",
 				"params": {
-					"turns": 2,
-					"width": 0.12,
-					"drop": 0.0525,
-					"opening": 0.048,
-					"lip": 0.06,
-					"bend": 0.04,
-					"radius": 0.00375,
-					"gap": 0.015,
-					"entryDelay": 0.408
-				},
-				"angle": 0.29671,
-				"place": {
-					"kind": "follows",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-26",
-					"contactAt": 0.75
-				}
-			},
-			{
-				"id": "piece-1-27",
-				"name": "Platform 27",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.82,
-					"entryDelay": 0
-				},
-				"angle": 0.08726646259971647,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-27",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-28",
-				"name": "Platform 28",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.65,
-					"entryDelay": 0
-				},
-				"angle": -0.1832595714594046,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-28",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-29",
-				"name": "Platform 29",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.57,
-					"entryDelay": 0
-				},
-				"angle": 0,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-29",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "switchback-1-8",
-				"name": "Rail 9",
-				"type": "rail",
-				"layout": "switchback",
-				"params": {
-					"turns": 2,
+					"turns": 1,
 					"width": 0.12,
 					"drop": 0.0525,
 					"opening": 0.048,
@@ -2643,17 +2315,93 @@
 					"gap": 0.015,
 					"entryDelay": 0.413
 				},
-				"angle": -0.29671,
+				"angle": 0.13963,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-29",
-					"contactAt": 0.75
+					"hitId": "hit-1-26",
+					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-30",
-				"name": "Platform 30",
+				"id": "piece-1-27",
+				"name": "Platform 59",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.67,
+					"entryDelay": 0
+				},
+				"angle": -0.22689280275926285,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-27",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-33",
+				"name": "Platform 60",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.54,
+					"entryDelay": 0
+				},
+				"angle": 0.09599310885968813,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-33",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-28",
+				"name": "Platform 61",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.3,
+					"entryDelay": 0
+				},
+				"angle": 0.23561944901923448,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-28",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-34",
+				"name": "Platform 62",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.51,
+					"entryDelay": 0
+				},
+				"angle": 0.49741883681838395,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-34",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-29",
+				"name": "Platform 63",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
@@ -2662,7 +2410,88 @@
 					"bounce": 0.81,
 					"entryDelay": 0
 				},
-				"angle": 0.11344640137963143,
+				"angle": -0.026179938779914945,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-29",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-35",
+				"name": "Platform 64",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-35",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-36",
+				"name": "Platform 65",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-36",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "switchback-1-8",
+				"name": "Rail 9",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.12,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.579
+				},
+				"angle": -0.05236,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-29",
+					"contactAt": 0.25
+				}
+			},
+			{
+				"id": "piece-1-30",
+				"name": "Platform 66",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.86,
+					"entryDelay": 0
+				},
+				"angle": -0.2617993877991494,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2671,17 +2500,36 @@
 				}
 			},
 			{
-				"id": "piece-1-31",
-				"name": "Platform 31",
+				"id": "piece-2-37",
+				"name": "Platform 67",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.68,
+					"bounce": 0.29,
 					"entryDelay": 0
 				},
-				"angle": -0.2879793265790644,
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-37",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-31",
+				"name": "Platform 68",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.42,
+					"entryDelay": 0
+				},
+				"angle": 0.3665191429188092,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2690,17 +2538,321 @@
 				}
 			},
 			{
-				"id": "piece-1-32",
-				"name": "Platform 32",
+				"id": "piece-2-38",
+				"name": "Platform 69",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.28,
 					"entryDelay": 0
 				},
-				"angle": 0.2792526803190927,
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-38",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-39",
+				"name": "Platform 70",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-39",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-40",
+				"name": "Platform 71",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-40",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-41",
+				"name": "Platform 72",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-41",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-42",
+				"name": "Platform 73",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-42",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-43",
+				"name": "Platform 74",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-43",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-44",
+				"name": "Platform 75",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-44",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-45",
+				"name": "Platform 76",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-45",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-46",
+				"name": "Platform 77",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-46",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-47",
+				"name": "Platform 78",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-47",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-48",
+				"name": "Platform 79",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-48",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-49",
+				"name": "Platform 80",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-49",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-50",
+				"name": "Platform 81",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-50",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-51",
+				"name": "Platform 82",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-51",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-52",
+				"name": "Platform 83",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.28,
+					"entryDelay": 0
+				},
+				"angle": 0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-52",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-53",
+				"name": "Platform 84",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-53",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-32",
+				"name": "Platform 85",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.82,
+					"entryDelay": 0
+				},
+				"angle": -0.061086523819801536,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2722,27 +2874,28 @@
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.404
+					"entryDelay": 0.554
 				},
-				"angle": -0.20944,
+				"angle": -0.12217,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-32"
+					"hitId": "hit-1-32",
+					"contactAt": 0.25
 				}
 			},
 			{
 				"id": "piece-1-33",
-				"name": "Platform 33",
+				"name": "Platform 86",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.66,
+					"bounce": 0.95,
 					"entryDelay": 0
 				},
-				"angle": 0.2181661564992912,
+				"angle": -0.08726646259971647,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2752,16 +2905,16 @@
 			},
 			{
 				"id": "piece-1-34",
-				"name": "Platform 34",
+				"name": "Platform 87",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.6,
+					"bounce": 0.58,
 					"entryDelay": 0
 				},
-				"angle": -0.20943951023931956,
+				"angle": -0.2530727415391778,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2771,16 +2924,16 @@
 			},
 			{
 				"id": "piece-1-35",
-				"name": "Platform 35",
+				"name": "Platform 88",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.59,
+					"bounce": 0.77,
 					"entryDelay": 0
 				},
-				"angle": 0.2530727415391778,
+				"angle": 0.23561944901923448,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2789,40 +2942,17 @@
 				}
 			},
 			{
-				"id": "switchback-1-10",
-				"name": "Rail 11",
-				"type": "rail",
-				"layout": "switchback",
-				"params": {
-					"turns": 1,
-					"width": 0.0975,
-					"drop": 0.0525,
-					"opening": 0.048,
-					"lip": 0.06,
-					"bend": 0.04,
-					"radius": 0.00375,
-					"gap": 0.015,
-					"entryDelay": 0.421
-				},
-				"angle": -0.36652,
-				"place": {
-					"kind": "follows",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-35"
-				}
-			},
-			{
 				"id": "piece-1-36",
-				"name": "Platform 36",
+				"name": "Platform 89",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.4,
+					"bounce": 0.23,
 					"entryDelay": 0
 				},
-				"angle": -0.3141592653589793,
+				"angle": -0.30543261909900765,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2832,16 +2962,16 @@
 			},
 			{
 				"id": "piece-1-37",
-				"name": "Platform 37",
+				"name": "Platform 90",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.9,
+					"bounce": 0.95,
 					"entryDelay": 0
 				},
-				"angle": 0.35779249665883756,
+				"angle": 0.1832595714594046,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -2850,344 +2980,41 @@
 				}
 			},
 			{
-				"id": "piece-2-45",
-				"name": "Platform 96",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-45",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-46",
-				"name": "Platform 97",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-46",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-47",
-				"name": "Platform 98",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-47",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-48",
-				"name": "Platform 99",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-48",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-49",
-				"name": "Platform 100",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-49",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-50",
-				"name": "Platform 101",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-50",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-51",
-				"name": "Platform 102",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-51",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-52",
-				"name": "Platform 103",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-52",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-53",
-				"name": "Platform 104",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-53",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-54",
-				"name": "Platform 105",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-54",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-55",
-				"name": "Platform 106",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-55",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-56",
-				"name": "Platform 107",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-56",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-57",
-				"name": "Platform 108",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-57",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-58",
-				"name": "Platform 109",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-58",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-59",
-				"name": "Platform 110",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": 0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-59",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-2-60",
-				"name": "Platform 111",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.61,
-					"entryDelay": 0
-				},
-				"angle": -0.2007128639793479,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-60",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "switchback-1-11",
-				"name": "Rail 12",
+				"id": "switchback-1-10",
+				"name": "Rail 11",
 				"type": "rail",
 				"layout": "switchback",
 				"params": {
-					"turns": 6,
-					"width": 0.0975,
+					"turns": 3,
+					"width": 0.12,
 					"drop": 0.0525,
 					"opening": 0.048,
 					"lip": 0.06,
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.404
+					"entryDelay": 0.454
 				},
-				"angle": -0.08727,
+				"angle": 0.05236,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-37"
+					"hitId": "hit-1-37",
+					"contactAt": 0.25
 				}
 			},
 			{
 				"id": "piece-1-38",
-				"name": "Platform 38",
+				"name": "Platform 91",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.62,
+					"bounce": 0.56,
 					"entryDelay": 0
 				},
-				"angle": -0.08726646259971647,
+				"angle": 0.08726646259971647,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3197,16 +3024,16 @@
 			},
 			{
 				"id": "piece-1-39",
-				"name": "Platform 39",
+				"name": "Platform 92",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.62,
+					"bounce": 0.42,
 					"entryDelay": 0
 				},
-				"angle": 0.19198621771937624,
+				"angle": -0.20943951023931956,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3216,16 +3043,16 @@
 			},
 			{
 				"id": "piece-1-40",
-				"name": "Platform 40",
+				"name": "Platform 93",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.58,
+					"bounce": 0.95,
 					"entryDelay": 0
 				},
-				"angle": -0.24434609527920614,
+				"angle": 0.026179938779914945,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3234,8 +3061,8 @@
 				}
 			},
 			{
-				"id": "switchback-1-12",
-				"name": "Rail 13",
+				"id": "switchback-1-11",
+				"name": "Rail 12",
 				"type": "rail",
 				"layout": "switchback",
 				"params": {
@@ -3247,27 +3074,28 @@
 					"bend": 0.04,
 					"radius": 0.00375,
 					"gap": 0.015,
-					"entryDelay": 0.417
+					"entryDelay": 0.454
 				},
 				"angle": 0.29671,
 				"place": {
 					"kind": "follows",
 					"marbleId": "marble-1",
-					"hitId": "hit-1-40"
+					"hitId": "hit-1-40",
+					"contactAt": 0.25
 				}
 			},
 			{
 				"id": "piece-1-41",
-				"name": "Platform 41",
+				"name": "Platform 94",
 				"type": "platform",
 				"params": {
-					"length": 0.03,
+					"length": 0.025,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.41,
+					"bounce": 0.31,
 					"entryDelay": 0
 				},
-				"angle": 0.3665191429188092,
+				"angle": 0.16580627893946132,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3277,16 +3105,16 @@
 			},
 			{
 				"id": "piece-1-42",
-				"name": "Platform 42",
+				"name": "Platform 95",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.95,
+					"bounce": 0.44,
 					"entryDelay": 0
 				},
-				"angle": -0.3752457891787809,
+				"angle": -0.24434609527920614,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3296,16 +3124,16 @@
 			},
 			{
 				"id": "piece-1-43",
-				"name": "Platform 43",
+				"name": "Platform 96",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.52,
 					"entryDelay": 0
 				},
-				"angle": 0.15707963267948966,
+				"angle": -0.41015237421866746,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3314,169 +3142,150 @@
 				}
 			},
 			{
-				"id": "piece-1-44",
-				"name": "Platform 44",
+				"id": "piece-2-54",
+				"name": "Platform 97",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.62,
+					"bounce": 0.28,
 					"entryDelay": 0
 				},
-				"angle": -0.20943951023931956,
+				"angle": 0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-44",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-54",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-45",
-				"name": "Platform 45",
+				"id": "piece-2-55",
+				"name": "Platform 98",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.37,
+					"bounce": 0.29,
 					"entryDelay": 0
 				},
-				"angle": 0.4799655442984406,
+				"angle": -0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-45",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-55",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-46",
-				"name": "Platform 46",
+				"id": "piece-2-56",
+				"name": "Platform 99",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.44,
+					"bounce": 0.28,
 					"entryDelay": 0
 				},
-				"angle": -0.6981317007977318,
+				"angle": 0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-46",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-56",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-47",
-				"name": "Platform 47",
+				"id": "piece-2-57",
+				"name": "Platform 100",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.95,
+					"bounce": 0.29,
 					"entryDelay": 0
 				},
-				"angle": 0.03490658503988659,
+				"angle": -0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-47",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-57",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-48",
-				"name": "Platform 48",
+				"id": "piece-2-58",
+				"name": "Platform 101",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.28,
 					"entryDelay": 0
 				},
-				"angle": 0.2530727415391778,
+				"angle": 0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-48",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-58",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-49",
-				"name": "Platform 49",
+				"id": "piece-2-59",
+				"name": "Platform 102",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.64,
+					"bounce": 0.29,
 					"entryDelay": 0
 				},
-				"angle": -0.2530727415391778,
+				"angle": -0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-49",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-59",
 					"contactAt": 0.5
 				}
 			},
 			{
-				"id": "piece-1-50",
-				"name": "Platform 50",
+				"id": "piece-2-60",
+				"name": "Platform 103",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.58,
+					"bounce": 0.28,
 					"entryDelay": 0
 				},
-				"angle": 0.19198621771937624,
+				"angle": 0.27052603405912107,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-50",
-					"contactAt": 0.5
-				}
-			},
-			{
-				"id": "piece-1-51",
-				"name": "Platform 51",
-				"type": "platform",
-				"params": {
-					"length": 0.03,
-					"thickness": 0.012,
-					"depth": 0.15,
-					"bounce": 0.65,
-					"entryDelay": 0
-				},
-				"angle": -0.17453292519943295,
-				"place": {
-					"kind": "plays",
-					"marbleId": "marble-1",
-					"hitId": "hit-1-51",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-60",
 					"contactAt": 0.5
 				}
 			},
 			{
 				"id": "piece-2-61",
-				"name": "Platform 112",
+				"name": "Platform 104",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.29,
 					"entryDelay": 0
 				},
-				"angle": 0.2007128639793479,
+				"angle": -0.27052603405912107,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -3486,16 +3295,16 @@
 			},
 			{
 				"id": "piece-2-62",
-				"name": "Platform 113",
+				"name": "Platform 105",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.28,
 					"entryDelay": 0
 				},
-				"angle": -0.2007128639793479,
+				"angle": 0.27052603405912107,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -3505,20 +3314,172 @@
 			},
 			{
 				"id": "piece-2-63",
+				"name": "Platform 106",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.29,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-63",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-44",
+				"name": "Platform 107",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.5,
+					"entryDelay": 0
+				},
+				"angle": 0.2007128639793479,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-44",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-45",
+				"name": "Platform 108",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.34,
+					"entryDelay": 0
+				},
+				"angle": -0.35779249665883756,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-45",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-46",
+				"name": "Platform 109",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.43,
+					"entryDelay": 0
+				},
+				"angle": -0.017453292519943295,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-46",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-47",
+				"name": "Platform 110",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.39,
+					"entryDelay": 0
+				},
+				"angle": 0.15707963267948966,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-47",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-48",
+				"name": "Platform 111",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.54,
+					"entryDelay": 0
+				},
+				"angle": 0.24434609527920614,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-48",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-49",
+				"name": "Platform 112",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.44,
+					"entryDelay": 0
+				},
+				"angle": -0.017453292519943295,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-49",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-50",
+				"name": "Platform 113",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.49,
+					"entryDelay": 0
+				},
+				"angle": -0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-50",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-51",
 				"name": "Platform 114",
 				"type": "platform",
 				"params": {
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.61,
+					"bounce": 0.65,
 					"entryDelay": 0
 				},
-				"angle": 0.2007128639793479,
+				"angle": 0,
 				"place": {
 					"kind": "plays",
-					"marbleId": "marble-2",
-					"hitId": "hit-2-63",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-51",
 					"contactAt": 0.5
 				}
 			},
@@ -3533,7 +3494,7 @@
 					"bounce": 0.65,
 					"entryDelay": 0
 				},
-				"angle": -0.2181661564992912,
+				"angle": -0.026179938779914945,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-2",
@@ -3542,14 +3503,14 @@
 				}
 			},
 			{
-				"id": "bowl-lane-1",
+				"id": "bowl-marble-1",
 				"name": "Bowl 1",
 				"type": "bowl",
 				"params": {
 					"mirror": 0,
 					"size": 0.06,
 					"radius": 0.00375,
-					"entryDelay": 0.4792
+					"entryDelay": 0.5042
 				},
 				"angle": 0,
 				"place": {
@@ -3559,14 +3520,14 @@
 				}
 			},
 			{
-				"id": "bowl-lane-2",
+				"id": "bowl-marble-2",
 				"name": "Bowl 2",
 				"type": "bowl",
 				"params": {
 					"mirror": 0,
 					"size": 0.06,
 					"radius": 0.00375,
-					"entryDelay": 0.4583
+					"entryDelay": 0.4458
 				},
 				"angle": 0,
 				"place": {
@@ -3654,30 +3615,6 @@
 				"scattered": true
 			},
 			{
-				"id": "decor-mw3ij5khwx78zs8f",
-				"name": "Gift Box",
-				"source": "decor:gift-box",
-				"position": {
-					"x": 0.0715,
-					"y": 0.4733
-				},
-				"scale": 1.0658,
-				"rotation": -0.2982,
-				"scattered": true
-			},
-			{
-				"id": "decor-mw3ij5khpl5djv63",
-				"name": "Fairy Light",
-				"source": "decor:fairy-light",
-				"position": {
-					"x": 0.0168,
-					"y": 0.3761
-				},
-				"scale": 1.0685,
-				"rotation": 0.1474,
-				"scattered": true
-			},
-			{
 				"id": "decor-mw3ij5khn5yvhsvc",
 				"name": "Red Bauble",
 				"source": "decor:bauble-red",
@@ -3723,18 +3660,6 @@
 				},
 				"scale": 1.1378,
 				"rotation": -0.2552,
-				"scattered": true
-			},
-			{
-				"id": "decor-mw3ij5khaafbdioq",
-				"name": "Gift Box 2",
-				"source": "decor:gift-box",
-				"position": {
-					"x": -0.0162,
-					"y": 0.0478
-				},
-				"scale": 1.1385,
-				"rotation": -0.2438,
 				"scattered": true
 			},
 			{
@@ -3795,18 +3720,6 @@
 				},
 				"scale": 0.9872,
 				"rotation": -0.0762,
-				"scattered": true
-			},
-			{
-				"id": "decor-mw3ij5khin1ouiwz",
-				"name": "Gift Box 3",
-				"source": "decor:gift-box",
-				"position": {
-					"x": 0.0315,
-					"y": -0.2944
-				},
-				"scale": 1.037,
-				"rotation": 0.131,
 				"scattered": true
 			},
 			{
@@ -3879,18 +3792,6 @@
 				},
 				"scale": 1.1073,
 				"rotation": -0.1572,
-				"scattered": true
-			},
-			{
-				"id": "decor-mw3ij5khfn9fg4g8",
-				"name": "Fairy Light 4",
-				"source": "decor:fairy-light",
-				"position": {
-					"x": -0.2122,
-					"y": -0.8481
-				},
-				"scale": 1.0927,
-				"rotation": -0.1908,
 				"scattered": true
 			},
 			{
@@ -4110,18 +4011,6 @@
 				"scattered": true
 			},
 			{
-				"id": "decor-mw3ij5khhkrzrg9d",
-				"name": "Red Bauble 7",
-				"source": "decor:bauble-red",
-				"position": {
-					"x": -0.2112,
-					"y": -2.4354
-				},
-				"scale": 1.0233,
-				"rotation": 0.2851,
-				"scattered": true
-			},
-			{
 				"id": "decor-mw3ij5kh87cqwvvi",
 				"name": "Gold Bauble 8",
 				"source": "decor:bauble-gold",
@@ -4179,18 +4068,6 @@
 				},
 				"scale": 0.9391,
 				"rotation": 0.0015,
-				"scattered": true
-			},
-			{
-				"id": "decor-mw3ij5khh2fjglo4",
-				"name": "Red Bauble 8",
-				"source": "decor:bauble-red",
-				"position": {
-					"x": -0.2424,
-					"y": -3.1673
-				},
-				"scale": 1.0411,
-				"rotation": 0.1945,
 				"scattered": true
 			},
 			{
@@ -4350,18 +4227,6 @@
 				"scattered": true
 			},
 			{
-				"id": "decor-mw3ij5kh4bqrogb0",
-				"name": "Gold Snowflake 11",
-				"source": "decor:snowflake-gold",
-				"position": {
-					"x": -0.0799,
-					"y": -4.7046
-				},
-				"scale": 1.0399,
-				"rotation": 0.0205,
-				"scattered": true
-			},
-			{
 				"id": "decor-mw3ij5khiy9uptzo",
 				"name": "Star 11",
 				"source": "decor:star",
@@ -4407,18 +4272,6 @@
 				},
 				"scale": 1.1494,
 				"rotation": 0.0725,
-				"scattered": true
-			},
-			{
-				"id": "decor-mw3ij5kh6xdbf4uf",
-				"name": "Gold Bauble 12",
-				"source": "decor:bauble-gold",
-				"position": {
-					"x": -0.1139,
-					"y": -4.9917
-				},
-				"scale": 0.9795,
-				"rotation": -0.1608,
 				"scattered": true
 			},
 			{
@@ -5009,8 +4862,8 @@
 		"camera": {
 			"auto": true,
 			"distance": 0.48,
-			"sway": 1,
 			"tilt": 0.54,
+			"sway": 1,
 			"shots": []
 		}
 	}
