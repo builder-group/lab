@@ -487,7 +487,7 @@ export class TrackCx {
 		this.$camera.set((camera) => ({ ...camera, view: fitBounds(fitTargets(project, this.result), viewport, canvasPadding) }));
 	}
 
-	/** Build Track ended: Zoom to Fit once the run of its last edit has been simulated, unless the song has started */
+	/** Build Track ended: the film-frame zoom with Follow on, once the run of its last edit has been simulated, unless the song has started */
 	/** Brings these pieces into view once the run of the edit that changed them arrives, so a new shape doesn't run off the wall */
 	revealOnceSimulated(ids: string[], isZoomKept = false): void {
 		this.pendingReveal = ids;
@@ -507,7 +507,7 @@ export class TrackCx {
 		this.reveal(ids, undefined, false, this.isPendingZoomKept);
 	}
 
-	fitOnceSimulated(): void {
+	showBuilt(): void {
 		this.isFitPending = true;
 		this.runPendingFit();
 	}
@@ -517,12 +517,16 @@ export class TrackCx {
 		const result = this.result;
 		if (!this.isFitPending || project == null || result == null || result.revision !== project.revision) return;
 		this.isFitPending = false;
-		if (!this.studio.$playing.get()) this.fitAll();
+		if (this.studio.$playing.get()) return;
+		this.fitFrame();
+		this.$follow.set(true);
 	}
 
-	/** ⌘0: the wall at physical size around the center of the view, like Figma's Zoom to 100% */
+	/** ⌘0: the wall at physical size around the marble at the playhead, like Figma's Zoom to 100%. Follow stays as it is */
 	zoomTo100(): void {
-		this.zoomBy(ZOOM_100_SCALE / this.$camera.get().view.scale);
+		const focus = this.marbleFocus();
+		this.stopMotion();
+		this.$camera.set((camera) => ({ ...camera, view: { scale: ZOOM_100_SCALE, center: focus ?? camera.view.center } }));
 	}
 
 	/** Pixels per meter at which a default platform is still `MIN_FIT_PLATFORM_PX` long */

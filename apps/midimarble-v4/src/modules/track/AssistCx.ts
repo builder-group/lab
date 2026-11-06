@@ -542,6 +542,8 @@ export class AssistCx {
 		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
 		this.$building.set(firstProgress);
 		const progressId = this.studio.notify(progressText(firstProgress), 'info', { progress: 0, actions: [stop] });
+		// A zoom at which the pieces read, as they land; the view then follows the newest
+		if (from == null) this.studio.$trackCx.get()?.fitFrame();
 		let outcome: TBuildOutcome | null = null;
 		try {
 			outcome = await buildTrack(project, {
@@ -601,13 +603,13 @@ export class AssistCx {
 			const broken = brokenHits(shownResult.hits).length;
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [this.fixAction()] : [], { details: report.details });
 		} else this.studio.notify(report.message);
-		// A person's build ends with its result in view and the song from the top; a rebuild keeps the zoom, back at the
-		// hit it started from. An agent's leaves their view alone
-		if (!this.studio.isInAgentStep && !this.studio.$playing.get()) {
+		// A build, a person's or an agent's, ends from the top at a zoom that reads with Follow on, so Space shows what was
+		// built. A person's rebuild keeps the zoom, back at the hit it started from; an agent's leaves the view alone
+		if (!this.studio.$playing.get()) {
 			if (from == null) {
 				this.studio.$playhead.set(0);
-				this.studio.$trackCx.get()?.fitOnceSimulated();
-			} else {
+				this.studio.$trackCx.get()?.showBuilt();
+			} else if (!this.studio.isInAgentStep) {
 				const at = project.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
 				if (at != null) this.studio.$playhead.set(at);
 				this.studio.$reveal.set({ ids: [toHitKey(from.marbleId, from.hitId)], isZoomKept: true });

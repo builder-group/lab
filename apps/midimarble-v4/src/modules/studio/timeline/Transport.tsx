@@ -63,10 +63,10 @@ interface TTransportProps {
  */
 const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
+	// Build Track and Fix say how far they are in the notice, the one place for progress; the count waits until they end
 	const fixing = useFeatureState(cx.assist.$fixing);
 	const building = useFeatureState(cx.assist.$building);
 	const workspace = useFeatureState(cx.$workspace);
-	// While Build Track works the summary only says so, so no step checks the whole run again for it
 	const problems = useFeatureState(cx.simulation.$problems);
 	const summary = React.useMemo(() => problemSummary(problems, workspace), [problems, workspace]);
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
@@ -75,17 +75,8 @@ const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 		return (
 			<span className="mm-hit-summary" data-tone="pending" role="status" aria-live="polite" data-quick-help="hitSummary">
 				<LoaderCircle size={12} strokeWidth={2} className="animate-spin" aria-hidden />
-				{building != null ? 'Building…' : fixing != null ? 'Fixing…' : 'Checking…'}
+				Checking…
 			</span>
-		);
-	}
-	// Nothing placed yet: what the summary would count is what Build Track does
-	if (!summary.problems.length && summary.onTime === 0 && workspace === 'track') {
-		const build = getCommand('build.track');
-		return (
-			<button className="mm-hit-summary" data-tone="action" data-quick-help="hitSummary" onClick={() => build.run(cx)} title={`Build every open hit, in time order (${build.shortcut ?? ''})`} type="button">
-				{build.title}
-			</button>
 		);
 	}
 	if (!summary.problems.length) {
