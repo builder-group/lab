@@ -82,7 +82,6 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 			<PlayNoteHint trackCx={trackCx} />
 			<AssistBar trackCx={trackCx} />
 			<EmptyWall cx={cx} />
-			<SimulatingIndicator cx={cx} />
 			<Track3DView trackCx={trackCx} />
 			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
 				<CornerControls trackCx={trackCx} />
@@ -1064,18 +1063,3 @@ const ZoomMenu: React.FC<{ trackCx: TrackCx }> = (props) => {
 };
 
 
-/**
- * Says the run is being checked after an edit, or fixed while Fix runs, fading in only when it
- * takes long enough to notice
- */
-const SimulatingIndicator: React.FC<{ cx: StudioCx }> = (props) => {
-	const { cx } = props;
-	const computing = useFeatureState(cx.simulation.$computing);
-	const fixing = useFeatureState(cx.assist.$fixing);
-	if (!computing && fixing == null) return null;
-	return (
-		<div className="mm-floating mm-delayed-fade absolute top-3 left-3 z-20 px-2.5 py-1 text-[11px] text-[var(--text-secondary)]" role="status">
-			{fixing == null ? 'Checking…' : 'Fixing…'}
-		</div>
-	);
-};

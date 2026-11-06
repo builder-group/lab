@@ -898,12 +898,6 @@ textarea {
 	color: var(--text);
 }
 
-/* Nothing placed yet: the summary is the action that places it */
-.mm-hit-summary[data-tone='action'] {
-	color: var(--accent);
-	font-weight: 500;
-}
-
 /* Checking… or Fixing…: dimmed, never a stale count */
 .mm-hit-summary[data-tone='pending'] {
 	opacity: 0.6;
