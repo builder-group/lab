@@ -4,7 +4,7 @@ import { openContextMenu } from '@/components';
 import { renderedSpans } from '@/modules/film';
 import { commandItem } from '../commands';
 import { draggedRepeatSpan, shownRepeatRange, type TRepeatRangeDrag } from '../repeat-range';
-import { formatTime } from '@/modules/project';
+import { askedFilmLength, formatTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { formatRulerTime, RULER_HEIGHT, rulerSteps, TIME_INSET, TIME_ORIGIN } from './timeline-layout';
 
@@ -72,7 +72,7 @@ export const Ruler: React.FC<TRulerProps> = (props) => {
 					const grab = endGrabRef.current;
 					if (grab == null || (endDrag == null && Math.abs(event.clientX - grab) < END_DRAG_THRESHOLD)) return;
 					event.stopPropagation();
-					setEndDrag(Math.max(0.5, Math.round(timeAt(event.clientX) * 20) / 20));
+					setEndDrag(askedFilmLength(Math.round(timeAt(event.clientX) * 20) / 20, end));
 				}}
 				onPointerUp={() => {
 					endGrabRef.current = null;

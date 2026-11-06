@@ -71,7 +71,7 @@ export class PatternsCx {
 	/** The newest answer from resting on a tile, which a click on it applies without asking again */
 	private answered: { key: string; project: TProject; answer: TPatternAnswer } | null = null;
 	/** The run on its way, which an edit ends; `isReplaced` when a newer click takes its place, which says nothing */
-	private run: { key: string | null; isReplaced: boolean } | null = null;
+	private run: { key: string | null; isReplaced: boolean; isStopped: boolean } | null = null;
 
 	constructor(readonly studio: StudioCx) {}
 
@@ -149,6 +149,7 @@ export class PatternsCx {
 
 	stop(): void {
 		this.isStopped = true;
+		if (this.run != null) this.run.isStopped = true;
 		this.client?.cancel();
 	}
 
@@ -190,7 +191,9 @@ export class PatternsCx {
 		const span = marble != null && target.group != null ? patternSpan(marble, target.group) : null;
 		const change = changeFor(target, kind, settings);
 		const answered = this.answered;
-		const answer = answered != null && answered.key === previewKey(change) && answered.project === this.studio.project ? answered.answer : await this.fit(change);
+		// What a settle is about to land changes the project that answer was about
+		const isAnswered = answered != null && answered.key === previewKey(change) && answered.project === this.studio.project && !this.studio.simulation.isSettling;
+		const answer = isAnswered ? answered.answer : await this.fit(change);
 		if (answer == null) return null;
 		if (!answer.commands.length || answer.groupId == null) {
 			this.refuse(target, kind, settings, answer);
@@ -255,15 +258,21 @@ export class PatternsCx {
 	}
 
 	private async fit(change: TPatternAsk, isChecked = true): Promise<TPatternAnswer | null> {
-		const project = this.studio.project;
-		if (project == null) return null;
+		if (this.studio.project == null) return null;
 		if (this.run != null) this.run.isReplaced = true;
-		const run = { key: stepKey(this.studio.$history.get()), isReplaced: false };
+		const run = { key: stepKey(this.studio.$history.get()), isReplaced: false, isStopped: false };
 		this.run = run;
 		this.$isRunning.set(true);
 		const label = patternLabel(change.kind);
 		const noticeId = this.studio.notify(`Fitting ${label}`, 'info', { progress: 0, actions: [{ label: 'Stop', title: 'Stop fitting; nothing changes', run: () => this.stop() }] });
 		try {
+			// A settle on its way lands on the project and amends its step, so the fit starts from what it lands
+			if (this.studio.simulation.isSettling) {
+				await this.studio.simulation.whenSettled();
+				if (run.isStopped || this.run !== run || stepKey(this.studio.$history.get()) !== run.key) throw new PatternCanceledError();
+			}
+			const project = this.studio.project;
+			if (project == null) throw new PatternCanceledError();
 			const answer = await this.clientNow().run(project, change, (progress: TGroupRunProgress) => {
 				const steps = progress.steps > 1 ? ` · ${progress.step} of ${progress.steps} Groups` : '';
 				this.studio.updateNotice(noticeId, { message: `Fitting ${progress.name}${steps}`, progress: progress.fraction });

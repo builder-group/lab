@@ -4,7 +4,7 @@ import { createLinkedPiece, type TAutoPlaceAnswer, type THitResult, type TSimula
 import { StudioCx } from '@/modules/studio';
 import { AssistCx } from './AssistCx';
 
-const stubs = vi.hoisted(() => ({ gate: Promise.resolve() as Promise<void> }));
+const stubs = vi.hoisted(() => ({ gate: Promise.resolve() as Promise<void>, builtHits: [] as unknown[] }));
 
 const BUILT: TProjectCommand[] = [{ type: 'updateProject', patch: { title: 'Built' } }];
 
@@ -14,7 +14,7 @@ vi.mock('@/modules/building', async (original) => ({
 	buildTrack: async (project: TProject, deps: { commit: (commands: TProjectCommand[], isFirst: boolean, hit: unknown) => boolean }) => {
 		await stubs.gate;
 		const isCommitted = deps.commit(BUILT, true, { marbleId: 'marble', hitId: 'hit1', targetTime: 1 });
-		return { project, result: { hits: [], pieces: [], contacts: [], marbles: [] }, added: 1, turned: [], releaseShift: 0, bowls: [], attention: [], isStopped: !isCommitted };
+		return { project, result: { hits: stubs.builtHits, pieces: [], contacts: [], marbles: [] }, added: 1, turned: [], releaseShift: 0, bowls: [], attention: [], isStopped: !isCommitted };
 	},
 	hasFixes: () => true,
 	fixHelps: () => true,
@@ -53,6 +53,7 @@ function holdGate(): () => void {
 describe('AssistCx class', () => {
 	afterEach(() => {
 		stubs.gate = Promise.resolve();
+		stubs.builtHits = [];
 	});
 
 	describe('buildTrack method', () => {
@@ -76,6 +77,41 @@ describe('AssistCx class', () => {
 			expect(cx.$notice.get()?.message).not.toContain('Stopped building');
 		});
 
+		it('should report the run as it stands after a person\'s edit stopped it', async () => {
+			// Prepare
+			const onTime = { ...HIT, pieceId: 'platform', status: 'onTime' };
+			stubs.builtHits = [onTime];
+			const release = holdGate();
+			const simulateAssist = vi.fn(async (edited: TProject) => ({ revision: edited.revision, duration: edited.length, marbles: [], pieces: [], contacts: [], hits: [{ ...onTime, status: 'missed' }], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } }));
+			const { cx, assist } = studio({ simulateAssist });
+			const building = assist.buildTrack();
+
+			// Act
+			cx.execute([{ type: 'updateProject', patch: { title: 'A person typed this' } }]);
+			const edited = cx.project;
+			release();
+			await building;
+
+			// Assert
+			expect(cx.project).toBe(edited);
+			expect(simulateAssist).toHaveBeenCalledWith(edited);
+			expect(assist.$lastBuild.get()?.isStopped).toBe(true);
+			expect(assist.$lastBuild.get()?.message).toContain('0 of 1 hit on time');
+			expect(assist.$lastBuild.get()?.attention).toMatchObject([{ hitId: 'hit1', status: 'missed' }]);
+		});
+
+		it('should land what it builds as worked out, so no settle decides again', async () => {
+			// Prepare
+			const { cx, assist } = studio();
+			const landed = vi.spyOn(cx.simulation, 'landWorkedOut');
+
+			// Act
+			await assist.buildTrack();
+
+			// Assert
+			expect(landed).toHaveBeenCalledWith(BUILT, expect.objectContaining({ label: 'Build Track' }));
+		});
+
 		it('should land in its own project', async () => {
 			// Prepare
 			const { cx, assist } = studio();
@@ -91,6 +127,19 @@ describe('AssistCx class', () => {
 	});
 
 	describe('fix method', () => {
+		it('should land what it fixes as worked out, so no settle decides again', async () => {
+			// Prepare
+			const { cx, assist } = studio();
+			const landed = vi.spyOn(cx.simulation, 'landWorkedOut');
+
+			// Act
+			await assist.fix();
+
+			// Assert
+			expect(landed).toHaveBeenCalledWith(BUILT, expect.anything());
+			expect(cx.project?.title).toBe('Built');
+		});
+
 		it('should not land in another project at the same revision', async () => {
 			// Prepare
 			const release = holdGate();
