@@ -57,7 +57,7 @@ export const PROJECT_COMMAND_EXAMPLES: Record<TProjectCommand['type'], string> =
 	addGroup: "{ type: 'addGroup', group: { id, name, pieceIds: [] } }",
 	updateGroup: "{ type: 'updateGroup', groupId, patch: { name: 'Bridge', pattern: null } }",
 	removeGroups: "{ type: 'removeGroups', groupIds: [] }",
-	updateFilm: "{ type: 'updateFilm', film: { theme: 'brass' } }"
+	updateFilm: "{ type: 'updateFilm', film: { quality: 'draft' } }"
 };
 
 /**
