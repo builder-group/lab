@@ -3,8 +3,7 @@ import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, type TPreviewFrameResult } from '@/modules/blender';
 import { buildSceneDescription, renderFps } from '@/modules/scene';
-import type { TProject } from '@/modules/project';
-import type { TSimulationResult } from '@/modules/simulation';
+import type { StudioCx } from '@/modules/studio';
 import type { TCameraAngles } from '@/modules/camera';
 import type { TBlenderObject, TDecorSource } from '@/modules/scene';
 import { sceneSignature } from './live-preview';
@@ -49,8 +48,8 @@ export class FilmCx {
 	/** The render generation when a camera drag ended; the first still rendered after it ends the drag's draft */
 	private orbitEndedAt: number | null = null;
 
-	constructor(private readonly source: TFilmSource) {
-		this.live = new LivePreviewCx({ getPlayhead: () => source.getPlayhead(), isPlaying: () => source.isPlaying() });
+	constructor(private readonly studio: StudioCx) {
+		this.live = new LivePreviewCx({ getPlayhead: () => studio.$playhead.get(), isPlaying: () => studio.$playing.get() });
 	}
 
 	/** Starts Blender for the open package if needed, syncs the scene and renders the playhead */
@@ -113,7 +112,7 @@ export class FilmCx {
 
 	/** Opens the scene in Blender's window, with `select` the objects to select there */
 	async openInBlender(select: string[] = []): Promise<void> {
-		const packagePath = this.source.getPackagePath();
+		const packagePath = this.studio.$path.get();
 		if (packagePath == null) return;
 		await this.enqueue(async () => {
 			await this.sync();
@@ -170,7 +169,7 @@ export class FilmCx {
 	renderStill(time: number, width: number): Promise<TResult<TPreviewFrameResult, Error>> {
 		return this.enqueue(async () => {
 			const isSynced = await this.sync();
-			const packagePath = this.source.getPackagePath();
+			const packagePath = this.studio.$path.get();
 			if (!isSynced || packagePath == null) return Err(new Error(this.$error.get() ?? "Blender couldn't prepare the frame. Wait for the track to update, then try again."));
 			this.$status.set('rendering');
 			const [isFrameOk, frameErr, frame] = await blender.previewFrame(packagePath, { time, width });
@@ -238,9 +237,9 @@ export class FilmCx {
 	}
 
 	private async sync(options: { relink?: string[] } = {}): Promise<boolean> {
-		const project = this.source.getProject();
-		const result = this.source.getResult();
-		const packagePath = this.source.getPackagePath();
+		const project = this.studio.project;
+		const result = this.studio.simulation.$result.get();
+		const packagePath = this.studio.$path.get();
 		if (project == null || result == null || packagePath == null) return false;
 		if (!(await this.ensureStarted(packagePath))) return false;
 		const fps = renderFps(project);
@@ -259,12 +258,20 @@ export class FilmCx {
 			return false;
 		}
 		if (import.meta.env.DEV) console.debug('[film] apply_scene', applied);
-		if (applied.camera === 'takenOver') this.source.leaveCameraToBlender();
+		if (applied.camera === 'takenOver') this.leaveCameraToBlender();
 		this.syncedKey = key;
 		if (isForced) this.forcedApplies++;
 		this.live.sceneApplied(packagePath, sceneSignature(build, String(this.forcedApplies)), applied);
 		void this.refreshLinks();
 		return true;
+	}
+
+	/** The person edited the baked camera in Blender: Follow Marbles goes off, so the next sync leaves their edit alone */
+	private leaveCameraToBlender(): void {
+		const camera = this.studio.project?.film.camera;
+		if (camera == null || !camera.auto) return;
+		this.studio.execute([{ type: 'updateFilm', film: { camera: { ...camera, auto: false } } }]);
+		this.studio.notify('The camera was edited in Blender, so Follow Marbles is off and the edit stays. Turning it on follows the marbles again and discards the edit.');
 	}
 
 	private async renderPreview(): Promise<void> {
@@ -273,9 +280,9 @@ export class FilmCx {
 			this.clearOrbit();
 			return;
 		}
-		const packagePath = this.source.getPackagePath();
+		const packagePath = this.studio.$path.get();
 		if (packagePath == null || generation !== this.generation) return;
-		const time = this.source.getPlayhead();
+		const time = this.studio.$playhead.get();
 		this.$status.set('rendering');
 		const [isFrameOk, frameErr, frame] = await blender.previewFrame(packagePath, { time, width: 540 });
 		if (!isFrameOk) {
@@ -283,7 +290,7 @@ export class FilmCx {
 			return;
 		}
 		this.$error.set(null);
-		this.$preview.set(toPreview(frame, this.source.getResult()?.revision ?? 0));
+		this.$preview.set(toPreview(frame, this.studio.simulation.$result.get()?.revision ?? 0));
 		this.$status.set('ready');
 		if (this.orbitEndedAt != null && generation > this.orbitEndedAt) this.clearOrbit();
 	}
@@ -301,16 +308,6 @@ export class FilmCx {
 }
 
 export type TFilmStatus = 'idle' | 'unavailable' | 'missing' | 'starting' | 'syncing' | 'rendering' | 'ready' | 'error';
-
-export interface TFilmSource {
-	getProject: () => TProject | null;
-	getResult: () => TSimulationResult | null;
-	getPackagePath: () => string | null;
-	getPlayhead: () => number;
-	isPlaying: () => boolean;
-	/** The person edited the baked camera in Blender: Follow Marbles goes off, so the next sync leaves their edit alone */
-	leaveCameraToBlender: () => void;
-}
 
 export interface TFilmPreview {
 	url: string;

@@ -1,10 +1,10 @@
 import { createState } from 'feature-state';
+import type { StudioCx } from '@/modules/studio';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library } from '@/modules/library';
 import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme, skinnedOf } from '@/modules/scene';
-import { type TPackOrigin, type TPackTheme, type TProject, type TProjectCommand } from '@/modules/project';
-import type { TSimulationResult } from '@/modules/simulation';
+import { type TPackOrigin, type TPackTheme } from '@/modules/project';
 import { skinCommands, type TSkinTarget } from './film-commands';
 
 /**
@@ -30,7 +30,7 @@ export class FilmLibraryCx {
 	private loadedFor: string | null = null;
 	/** Items accepted so far per decor set from the agent */
 
-	constructor(private readonly source: TFilmLibrarySource) {}
+	constructor(private readonly studio: StudioCx) {}
 
 	/** Loads the project's library and the Packs; `force` reloads even when the package did not change */
 	async refresh(force = true): Promise<void> {
@@ -38,7 +38,7 @@ export class FilmLibraryCx {
 			this.$status.set('unavailable');
 			return;
 		}
-		const packagePath = this.source.getPackagePath();
+		const packagePath = this.studio.$path.get();
 		if (!force && this.loadedFor === packagePath && this.$status.get() === 'ready') return;
 		this.$status.set('loading');
 		const [isProjectOk, projectErr, projectItems] = packagePath == null ? [true, null, []] as const : await library.list(packagePath);
@@ -61,17 +61,17 @@ export class FilmLibraryCx {
 
 	/** Sets the item as the linked skin of the target pieces in one undoable edit */
 	async applySkin(item: TLibraryItem, target: TSkinTarget): Promise<boolean> {
-		const project = this.source.getProject();
-		const packagePath = this.source.getPackagePath();
+		const project = this.studio.project;
+		const packagePath = this.studio.$path.get();
 		if (project == null || packagePath == null) return false;
 		const assetId = await this.inProject(item);
 		if (assetId == null) return false;
 		const commands = skinCommands(project, target, assetId);
 		if (!commands.length) {
-			this.source.notify('No piece is selected. Select a piece, then apply the skin.');
+			this.studio.notify('No piece is selected. Select a piece, then apply the skin.');
 			return false;
 		}
-		return this.source.execute(commands);
+		return this.studio.execute(commands);
 	}
 
 	/**
@@ -79,12 +79,12 @@ export class FilmLibraryCx {
 	 * notice when it can't be copied.
 	 */
 	async inProject(item: TLibraryItem): Promise<string | null> {
-		const packagePath = this.source.getPackagePath();
+		const packagePath = this.studio.$path.get();
 		if (packagePath == null) return null;
 		if (item.packId == null) return item.id;
 		const [isImportedOk, importedErr, imported] = await library.import(packagePath, item.id, item.packId);
 		if (!isImportedOk) {
-			this.source.notify(`“${label(item)}” couldn't be copied into the project: ${importedErr.message}`, 'error');
+			this.studio.notify(`“${label(item)}” couldn't be copied into the project: ${importedErr.message}`, 'error');
 			return null;
 		}
 		void this.refresh();
@@ -108,18 +108,18 @@ export class FilmLibraryCx {
 		if (chosen == null) return Ok(null);
 		const [isAddedOk, addedErr, pack] = await library.importPack(chosen);
 		if (!isAddedOk) {
-			this.source.notify(`That Pack couldn't be added: ${addedErr.message}`, 'error');
+			this.studio.notify(`That Pack couldn't be added: ${addedErr.message}`, 'error');
 			return Err(addedErr);
 		}
 		await this.refresh();
 		const skins = pack.items.filter((item) => item.manifest?.role === 'skin').length;
-		this.source.notify(packAddedNotice(pack.name, { themes: pack.themes.length, skins, decor: pack.items.length - skins + pack.builtInDecor.length }));
+		this.studio.notify(packAddedNotice(pack.name, { themes: pack.themes.length, skins, decor: pack.items.length - skins + pack.builtInDecor.length }));
 		return Ok(pack);
 	}
 
 	/** Export This Look…'s sheet for the current look, with the library skins the project wears already ticked */
 	openExportPack(): void {
-		const project = this.source.getProject();
+		const project = this.studio.project;
 		if (project == null) return;
 		const worn = new Set(skinnedOf(project).flatMap((piece) => piece.skin?.assetId ?? []));
 		const assetIds = this.$projectItems.get().flatMap((item) => (worn.has(item.id) ? [item.id] : []));
@@ -128,8 +128,8 @@ export class FilmLibraryCx {
 
 	/** Export Pack…: writes the Pack; `destination` skips the save panel. Ok(null) when canceled. */
 	async exportPack(options: TPackExportOptions, destination?: string): Promise<TResult<string | null, Error>> {
-		const project = this.source.getProject();
-		const packagePath = this.source.getPackagePath();
+		const project = this.studio.project;
+		const packagePath = this.studio.$path.get();
 		if (project == null || packagePath == null) return Err(new Error('Open a project, then export a Pack.'));
 		let plan: ReturnType<typeof packExport>;
 		try {
@@ -139,17 +139,17 @@ export class FilmLibraryCx {
 		}
 		const [isPlanOk, planErr, exported] = plan;
 		if (!isPlanOk) {
-			this.source.notify(planErr.message, 'error');
+			this.studio.notify(planErr.message, 'error');
 			return Err(planErr);
 		}
 		const path = destination ?? (await host.choosePackPath(exported.manifest.name));
 		if (path == null) return Ok(null);
 		const [isWrittenOk, writtenErr, written] = await library.exportPack(packagePath, path, JSON.stringify(exported.manifest, null, '\t'), exported.themes, exported.assetIds);
 		if (!isWrittenOk) {
-			this.source.notify(`The Pack couldn't be exported: ${writtenErr.message}`, 'error');
+			this.studio.notify(`The Pack couldn't be exported: ${writtenErr.message}`, 'error');
 			return Err(writtenErr);
 		}
-		this.source.notify(`${packOrigin(exported.manifest.name)} exported`);
+		this.studio.notify(`${packOrigin(exported.manifest.name)} exported`);
 		return Ok(written);
 	}
 
@@ -157,19 +157,19 @@ export class FilmLibraryCx {
 		if (pack.id === STARTER_PACK_ID) return;
 		const [isRemovedOk, removedErr] = await library.removePack(pack.id);
 		if (!isRemovedOk) {
-			this.source.notify(removedErr.message, 'error');
+			this.studio.notify(removedErr.message, 'error');
 			return;
 		}
 		await this.refresh();
-		this.source.notify(`${packOrigin(pack.name)} removed. Projects keep what they use from it.`);
+		this.studio.notify(`${packOrigin(pack.name)} removed. Projects keep what they use from it.`);
 	}
 
 	/** Wears a Pack's theme: the items it needs are copied in, then its look goes on the film, as one edit */
 	async applyPackTheme(pack: TPack, theme: TPackTheme): Promise<boolean> {
 		const ready = await this.packThemeInProject(pack, theme);
-		const project = this.source.getProject();
+		const project = this.studio.project;
 		if (ready == null || project == null) return false;
-		return this.source.execute(packThemeCommands(project, ready, packOriginOf(pack)));
+		return this.studio.execute(packThemeCommands(project, ready, packOriginOf(pack)));
 	}
 
 	/** A Pack's theme with the items it needs copied in; null with a notice when one can't be */
@@ -185,11 +185,11 @@ export class FilmLibraryCx {
 	}
 
 	async remove(item: TLibraryItem): Promise<void> {
-		const packagePath = this.source.getPackagePath();
+		const packagePath = this.studio.$path.get();
 		if (packagePath == null) return;
 		const [isRemovedOk, removedErr] = await library.remove(packagePath, item.id);
 		if (!isRemovedOk) {
-			this.source.notify(removedErr.message, 'error');
+			this.studio.notify(removedErr.message, 'error');
 			return;
 		}
 		await this.refresh();
@@ -197,13 +197,6 @@ export class FilmLibraryCx {
 
 }
 
-export interface TFilmLibrarySource {
-	getPackagePath: () => string | null;
-	getProject: () => TProject | null;
-	getResult: () => TSimulationResult | null;
-	execute: (commands: TProjectCommand[]) => boolean;
-	notify: (message: string, tone?: 'info' | 'error') => void;
-}
 
 /**
  * The project's and the Packs' items as one list, the project's first. A Pack's item the project copied under another

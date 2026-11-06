@@ -104,33 +104,9 @@ export class StudioCx {
 	readonly sources = new SourcesCx(this);
 	readonly hints = new HintsCx(this);
 	readonly simulation = new SimulationCx(this);
-	readonly film = new FilmCx({
-		getProject: () => this.project,
-		getResult: () => this.simulation.$result.get(),
-		getPackagePath: () => this.$path.get(),
-		getPlayhead: () => this.$playhead.get(),
-		isPlaying: () => this.$playing.get(),
-		leaveCameraToBlender: () => {
-			const camera = this.project?.film.camera;
-			if (camera == null || !camera.auto) return;
-			this.execute([{ type: 'updateFilm', film: { camera: { ...camera, auto: false } } }]);
-			this.notify('The camera was edited in Blender, so Follow Marbles is off and the edit stays. Turning it on follows the marbles again and discards the edit.');
-		}
-	});
-	readonly library = new FilmLibraryCx({
-		getPackagePath: () => this.$path.get(),
-		getProject: () => this.project,
-		getResult: () => this.simulation.$result.get(),
-		execute: (commands) => this.execute(commands),
-		notify: (message, tone) => this.notify(message, tone)
-	});
-	readonly filmExport = new FilmExportCx({
-		getProject: () => this.project,
-		getMix: () => this.$mix.get(),
-		getPackagePath: () => this.$path.get(),
-		resolveSourceUrl: (source) => this.resolveSourceUrl(source),
-		film: this.film
-	});
+	readonly film = new FilmCx(this);
+	readonly library = new FilmLibraryCx(this);
+	readonly filmExport = new FilmExportCx(this);
 	/** Next, Build Track and Fix, whichever workspace is open; the Track canvas attaches their listeners while it's up */
 	readonly assist = new AssistCx(this);
 	readonly patterns = new PatternsCx(this);
