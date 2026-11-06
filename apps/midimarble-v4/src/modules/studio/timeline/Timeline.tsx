@@ -8,6 +8,7 @@ import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
 import { CAMERA_KEY, parseHitKey, parseShotKey, shownSongs, type TSong, toHitKey } from '@/modules/project';
 import { songRowLabel } from '../song-layer';
+import { AddLayerButton } from '../add-layers';
 import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
@@ -16,7 +17,7 @@ import { MarbleTrack, type TDrag, type TDragStart } from './MarbleTrack';
 import { noteDragCommands, pitchDeltaFor, rowCount, songRollRange, type TPitchRange } from './piano-roll';
 import { PlayheadLine, Ruler, TimeGutter } from './Ruler';
 import { SongTrack, type TSongMove } from './SongTrack';
-import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, playheadScroll, TIME_DEAD_ZONE, TIME_ORIGIN, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT, songTint } from './timeline-layout';
+import { CAMERA_ROW_HEIGHT, clampZoom, fittedHeight, HEADER_WIDTH, playheadScroll, TIME_DEAD_ZONE, TIME_ORIGIN, TRANSPORT_HEIGHT, MIN_HEIGHT, NOTE_ROW_HEIGHT, ROW_HEIGHT, RULER_HEIGHT, SONG_ROLL_MAX_HEIGHT, SONG_ROW_HEIGHT, songTint } from './timeline-layout';
 import { $expandedSongs } from './timeline-state';
 import { TitlesRow } from './TitlesRow';
 import { TrackHeader } from './TrackHeader';
@@ -283,6 +284,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							data-quick-help="timelineLayers"
 						>
 							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Layers</span>
+							<AddLayerButton cx={cx} workspace={workspace} place="timeline" />
 						</div>
 						<TimeGutter isRuler />
 						<Ruler cx={cx} end={project.length} zoom={zoom} width={trackWidth} timeAt={timeAt} />

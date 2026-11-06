@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Box, Lightbulb, Package, Type } from 'lucide-react';
+import { Box, Package, Type } from 'lucide-react';
 import React from 'react';
 import { addedBuiltInDecor, addedPacks } from '@/modules/library';
 import { HelpTip, openContextMenu, type TMenuEntry } from '@/components';
@@ -87,7 +87,7 @@ export function insertDropHandlers<E extends Element>(options: {
 }
 
 export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
-	const { cx, anchor, onAddTitle, onAddLight } = props;
+	const { cx, anchor, onAddTitle } = props;
 	const status = useFeatureState(cx.library.$status);
 	const error = useFeatureState(cx.library.$error);
 	const projectItems = useFeatureState(cx.library.$projectItems);
@@ -164,9 +164,6 @@ export const FilmInsert: React.FC<TFilmInsertProps> = (props) => {
 					<InsertTile key={title.style} label={title.label} title={title.description} preview={<span className="mm-title-preview" data-style={title.style} />} onAdd={() => add(() => cx.addScreenTitle(title.style))} {...drag(TITLE_DRAG_TYPE, title.style)} />
 				))}
 			</InsertSection>
-			<InsertSection title="Lights">
-				<InsertTile label="Light" title="Add a light to the scene" preview={<Lightbulb size={22} strokeWidth={1.4} />} onAdd={() => add(onAddLight)} />
-			</InsertSection>
 			{status === 'error' && error != null ? (
 				<p role="alert" className="mm-caption px-1 pt-2 !text-[var(--bad)]">
 					{error}
@@ -181,7 +178,6 @@ interface TFilmInsertProps {
 	/** The rail's Insert button, which the popover opens beside */
 	anchor: React.RefObject<HTMLButtonElement | null>;
 	onAddTitle: () => void;
-	onAddLight: () => void;
 }
 
 const TITLE_TILES: readonly { style: TTitleStyle; label: string; description: string }[] = [

@@ -13,9 +13,10 @@ import { commandItem } from './commands';
 import { inspectorTarget } from './inspector-target';
 import { decorLabelEntries, decorMenu, layerLabelEntries, marbleLabelEntries, marbleMenu, pieceMenu, songMenu, titleMenu } from './menus';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
+import { AddLayerButton } from './add-layers';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
-/** Full-height sidebar after Paper and Figma, and only Layers; what you add is in the tool rail's Insert */
+/** Full-height sidebar after Paper and Figma, and only Layers, with its + */
 
 export const Sidebar: React.FC<TSidebarProps> = (props) => {
 	const { cx } = props;
@@ -28,6 +29,7 @@ export const Sidebar: React.FC<TSidebarProps> = (props) => {
 		<aside className="mm-sidebar flex w-[264px] shrink-0 flex-col" aria-label="Sidebar">
 			<div className="mm-sidebar-head">
 				<span>Layers</span>
+				<AddLayerButton cx={cx} workspace={workspace} place="layers" />
 			</div>
 			<Layers cx={cx} project={project} workspace={workspace} />
 		</aside>

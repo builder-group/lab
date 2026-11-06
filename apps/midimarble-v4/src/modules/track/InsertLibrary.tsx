@@ -1,5 +1,4 @@
 import { useFeatureState } from 'feature-react/state';
-import { Music } from 'lucide-react';
 import React from 'react';
 import { HelpTip } from '@/components';
 import { TRACK_HELP } from '@/modules/scene';
@@ -10,7 +9,7 @@ import { PiecePreview } from './PiecePreview';
 
 /** Track's Insert: a tile per item with a preview of its real geometry. A click arms the item's tool; a drag drops it on the canvas. */
 export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
-	const { trackCx, anchor, onStartDrag, onAddSong } = props;
+	const { trackCx, anchor, onStartDrag } = props;
 	const tool = useFeatureState(trackCx.$tool);
 	const pathType = useFeatureState(trackCx.$pathType);
 	const armed = armedInsertItem(tool, pathType);
@@ -52,30 +51,6 @@ export const InsertLibrary: React.FC<TInsertLibraryProps> = (props) => {
 					</div>
 				</section>
 			))}
-			{onAddSong != null ? (
-				<section className="mm-library-section" aria-label="Song">
-					<div className="mm-library-section-title">Song</div>
-					<div className="mm-library-grid">
-						<button
-							className="mm-library-tile"
-							aria-label="Song…: add a MIDI file or a recording"
-							onClick={() => {
-								close();
-								onAddSong();
-							}}
-							type="button"
-						>
-							<span className="mm-library-preview">
-								<Music size={22} strokeWidth={1.4} />
-							</span>
-							<span className="mm-library-label">
-								<span>Song…</span>
-							</span>
-							<span className="mm-tooltip">Add a MIDI file or a recording</span>
-						</button>
-					</div>
-				</section>
-			) : null}
 		</InsertPopover>
 	);
 };
@@ -86,8 +61,6 @@ interface TInsertLibraryProps {
 	anchor: React.RefObject<HTMLButtonElement | null>;
 	/** A press on a tile: a click arms it, a drag past a few pixels drops it on the canvas */
 	onStartDrag: (item: TInsertItem, event: React.PointerEvent) => void;
-	/** Adds the song; absent while the project has one */
-	onAddSong?: (() => void) | undefined;
 }
 
 /** Tile that follows the pointer while a library item is dragged outside the canvas */

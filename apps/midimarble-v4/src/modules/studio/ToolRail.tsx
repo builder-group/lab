@@ -6,7 +6,6 @@ import { InsertDragGhost, InsertLibrary, toolKeys, type TTrackTool } from '@/mod
 import { FilmInsert } from '@/modules/film';
 import { isEditingTarget } from '@/lib';
 import { getCommand } from './commands';
-import { hasSongLayer } from './song-layer';
 import type { StudioCx } from './StudioCx';
 import { useInsertDrag } from './use-insert-drag';
 
@@ -17,7 +16,7 @@ export const ToolRail: React.FC<TToolRailProps> = (props) => {
 	const trackCx = useFeatureState(cx.$trackCx);
 	return (
 		<nav className="mm-tool-rail" aria-label="Tools" data-quick-help="tools">
-			{workspace === 'track' ? trackCx != null ? <TrackTools cx={cx} trackCx={trackCx} /> : null : <FilmTools cx={cx} />}
+			{workspace === 'track' ? trackCx != null ? <TrackTools trackCx={trackCx} /> : null : <FilmTools cx={cx} />}
 		</nav>
 	);
 };
@@ -26,9 +25,8 @@ interface TToolRailProps {
 	cx: StudioCx;
 }
 
-const TrackTools: React.FC<{ cx: StudioCx; trackCx: TrackCx }> = (props) => {
-	const { cx, trackCx } = props;
-	const history = useFeatureState(cx.$history);
+const TrackTools: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
 	const tool = useFeatureState(trackCx.$tool);
 	const isLibraryOpen = useFeatureState(trackCx.$libraryOpen);
 	const inserting = useFeatureState(trackCx.$inserting);
@@ -49,7 +47,7 @@ const TrackTools: React.FC<{ cx: StudioCx; trackCx: TrackCx }> = (props) => {
 			<RailButton
 				ref={insertButtonRef}
 				label="Insert"
-				detail="The track, and the song"
+				detail="The track, to place on the wall"
 				shortcut="⇧I"
 				isActive={isLibraryTool}
 				isOpen={isLibraryOpen}
@@ -57,7 +55,7 @@ const TrackTools: React.FC<{ cx: StudioCx; trackCx: TrackCx }> = (props) => {
 			>
 				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
-			{isLibraryOpen && inserting == null ? <InsertLibrary trackCx={trackCx} anchor={insertButtonRef} onStartDrag={ghost.start} onAddSong={history?.present != null && hasSongLayer(history.present) ? undefined : () => getCommand('file.importMidi').run(cx)} /> : null}
+			{isLibraryOpen && inserting == null ? <InsertLibrary trackCx={trackCx} anchor={insertButtonRef} onStartDrag={ghost.start} /> : null}
 			{ghost.state != null && !ghost.state.isOnCanvas ? <InsertDragGhost item={ghost.state.item} position={ghost.state.position} /> : null}
 		</>
 	);
@@ -100,14 +98,13 @@ const FilmTools: React.FC<{ cx: StudioCx }> = (props) => {
 				<MousePointer2 size={17} strokeWidth={1.6} />
 			</RailButton>
 			<div className="mm-tool-rail-divider" />
-			<RailButton ref={insertButtonRef} label="Insert" detail="Decor, titles or a light" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
+			<RailButton ref={insertButtonRef} label="Insert" detail="Decor and titles" shortcut="⇧I" isActive={false} isOpen={isInsertOpen} onClick={() => cx.library.$insertOpen.set(!isInsertOpen)}>
 				<Plus size={18} strokeWidth={1.6} />
 			</RailButton>
 			{isInsertOpen ? <FilmInsert
 					cx={cx}
 					anchor={insertButtonRef}
 					onAddTitle={() => getCommand('film.addText').run(cx)}
-					onAddLight={() => getCommand('light.add').run(cx)}
 				/> : null}
 		</>
 	);
