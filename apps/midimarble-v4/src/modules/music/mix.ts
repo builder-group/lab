@@ -49,14 +49,16 @@ export function currentMix(project: TProject, mix: TMix): TMix {
 /**
  * The project as it sounds with this mix. Soloing Bass leaves the hits Bass plays. Muting a song takes out what it
  * plays: its recording, its Backing and the marbles' hits tied to it. A muted recording has no audio source and no
- * notes left, which renders as silence.
+ * notes left, which renders as silence. A hit in a recording that doesn't play is silent too, whoever is soloed: it has no sound
+ * of its own.
  */
 export function audibleProject(project: TProject, mix: TMix): TProject {
 	const current = currentMix(project, mix);
 	if (!current.muted.length && !current.solo.length) return project;
+	const silent = new Set(project.songs.filter((song) => song.kind === 'audio' && song.path != null && !isAudible(current, song.id)).map((song) => song.id));
 	return {
 		...project,
-		marbles: project.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => isHitAudible(current, marble.id, hit.songId)) })),
+		marbles: project.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => isHitAudible(current, marble.id, hit.songId) && (hit.songId == null || !silent.has(hit.songId))) })),
 		songs: project.songs.flatMap((song) => {
 			if (isAudible(current, song.id)) return [song];
 			return song.kind === 'audio' ? [] : [{ ...song, backing: [] }];

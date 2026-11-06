@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMarble, createProject, type THit, type TProject, type TSong, backingOf } from '@/modules/project';
 import { createAudioSignature, renderProjectAudio } from './audio-engine';
+import { soundingMarbles } from './synthesize';
 import { audibleProject, currentMix, EMPTY_MIX, hasSong, isAudible, isHitAudible, marbleSounds, mutedSoundtrackNote, soundtrackProject } from './mix';
 
 const SAMPLE_RATE = 22050;
@@ -77,6 +78,19 @@ describe('audibleProject function', () => {
 		expect(hitsOf(muted, 'melody')).toEqual(['own']);
 		expect(hitsOf(muted, 'bass')).toEqual(['b']);
 		expect(backingOf(muted)).toEqual([]);
+	});
+
+	it('should not give a soloed marble\'s hits in a recording its Sound', () => {
+		// Prepare
+		const tied = project([AUDIO], [{ ...note('a', 0.2), songId: AUDIO.id }, note('b', 1.2)], []);
+
+		// Act
+		const solo = audibleProject(tied, { muted: [], solo: ['melody'] });
+
+		// Assert
+		expect(soundingMarbles(tied)[0]?.hits.map((hit) => hit.id)).toEqual(['b']);
+		expect(soundingMarbles(solo)[0]?.hits.map((hit) => hit.id)).toEqual(['b']);
+		expect(solo.songs).toEqual([]);
 	});
 
 	it('should hear only what a soloed song plays', () => {
