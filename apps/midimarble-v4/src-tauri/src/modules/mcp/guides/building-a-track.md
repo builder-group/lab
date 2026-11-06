@@ -64,7 +64,7 @@ To choose the piece yourself, place it on the hit before the gap with `project.e
 - `{ type: 'flattenPattern', groupId }`: a live Pattern's pieces stay as they are, to edit one by one, and the Pattern is gone
 - `{ type: 'placeDecor', source, at: { x, y } }` and `{ type: 'scatterDecor', sources, density?, seed? }`
 
-The project's own commands work too. `add` replaces what has the same ID. `update` changes the fields in `patch` and leaves the rest, and `null` deletes a field. A skin and a marble's `start` take only what changes. A command that names a marble, hit, piece, song, file or piece type that isn't there is refused, and the message names it.
+The project's own commands work too. `add` replaces what has the same ID. `update` changes the fields in `patch` and leaves the rest, and `null` deletes a field. A skin and a marble's `start` take only what changes, and `null` there deletes that field: `skin: { color: null }` goes back to the theme's color, `start: { velocity: null }` to a plain drop. A command that names a marble, hit, piece, song, file or piece type that isn't there is refused, and the message names it.
 
 - `{ type: 'updateProject', patch: { title, length, format: { width, height }, gravity } }`: `gravity` is 0.05 to 2, 0.5 by default (`get_state.gravity`), and `run_command('marble.speed', { value })` is the same.
 - `{ type: 'updateFilm', film: { ... } }`: see `film-look`

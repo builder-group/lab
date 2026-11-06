@@ -113,19 +113,19 @@ export function commandProblem(command: { type: string }): string | null {
 
 /**
  * What an agent means by a part of a value: `updateFilm` changes only the named fields of the camera, wall and lights, and an
- * update only those of a skin or a marble's start, so nothing has to be read back first or guessed.
+ * update only those of a skin or a marble's start, so nothing has to be read back first or guessed. `null` clears a field.
  */
 function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCommand {
 	if (command.type === 'updateFilm') {
 		const { film } = project;
 		const patch = command.film as Record<string, unknown>;
 		const merged = { ...patch };
-		if (isObject(patch['theme'])) merged['theme'] = { ...film.theme, ...patch['theme'] };
-		if (isObject(patch['camera'])) merged['camera'] = { ...film.camera, ...patch['camera'] };
-		if (isObject(patch['wall'])) merged['wall'] = { ...film.wall, ...patch['wall'] };
+		if (isObject(patch['theme'])) merged['theme'] = withoutNulls({ ...film.theme, ...patch['theme'] });
+		if (isObject(patch['camera'])) merged['camera'] = withoutNulls({ ...film.camera, ...patch['camera'] });
+		if (isObject(patch['wall'])) merged['wall'] = withoutNulls({ ...film.wall, ...patch['wall'] });
 		if (isObject(patch['lights'])) {
 			const key = patch['lights']['key'];
-			merged['lights'] = { ...film.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...film.lights.key, ...key } } : {}) };
+			merged['lights'] = withoutNulls({ ...film.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...film.lights.key, ...key } } : {}) });
 		}
 		return { ...command, film: merged } as TAgentCommand;
 	}
@@ -137,14 +137,19 @@ function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCom
 		const current = project.marbles.find((item) => item.id === command.marbleId);
 		const next = withCurrentSkin(command, current?.skin);
 		const start = (next.patch as Record<string, unknown>)['start'];
-		return isObject(start) && current != null ? ({ ...next, patch: { ...next.patch, start: { ...current.start, ...start } } } as TAgentCommand) : next;
+		return isObject(start) && current != null ? ({ ...next, patch: { ...next.patch, start: withoutNulls({ ...current.start, ...start }) } } as TAgentCommand) : next;
 	}
 	return command;
 }
 
 function withCurrentSkin<GCommand extends { patch: object }>(command: GCommand, current: TSkin | undefined): GCommand {
 	const skin = (command.patch as Record<string, unknown>)['skin'];
-	return isObject(skin) ? { ...command, patch: { ...command.patch, skin: { ...current, ...skin } } } : command;
+	return isObject(skin) ? { ...command, patch: { ...command.patch, skin: withoutNulls({ ...current, ...skin }) } } : command;
+}
+
+/** A merged value without the fields named `null`, at any depth of its objects, so its schema judges what's left */
+function withoutNulls(value: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(value).flatMap(([name, field]) => (field === null ? [] : [[name, isObject(field) ? withoutNulls(field) : field]])));
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

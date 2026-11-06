@@ -350,6 +350,55 @@ describe('MCP tools', () => {
 		});
 	});
 
+	describe('null in a nested field', () => {
+		it('should clear a camera, wall, Key Light and theme field, back to the theme\'s', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+			await execute(cx, { type: 'updateFilm', film: { camera: { turn: 1.2, focusMarbleId: marbleId }, wall: { color: '#112233' }, lights: { key: { exposure: 1, bloom: 0.2 } }, theme: { glowColor: '#00ff88' } } });
+
+			// Act
+			const reply = await execute(cx, { type: 'updateFilm', film: { camera: { turn: null, focusMarbleId: null }, wall: { color: null }, lights: { key: { exposure: null } }, theme: { glowColor: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			const film = cx.project?.film;
+			expect(film?.camera).not.toHaveProperty('turn');
+			expect(film?.camera).not.toHaveProperty('focusMarbleId');
+			expect(film?.wall).not.toHaveProperty('color');
+			expect(film?.lights.key).not.toHaveProperty('exposure');
+			expect(film?.lights.key).toMatchObject({ bloom: 0.2 });
+			expect(film?.theme).not.toHaveProperty('glowColor');
+		});
+
+		it('should clear a skin\'s field on a marble and a piece, and a start\'s velocity', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			const piece = { id: 'p', name: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 }, skin: { color: '#112233', assetId: 'platform:copper' } };
+			await execute(cx, { type: 'addPiece', piece }, { type: 'updateMarble', marbleId, patch: { skin: { color: '#112233' }, start: { velocity: { x: 0.1, y: 0 } } } });
+
+			// Act
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { skin: { color: null }, start: { velocity: null } } }, { type: 'updatePiece', pieceId: 'p', patch: { skin: { color: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(marbleOf(cx).skin ?? {}).not.toHaveProperty('color');
+			expect(marbleOf(cx).start).not.toHaveProperty('velocity');
+			expect(cx.project?.track.pieces[0]?.skin).toEqual({ assetId: 'platform:copper' });
+		});
+
+		it('should refuse null on a field that must have a value', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+
+			// Act
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { start: { position: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(true);
+			expect(textOf(reply)).toContain('position');
+		});
+	});
+
 	describe('updateFilm', () => {
 		it('should refuse an unknown theme and name the ones there are', async () => {
 			const { cx } = studio();
