@@ -183,14 +183,19 @@ function createHopStore(): THopStore {
 }
 
 function keepHop(store: THopStore, record: THopRecord): void {
-	const count = record.marbles.reduce((sum, marble) => sum + marble.samples.length, 0);
+	const count = (hop: THopRecord): number => hop.marbles.reduce((sum, marble) => sum + marble.samples.length, 0);
+	const known = store.hops.get(record.key);
+	if (known != null) {
+		store.samples -= count(known);
+		store.hops.delete(record.key);
+	}
 	store.hops.set(record.key, record);
-	store.samples += count;
-	// Oldest first, and a hop in use was just kept again
+	store.samples += count(record);
+	// Least recently used first: a hop in use was just kept again
 	for (const [key, old] of store.hops) {
-		if (store.samples <= KEPT_SAMPLES || old === record) break;
+		if (store.samples <= KEPT_SAMPLES) break;
 		store.hops.delete(key);
-		store.samples -= old.marbles.reduce((sum, marble) => sum + marble.samples.length, 0);
+		store.samples -= count(old);
 	}
 }
 
@@ -571,12 +576,13 @@ function hopKey(walk: TWalk, marbles: { walker: TMarbleWalk; start: TBodyState; 
 	return parts.join('|');
 }
 
-/** Where a piece waits instead of following the marble: as the edit left it held, or at its stored hand-over while the marble is released */
+/** Where a piece waits instead of following the marble: at its stored hand-over, while the marble is released */
 function heldBy(walk: TWalk, event: TPlanEvent): { dot: TVec2; velocity: TVec2 | null } | null {
 	const walker = walk.marbles[event.marbleIndex];
-	if (walker?.waitsFrom == null || event.step < walker.waitsFrom || event.isAnchor) return event.held;
-	const stored = walker.stored.get(event.step);
-	if (stored == null) return event.held;
+	if (walker?.waitsFrom == null || event.step < walker.waitsFrom) return null;
+	// A follower's moment falls inside a hop; the hand-over before it says near enough where it waits
+	const stored = [...walker.stored.values()].filter((item) => item.step <= event.step).at(-1);
+	if (stored == null) return null;
 	const flight = ballistic({ x: stored.position.x + stored.origin.x, y: stored.position.y + stored.origin.y }, stored.velocity, Math.max(0, event.time - stored.step / PHYSICS_HZ), walk.plan.gravity);
 	return { dot: flight.position, velocity: flight.velocity };
 }

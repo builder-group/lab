@@ -92,8 +92,6 @@ export interface TPlanEvent {
 	ride: TRide | null;
 	/** How the marble leaves this platform while it comes out near that */
 	leaves: { velocity: TVec2; spin: number } | null;
-	/** Where the piece waits instead of following the marble */
-	held: { dot: TVec2; velocity: TVec2 | null } | null;
 	/** Signature of all the piece gives the event, for the snapshot keys */
 	hash: string;
 }
@@ -246,7 +244,6 @@ function pieceEvent(piece: TPiece, tie: NonNullable<ReturnType<typeof tieOf>>, d
 		isAnchor,
 		offset: tie.kind === 'follows' ? (tie.offset ?? null) : null,
 		ride,
-		held: tie.held ?? null,
 		leaves: tie.kind === 'plays' && tie.leaves != null && tie.leaves.angle === piece.angle && tie.leaves.bounce === params['bounce'] ? { velocity: tie.leaves.velocity, spin: tie.leaves.spin } : null
 	};
 	const hash = signature(
@@ -262,8 +259,7 @@ function pieceEvent(piece: TPiece, tie: NonNullable<ReturnType<typeof tieOf>>, d
 			isAnchor,
 			event.offset,
 			ride != null ? rideHash(ride) : null,
-			event.leaves,
-			event.held
+			event.leaves
 		])
 	);
 	return { ...event, hash };

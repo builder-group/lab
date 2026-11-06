@@ -1,6 +1,6 @@
-import type { TPiece, TProject } from '@/modules/project';
+import type { TProject } from '@/modules/project';
 import { assistPoolSize, createAssistPool, type TAssistPool, type TSearchRunOptions, type TPoolWorker } from './assist-pool';
-import type { TSettleAnswer, TSettleRequest } from './local-edit';
+import type { TEditAnswer, TEditRequest } from './edit-rule';
 import { createRequestQueue, type TRequestQueue } from './request-queue';
 import { isPackedResult, unpackResult } from './result-transfer';
 import type { TSimulationWorkerRequest, TSimulationWorkerResponse } from './simulation.worker';
@@ -20,12 +20,12 @@ export interface TSimulationClient {
 	 */
 	simulateAssist: (project: TProject) => Promise<TSimulationResult>;
 	/**
-	 * Keeps the run after an edit (`settleEdit`); a newer request replaces a waiting one. A preview's whole settle waits in
-	 * its own line behind an edit's, so a paused drag never takes the place of an edit that hasn't landed.
+	 * What an edit does to the run (`answerEdit`); a newer request replaces a waiting one. A preview's waits in its own line
+	 * behind an edit's, so a drag never takes the place of an edit that hasn't landed. In the trajectory worker, whose hops it reuses.
 	 */
-	settle: (request: TSettleRequest, options?: { isPreview?: boolean }) => Promise<TSettleAnswer>;
+	settle: (request: TEditRequest, options?: { isPreview?: boolean }) => Promise<TEditAnswer>;
 	/** Brings the marble back to pieces waiting for it, null when no way plays every hit */
-	reconnect: (project: TProject) => Promise<{ pieces: TPiece[] } | null>;
+	reconnect: (project: TProject) => Promise<Pick<TEditAnswer, 'pieces' | 'marbles'> | null>;
 	/**
 	 * Assists run in a second worker so a slow search never holds up the live trajectory. Each kind keeps
 	 * only its newest waiting request; replaced requests reject with a `SupersededError`. Auto place spreads its
@@ -62,13 +62,10 @@ export function createSimulationClient(): TSimulationClient {
 			return startPool().autoPlace(request, options);
 		},
 		settle(request, options) {
-			// A drag's quick one stops short of the song's end, and the trajectory worker keeps the end for what lies past a preview
-			if (request.isQuick === true) return assists.queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
-			// A whole settle ends on the run the edit then asks for, so in the trajectory worker that run resumes from its snapshots
-			return simulation.queue.enqueue<TSettleAnswer>(options?.isPreview === true ? 'previewSettle' : 'settle', { kind: 'settle', ...request });
+			return simulation.queue.enqueue<TEditAnswer>(options?.isPreview === true ? 'previewSettle' : 'settle', { kind: 'settle', ...request });
 		},
 		reconnect(project) {
-			return assists.queue.enqueue<{ pieces: TPiece[] } | null>('reconnect', { kind: 'reconnect', project });
+			return assists.queue.enqueue<Pick<TEditAnswer, 'pieces' | 'marbles'> | null>('reconnect', { kind: 'reconnect', project });
 		},
 		continueRun(request) {
 			return assists.queue.enqueue<TContinueAnswer | null>('continue', { kind: 'continue', ...request });

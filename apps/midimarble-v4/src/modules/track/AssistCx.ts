@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
-import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, editCommands, withEditAnswer, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import { unreachableActions } from './unreachable-fixes';
@@ -713,7 +713,7 @@ export class AssistCx {
 			simulate: async (next) => client.simulateAssist(next),
 			autoPlace: async (next, hit, piece) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: piece.type ?? 'platform', pieceId: piece.id }, options)).piece,
 			gapPiece: async (next, gap, type, pieceId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId }, options)).piece,
-			settle: async (before, after) => (await client.settle({ before, after })).pieces
+			settle: async (before, after) => editCommands(await client.settle({ before, after }))
 		};
 	}
 
@@ -740,7 +740,7 @@ export class AssistCx {
 			this.studio.notify('The run is still being checked. Press Fix again in a moment.');
 			return;
 		}
-		if (project.track.pieces.some((piece) => tieOf(piece)?.held != null)) await this.fixHeld(project, result);
+		if (project.marbles.some((marble) => marble.waitsFrom != null)) await this.fixHeld(project, result);
 		else if (pieceId != null) await this.fixOnePiece(project, result, pieceId);
 		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
 		else this.studio.notify(this.nothingToFixWords(project, result));
@@ -884,7 +884,7 @@ export class AssistCx {
 		try {
 			const back = await client.reconnect(project);
 			if (back != null) {
-				const next = withSettled(project, back.pieces);
+				const next = withEditAnswer(project, back);
 				judge(next, await client.simulateAssist(next));
 			} else {
 				const released = release(project);
@@ -924,7 +924,8 @@ export class AssistCx {
 		// Fix may move a release too
 		const released = fixed.marbles.flatMap((marble): TProjectCommand[] => {
 			const was = project.marbles.find((item) => item.id === marble.id);
-			return was != null && JSON.stringify(was.start) !== JSON.stringify(marble.start) ? [{ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start } }] : [];
+			if (was == null || (JSON.stringify(was.start) === JSON.stringify(marble.start) && was.waitsFrom === marble.waitsFrom && was.handOvers === marble.handOvers)) return [];
+			return [{ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start, waitsFrom: marble.waitsFrom ?? null, handOvers: marble.handOvers ?? null } }];
 		});
 		this.studio.simulation.landWorkedOut([...changed.map((piece): TProjectCommand => ({ type: 'addPiece', piece })), ...released], { amend: false });
 		this.studio.notifyEdit(`${tiltChange(project, changed)}The marble is back on its run · ${verdict.label}`);
@@ -1015,18 +1016,11 @@ export class AssistCx {
 
 /** The earliest hit whose piece waits behind a break */
 function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {
-	const held = project.track.pieces.flatMap((piece) => {
-		const link = tieOf(piece);
-		const time = link?.held != null ? project.marbles.find((marble) => marble.id === link.marbleId)?.hits.find((hit) => hit.id === link.hitId)?.time : undefined;
-		return link != null && time != null ? [{ marbleId: link.marbleId, hitId: link.hitId, time }] : [];
+	const held = project.marbles.flatMap((marble) => {
+		const time = marble.hits.find((hit) => hit.id === marble.waitsFrom)?.time;
+		return marble.waitsFrom != null && time != null ? [{ marbleId: marble.id, hitId: marble.waitsFrom, time }] : [];
 	});
 	return held.sort((a, b) => a.time - b.time)[0] ?? null;
-}
-
-/** `project` with these pieces in place of the ones of the same id */
-function withSettled(project: TProject, pieces: TPiece[]): TProject {
-	const changed = new Map(pieces.map((piece) => [piece.id, piece]));
-	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } };
 }
 
 /** What a fix did to a person's tilts, so it never rewrites an edit quietly: "Platform 8 went from 22.9° to 40°. " */

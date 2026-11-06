@@ -22,6 +22,10 @@ function expectSameRun(a: TSimulationResult, b: TSimulationResult, name: string)
 	expect(a.contacts, name).toEqual(b.contacts);
 }
 
+function withoutHandOvers(project: TProject): TProject {
+	return { ...project, marbles: project.marbles.map(({ handOvers: _, ...marble }) => marble) };
+}
+
 function withHandOvers(simulator: TSimulator, project: TProject): TProject {
 	const walk = simulator.walk(project);
 	return { ...project, marbles: project.marbles.map((marble, index) => ({ ...marble, handOvers: handOversOf(walk, index) })) };
@@ -29,13 +33,13 @@ function withHandOvers(simulator: TSimulator, project: TProject): TProject {
 
 describe('hops', () => {
 	it.each(['zigzag', 'long-gap', 'windmill', 'two-marbles', 'staircase'])('should run %s the same to the bit as one long world', (name) => {
-		const project = loadFixture(name);
+		const project = withoutHandOvers(loadFixture(name));
 
 		expectSameRun(chain.simulate(project), oneWorld.simulate(project), name);
 	});
 
 	it.each(['zigzag', 'windmill', 'two-marbles'])('should run %s from its stored hand-overs as it ran without them', (name) => {
-		const project = loadFixture(name);
+		const project = withoutHandOvers(loadFixture(name));
 		const fresh = chain.simulate(project);
 
 		expectSameRun(chain.simulate(withHandOvers(chain, project)), fresh, name);

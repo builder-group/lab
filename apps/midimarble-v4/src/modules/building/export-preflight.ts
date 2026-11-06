@@ -249,7 +249,9 @@ function withoutBehindBreak(project: TProject, result: TSimulationResult, issues
 	const breaks = new Map<string, number>();
 	for (const hit of result.hits) {
 		if (hit.status !== 'missed' && hit.status !== 'blocked') continue;
-		const waits = tieOf(project.track.pieces.find((piece) => piece.id === hit.pieceId))?.held != null;
+		const marble = project.marbles.find((item) => item.id === hit.marbleId);
+		const waitsFrom = marble?.hits.find((item) => item.id === marble.waitsFrom)?.time;
+		const waits = waitsFrom != null && hit.targetTime >= waitsFrom - 1e-6;
 		if (waits && hit.targetTime < (breaks.get(hit.marbleId) ?? Infinity)) breaks.set(hit.marbleId, hit.targetTime);
 	}
 	if (breaks.size === 0) return issues;

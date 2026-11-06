@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { amendHistory, applyProjectCommands, createHistory, pushHistory, redoHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, answerWorkerRequest, createSimulator, createWorkerMemory, type TSettleBase, type TSettleRequest, type TSimulationResult, type TWorkerMessage } from '@/modules/simulation';
+import { answerEdit, answerWorkerRequest, createSimulator, createWorkerMemory, type TEditRequest, type TSimulationResult, type TWorkerMessage } from '@/modules/simulation';
 import { SimulationCx } from './SimulationCx';
 import type { StudioCx } from './StudioCx';
 
@@ -49,22 +49,19 @@ function workerStub(): { Worker: unknown; hold: () => () => void; simulated: TPr
 	return { Worker: FakeWorker, hold, simulated };
 }
 
-async function setup(makeClient?: () => unknown): Promise<{ cx: SimulationCx; studio: StudioCx; simulated: TProject[]; asked: TSettleRequest[]; execute: (commands: TProjectCommand[]) => void; flush: () => Promise<void> }> {
+async function setup(makeClient?: () => unknown): Promise<{ cx: SimulationCx; studio: StudioCx; simulated: TProject[]; asked: TEditRequest[]; execute: (commands: TProjectCommand[]) => void; flush: () => Promise<void> }> {
 	const simulator = await createSimulator();
 	const settleSimulator = await createSimulator();
 	const simulated: TProject[] = [];
-	const asked: TSettleRequest[] = [];
-	let memo: TSettleBase | null = null;
+	const asked: TEditRequest[] = [];
 	client.current = {
 		simulate: async (project: TProject): Promise<TSimulationResult> => {
 			simulated.push(project);
 			return simulator.simulate(project);
 		},
-		settle: async (request: TSettleRequest) => {
+		settle: async (request: TEditRequest) => {
 			asked.push(request);
-			const { answer, memo: next } = answerSettle(settleSimulator, request, memo);
-			memo = next;
-			return answer;
+			return answerEdit(settleSimulator, request);
 		},
 		dispose: () => undefined
 	};
@@ -108,10 +105,6 @@ function turn(project: TProject, id: string, by: number): TProjectCommand[] {
 	return [{ type: 'updatePiece', pieceId: id, patch: { angle: piece.angle + by } }];
 }
 
-function leavesOf(project: TProject, id: string): unknown {
-	const place = project.track.pieces.find((piece) => piece.id === id)?.place;
-	return place?.kind === 'plays' ? place.leaves : undefined;
-}
 
 describe('SimulationCx class', () => {
 	beforeEach(() => {
@@ -135,7 +128,7 @@ describe('SimulationCx class', () => {
 			expect(history.past).toHaveLength(1);
 			expect(asked).toHaveLength(1);
 			expect(cx.isSettling).toBe(false);
-			expect(simulated.every((item) => leavesOf(item, 'piece-1-7') != null)).toBe(true);
+			expect(simulated.every((item) => item.marbles[0]?.handOvers != null)).toBe(true);
 			expect(cx.$result.get()?.hits.every((hit) => hit.status === 'onTime')).toBe(true);
 		});
 
@@ -448,7 +441,7 @@ describe('SimulationCx class', () => {
 			await flush();
 
 			// Assert
-			expect(leavesOf(simulated.at(-1) as TProject, 'piece-1-7')).toBeDefined();
+			expect(simulated.at(-1)?.marbles[0]?.handOvers).toBeDefined();
 			expect(studio.project).toBe(project);
 		});
 	});

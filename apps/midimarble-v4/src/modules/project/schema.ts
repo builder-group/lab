@@ -49,14 +49,6 @@ const SMarbleStart = z.strictObject({
 	spin: z.number().optional()
 });
 
-// Where a piece waits while an edit it could not take up keeps the marble from it: it stays where the marble was at its
-// moment before that edit, and how the marble left it then is kept, so a fix can bring the marble back
-const SHeld = z.strictObject({
-	dot: SVec2,
-	velocity: SVec2.nullable(),
-	leaves: z.strictObject({ velocity: SVec2, spin: z.number() }).nullable()
-});
-
 const SContactAt = z.number().min(0).max(1);
 
 const SFree = z.strictObject({ kind: z.literal('free'), position: SVec2 });
@@ -68,7 +60,6 @@ const SPlays = z.strictObject({
 	hitId: SId,
 	// Where along the contact surface the marble lands, from 0 to 1
 	contactAt: SContactAt,
-	held: SHeld.optional(),
 	// How the marble leaves this platform, kept so everything after it stays as it was: the velocity and spin a few physics
 	// steps after the hit. It counts only for this angle and bounce, while the bounce comes out near it.
 	leaves: z.strictObject({ velocity: SVec2, spin: z.number(), angle: z.number(), bounce: z.number() }).optional()
@@ -82,8 +73,7 @@ const SFollows = z.strictObject({
 	// Where the marble enters along the piece; absent is its middle
 	contactAt: SContactAt.optional(),
 	// Pose origin relative to the marble at that moment; without it the piece is placed touching the marble
-	offset: SVec2.optional(),
-	held: SHeld.optional()
+	offset: SVec2.optional()
 });
 
 export const SPlace = z.discriminatedUnion('kind', [SFree, SPlays, SFollows]);

@@ -405,7 +405,7 @@ async function fixProblemPiece(
 	}
 	const { settle } = deps;
 	if (settle != null) {
-		const settled = await tryTurns(async (turn) => (await settle(project, withCommands(project, [turn]))).map((taker): TProjectCommand => ({ type: 'addPiece', piece: taker })));
+		const settled = await tryTurns(async (turn) => settle(project, withCommands(project, [turn])));
 		if (settled != null) return settled;
 	}
 	// Every marble's later hits follow each tilt, so what is left is to build them again from the hit before this one
@@ -508,7 +508,7 @@ export function replaceCommands(project: TProject, placed: TPiece): TProjectComm
 	if (current == null || link == null) return [];
 	const commands: TProjectCommand[] = [];
 	const currentLink = tieOf(current);
-	if (currentLink == null || currentLink.held != null || (currentLink.kind === 'plays' && currentLink.leaves != null) || current.angle !== placed.angle) {
+	if (currentLink == null || (currentLink.kind === 'plays' && currentLink.leaves != null) || current.angle !== placed.angle) {
 		// Placed again, a platform follows the marble, whatever it kept from an earlier edit
 		commands.push({ type: 'updatePiece', pieceId: current.id, patch: { place: withoutKept(currentLink ?? link), angle: placed.angle } });
 	}
@@ -520,9 +520,8 @@ export function replaceCommands(project: TProject, placed: TPiece): TProjectComm
 
 /** A tie without what it kept from an earlier edit */
 function withoutKept(tie: TPlays | TFollows): TPlays | TFollows {
-	const { held: _held, ...rest } = tie;
-	if (rest.kind !== 'plays') return rest;
-	const { leaves: _leaves, ...plays } = rest;
+	if (tie.kind !== 'plays') return tie;
+	const { leaves: _leaves, ...plays } = tie;
 	return plays;
 }
 
@@ -534,8 +533,8 @@ export interface TFixDeps {
 	autoPlace: (project: TProject, hit: THitResult, piece: TPiece) => Promise<TPiece>;
 	/** A new rail or tunnel for a long gap, replacing `pieceId`; rejects when none fits */
 	gapPiece: (project: TProject, gap: TLongGap, type: TGapPieceType, pieceId: string) => Promise<TPiece>;
-	/** The pieces that take up an edit so the rest of the run stays as it was (`settleEdit`) */
-	settle?: (before: TProject, after: TProject) => Promise<TPiece[]>;
+	/** What takes up an edit so the rest of the run stays as it was (`answerEdit`) */
+	settle?: (before: TProject, after: TProject) => Promise<TProjectCommand[]>;
 	/** Applies one step's commands; the first step starts the undo step, later ones join it. Null stops. */
 	commit: (project: TProject, commands: TProjectCommand[], isFirst: boolean) => TProject | null;
 	/** `done` of `total` broken hits are fixed and `fraction` (0 to 1) is how far through the song the work is */

@@ -1,7 +1,7 @@
 import { createComputed, createState } from 'feature-state';
 import { checkRun, createProblemsClient, isSameProblemInput, pendingPreflight, strayCause, type TExportPreflight, type TPreflightIssue, type TProblemsClient } from '@/modules/building';
-import { type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
-import { createSimulationClient, isSameRunInput, isSuperseded, marbleEdits, type TRunInput, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
+import { type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
+import { createSimulationClient, editCommands, isSameRunInput, isSuperseded, type TEditAnswer, type TRunInput, type TSimulationClient, type TSimulationResult, withEditAnswer } from '@/modules/simulation';
 import type { TBlenderObject } from '@/modules/scene';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
@@ -210,8 +210,8 @@ export class SimulationCx {
 	isSettling = false;
 
 	/**
-	 * After an edit, the next platforms take up the change so the rest of the run stays as it was, folded into the edit's
-	 * undo step. Until the answer lands the edit's own run stays back, so a marble's first wild moment never shows. Undo,
+	 * After an edit, the next platform takes up the change and the later hops shift along, folded into the edit's undo step
+	 * (`answerEdit`). Until the answer lands the edit's own run stays back, so a marble's first wild moment never shows. Undo,
 	 * redo and what Build Track and Fix commit themselves are left alone. This is the one way edits reach the run, a
 	 * person's or an agent's.
 	 */
@@ -226,7 +226,7 @@ export class SimulationCx {
 		}
 		const before = known.present;
 		const after = history.present;
-		if (!marbleEdits(before, after).length) {
+		if (isSameRun(before, after)) {
 			if (!this.isSettling) this.settled = history;
 			return;
 		}
@@ -235,20 +235,21 @@ export class SimulationCx {
 		this.client.settle({ before, after }).then(
 			(answer) => {
 				if (run !== this.settleRun || this.studio.project?.revision !== after.revision) return;
-				this.landSettled(answer.pieces, true);
+				this.landSettled(answer, true);
+				this.sayTakers(answer, after);
 				this.sayBreak(answer, after);
 			},
 			(error: unknown) => {
 				if (run !== this.settleRun || isSuperseded(error)) return;
-				this.landSettled([], true);
+				this.landSettled({ pieces: [], marbles: [] }, true);
 				this.studio.notifyFailed("The rest of the run couldn't be kept. Undo the edit, or Fix what it broke.", error);
 			}
 		);
 	}
 
-	/** Lands what a settle found, in the edit's undo step or as its own */
-	landSettled(pieces: TPiece[], isAmend: boolean): void {
-		this.landWorkedOut(pieces.map((piece) => ({ type: 'addPiece', piece })), { amend: isAmend });
+	/** Lands what an edit's answer found, in the edit's undo step or as its own */
+	landSettled(answer: Pick<TEditAnswer, 'pieces' | 'marbles'>, isAmend: boolean): void {
+		this.landWorkedOut(editCommands(answer), { amend: isAmend });
 	}
 
 	/** Lands an edit that already worked out how the run goes on, so nothing folds into it: a settle would decide again */
@@ -300,9 +301,10 @@ export class SimulationCx {
 			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
 			const limit = moveLimit(project, move, answer);
 			// Nothing moved, so nothing lands: no undo step for a drop that didn't happen
-			this.landSettled(limit?.isStuck === true ? [] : answer.pieces, false);
+			this.landSettled(limit?.isStuck === true ? { pieces: [], marbles: [] } : answer, false);
 			if (limit?.isStuck === true) this.studio.notify(limit.notice);
 			else if (limit != null) this.studio.notifyEdit(limit.notice);
+			if (limit?.isStuck !== true) this.sayTakers(answer, project);
 			this.sayBreak(answer, project);
 		} catch (error) {
 			if (run !== this.settleRun) return;
@@ -310,7 +312,7 @@ export class SimulationCx {
 				if (this.studio.project?.revision === project.revision) await this.moveDot(move);
 				return;
 			}
-			this.landSettled([], false);
+			this.landSettled({ pieces: [], marbles: [] }, false);
 			this.studio.notifyFailed("The platform couldn't be moved, so it stays where it was. Drag it again.", error);
 		} finally {
 			this.dropsLanding--;
@@ -321,10 +323,20 @@ export class SimulationCx {
 	private dropsLanding = 0;
 
 	/** A break to name, once the run of the edit shows the hit really is broken, so the notice agrees with the summary */
-	private pendingBreak: { first: TSettleAnswer['heldFrom'][number]; project: TProject; revision: number } | null = null;
+	private pendingBreak: { first: TEditAnswer['heldFrom'][number]; project: TProject; revision: number } | null = null;
 
-	/** Names what happened only when it matters: a break the next platforms couldn't take up */
-	private sayBreak(answer: TSettleAnswer, project: TProject): void {
+	/** Says plainly when a bar the person didn't touch changed, and how far the later notes moved with it */
+	private sayTakers(answer: Pick<TEditAnswer, 'absorbedBy' | 'shifts' | 'heldFrom'>, project: TProject): void {
+		if (answer.heldFrom.length > 0) return;
+		const names = answer.absorbedBy.map((id) => project.track.pieces.find((piece) => piece.id === id)?.name ?? 'A platform');
+		const furthest = Math.max(0, ...answer.shifts.map((shift) => shift.distance));
+		const moved = furthest >= NOTICED_SHIFT ? ` The later notes moved ${(furthest * 100).toFixed(1)} cm with it.` : '';
+		if (names.length === 1) this.studio.notifyEdit(`${names[0] ?? ''} changed too, so the notes after it stay on time.${moved}`, [], { isUndoFirst: true });
+		else if (names.length > 1) this.studio.notifyEdit(`${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''} changed too, so the notes after them stay on time.${moved}`, [], { isUndoFirst: true });
+	}
+
+	/** Names what happened only when it matters: a marble the next platforms couldn't catch */
+	private sayBreak(answer: TEditAnswer, project: TProject): void {
 		const [first] = answer.heldFrom;
 		if (first == null) return;
 		this.pendingBreak = { first, project, revision: this.studio.project?.revision ?? 0 };
@@ -360,17 +372,17 @@ export class SimulationCx {
 		if (project == null || client == null || this.dropsLanding > 0 || (this.isSettling && this.preview == null)) return;
 		const present = this.studio.project;
 		const preview = this.preview;
-		if (preview == null || present == null || (this.previewMove == null && !marbleEdits(present, preview).length)) {
+		if (preview == null || present == null || (this.previewMove == null && isSameRun(present, preview))) {
 			this.send(client, project);
 			return;
 		}
 		const move = this.previewMove;
-		client.settle({ before: present, after: preview, isQuick: !this.isPaused, movedDot: move }, { isPreview: true }).then(
+		client.settle({ before: present, after: preview, movedDot: move }, { isPreview: true }).then(
 			(answer) => {
 				if (this.preview !== preview) return;
 				const limit = move != null ? moveLimit(present, move, answer) : null;
 				if (limit?.chip !== this.$moveLimit.get()?.chip) this.$moveLimit.set(limit);
-				this.send(client, withPieces(preview, answer.pieces));
+				this.send(client, withEditAnswer(preview, answer));
 			},
 			(error: unknown) => {
 				if (!isSuperseded(error) && this.preview === preview) this.send(client, preview);
@@ -434,8 +446,15 @@ export class SimulationCx {
 }
 
 const RECENT_RUNS = 4;
+/** A shift of the later notes under this isn't worth a word */
+const NOTICED_SHIFT = 0.01;
 /** No project has it, so a preview's run is never taken for the project's */
 const PREVIEW_REVISION = -1;
+
+/** The same run input, by identity first: most edits copy what they don't change */
+function isSameRun(a: TRunInput, b: TRunInput): boolean {
+	return isSameRunInput(a, b) || (a.gravity === b.gravity && a.length === b.length && JSON.stringify(a.marbles) === JSON.stringify(b.marbles) && JSON.stringify(a.track.pieces) === JSON.stringify(b.track.pieces));
+}
 
 /** Run problems with the run, by its marbles, and the project they were found for */
 interface TRunIssues {
@@ -447,12 +466,6 @@ interface TRunIssues {
 /** A run under the revision it also answers for, since the edits after it left its input alone */
 function atRevision(result: TSimulationResult, revision: number): TSimulationResult {
 	return result.revision === revision ? result : { ...result, revision };
-}
-
-/** `project` with these pieces in place of the ones of the same id */
-function withPieces(project: TProject, pieces: TPiece[]): TProject {
-	const changed = new Map(pieces.map((piece) => [piece.id, piece]));
-	return { ...project, track: { ...project.track, pieces: project.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } };
 }
 
 /** Why a dragged platform can't go all the way: `chip` beside the drag, `notice` after the drop */
@@ -468,7 +481,7 @@ const MOVE_LANDED = 0.003;
 const MOVE_MOVED = 0.001;
 
 /** Null when the platform landed where it was dragged */
-export function moveLimit(project: TProject, move: { marbleId: string; hitId: string }, answer: Pick<TSettleAnswer, 'move'>): TMoveLimit | null {
+export function moveLimit(project: TProject, move: { marbleId: string; hitId: string }, answer: Pick<TEditAnswer, 'move'>): TMoveLimit | null {
 	const outcome = answer.move;
 	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
 	const marble = project.marbles.find((item) => item.id === move.marbleId);

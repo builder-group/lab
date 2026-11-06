@@ -1,6 +1,6 @@
 import { type TPiece, type TProject, type TRide, type TVec2, tieOf } from '@/modules/project';
 import { layoutOf } from './piece-layout';
-import { resolvePieceParams } from './pieces';
+import { resolvePieceParams, soundsHit } from './pieces';
 import { shapeDistance } from './shapes';
 import { PHYSICS_HZ, type TSimulationResult } from './types';
 
@@ -116,6 +116,26 @@ export function bakeRide(project: TProject, result: TSimulationResult, piece: TP
 		touches: [...new Set(result.contacts.filter((contact) => contact.marbleId === track.marbleId && contact.kind === 'piece' && contact.time >= origin.time && contact.time <= out.time && contact.otherId !== piece.id).map((contact) => contact.otherId ?? ''))],
 		frames
 	};
+}
+
+/**
+ * Keeps the rides of a track an edit is about to change, from `fromTime` on. Earlier ones stay simulated: the edit can't
+ * reach them, and a ride played back differs by the last bits, which a rail turns into centimeters on the pieces after it.
+ */
+export function withRides(project: TProject, result: TSimulationResult, fromTime = -Infinity): TProject {
+	let isChanged = false;
+	const timeOf = (marbleId: string, hitId: string): number | undefined => project.marbles.find((marble) => marble.id === marbleId)?.hits.find((hit) => hit.id === hitId)?.time;
+	const pieces = project.track.pieces.map((piece) => {
+		const type = piece.type ?? '';
+		const link = tieOf(piece);
+		if (link == null || !hasRide(type) || soundsHit(type, link)) return piece;
+		if (piece.ride?.key === rideKey(piece) || (timeOf(link.marbleId, link.hitId) ?? Infinity) < fromTime) return piece;
+		const ride = bakeRide(project, result, piece);
+		if (ride == null) return piece;
+		isChanged = true;
+		return { ...piece, ride };
+	});
+	return isChanged ? { ...project, track: { ...project.track, pieces } } : project;
 }
 
 function wrap(angle: number): number {

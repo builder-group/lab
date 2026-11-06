@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, type THit, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { marbleEdits } from '@/modules/simulation/local-edit';
+import { answerEdit } from '@/modules/simulation/edit-rule';
 import { HIT_DRIFT } from '@/modules/simulation/types';
 import { moveSongCommands } from './move-song';
 import { NO_BLENDER_OBJECTS, checkRun } from './export-preflight';
@@ -48,7 +48,7 @@ describe('moving a song on a built project', () => {
 		const later = moved(project, song.id, song.start + 0.75);
 
 		// Nothing is left to settle: the pieces stay where they are and the marbles start later
-		expect(marbleEdits(project, later)).toEqual([]);
+		expect(answerEdit(simulator, { before: project, after: later }).absorbedBy).toEqual([]);
 		const before = new Map(allHits(project).map((hit) => [hit.id, hit.time]));
 		for (const hit of allHits(later)) expect(hit.time).toBeCloseTo((before.get(hit.id) ?? 0) + 0.75, 5);
 		expectAllOnTime(later);
