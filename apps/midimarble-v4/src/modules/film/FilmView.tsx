@@ -230,9 +230,9 @@ interface TFilmViewProps {
 	studio: StudioCx;
 	frame: { width: number; height: number };
 	/** A click on the preview; Shift adds to or removes from the selection */
-	onPick: (entityId: string | null, shiftKey: boolean) => void;
+	onPick: (id: string | null, shiftKey: boolean) => void;
 	/** Click while placing, in 0..1 image coordinates */
 	onPlace: (u: number, v: number) => void;
 	/** A library item dropped on a piece of the preview */
-	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
+	onDropAsset: (id: string, asset: { id: string; scope: string }) => void;
 }

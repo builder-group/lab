@@ -160,6 +160,14 @@ export function layoutOf(type: string, railLayout?: TRailLayout): TPieceLayoutKi
 	return kind === 'path' && railLayout != null && railLayout !== 'path' ? 'generated' : kind;
 }
 
+/** Piece types a drawn path can be: the path tool draws a Rail and the inspector switches it to a Tunnel */
+export type TPathPieceType = 'rail' | 'tunnel';
+
+export function isPathPieceType(type: string | undefined): type is TPathPieceType {
+	const kind = layoutOf(type ?? '');
+	return kind === 'path' || kind === 'tube';
+}
+
 // Platforms
 
 function boxSize(params: Record<string, number>): { length: number; thickness: number } {

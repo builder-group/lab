@@ -5,9 +5,12 @@ import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, passThroughs, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
 import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
-import { hitSummary } from './hit-status';
 import { newlyBroken } from './bowl-assist';
 import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fixWorseWords, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixCount, type TFixDeps } from './fix-it';
+
+function hitsNeedingAttention(result: TSimulationResult): THitResult[] {
+	return result.hits.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked');
+}
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -151,8 +154,8 @@ describe('fixTrack function', () => {
 		const problems = problemPieces(project, result);
 		expect(problems.length).toBeGreaterThan(0);
 		let fixed = 0;
-		for (const entityId of problems.slice(0, 3)) {
-			const fix = await fixPiece(project, result, entityId, deps());
+		for (const pieceId of problems.slice(0, 3)) {
+			const fix = await fixPiece(project, result, pieceId, deps());
 			// Near the start of a song every later hit follows a tilt, so a small change isn't enough
 			if (fix.commands == null) {
 				expect(fix.rebuildFrom).toBeDefined();
@@ -161,7 +164,7 @@ describe('fixTrack function', () => {
 			fixed++;
 			const next = withCommands(project, fix.commands);
 			const run = simulate(next);
-			expect(problemPieces(next, run)).not.toContain(entityId);
+			expect(problemPieces(next, run)).not.toContain(pieceId);
 			expect(newlyBroken(result.hits, run.hits)).toEqual([]);
 		}
 		expect(fixed).toBeGreaterThanOrEqual(0);
@@ -180,7 +183,7 @@ describe('fixTrack function', () => {
 
 		// Assert
 		expect(outcome.releases).toEqual([marbleId]);
-		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
 		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
@@ -198,7 +201,7 @@ describe('fixTrack function', () => {
 
 		// Assert: the release stays, since the marble's first notes still play
 		expect(outcome.releases).toEqual([]);
-		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
 		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed .* · placed \\d+ platforms? again.* · ${summary.label}`));
 	}, 60_000);
@@ -468,7 +471,7 @@ describe('Fix on a small project', () => {
 		if (piece == null || inside == null) throw new Error('Missing piece');
 		const below = { ...inside, time: Math.min(inside.time, run.duration), position: { x: piece.position.x, y: piece.position.y } };
 		const passed = { ...run, marbles: run.marbles.map((marble) => ({ ...marble, samples: [...marble.samples, below] })) };
-		expect(passThroughs(track, passed).some((pass) => pass.entityId === piece.pieceId)).toBe(true);
+		expect(passThroughs(track, passed).some((pass) => pass.pieceId === piece.pieceId)).toBe(true);
 
 		// Act
 		const fix = await fixPiece(track, passed, piece.pieceId, deps());
@@ -495,7 +498,7 @@ describe('Fix on a small project', () => {
 		// Prepare
 		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
 		const run = simulate(broken);
-		const rolled = rollingHits(broken, run)[0]?.entityId ?? '';
+		const rolled = rollingHits(broken, run)[0]?.pieceId ?? '';
 
 		// Act
 		const fix = await fixPiece(broken, run, rolled, deps());
@@ -513,15 +516,15 @@ describe('Fix on a small project', () => {
 		const run = simulate(broken);
 		const before = new Set(problemPieces(broken, run));
 
-		for (const entityId of before) {
+		for (const pieceId of before) {
 			// Act
-			const fix = await fixPiece(broken, run, entityId, deps());
+			const fix = await fixPiece(broken, run, pieceId, deps());
 
 			// Assert
 			expect(fix.message.length).toBeGreaterThan(0);
 			if (fix.commands == null) continue;
 			const next = withCommands(broken, fix.commands);
-			expect(problemPieces(next, simulate(next)).every((id) => before.has(id) && id !== entityId)).toBe(true);
+			expect(problemPieces(next, simulate(next)).every((id) => before.has(id) && id !== pieceId)).toBe(true);
 		}
 	}, 60_000);
 });

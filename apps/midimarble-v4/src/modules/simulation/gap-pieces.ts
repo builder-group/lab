@@ -440,7 +440,7 @@ function checkGapPiece(
 	trial: TSimulationResult,
 	project: TProject,
 	marbleId: string,
-	entityId: string,
+	pieceId: string,
 	entryTime: number,
 	toHitId: string,
 	toTime: number
@@ -448,7 +448,7 @@ function checkGapPiece(
 	// Leaving the marble counts against a piece in the search, so a piece stays in it wherever one fits
 	const band = frameBand(project, marbleId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
-	const piece = trial.pieces.find((item) => item.pieceId === entityId);
+	const piece = trial.pieces.find((item) => item.pieceId === pieceId);
 	const marble = trial.marbles.find((item) => item.marbleId === marbleId);
 	const next = findHitResult(trial, marbleId, toHitId);
 	const dot = next?.dot ?? null;
@@ -759,8 +759,8 @@ function strikesOnTheWay(project: TProject, trial: TSimulationResult, piece: TPi
 }
 
 /** How far a piece reaches past its own marble, in piece lengths: it may, but it then stands in the next marble's way */
-function marbleOverhang(trial: TSimulationResult, entityId: string, band: { centerX: number; halfWidth: number }): number {
-	const shapes = trial.pieces.find((piece) => piece.pieceId === entityId)?.shapes;
+function marbleOverhang(trial: TSimulationResult, pieceId: string, band: { centerX: number; halfWidth: number }): number {
+	const shapes = trial.pieces.find((piece) => piece.pieceId === pieceId)?.shapes;
 	if (shapes == null || !shapes.length) return 0;
 	const bounds = shapesBounds(shapes);
 	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
@@ -810,7 +810,7 @@ function checkSwitchback(
 	trial: TSimulationResult,
 	project: TProject,
 	marbleId: string,
-	entityId: string,
+	pieceId: string,
 	entryTime: number,
 	fromTime: number,
 	toHitId: string,
@@ -818,7 +818,7 @@ function checkSwitchback(
 ): { check: TGapPieceCheck; isStray: boolean } {
 	const band = frameBand(project, marbleId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
-	const piece = trial.pieces.find((item) => item.pieceId === entityId);
+	const piece = trial.pieces.find((item) => item.pieceId === pieceId);
 	const marble = trial.marbles.find((item) => item.marbleId === marbleId);
 	const next = findHitResult(trial, marbleId, toHitId);
 	const dot = next?.dot ?? null;
@@ -833,8 +833,8 @@ function checkSwitchback(
 	}
 	const isStray = trial.contacts.some((contact) => {
 		if (contact.time <= fromTime + 0.02 || contact.time >= toTime - 0.01) return false;
-		if (contact.marbleId !== marbleId) return contact.otherId === entityId;
-		return contact.otherId !== entityId;
+		if (contact.marbleId !== marbleId) return contact.otherId === pieceId;
+		return contact.otherId !== pieceId;
 	});
 	return {
 		check: {

@@ -454,7 +454,6 @@ export type TKeyLightPose = z.infer<typeof SKeyLightPose>;
 export type TShot = z.infer<typeof SShot>;
 export type TGroup = z.infer<typeof SGroup>;
 export type TPatternGroup = TGroup & { marbleId: string; pattern: z.infer<typeof SPattern> };
-export type TTempo = z.infer<typeof STempo>;
 export type TPathNode = z.infer<typeof SPathNode>;
 
 export function isPatternGroup(group: TGroup): group is TPatternGroup {

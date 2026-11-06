@@ -18,10 +18,10 @@ export function packOriginLine(origin: TPackOrigin, isPackAdded: (packId: string
 }
 
 /** Built-in themes the Blender worker ships, in Library order */
-export const BUILT_IN_THEMES: readonly { id: string; label: string }[] = [
-	{ id: 'pegboard', label: 'Pegboard' },
-	{ id: 'brass', label: 'Brass' },
-	{ id: 'neon', label: 'Neon' }
+export const BUILT_IN_THEMES: readonly { id: string; label: string; description: string }[] = [
+	{ id: 'pegboard', label: 'Pegboard', description: 'Birch pegboard and toy colors' },
+	{ id: 'brass', label: 'Brass', description: 'Plaster wall, brass bars and warm studio light' },
+	{ id: 'neon', label: 'Neon', description: 'Dark navy wall, glossy pieces with glowing edges that flash on a hit' }
 ];
 
 /** Built-in theme Blender falls back to for an unknown id, `DEFAULT_THEME` in themes.py */
@@ -170,11 +170,6 @@ export function titleColorOnWall(wall: string): string {
 		return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 	};
 	return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > LIGHT_WALL_LUMINANCE ? '#1f3a5f' : '#ffffff';
-}
-
-/** The color titles start with in a base theme */
-export function themeTitleColor(base: string): string {
-	return titleColorOnWall(themeDefaultColor(base, 'wallColor') ?? '#ffffff');
 }
 
 /** What a title reads in when its own color is unset, and the color a new one starts with: it stands apart from the wall the project shows */

@@ -4,8 +4,8 @@ import { pathDepth } from './pieces';
 import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
-function platform(entityId: string, x: number, y: number, hitTime = 1, angle = 0, depth = 0.03): TResolvedPiece {
-	return { pieceId: entityId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012, depth }, status: 'placed', hitTime } as unknown as TResolvedPiece;
+function platform(pieceId: string, x: number, y: number, hitTime = 1, angle = 0, depth = 0.03): TResolvedPiece {
+	return { pieceId: pieceId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012, depth }, status: 'placed', hitTime } as unknown as TResolvedPiece;
 }
 
 function project(hitIds: string[]): TProject {
@@ -59,7 +59,7 @@ describe('touchingPairs function', () => {
 describe('extraStrikes function', () => {
 	it('should count a second strike of a platform between notes', () => {
 		const strikes = extraStrikes(project(['a', 'b']), run([platform('piece-a', 0, 0)], [{ time: 1, other: 'piece-a' }, { time: 1.2, other: 'piece-a' }], { a: 1, b: 2 }));
-		expect(strikes).toMatchObject([{ entityId: 'piece-a', times: 2, time: 1.2 }]);
+		expect(strikes).toMatchObject([{ pieceId: 'piece-a', times: 2, time: 1.2 }]);
 	});
 
 	it('should read one bounce reported over a few steps as one strike', () => {
@@ -87,7 +87,7 @@ describe('rollingHits function', () => {
 
 	it('should name a marble that stays on its platform after the note', () => {
 		const { project: rolled, result } = flight((after) => after * 0.01);
-		expect(rollingHits(rolled, result)).toMatchObject([{ entityId: 'piece-a', hitId: 'a', time: 1 }]);
+		expect(rollingHits(rolled, result)).toMatchObject([{ pieceId: 'piece-a', hitId: 'a', time: 1 }]);
 	});
 
 	it('should leave a bounce alone, even a low one', () => {

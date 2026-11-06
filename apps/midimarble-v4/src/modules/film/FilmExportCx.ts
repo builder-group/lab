@@ -1,10 +1,9 @@
 import { createState } from 'feature-state';
+import type { StudioCx } from '@/modules/studio';
 import { host } from '@/environment';
 import { blender, renderFilm, type TRenderFilmResult } from '@/modules/blender';
 import type { TFilmEngine, TRenderPreset } from '@/modules/scene';
-import { soundtrackProject, type TResolveSourceUrl, type TMix } from '@/modules/music';
-import type { TProject } from '@/modules/project';
-import type { FilmCx } from './FilmCx';
+import { soundtrackProject } from '@/modules/music';
 import { filmFileName, type TMeasuredRender } from '@/modules/scene';
 
 const MEASURED_KEY = 'midimarble-v4:measured-render';
@@ -23,7 +22,7 @@ export class FilmExportCx {
 
 	private abort: AbortController | null = null;
 
-	constructor(private readonly source: TFilmExportSource) {}
+	constructor(private readonly studio: StudioCx) {}
 
 	get isAvailable(): boolean {
 		return blender.isAvailable();
@@ -35,7 +34,7 @@ export class FilmExportCx {
 	}
 
 	openSheet(): void {
-		const project = this.source.getProject();
+		const project = this.studio.project;
 		if (project == null) return;
 		if (!this.isRunning && this.$job.get().phase !== 'done') {
 			this.$settings.set((settings) => ({
@@ -60,7 +59,7 @@ export class FilmExportCx {
 	/** The person's choice in the sheet, which it opens on next time for this project */
 	chooseQuality(preset: TRenderPreset): void {
 		this.updateSettings({ preset });
-		const project = this.source.getProject();
+		const project = this.studio.project;
 		if (project == null) return;
 		try {
 			localStorage.setItem(`${CHOSEN_QUALITY_KEY}${project.id}`, preset);
@@ -71,7 +70,7 @@ export class FilmExportCx {
 
 	/** Save panel for the film; the package's Renders folder is the default location */
 	async chooseLocation(): Promise<void> {
-		const packagePath = this.source.getPackagePath();
+		const packagePath = this.studio.$path.get();
 		if (packagePath == null) return;
 		const path = await host.chooseFilmPath(`${packagePath}/${RENDERS_FOLDER}/${this.$settings.get().fileName}`);
 		if (path == null) return;
@@ -79,8 +78,8 @@ export class FilmExportCx {
 	}
 
 	async start(): Promise<void> {
-		const project = this.source.getProject();
-		const packagePath = this.source.getPackagePath();
+		const project = this.studio.project;
+		const packagePath = this.studio.$path.get();
 		if (project == null || packagePath == null || this.isRunning) return;
 		const settings = this.$settings.get();
 		const output = resolveFilmOutput(packagePath, settings);
@@ -89,8 +88,8 @@ export class FilmExportCx {
 		const startedAt = Date.now();
 		this.$job.set({ ...IDLE_JOB, phase: 'preparing', step: 'Preparing the film…', startedAt, outsidePackage: output.outsidePackage });
 
-		if (!(await this.source.film.prepareRender())) {
-			this.fail(this.source.film.$error.get() ?? "Blender couldn't prepare the film. Export again; if it fails twice, quit and reopen MidiMarble.");
+		if (!(await this.studio.film.prepareRender())) {
+			this.fail(this.studio.film.$error.get() ?? "Blender couldn't prepare the film. Export again; if it fails twice, quit and reopen MidiMarble.");
 			return;
 		}
 		if (abort.signal.aborted) {
@@ -99,8 +98,8 @@ export class FilmExportCx {
 		}
 		this.$job.set({ ...this.$job.get(), step: 'Adding the song…' });
 		const [isRenderedOk, renderedErr, result] = await renderFilm(packagePath, project, {
-			resolveSourceUrl: this.source.resolveSourceUrl,
-			soundtrack: soundtrackProject(project, this.source.getMix()),
+			resolveSourceUrl: this.studio.resolveSourceUrl,
+			soundtrack: soundtrackProject(project, this.studio.$mix.get()),
 			preset: settings.preset,
 			outputPath: output.relativePath,
 			// The worker writes inside the package; a location outside it receives a copy when the film is done
@@ -154,13 +153,6 @@ export class FilmExportCx {
 	}
 }
 
-export interface TFilmExportSource {
-	getProject: () => TProject | null;
-	getMix: () => TMix;
-	getPackagePath: () => string | null;
-	resolveSourceUrl: TResolveSourceUrl;
-	film: FilmCx;
-}
 
 export interface TExportSettings {
 	preset: TRenderPreset;

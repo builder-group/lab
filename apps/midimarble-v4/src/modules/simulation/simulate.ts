@@ -1676,7 +1676,7 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 	const impactSpeed = IMPACT_SPEED * (plan.gravity / gravityOf({}));
 	for (const marble of project.marbles) {
 		const marbleIndex = plan.marbles.findIndex((item) => item.marbleId === marble.id);
-		const marbleEntity = plan.marbles[marbleIndex];
+		const plannedMarble = plan.marbles[marbleIndex];
 		const samples = state.marbles[marbleIndex]?.samples ?? [];
 		let isBehindBreak = false;
 		for (const hit of marble.hits) {
@@ -1696,7 +1696,7 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 				error: null,
 				status: 'open'
 			};
-			if (piece == null || marbleEntity == null) {
+			if (piece == null || plannedMarble == null) {
 				if (piece != null) result.status = 'missed';
 				hits.push(result);
 				continue;
@@ -1707,7 +1707,7 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 				continue;
 			}
 			const from = hit.time - HIT_TOLERANCE - DT;
-			const contact = contactsByPair.get(`${marbleEntity.marbleId}|${piece.pieceId}`)?.find((c) => c.time >= from);
+			const contact = contactsByPair.get(`${plannedMarble.marbleId}|${piece.pieceId}`)?.find((c) => c.time >= from);
 			if (contact != null) {
 				const error = contact.time - hit.time;
 				result.actualTime = contact.time;

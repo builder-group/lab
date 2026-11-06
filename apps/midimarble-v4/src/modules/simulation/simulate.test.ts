@@ -44,9 +44,9 @@ function addLinkedHit(
 	return id;
 }
 
-function setAngle(project: TProject, entityId: string, angle: number): void {
-	const piece = project.track.pieces.find((piece) => piece.id === entityId);
-	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${entityId}`);
+function setAngle(project: TProject, pieceId: string, angle: number): void {
+	const piece = project.track.pieces.find((piece) => piece.id === pieceId);
+	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${pieceId}`);
 	piece.angle = angle;
 }
 
@@ -161,12 +161,12 @@ describe('simulate', () => {
 	it('returns the same result incrementally as a full run', async () => {
 		const project = loadFixture('staircase');
 		simulator.simulate(project);
-		for (const [entityId, angle] of [
+		for (const [pieceId, angle] of [
 			['piece-1-7', 0.2],
 			['piece-1-3', -0.3],
 			['piece-1-1', 0.05]
 		] as const) {
-			setAngle(project, entityId, angle);
+			setAngle(project, pieceId, angle);
 			const incremental = simulator.simulate(project);
 			const fresh = await createSimulator();
 			const full = fresh.simulate(project);
@@ -181,11 +181,11 @@ describe('simulate', () => {
 		for (const name of ['windmill', 'long-gap']) {
 			const fixture = loadFixture(name);
 			simulator.simulate(fixture);
-			for (const [entityId, angle] of [
+			for (const [pieceId, angle] of [
 				['piece-1-5', 0.25],
 				['piece-1-2', 0.28]
 			] as const) {
-				setAngle(fixture, entityId, angle);
+				setAngle(fixture, pieceId, angle);
 				const incremental = simulator.simulate(fixture);
 				const fresh = await createSimulator();
 				const full = fresh.simulate(fixture);

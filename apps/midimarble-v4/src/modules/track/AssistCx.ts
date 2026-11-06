@@ -266,7 +266,7 @@ export class AssistCx {
 			return;
 		}
 		const ask = (): Promise<TAutoPlaceAnswer | 'failed' | 'superseded'> =>
-			client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, entityId: id }).then(
+			client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, pieceId: id }).then(
 				(answer) => answer,
 				(error: unknown) => (isSuperseded(error) ? 'superseded' : 'failed')
 			);
@@ -329,7 +329,7 @@ export class AssistCx {
 			return;
 		}
 		show(guess, guessAngle, null, false, true);
-		client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, entityId: id }).then(
+		client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, pieceId: id }).then(
 			(answer) => {
 				if (run === this.previewRun && this.studio.project === project) show(answer.piece, answer.angle, answer.nextDot, true, true);
 			},
@@ -711,8 +711,8 @@ export class AssistCx {
 		return {
 			// The assists worker, so Auto place resumes from the run Fix just simulated
 			simulate: async (next) => client.simulateAssist(next),
-			autoPlace: async (next, hit, piece) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: piece.type ?? 'platform', entityId: piece.id }, options)).piece,
-			gapPiece: async (next, gap, type, entityId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }, options)).piece,
+			autoPlace: async (next, hit, piece) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: piece.type ?? 'platform', pieceId: piece.id }, options)).piece,
+			gapPiece: async (next, gap, type, pieceId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId }, options)).piece,
 			settle: async (before, after) => (await client.settle({ before, after })).pieces
 		};
 	}
@@ -732,7 +732,7 @@ export class AssistCx {
 	}
 
 	/** Fix for one piece, or the whole run */
-	async fix(entityId?: string): Promise<void> {
+	async fix(pieceId?: string): Promise<void> {
 		const project = this.studio.project;
 		const result = this.currentResult();
 		if (project == null || this.fixRun != null || this.buildRun != null) return;
@@ -741,7 +741,7 @@ export class AssistCx {
 			return;
 		}
 		if (project.track.pieces.some((piece) => tieOf(piece)?.held != null)) await this.fixHeld(project, result);
-		else if (entityId != null) await this.fixOnePiece(project, result, entityId);
+		else if (pieceId != null) await this.fixOnePiece(project, result, pieceId);
 		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
 		else this.studio.notify(this.nothingToFixWords(project, result));
 	}
@@ -752,13 +752,13 @@ export class AssistCx {
 		return first != null ? `Fix mends broken hits, double hits, rolls and touching pieces. ${first.title} needs moving by hand.` : 'Nothing to fix';
 	}
 
-	private async fixOnePiece(project: TProject, result: TSimulationResult, entityId: string): Promise<void> {
+	private async fixOnePiece(project: TProject, result: TSimulationResult, pieceId: string): Promise<void> {
 		const deps = this.fixDeps();
 		if (deps == null) return;
 		this.fixRun = { isCanceled: false };
 		this.$fixing.set({ done: 0, total: 1 });
 		try {
-			const fix = await fixPiece(project, result, entityId, deps);
+			const fix = await fixPiece(project, result, pieceId, deps);
 			// Another edit while the what-if ran makes it stale
 			if (this.studio.project !== project) return;
 			const { rebuildFrom } = fix;

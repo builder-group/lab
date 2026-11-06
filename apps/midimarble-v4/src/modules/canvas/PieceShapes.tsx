@@ -2,7 +2,7 @@ import React from 'react';
 import type { TVec2 } from '@/modules/project';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import { paletteOf } from './TrackRenderer';
-import { offsetPolyline, pieceOutline, tubeCeiling } from '@/modules/scene';
+import { offsetPolyline, pieceKind, pieceOutline, tubeCeiling } from '@/modules/scene';
 
 // The shapes of the pieces the overlays draw in screen space, on the Track canvas and over the Film's Draft Preview.
 
@@ -12,8 +12,34 @@ export function projectedOutline(projection: TScreenProjection, piece: TResolved
 	return pieceOutline(piece).map((corner) => projection.toScreen(corner, depth));
 }
 
+/**
+ * A piece's body by its layout kind, so a new kind fails to compile here until it's drawn. Boxes and rotors have no wires,
+ * and each overlay draws them its own way in `solid`.
+ */
+export const PieceBody: React.FC<TShapeProps & { solid?: () => React.ReactNode }> = (props) => {
+	const { solid, ...shape } = props;
+	const kind = pieceKind(shape.piece);
+	switch (kind) {
+		case 'path':
+			return <RailShape {...shape} />;
+		case 'tube':
+			return <TunnelShape {...shape} />;
+		case 'generated':
+			return <RailPathsShape {...shape} />;
+		case 'catcher':
+			return <BowlShape {...shape} />;
+		case 'box':
+		case 'rotor':
+			return solid?.() ?? null;
+		default: {
+			const unknownKind: never = kind;
+			return unknownKind;
+		}
+	}
+};
+
 /** Two wires with ties between them, like a toy rail seen from the front */
-export const RailShape: React.FC<TShapeProps> = (props) => {
+const RailShape: React.FC<TShapeProps> = (props) => {
 	const { projection, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
 	const path = finitePoints((piece.path ?? []).map((point) => projection.toScreen(point)));
@@ -36,7 +62,7 @@ export const RailShape: React.FC<TShapeProps> = (props) => {
 };
 
 /** A translucent tube between the floor and the ceiling, open at the mouth where the marble drops in */
-export const TunnelShape: React.FC<TShapeProps> = (props) => {
+const TunnelShape: React.FC<TShapeProps> = (props) => {
 	const { projection, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
 	const floor = finitePoints((piece.path ?? []).map((point) => projection.toScreen(point)));
@@ -59,7 +85,7 @@ export const TunnelShape: React.FC<TShapeProps> = (props) => {
 };
 
 /** A Rail's several paths as single wires */
-export const RailPathsShape: React.FC<TShapeProps> = (props) => {
+const RailPathsShape: React.FC<TShapeProps> = (props) => {
 	const { projection, piece, scale, opacity, dashed = false, tint } = props;
 	const palette = props.palette ?? paletteOf(piece.type);
 	const wire = Math.max((piece.params['radius'] ?? 0.0025) * 2 * scale, 1.5);
@@ -85,7 +111,7 @@ export const RailPathsShape: React.FC<TShapeProps> = (props) => {
  * A Bowl as a clear cage: its wire drawn like a rail, two thin lines with a pale band between them, like the clear wire
  * catcher of the reference short
  */
-export const BowlShape: React.FC<TShapeProps> = (props) => {
+const BowlShape: React.FC<TShapeProps> = (props) => {
 	const { piece } = props;
 	return (
 		<g>

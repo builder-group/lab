@@ -322,7 +322,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
 				subtitle={`${marble.name} · ${formatTime(hit.time)}`}
 				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
-				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <FixButton cx={cx} entityId={piece.id} /> : null}
+				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <FixButton cx={cx} pieceId={piece.id} /> : null}
 			/>
 			<Panel
 				id="hit.note"

@@ -43,28 +43,6 @@ export interface THitTiming {
 	tooltip: string;
 }
 
-/**
- * The project's hit summary for the timeline header: how many hits are on time and the hits that need attention
- * (early, late, missed, blocked or stopped, and `unreachable` open hits: Too Soon or Out of Reach) in time order.
- * Other open hits count toward the total only.
- */
-export function hitSummary(results: THitResult[], unreachable: THitResult[] = []): THitSummary {
-	const problems = [...results.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked'), ...unreachable].sort((a, b) => a.targetTime - b.targetTime);
-	const onTime = results.filter((hit) => hit.status === 'onTime').length;
-	const total = results.length;
-	if (problems.length > 0) {
-		return { label: `${problems.length} ${problems.length === 1 ? 'hit needs' : 'hits need'} attention`, problems, onTime, total };
-	}
-	return { label: `${onTime} of ${total} ${total === 1 ? 'hit' : 'hits'} on time`, problems, onTime, total };
-}
-
-export interface THitSummary {
-	label: string;
-	problems: THitResult[];
-	onTime: number;
-	total: number;
-}
-
 /** Whether a hit is a pitched note the piano roll can draw */
 export function isPitched(hit: THit): hit is THit & { pitch: number } {
 	return hit.pitch != null;

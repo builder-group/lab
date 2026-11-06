@@ -1,9 +1,9 @@
 """Wall text: native Blender text objects on the wall from `TSceneDescription.wallTexts`.
 
-Each text is a FONT object in `MidiMarble · managed` tagged `mm_role = 'text'` and its entity's `mm_id`. It is
+Each text is a FONT object in `MidiMarble · managed` tagged `mm_role = 'text'` and its title's `mm_id`. It is
 centered on its wall position, raised toward the camera by its extrusion and turned by its wall angle. The text is
 app-owned: re-applying updates it while it still holds what the app last wrote (`mm_written`). A text the user
-edited in Blender, or marked `mm_link = 'unlinked'`, is left alone; when its entity is removed it moves to
+edited in Blender, or marked `mm_link = 'unlinked'`, is left alone; when its title is removed it moves to
 `MidiMarble · detached` instead of being deleted.
 
 Fonts: `font` names a loaded Blender font (the built-in one is `Bfont Regular`) or a font file, package-relative

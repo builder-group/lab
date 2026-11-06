@@ -3,7 +3,7 @@ import { parseDecorKey, parseLightKey, toDecorKey, toLightKey } from './selectio
 
 // The lists under `film` that show as layers, for what treats them alike: Edit > Undo's names, an agent's presence marks,
 // Rename and the keys a selection may hold. A new list needs an entry here and none of those. Its row in Layers, its
-// inspector and what it draws differ per layer, so those stay with each layer.
+// inspector and what it draws differ per layer, so those stay with each layer: "Add a film layer" in docs/architecture.md.
 
 export interface TFilmLayer {
 	kind: 'title' | 'decor' | 'light';

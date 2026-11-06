@@ -15,7 +15,8 @@ export type THandleKind = 'rotate' | 'release' | 'pathEnd' | 'pathBend' | 'node'
 
 export interface TScreenHandle {
 	kind: THandleKind;
-	entityId: string;
+	/** The piece's, or the marble's for `release` */
+	id: string;
 	position: TVec2;
 	radius: number;
 	/** Node of a drawn rail, for node and handle kinds */
@@ -31,7 +32,7 @@ export interface TScreenDot {
 }
 
 export interface TScreenPiece {
-	entityId: string;
+	pieceId: string;
 	/** Outline corners in order */
 	corners: TVec2[];
 	/** What picks instead of the outline, for a piece that is mostly air */
@@ -48,11 +49,12 @@ export interface TScreenTrack {
 }
 
 export type TPick =
-	| { kind: 'rotate' | 'release' | 'pathEnd' | 'pathBend'; entityId: string }
-	| { kind: 'node' | 'nodeIn' | 'nodeOut'; entityId: string; index: number }
+	| { kind: 'release'; marbleId: string }
+	| { kind: 'rotate' | 'pathEnd' | 'pathBend'; pieceId: string }
+	| { kind: 'node' | 'nodeIn' | 'nodeOut'; pieceId: string; index: number }
 	| { kind: 'dot'; marbleId: string; hitId: string }
 	| { kind: 'ghost' }
-	| { kind: 'piece'; entityId: string }
+	| { kind: 'piece'; pieceId: string }
 	| { kind: 'track'; marbleId: string; time: number; position: TVec2 };
 
 export const DOT_PICK_RADIUS = 10;
@@ -67,9 +69,10 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 		const handle = scene.handles[i];
 		if (handle != null && distance(point, handle.position) <= handle.radius + HANDLE_PICK_SLOP) {
 			if (handle.kind === 'node' || handle.kind === 'nodeIn' || handle.kind === 'nodeOut') {
-				return { kind: handle.kind, entityId: handle.entityId, index: handle.index ?? 0 };
+				return { kind: handle.kind, pieceId: handle.id, index: handle.index ?? 0 };
 			}
-			return { kind: handle.kind, entityId: handle.entityId };
+			if (handle.kind === 'release') return { kind: 'release', marbleId: handle.id };
+			return { kind: handle.kind, pieceId: handle.id };
 		}
 	}
 
@@ -86,21 +89,21 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 	const open = nearestWithin(scene.dots.filter((dot) => dot.radius == null), DOT_PICK_RADIUS);
 	if (open != null) return { kind: 'dot', marbleId: open.dot.marbleId, hitId: open.dot.hitId };
 
-	let piecePick: { entityId: string; distance: number } | null = null;
+	let piecePick: { pieceId: string; distance: number } | null = null;
 	for (let i = scene.pieces.length - 1; i >= 0; i--) {
 		const piece = scene.pieces[i];
 		if (piece == null) continue;
 		const pieceDistance = distanceToPiece(point, piece);
 		if (pieceDistance > PIECE_PICK_SLOP) continue;
 		if (piece.isSelected === true) {
-			piecePick = { entityId: piece.entityId, distance: pieceDistance };
+			piecePick = { pieceId: piece.pieceId, distance: pieceDistance };
 			break;
 		}
-		if (piecePick == null || pieceDistance < piecePick.distance) piecePick = { entityId: piece.entityId, distance: pieceDistance };
+		if (piecePick == null || pieceDistance < piecePick.distance) piecePick = { pieceId: piece.pieceId, distance: pieceDistance };
 	}
 	const placed = nearestWithin(scene.dots.filter((dot) => dot.radius != null), PLACED_DOT_PICK_RADIUS);
 	if (placed != null && (piecePick == null || placed.distance < piecePick.distance)) return { kind: 'dot', marbleId: placed.dot.marbleId, hitId: placed.dot.hitId };
-	return piecePick == null ? null : { kind: 'piece', entityId: piecePick.entityId };
+	return piecePick == null ? null : { kind: 'piece', pieceId: piecePick.pieceId };
 }
 
 /** Whether a point is on a suggested piece's outline */
@@ -148,7 +151,7 @@ export function rectFromPoints(a: TVec2, b: TVec2): TRect {
 export function piecesInRect(rect: TRect, pieces: TScreenPiece[]): string[] {
 	const ids: string[] = [];
 	for (const piece of pieces) {
-		if (piece.corners.some((corner) => isPointInRect(corner, rect))) ids.push(piece.entityId);
+		if (piece.corners.some((corner) => isPointInRect(corner, rect))) ids.push(piece.pieceId);
 		else {
 			const rectCorners = [
 				{ x: rect.x, y: rect.y },
@@ -158,7 +161,7 @@ export function piecesInRect(rect: TRect, pieces: TScreenPiece[]): string[] {
 			];
 			const isCovered = rectCorners.some((corner) => isPointInPolygon(corner, piece.corners));
 			const isCrossing = edges(piece.corners).some(([a, b]) => edges(rectCorners).some(([c, d]) => segmentsIntersect(a, b, c, d)));
-			if (isCovered || isCrossing) ids.push(piece.entityId);
+			if (isCovered || isCrossing) ids.push(piece.pieceId);
 		}
 	}
 	return ids;

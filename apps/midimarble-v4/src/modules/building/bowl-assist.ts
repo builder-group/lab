@@ -163,8 +163,8 @@ export function hitKeyOf(hit: Pick<THitResult, 'marbleId' | 'hitId'>): string {
 }
 
 /** Whether a marble other than the Bowl's own touches it */
-function isTouchedByOthers(run: TSimulationResult, entityId: string, marbleId: string): boolean {
-	return run.contacts.some((contact) => contact.otherId === entityId && contact.marbleId !== marbleId && contact.time <= run.duration);
+function isTouchedByOthers(run: TSimulationResult, pieceId: string, marbleId: string): boolean {
+	return run.contacts.some((contact) => contact.otherId === pieceId && contact.marbleId !== marbleId && contact.time <= run.duration);
 }
 
 /** Whether the marble of `marbleId` touches another marble's piece after `from` */
@@ -228,14 +228,14 @@ export async function withBowls(project: TProject, deps: TBowlDeps, options: TBo
  * The Fix of a Bowl that misses its marble or is Blocked: a new spot on the marble's fall that
  * a what-if run passes, keeping the Bowl's ID, name and skin; or why none does
  */
-export async function bowlFix(project: TProject, result: TSimulationResult, entityId: string, deps: TBowlDeps): Promise<{ commands: TProjectCommand[] | null; message: string }> {
-	const piece = project.track.pieces.find((item) => item.id === entityId);
+export async function bowlFix(project: TProject, result: TSimulationResult, pieceId: string, deps: TBowlDeps): Promise<{ commands: TProjectCommand[] | null; message: string }> {
+	const piece = project.track.pieces.find((item) => item.id === pieceId);
 	const marbleId = tieOf(piece)?.marbleId;
 	const name = piece?.name ?? 'Bowl';
 	if (piece == null || marbleId == null) return { commands: null, message: `${name} follows no marble. Drop it on a marble's fall after its last note.` };
 	const marble = project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
-	const caught = bowlCatch(result, entityId);
-	if (caught.status === 'caught' && !isTouchedByOthers(result, entityId, marbleId)) return { commands: null, message: `${name} already catches ${marble}` };
+	const caught = bowlCatch(result, pieceId);
+	if (caught.status === 'caught' && !isTouchedByOthers(result, pieceId, marbleId)) return { commands: null, message: `${name} already catches ${marble}` };
 	const placed = await findBowl(project, marbleId, deps, { piece });
 	if ('error' in placed) return { commands: null, message: `${placed.error.replace(/\.$/, '')}, so nothing changed` };
 	return { commands: placed.commands, message: placed.message };

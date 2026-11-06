@@ -127,7 +127,7 @@ def check_skins_reach_blender():
     apply('default')
     first, second = holders()
     default = marble_material(first)
-    check(default.startswith('MM · glass'), "a marble without a skin wears the Brass theme's marble (%s)" % default)
+    check(default.startswith('MM · clear marble'), "a marble without a skin wears the Brass theme's marble (%s)" % default)
     before = marble_pixels()
     # Applied in the running scene, one after another, as the window does
     for name in ('agent-glass-metal', 'tiles-glass-metal'):

@@ -18,8 +18,8 @@ function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TPro
 	return { cx, project, hit };
 }
 
-function solved(marbleId: string, hitId: string, entityId: string): TAutoPlaceAnswer {
-	const piece: TPiece = createLinkedPiece('platform', marbleId, hitId, 0.31, { id: entityId });
+function solved(marbleId: string, hitId: string, pieceId: string): TAutoPlaceAnswer {
+	const piece: TPiece = createLinkedPiece('platform', marbleId, hitId, 0.31, { id: pieceId });
 	piece.params = { ...piece.params, bounce: 0.42 };
 	return { piece, angle: 0.31, nextDot: null, computeMs: 1 };
 }
@@ -28,7 +28,7 @@ describe('AssistCx place function', () => {
 	it('gives a piece the same tilt and bounce whether Auto place answers quickly or slowly', async () => {
 		const pieces: unknown[] = [];
 		for (const delay of [0, AUTO_PLACE_WAIT_MS * 2]) {
-			const autoPlace = (request: { marbleId: string; hitId: string; entityId: string }): Promise<TAutoPlaceAnswer> => new Promise((resolve) => setTimeout(() => resolve(solved(request.marbleId, request.hitId, request.entityId)), delay));
+			const autoPlace = (request: { marbleId: string; hitId: string; pieceId: string }): Promise<TAutoPlaceAnswer> => new Promise((resolve) => setTimeout(() => resolve(solved(request.marbleId, request.hitId, request.pieceId)), delay));
 			const { cx, hit } = studio({ autoPlace });
 			const assist = new AssistCx(cx);
 			await assist.place(hit, 'platform');

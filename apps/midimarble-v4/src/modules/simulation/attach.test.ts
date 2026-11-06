@@ -6,9 +6,9 @@ import { createSimulator, type TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
 import { apply, loadFixture } from '@/modules/project/test-helpers';
 
-function pieceOf(result: TSimulationResult, entityId: string): TResolvedPiece {
-	const piece = result.pieces.find((item) => item.pieceId === entityId);
-	if (piece == null) throw new Error(`No piece ${entityId}`);
+function pieceOf(result: TSimulationResult, pieceId: string): TResolvedPiece {
+	const piece = result.pieces.find((item) => item.pieceId === pieceId);
+	if (piece == null) throw new Error(`No piece ${pieceId}`);
 	return piece;
 }
 

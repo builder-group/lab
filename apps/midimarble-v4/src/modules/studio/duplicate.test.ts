@@ -3,7 +3,7 @@ import { newlyBroken } from '@/modules/building';
 import { createProject, type TPiece, type TProject, freePosition, tieOf } from '@/modules/project';
 import { createSimulator, type TSimulationResult } from '@/modules/simulation';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
-import { DUPLICATE_OFFSET, duplicateClear, duplicatePieces } from './duplicate';
+import { DUPLICATE_OFFSET, duplicateClear, type TDuplicate } from './duplicate';
 
 function freePlatform(id: string, name: string, x: number): TPiece {
 	return {
@@ -13,10 +13,17 @@ function freePlatform(id: string, name: string, x: number): TPiece {
 	} as TPiece;
 }
 
-describe('duplicatePieces', () => {
-	it('should copy a free piece beside it with the next default name', () => {
+/** Duplicate without a run, which copies to the usual spot */
+async function duplicateWithoutRun(project: TProject, pieceIds: string[]): Promise<TDuplicate> {
+	const outcome = await duplicateClear(project, null, pieceIds, null, []);
+	if (outcome.spot === 'refused') throw new Error('Refused');
+	return outcome;
+}
+
+describe('duplicateClear without a run', () => {
+	it('should copy a free piece beside it with the next default name', async () => {
 		const project = { ...createProject(), track: { ...createProject().track, pieces: [...createProject().track.pieces, freePlatform('a', 'Platform 1', 0.3)] } };
-		const { commands, copies } = duplicatePieces(project, null, ['a']);
+		const { commands, copies } = await duplicateWithoutRun(project, ['a']);
 		expect(commands).toHaveLength(1);
 		const copy = copies[0];
 		expect(copy?.id).not.toBe('a');
@@ -26,15 +33,15 @@ describe('duplicatePieces', () => {
 		expect(copy?.angle).toBe(0.1);
 	});
 
-	it('should number several copies one after another', () => {
+	it('should number several copies one after another', async () => {
 		const project = { ...createProject(), track: { ...createProject().track, pieces: [freePlatform('a', 'Platform 1', 0), freePlatform('b', 'Platform 2', 0.2)] } };
-		expect(duplicatePieces(project, null, ['a', 'b']).copies.map((copy) => copy.name)).toEqual(['Platform 3', 'Platform 4']);
+		expect((await duplicateWithoutRun(project, ['a', 'b'])).copies.map((copy) => copy.name)).toEqual(['Platform 3', 'Platform 4']);
 	});
 
-	it('should skip a tied piece without a run to read its pose from', () => {
+	it('should skip a tied piece without a run to read its pose from', async () => {
 		const tied: TPiece = { ...freePlatform('a', 'Platform 1', 0), place: { kind: 'plays', marbleId: 'l', hitId: 'h', contactAt: 0.5 } };
 		const project = { ...createProject(), track: { ...createProject().track, pieces: [tied] } };
-		expect(duplicatePieces(project, null, ['a']).commands).toEqual([]);
+		expect((await duplicateWithoutRun(project, ['a'])).commands).toEqual([]);
 	});
 });
 

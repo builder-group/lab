@@ -74,7 +74,7 @@ describe('buildTrack function', () => {
 		const marble = project.marbles[0];
 		const first = marble?.hits[0];
 		if (marble == null || first == null) throw new Error('No hit');
-		const { piece: mine, angle } = localBuildDeps(simulator).autoPlace({ project, marbleId: marble.id, hitId: first.id, type: 'platform', entityId: 'mine' }) as TAutoPlaceAnswer;
+		const { piece: mine, angle } = localBuildDeps(simulator).autoPlace({ project, marbleId: marble.id, hitId: first.id, type: 'platform', pieceId: 'mine' }) as TAutoPlaceAnswer;
 		const [isOk, error, placed] = applyProjectCommands(project, [{ type: 'addPiece', piece: mine }]);
 		if (!isOk) throw error;
 		const outcome = await buildTrack(placed, localBuildDeps(simulator));
@@ -223,7 +223,7 @@ describe('a chosen gap piece', () => {
 		// The platforms up to the gap, then the rail a person or an agent picked
 		let current = project;
 		for (const hit of marble.hits.slice(0, 3)) {
-			const placed = localBuildDeps(simulator).autoPlace({ project: current, marbleId: marble.id, hitId: hit.id, type: 'platform', entityId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
+			const placed = localBuildDeps(simulator).autoPlace({ project: current, marbleId: marble.id, hitId: hit.id, type: 'platform', pieceId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
 			const [isOk, error, applied] = applyProjectCommands(current, [{ type: 'addPiece', piece: placed.piece }]);
 			if (!isOk) throw error;
 			current = applied;

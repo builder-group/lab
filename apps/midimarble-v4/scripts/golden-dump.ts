@@ -1,5 +1,5 @@
-// Golden dump for the MidiMarble restructure: what a project does, in a form that doesn't depend on the schema. Compare
-// two dumps with `golden-compare.ts`. Removed after the restructure; `.local/golden/README.md` says how it's used.
+// Golden dump: what a project does, in a form that doesn't depend on the schema. Compare two dumps with
+// `golden-compare.ts`; `.local/golden/README.md` says how it's used.
 // Usage: tsx scripts/golden-dump.ts <out-dir> [--convert <module>] [--only <case,case>] [--skip-build]
 //   --convert: a module whose default export turns the @5 JSON into the schema being tested, applied before parsing
 import { createHash } from 'node:crypto';

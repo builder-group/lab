@@ -40,7 +40,7 @@ function agent(commands: TAgentCommand[]): TProjectCommand[] {
 }
 
 /** An inspector tile's edit: what clicking Glass on a selected marble runs */
-const tile = (entityId: string, skinId: string): TProjectCommand[] => builtInSkinCommands(project, { kind: 'pieces', entityIds: [entityId] }, skinId);
+const tile = (marbleId: string, skinId: string): TProjectCommand[] => builtInSkinCommands(project, { kind: 'pieces', skinnedIds: [marbleId] }, skinId);
 
 const scenes: Record<string, TProjectCommand[]> = {
 	default: [],

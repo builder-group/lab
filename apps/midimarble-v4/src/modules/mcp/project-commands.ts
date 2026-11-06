@@ -1,8 +1,11 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { assignNotesCommands, createFreePiece, flattenCommands, moveSongCommands, patternLockWords, patternOfPiece } from '@/modules/building';
-import { deleteHitCommands, pieceForHit } from '@/modules/track';
-import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, themeCommands, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
-import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinCommands } from '@/modules/film';
+import { deleteHitCommands } from '@/modules/track/hand-notes';
+import { pieceForHit } from '@/modules/track/step-loop';
+import { addDecorCommands, assetDecorSource, BUILT_IN_THEMES, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, themeCommands, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
+import { readScatterChoice } from '@/modules/film/decor-actions';
+import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/film/decor-scatter';
+import { skinCommands } from '@/modules/film/film-commands';
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
@@ -303,7 +306,7 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 			return filmProblem(project, items, command.film);
 		case 'applyTheme': {
 			if (isBuiltInTheme(command.theme) || packThemes.some((item) => item.theme.id === command.theme)) return null;
-			return `There is no theme ${command.theme}. Themes are ${['pegboard', 'brass', 'neon', ...packThemes.map((item) => item.theme.id)].join(', ')}.`;
+			return `There is no theme ${command.theme}. Themes are ${[...BUILT_IN_THEMES.map((theme) => theme.id), ...packThemes.map((item) => item.theme.id)].join(', ')}.`;
 		}
 		case 'applySkin': {
 			if (command.pieceType != null && command.pieceType !== 'marble' && getPieceDefinition(command.pieceType) == null) return `There is no piece type ${command.pieceType}. Use one from ${SKIN_ELEMENTS.join(', ')}.`;
@@ -389,7 +392,7 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 			return isPieceOk ? Ok({ commands: [{ type: 'addPiece', piece }], piece }) : Err(pieceErr);
 		}
 		case 'applySkin': {
-			const target = command.ids != null ? { kind: 'pieces' as const, entityIds: command.ids } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
+			const target = command.ids != null ? { kind: 'pieces' as const, skinnedIds: command.ids } : command.pieceType != null ? { kind: 'pieceType' as const, pieceType: command.pieceType } : null;
 			if (target == null) return Err(new Error('applySkin needs a pieceType or ids'));
 			const commands = skinCommands(project, target, command.assetId);
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));

@@ -8,7 +8,7 @@ import type { StudioCx } from '../StudioCx';
 import { TimeGutter } from './Ruler';
 import { CAMERA_ROW_HEIGHT, HEADER_WIDTH, round } from './timeline-layout';
 
-type TClipDrag = { entityId: string; edge: 'move' | 'in' | 'out'; originX: number; grab: number; start: number; end: number; moved: boolean };
+type TClipDrag = { titleId: string; edge: 'move' | 'in' | 'out'; originX: number; grab: number; start: number; end: number; moved: boolean };
 
 /** Shortest title clip the trim handles leave, in seconds */
 const MIN_CLIP = 0.1;
@@ -23,10 +23,10 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 	const clips = titleClips(project);
 	const [drag, setDrag] = React.useState<TClipDrag | null>(null);
 	if (!clips.length) return null;
-	const isSelected = clips.some((clip) => selection.includes(clip.entityId));
+	const isSelected = clips.some((clip) => selection.includes(clip.titleId));
 
 	function commit(next: TClipDrag): void {
-		const title = project.film.titles.find((item) => item.id === next.entityId);
+		const title = project.film.titles.find((item) => item.id === next.titleId);
 		if (title == null) return;
 		const { in: _in, out: _out, ...rest } = title;
 		const value: TTitle = { ...rest };
@@ -36,7 +36,7 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 	}
 
 	function dragTo(current: TClipDrag, clientX: number): TClipDrag {
-		const clip = clips.find((item) => item.entityId === current.entityId);
+		const clip = clips.find((item) => item.titleId === current.titleId);
 		if (clip == null) return current;
 		const time = timeAt(clientX);
 		if (current.edge === 'in') return { ...current, start: Math.min(Math.max(0, time), clip.end - MIN_CLIP) };
@@ -53,7 +53,7 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 				style={{ width: HEADER_WIDTH }}
 				data-selected={isSelected}
 				data-track={TITLES_KEY}
-				onClick={() => cx.$selection.set(clips.map((clip) => clip.entityId))}
+				onClick={() => cx.$selection.set(clips.map((clip) => clip.titleId))}
 			>
 				<span className="mm-song-icon">
 					<Type size={12} strokeWidth={1.75} />
@@ -72,34 +72,34 @@ export const TitlesRow: React.FC<TTitlesRowProps> = (props) => {
 				}}
 			>
 				{clips.map((clip, index) => {
-					const isClipSelected = selection.includes(clip.entityId);
-					const span = drag?.entityId === clip.entityId ? drag : clip;
+					const isClipSelected = selection.includes(clip.titleId);
+					const span = drag?.titleId === clip.titleId ? drag : clip;
 					// Overlapping titles stack in two rows so each stays clickable
 					const top = clips.slice(0, index).some((other) => other.end > clip.start && other.start < clip.end) ? 15 : 4;
 					const onEdgeDown = (edge: TClipDrag['edge']) => (event: React.PointerEvent<HTMLElement>) => {
 						if (event.button !== 0) return;
 						event.stopPropagation();
 						if (event.shiftKey) {
-							cx.$selection.set(isClipSelected ? selection.filter((item) => item !== clip.entityId) : [...selection, clip.entityId]);
+							cx.$selection.set(isClipSelected ? selection.filter((item) => item !== clip.titleId) : [...selection, clip.titleId]);
 							return;
 						}
 						event.currentTarget.setPointerCapture(event.pointerId);
-						cx.$selection.set([clip.entityId]);
-						setDrag({ entityId: clip.entityId, edge, originX: event.clientX, grab: timeAt(event.clientX) - clip.start, start: clip.start, end: clip.end, moved: false });
+						cx.$selection.set([clip.titleId]);
+						setDrag({ titleId: clip.titleId, edge, originX: event.clientX, grab: timeAt(event.clientX) - clip.start, start: clip.start, end: clip.end, moved: false });
 					};
 					const onMove = (event: React.PointerEvent<HTMLElement>): void => {
-						if (drag?.entityId !== clip.entityId) return;
+						if (drag?.titleId !== clip.titleId) return;
 						const moved = drag.moved || Math.abs(event.clientX - drag.originX) > 2;
 						if (moved) setDrag({ ...dragTo(drag, event.clientX), moved });
 					};
 					const onUp = (): void => {
-						if (drag?.entityId !== clip.entityId) return;
+						if (drag?.titleId !== clip.titleId) return;
 						setDrag(null);
 						if (drag.moved && (drag.start !== clip.start || drag.end !== clip.end)) commit(drag);
 					};
 					return (
 						<div
-							key={clip.entityId}
+							key={clip.titleId}
 							role="button"
 							tabIndex={-1}
 							className="mm-title-clip absolute z-10 flex h-[13px] cursor-grab items-center overflow-hidden rounded-[3px] px-1.5 text-[10px] leading-none whitespace-nowrap"

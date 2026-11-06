@@ -38,11 +38,11 @@ export function anchorHit<T extends { time: number }>(hits: T[], time: number): 
 export function anchorPiece(
 	project: TProject,
 	result: TSimulationResult,
-	entityId: string,
+	pieceId: string,
 	marbleId: string,
 	time: number
 ): TResult<TAttachResult, Error> {
-	const [isFound, findErr, found] = findPiece(project, result, entityId);
+	const [isFound, findErr, found] = findPiece(project, result, pieceId);
 	if (!isFound) return Err(findErr);
 	const { piece, resolved } = found;
 	const marble = project.marbles.find((item) => item.id === marbleId);
@@ -76,9 +76,9 @@ export function anchorPiece(
 export function unanchorPiece(
 	project: TProject,
 	result: TSimulationResult,
-	entityId: string
+	pieceId: string
 ): TResult<TAttachResult, Error> {
-	return detach(project, result, entityId, 'anchored');
+	return detach(project, result, pieceId, 'anchored');
 }
 
 /**
@@ -89,11 +89,11 @@ export function unanchorPiece(
 export function linkPieceToHit(
 	project: TProject,
 	result: TSimulationResult,
-	entityId: string,
+	pieceId: string,
 	marbleId: string,
 	hitId: string
 ): TResult<TAttachResult, Error> {
-	const [isFound, findErr, found] = findPiece(project, result, entityId);
+	const [isFound, findErr, found] = findPiece(project, result, pieceId);
 	if (!isFound) return Err(findErr);
 	const { piece, resolved } = found;
 	const type = piece.type ?? '';
@@ -103,7 +103,7 @@ export function linkPieceToHit(
 	if (marble == null || hit == null) return Err(new Error(`Hit ${hitId} not found`));
 	const owner = project.track.pieces.find(
 		(item) =>
-			item.id !== entityId &&
+			item.id !== pieceId &&
 			tieOf(item)?.marbleId === marbleId &&
 			tieOf(item)?.hitId === hitId &&
 			soundsHit(item.type, tieOf(item))
@@ -129,9 +129,9 @@ export function linkPieceToHit(
 export function unlinkPiece(
 	project: TProject,
 	result: TSimulationResult,
-	entityId: string
+	pieceId: string
 ): TResult<TAttachResult, Error> {
-	return detach(project, result, entityId, 'linked');
+	return detach(project, result, pieceId, 'linked');
 }
 
 /**
@@ -168,19 +168,19 @@ export function freePose(
 function detach(
 	project: TProject,
 	result: TSimulationResult,
-	entityId: string,
+	pieceId: string,
 	from: 'anchored' | 'linked'
 ): TResult<TAttachResult, Error> {
-	const [isFound, findErr, found] = findPiece(project, result, entityId);
+	const [isFound, findErr, found] = findPiece(project, result, pieceId);
 	if (!isFound) return Err(findErr);
 	const { piece, resolved } = found;
 	const tie = tieOf(piece);
-	if (tie == null) return Err(new Error(`${piece.name ?? entityId} plays no note and follows no marble`));
+	if (tie == null) return Err(new Error(`${piece.name ?? pieceId} plays no note and follows no marble`));
 	const isLinked = soundsHit(piece.type, tie);
-	if (from === 'linked' && !isLinked) return Err(new Error(`${piece.name ?? entityId} is anchored, not linked`));
-	if (from === 'anchored' && isLinked) return Err(new Error(`${piece.name ?? entityId} is linked, not anchored`));
+	if (from === 'linked' && !isLinked) return Err(new Error(`${piece.name ?? pieceId} is anchored, not linked`));
+	if (from === 'anchored' && isLinked) return Err(new Error(`${piece.name ?? pieceId} is linked, not anchored`));
 	if (resolved.status === 'unreached')
-		return Err(new Error(`${piece.name ?? entityId} has no pose in this run`));
+		return Err(new Error(`${piece.name ?? pieceId} has no pose in this run`));
 	const radius = result.marbles.find((marble) => marble.marbleId === tie.marbleId)?.radius;
 	const pose = freePose(piece, resolved, radius);
 	const { entryDelay: _, ...params } = piece.params;
@@ -191,13 +191,13 @@ function detach(
 function findPiece(
 	project: TProject,
 	result: TSimulationResult,
-	entityId: string
+	pieceId: string
 ): TResult<{ piece: TPiece; resolved: TResolvedPiece }, Error> {
-	const piece = project.track.pieces.find((item) => item.id === entityId);
-	if (piece == null) return Err(new Error(`Piece ${entityId} not found`));
+	const piece = project.track.pieces.find((item) => item.id === pieceId);
+	if (piece == null) return Err(new Error(`Piece ${pieceId} not found`));
 	if (result.revision !== project.revision)
 		return Err(new Error('The run is out of date; wait for the simulation to catch up'));
-	const resolved = result.pieces.find((item) => item.pieceId === entityId);
-	if (resolved == null) return Err(new Error(`${piece.name ?? entityId} has no pose in this run`));
+	const resolved = result.pieces.find((item) => item.pieceId === pieceId);
+	if (resolved == null) return Err(new Error(`${piece.name ?? pieceId} has no pose in this run`));
 	return Ok({ piece, resolved });
 }

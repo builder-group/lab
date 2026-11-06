@@ -274,7 +274,6 @@ describe('MCP tools', () => {
 		expect(state.quality).toBe('final');
 		expect(state.song.songs).toEqual([{ id: 'song-1', name: 'Song.wav', kind: 'audio', start: 1, backingNotes: 0 }]);
 		expect(state.marbles[0]).toMatchObject({ marbleId, start: { x: 0, y: 0 } });
-		expect(state.marbles[0]).not.toHaveProperty('entityId');
 		expect(state.camera).toEqual({ auto: true, distance: 0.48, tilt: 0.54, sway: 1, shots: [] });
 	});
 

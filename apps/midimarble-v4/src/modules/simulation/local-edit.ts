@@ -111,7 +111,7 @@ export function withRides(project: TProject, result: TSimulationResult, fromTime
 type TAim = { kind: 'dot'; dot: TVec2; nextHitId: string; nextTime: number } | { kind: 'exit'; velocity: TVec2; spin: number };
 
 interface TStep {
-	entityId: string;
+	pieceId: string;
 	hitId: string;
 	time: number;
 	aim: TAim;
@@ -211,7 +211,7 @@ function planSteps(project: TProject, base: TSimulationResult, edit: TMarbleEdit
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	if (marble == null) return null;
 	const stepFor = (piece: TPiece, hitId: string, time: number, aim: TAim, was: TWas): TStep => ({
-		entityId: piece.id,
+		pieceId: piece.id,
 		hitId,
 		time,
 		aim,
@@ -269,7 +269,7 @@ function planSteps(project: TProject, base: TSimulationResult, edit: TMarbleEdit
 
 /** Solves one platform's aim by Newton's method on its tilt and bounce, each try simulated only as far as the aim */
 function solveStep(simulator: TSimulator, project: TProject, marbleId: string, step: TStep, count: () => void): TProject {
-	const piece = project.track.pieces.find((item) => item.id === step.entityId);
+	const piece = project.track.pieces.find((item) => item.id === step.pieceId);
 	if (piece == null || tieOf(piece) == null) return project;
 	const g = gravityOf(project);
 	const spec = getPieceDefinition(piece.type)?.params['bounce'];
@@ -282,7 +282,7 @@ function solveStep(simulator: TSimulator, project: TProject, marbleId: string, s
 	const clampAngle = (angle: number): number => Math.max(step.before.angle - TILT_LIMIT, Math.min(step.before.angle + TILT_LIMIT, angle));
 	const clampBounce = (bounce: number): number => Math.max(spec?.min ?? 0.1, Math.min(spec?.max ?? 0.95, bounce));
 	const errorOf = (angle: number, bounce: number): [number, number] => {
-		const result = run(setValues(project, step.entityId, angle, bounce));
+		const result = run(setValues(project, step.pieceId, angle, bounce));
 		const { aim } = step;
 		if (aim.kind === 'dot') {
 			const dot = result.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === aim.nextHitId)?.dot;
@@ -344,9 +344,9 @@ function solveStep(simulator: TSimulator, project: TProject, marbleId: string, s
 		}
 		if (!isBetter) break;
 	}
-	const solved = setValues(project, step.entityId, angle, bounce);
+	const solved = setValues(project, step.pieceId, angle, bounce);
 	// How it leaves is kept, so the last of the error and the spin stop here
-	return step.aim.kind === 'exit' ? withLeaves(solved, step.entityId, { velocity: step.aim.velocity, spin: step.aim.spin, angle, bounce }) : solved;
+	return step.aim.kind === 'exit' ? withLeaves(solved, step.pieceId, { velocity: step.aim.velocity, spin: step.aim.spin, angle, bounce }) : solved;
 }
 
 function isBroken(hit: THitResult): boolean {
@@ -514,7 +514,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		for (const edit of edits) {
 			for (const step of planSteps(after, base, edit, VARIANTS[0] ?? { skip: 0, restore: 0 }) ?? []) {
 				project = solveStep(simulator, project, edit.marbleId, step, count);
-				absorbedBy.push(step.entityId);
+				absorbedBy.push(step.pieceId);
 			}
 		}
 		if (edits.every((edit) => edit.isElsewhere === true)) return { project, absorbedBy, broken: [], strays: 0, result: base, runs, heldFrom: [], moveMiss: null };
@@ -536,7 +536,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		for (const edit of edits) {
 			for (const step of planSteps(after, base, edit, variant) ?? []) {
 				project = solveStep(simulator, project, edit.marbleId, step, count);
-				absorbedBy.push(step.entityId);
+				absorbedBy.push(step.pieceId);
 				absorbedUntil = Math.max(absorbedUntil, step.time);
 			}
 		}

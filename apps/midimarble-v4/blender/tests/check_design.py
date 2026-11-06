@@ -546,7 +546,7 @@ def main():
     report = apply(worker)
     check(added_light('light-1') is None and report['lights']['removed'] == ['light-1'], 'deleting an untouched light removes it')
 
-    # Neon marbles contrast with their own lane: a pearl-white body with the lane's hue only on the rim, never the
+    # Neon marbles contrast with their own platforms: a pearl-white body with the label color's hue only on the rim, never the
     # saturated hue its platforms glow in
     write_package(root, records, hit, theme='neon')
     apply(worker)
@@ -564,13 +564,13 @@ def main():
 
     marble_body = marble_materials[0].diffuse_color if marble_materials else (0.0, 0.0, 0.0, 1.0)
     check(marble_materials and marble_materials[0].name.startswith('MM · neon pearl marble') and saturation(marble_body) < 0.2,
-          'a Neon marble is pearl white, not its lane color (%s, saturation %.2f)' % (marble_materials[0].name if marble_materials else None, saturation(marble_body)))
-    lane_glows = [tuple(material.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value) for material in platform_materials
+          'a Neon marble is pearl white, not its label color (%s, saturation %.2f)' % (marble_materials[0].name if marble_materials else None, saturation(marble_body)))
+    platform_glows = [tuple(material.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value) for material in platform_materials
                   if material.name.startswith('MM · neon trim')]
-    lane_bodies = [tuple(material.diffuse_color) for material in platform_materials]
-    check(lane_glows and all(saturation(glow) > 0.8 for glow in lane_glows), 'Neon platforms glow in their lane hue (%d trims)' % len(lane_glows))
-    contrast = min((luminance(marble_body) + 0.05) / (luminance(body) + 0.05) for body in lane_bodies) if lane_bodies else 0.0
-    check(contrast >= 3.0, 'a Neon marble is at least 3:1 lighter than every surface of its lane platform (%.1f:1)' % contrast)
+    platform_bodies = [tuple(material.diffuse_color) for material in platform_materials]
+    check(platform_glows and all(saturation(glow) > 0.8 for glow in platform_glows), 'Neon platforms glow in their label color (%d trims)' % len(platform_glows))
+    contrast = min((luminance(marble_body) + 0.05) / (luminance(body) + 0.05) for body in platform_bodies) if platform_bodies else 0.0
+    check(contrast >= 3.0, 'a Neon marble is at least 3:1 lighter than every surface of its own platform (%.1f:1)' % contrast)
     # More Skins: a Brass skin dresses a platform as Brass in Neon too
     write_package(root, records, hit, theme='neon', skin='platform:copper')
     apply(worker)

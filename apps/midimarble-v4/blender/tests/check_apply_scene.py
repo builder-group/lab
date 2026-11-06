@@ -526,11 +526,11 @@ def check_color_by_note():
 
 
 def check_marble_contrast():
-    """Every lane's marble stays 3:1 apart from its wall and from every surface of its own platform in Pegboard and Neon,
+    """Every marble stays 3:1 apart from its wall and from every surface of its own platform in Pegboard and Neon,
     by the luminance of the materials Blender renders; Brass's clear glass reads by color on dark gold, so it only keeps
     its body apart from the wall; a dark project wall turns Pegboard's marbles pearl"""
     from mm_worker import themes, skins
-    lanes = ('#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff', '#808080')
+    label_colors = ('#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff', '#808080')
 
     def luminance(color):
         return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
@@ -539,19 +539,19 @@ def check_marble_contrast():
         high, low = sorted((luminance(a), luminance(b)), reverse=True)
         return (high + 0.05) / (low + 0.05)
 
-    for color in lanes:
+    for color in label_colors:
         check(themes.marble_look('brass', color)['contrast'] >= 2.8, 'brass: a %s marble stands apart from the wall' % color)
     for theme in ('pegboard', 'neon'):
         context = skins.skin_context(theme, RADIUS)
         wall = themes.wall_material(theme, 0.025).diffuse_color
         lowest = []
-        for color in lanes:
+        for color in label_colors:
             marble = skins.build_spec('marble', {'radius': RADIUS, 'color': color}, context)['root'].materials[0]
             piece = {'type': 'platform', 'params': PLATFORM, 'angle': 0.2, 'position': {'x': 0, 'y': 0}, 'color': color}
             surfaces = [material.diffuse_color for material in skins.build_spec('piece', piece, context)['parts'][0]['mesh'].materials]
             lowest.append(min(ratio(marble.diffuse_color, other) for other in [wall, *surfaces]))
         check(min(lowest) >= themes.MARBLE_CONTRAST,
-              '%s: every lane marble is at least 3:1 apart from its wall and its platform (lowest %.1f:1)' % (theme, min(lowest)))
+              '%s: every marble is at least 3:1 apart from its wall and its platform (lowest %.1f:1)' % (theme, min(lowest)))
     check(themes.marble_look('pegboard', '#3478f6')['tone'] == 'deep' and themes.marble_look('neon', '#3478f6')['tone'] == 'pearl',
           'light walls get deep marbles, the dark Neon wall pearl ones')
     check(themes.marble_look('pegboard', '#3478f6', {'wallColor': '#1a1a1a'})['tone'] == 'pearl', 'a dark project wall turns a Pegboard marble pearl')

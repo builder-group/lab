@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/canvas';
+import { PieceBody, toPoints } from '@/modules/canvas';
 import { pieceKind, SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
 import type { TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
@@ -126,10 +126,10 @@ interface TDraftPreviewProps {
 	isPlacing: boolean;
 	/** Drawn over the frame, such as Blender's background preview frame; clicks still pick through the draft */
 	cover?: React.ReactNode;
-	onPick: (entityId: string | null, shiftKey: boolean) => void;
+	onPick: (id: string | null, shiftKey: boolean) => void;
 	/** Click while placing, in 0..1 image coordinates; ⇧-click keeps the tool for another placement */
 	onPlace: (u: number, v: number, keepTool: boolean) => void;
-	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
+	onDropAsset: (id: string, asset: { id: string; scope: string }) => void;
 }
 
 /** Rails, tunnels and Bowls as lines in the theme's colors and titles as text */
@@ -161,15 +161,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					})}
 				</g>
 			) : null}
-			{pieces.map((piece) => {
-				const kind = pieceKind(piece);
-				const palette = draft.colorsOf(piece);
-				if (kind === 'path') return <RailShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
-				if (kind === 'tube') return <TunnelShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'generated') return <RailPathsShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'catcher') return <BowlShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
-				return null;
-			})}
+			{pieces.map((piece) => <PieceBody key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={draft.colorsOf(piece)} />)}
 			{/* A skin's shape cue on its platform: chrome caps, a key, a lens or a grille, so a skin shows before Blender renders it */}
 			{pieces.map((piece) =>
 				draft.skinMarks(piece).map((mark) => <polygon key={`${piece.pieceId}:${mark.id}`} points={toPoints(mark.points)} fill={mark.color} stroke={mark.color} strokeWidth={0.5} strokeLinejoin="round" />)
@@ -181,18 +173,18 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				if (marble.finish != null) {
 					// A rolling marble's turn stands in for its angle, close enough for a preview
 					const turn = (marble.position.x / marble.radius) * (180 / Math.PI);
-					return <MarbleFinish key={marble.entityId} finish={marble.finish} center={center} radius={radius} turn={turn} time={playhead} />;
+					return <MarbleFinish key={marble.marbleId} finish={marble.finish} center={center} radius={radius} turn={turn} time={playhead} />;
 				}
 				if (marble.rim == null) return null;
 				// Pearl marbles are near white; a ring in their hue says which marble each one is
 				return (
-					<g key={marble.entityId}>
+					<g key={marble.marbleId}>
 						<circle cx={center.x} cy={center.y} r={radius * 1.35} fill="none" stroke={marble.rim} strokeOpacity={0.45} strokeWidth={Math.max(2, radius * 0.5)} style={{ filter: 'blur(2px)' }} />
 						<circle cx={center.x} cy={center.y} r={radius * 1.04} fill="none" stroke={marble.rim} strokeWidth={Math.max(1.25, radius * 0.18)} />
 					</g>
 				);
 			})}
-			{titles.map((title) => (title.screen != null ? <ScreenTitle key={title.entityId} title={title} screen={title.screen} /> : <WallTitle key={title.entityId} title={title} />))}
+			{titles.map((title) => (title.screen != null ? <ScreenTitle key={title.titleId} title={title} screen={title.screen} /> : <WallTitle key={title.titleId} title={title} />))}
 		</svg>
 	);
 };
@@ -267,10 +259,10 @@ const SelectionOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 				})}
 			{titles
 				// A title outside its In and Out shows no outline, so no stray box crosses the frame
-				.filter((title) => selection.includes(title.entityId) && title.opacity > 0)
+				.filter((title) => selection.includes(title.titleId) && title.opacity > 0)
 				.map((title) => {
-					const box = boxes.get(title.entityId);
-					return box == null ? null : <polygon key={title.entityId} points={toPoints(box)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} />;
+					const box = boxes.get(title.titleId);
+					return box == null ? null : <polygon key={title.titleId} points={toPoints(box)} fill="none" stroke="var(--accent-strong)" strokeWidth={1.75} />;
 				})}
 			{selection.flatMap((key) => {
 				const outline = key.startsWith('decor:') || key.startsWith('blender:') ? draft.decorOutline(key) : null;
@@ -379,7 +371,7 @@ function titleBoxes(titles: TDraftTitle[]): Map<string, TVec2[]> {
 		const cos = Math.cos(radians);
 		const sin = Math.sin(radians);
 		boxes.set(
-			title.entityId,
+			title.titleId,
 			[
 				[-halfWidth, -halfHeight],
 				[halfWidth, -halfHeight],

@@ -69,9 +69,9 @@ function hit(marbleId: string, hitId: string, targetTime: number, patch: Partial
 let pieceCount = 0;
 
 /** A piece well away from the others */
-function piece(entityId: string, type = 'platform'): TResolvedPiece {
+function piece(pieceId: string, type = 'platform'): TResolvedPiece {
 	pieceCount++;
-	return { pieceId: entityId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
+	return { pieceId: pieceId, type, position: { x: pieceCount, y: 0 }, angle: 0, params: {}, contactPoint: null, contactNormal: null, hitTime: null, status: 'placed' };
 }
 
 function createResult(patch: Partial<TSimulationResult> = {}): TSimulationResult {
@@ -248,7 +248,7 @@ describe('checkRun function', () => {
 
 	it('should count a platform its own marble strikes twice as a problem, and pieces that touch', () => {
 		const project = createTwoMarbleProject();
-		const at = (entityId: string, y: number): TResolvedPiece => ({ ...piece(entityId), position: { x: 0, y }, params: { length: 0.09, thickness: 0.012 } });
+		const at = (pieceId: string, y: number): TResolvedPiece => ({ ...piece(pieceId), position: { x: 0, y }, params: { length: 0.09, thickness: 0.012 } });
 		const strike = (time: number) => ({ time, marbleId: 'marble-a', otherId: 'pa1', kind: 'piece' as const, position: { x: 0, y: 0.03 }, speed: 1.5 });
 		const result = createResult({
 			pieces: [at('pa1', 0.03), at('pa2', 0)],

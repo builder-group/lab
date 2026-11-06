@@ -1,5 +1,5 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { answerWorkerRequest, changedPieces, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, passThroughs, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { answerWorkerRequest, changedPieces, isPathPieceType, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, passThroughs, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';
@@ -131,7 +131,7 @@ export interface TBuildAutoPlaceRequest {
 	marbleId: string;
 	hitId: string;
 	type: string;
-	entityId: string;
+	pieceId: string;
 	range?: [number, number];
 }
 
@@ -141,7 +141,7 @@ export interface TBuildGapRequest {
 	marbleId: string;
 	fromHitId: string;
 	toHitId: string;
-	entityId: string;
+	pieceId: string;
 }
 
 export interface TBuildTrackDeps {
@@ -297,7 +297,7 @@ function repeatsInterval(current: TProject, marbleId: string, hitId: string): bo
 }
 
 /** A new piece's ID follows from its hit, so a project always gets the same IDs */
-function pieceId(current: TProject, hitId: string): string {
+function newPieceId(current: TProject, hitId: string): string {
 	return freeId(current, /^hit/.test(hitId) ? hitId.replace(/^hit/, 'piece') : `piece-${hitId}`);
 }
 
@@ -372,14 +372,14 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, band, 1));
 	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
 	// Each marble strikes each platform once, for its note, up to where its path is final
-	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.entityId) && strike.time < (frontier.get(strike.marbleId) ?? Infinity));
+	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.pieceId) && strike.time < (frontier.get(strike.marbleId) ?? Infinity));
 	if (struck.length > 0) return reject(state, `struck twice ${struck.map((strike) => strike.hitId).join(' ')}`);
 	// And bounces off it, a platform not being for rolling
-	const rolling = rollingHits(applied, result).filter((roll) => !tolerated.rolls.has(roll.entityId) && roll.time < (frontier.get(roll.marbleId) ?? Infinity));
+	const rolling = rollingHits(applied, result).filter((roll) => !tolerated.rolls.has(roll.pieceId) && roll.time < (frontier.get(roll.marbleId) ?? Infinity));
 	if (rolling.length > 0) return reject(state, `rolls ${rolling.map((roll) => roll.hitId).join(' ')}`);
 	// And goes through no piece's skin on its way
-	const passing = passThroughs(applied, result).filter((pass) => !tolerated.passes.has(contactKey(pass.marbleId, pass.entityId)) && pass.time < (frontier.get(pass.marbleId) ?? Infinity));
-	if (passing.length > 0) return reject(state, `passes through ${passing.map((pass) => pass.entityId).join(' ')}`);
+	const passing = passThroughs(applied, result).filter((pass) => !tolerated.passes.has(contactKey(pass.marbleId, pass.pieceId)) && pass.time < (frontier.get(pass.marbleId) ?? Infinity));
+	if (passing.length > 0) return reject(state, `passes through ${passing.map((pass) => pass.pieceId).join(' ')}`);
 	// No two pieces touch on the wall
 	const touching = touchingPairs(applied, result).filter((pair) => !tolerated.touching.has(pairKey(pair.a, pair.b)));
 	if (touching.length > 0) return reject(state, `touching ${touching.map((pair) => `${pair.a}/${pair.b}`).join(' ')}`);
@@ -508,8 +508,8 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		const rodeSwitchback = current.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId && piece.type !== 'platform' && !state.own.has(piece.id)).at(-1)?.layout === 'switchback';
 		for (const type of gapPieceOrder(state.gapPiece)) {
 			if (isCanceled(state)) return null;
-			const entityId = gapPieceId(state, current, type, marbleId);
-			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }));
+			const pieceId = gapPieceId(state, current, type, marbleId);
+			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId }));
 			// A piece that ends far from the pace or the marble leaves the gap to the other, which has to do
 			if (type !== gapPieceOrder(state.gapPiece).at(-1) && answer?.check != null && !gapPieceReads(answer.check, paceLimit)) {
 				reject(state, `the ${type} ends ${Math.abs(answer.check.paceError ?? 0).toFixed(2)} m from the pace`);
@@ -547,7 +547,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	const ghosts: TProjectCommand[] = (continued?.commands ?? []).map((command) => {
 		const link = command.type === 'addPiece' ? tieOf(command.piece) : undefined;
 		if (command.type !== 'addPiece' || link == null) return command;
-		const id = pieceId(current, link.hitId);
+		const id = newPieceId(current, link.hitId);
 		taken.add(id);
 		return { ...command, piece: { ...command.piece, id } };
 	});
@@ -566,7 +566,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	// Like Continue, Mirror leaves the hit ahead of a launch to Auto place, which checks the launch is struck firmly
 	const following = hits[hits.findIndex((hit) => hit.id === hitId) + 1];
 	const isBeforeLaunch = following != null && findLongGaps(current, marbleId).some((item) => item.fromHitId === following.id);
-	const id = pieceId(current, hitId);
+	const id = newPieceId(current, hitId);
 	if (!isLaunch && !isLast && !isBeforeLaunch && repeatsInterval(current, marbleId, hitId)) {
 		const [isMirrorOk, , mirrored] = mirrorPiece(current, result, marbleId, { id });
 		const accepted = isMirrorOk && mirrored.hitId === hitId ? await accept(state, current, mirrored.commands, marbleId) : null;
@@ -577,7 +577,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	}
 	if (isCanceled(state)) return null;
 
-	const placed = await ask(state, 'autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', entityId: id }));
+	const placed = await ask(state, 'autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', pieceId: id }));
 	const accepted = placed != null ? await accept(state, current, [{ type: 'addPiece', piece: placed.piece }], marbleId) : null;
 	if (accepted != null) {
 		if (isLaunch) counts.launch++;
@@ -587,7 +587,7 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	if (isCanceled(state)) return null;
 	// What a person tries next: turning further than Auto place searches. A search that found nothing already tried these.
 	if (placed != null) {
-		const wide = await ask(state, 'wide autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', entityId: id, range: [-60 * DEGREE, 60 * DEGREE] }));
+		const wide = await ask(state, 'wide autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', pieceId: id, range: [-60 * DEGREE, 60 * DEGREE] }));
 		const widened = wide != null ? await accept(state, current, [{ type: 'addPiece', piece: wide.piece }], marbleId) : null;
 		if (widened != null) {
 			counts.wide++;
@@ -749,7 +749,7 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 	const key = hitKey(target.marbleId, target.hitId);
 	state.counts.failed++;
 	if (target.dot != null) {
-		const id = pieceId(current, target.hitId);
+		const id = newPieceId(current, target.hitId);
 		const band = frameBand(current, target.marbleId);
 		// Of the leans that play it, the one whose next dot stays nearest the marble, or a forced run wanders off in a long diagonal
 		let best: { project: TProject; degrees: number; offset: number } | null = null;
@@ -788,9 +788,9 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 	}
 	const band = frameBand(project);
 	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
-	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.entityId);
-	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.entityId);
-	for (const pass of passThroughs(project, result)) state.tolerated.passes.add(contactKey(pass.marbleId, pass.entityId));
+	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.pieceId);
+	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.pieceId);
+	for (const pass of passThroughs(project, result)) state.tolerated.passes.add(contactKey(pass.marbleId, pass.pieceId));
 	for (const pair of touchingPairs(project, result)) state.tolerated.touching.add(pairKey(pair.a, pair.b));
 }
 
@@ -927,14 +927,10 @@ export function withoutPiecesAfter(project: TProject, from: { marbleId: string; 
 		if (tie == null) return false;
 		const key = `${tie.marbleId}/${tie.hitId}`;
 		if (piece.type === BOWL_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
-		if (isGapPiece(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
+		if (isPathPieceType(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
 		return isMusicalPiece(piece.type) && (timeOf.get(key) ?? Infinity) > time + 1e-9;
 	};
 	return { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => !isRebuilt(piece)) } };
-}
-
-function isGapPiece(type: string): boolean {
-	return type === 'rail' || type === 'tunnel';
 }
 
 /** `built` with each new platform in the skin of the piece that played its note in `was` */

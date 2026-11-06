@@ -233,9 +233,9 @@ export interface TMotionFile {
 }
 
 /** Times the marble actually touched the piece for each linked hit, sorted. Hits without a contact are left out. */
-function hitTimesFor(result: TSimulationResult, entityId: string): number[] {
+function hitTimesFor(result: TSimulationResult, pieceId: string): number[] {
 	return result.hits
-		.flatMap((hit) => (hit.pieceId === entityId && hit.actualTime != null ? [hit.actualTime] : []))
+		.flatMap((hit) => (hit.pieceId === pieceId && hit.actualTime != null ? [hit.actualTime] : []))
 		.sort((a, b) => a - b);
 }
 
@@ -243,9 +243,9 @@ function hitTimesFor(result: TSimulationResult, entityId: string): number[] {
  * Times any marble starts touching the piece, sorted. A rolling marble starts contact again and again, so starts
  * within `CONTACT_MERGE` of the previous kept one are dropped.
  */
-function contactTimesFor(result: TSimulationResult, entityId: string): number[] {
+function contactTimesFor(result: TSimulationResult, pieceId: string): number[] {
 	const times = result.contacts
-		.flatMap((contact) => (contact.kind === 'piece' && contact.otherId === entityId ? [contact.time] : []))
+		.flatMap((contact) => (contact.kind === 'piece' && contact.otherId === pieceId ? [contact.time] : []))
 		.sort((a, b) => a - b);
 	const merged: number[] = [];
 	for (const time of times) {

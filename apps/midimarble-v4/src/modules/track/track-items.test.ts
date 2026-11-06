@@ -98,7 +98,7 @@ describe('a dot click before it places', () => {
 		if (hit == null) throw new Error('expected an open note');
 		let project: TProject = without;
 		let edits = 0;
-		let settle: { resolve: (value: TAutoPlaceAnswer) => void; reject: (error: Error) => void; entityId: string } | null = null;
+		let settle: { resolve: (value: TAutoPlaceAnswer) => void; reject: (error: Error) => void; pieceId: string } | null = null;
 		const $history = createState<{ present: TProject } | null>({ present: project });
 		const cx = {
 			get project() {
@@ -115,7 +115,7 @@ describe('a dot click before it places', () => {
 				$result: createState<TSimulationResult | null>(null),
 				isSettling: false,
 				assists: {
-					autoPlace: (request: { entityId: string }) => new Promise((resolve, reject) => (settle = { resolve, reject, entityId: request.entityId })),
+					autoPlace: (request: { pieceId: string }) => new Promise((resolve, reject) => (settle = { resolve, reject, pieceId: request.pieceId })),
 					continueRun: () => Promise.resolve(null)
 				}
 			},
@@ -138,8 +138,8 @@ describe('a dot click before it places', () => {
 			project: () => project,
 			edits: () => edits,
 			answer: () => {
-				const pending = settle as { resolve: (value: TAutoPlaceAnswer) => void; entityId: string } | null;
-				const piece = pieceRecord(project, hit, pending?.entityId ?? 'piece');
+				const pending = settle as { resolve: (value: TAutoPlaceAnswer) => void; pieceId: string } | null;
+				const piece = pieceRecord(project, hit, pending?.pieceId ?? 'piece');
 				pending?.resolve({ piece, angle: 0.2, nextDot: { x: 0.1, y: -1 }, computeMs: 1 });
 			},
 			fail: () => (settle as { reject: (error: Error) => void } | null)?.reject(new Error('No angle'))
@@ -221,20 +221,20 @@ describe('hit dots', () => {
 	const scene = {
 		handles: [],
 		dots: [{ marbleId: 'l', hitId: 'placed', position: { x: 100, y: 100 }, radius: PLACED_DOT_PICK_RADIUS }, { marbleId: 'l', hitId: 'open', position: { x: 300, y: 100 } }],
-		pieces: [{ entityId: 'p', corners: [{ x: 70, y: 104 }, { x: 130, y: 104 }, { x: 130, y: 110 }, { x: 70, y: 110 }] }]
+		pieces: [{ pieceId: 'p', corners: [{ x: 70, y: 104 }, { x: 130, y: 104 }, { x: 130, y: 110 }, { x: 70, y: 110 }] }]
 	};
 
 	it('should give the nearer of a placed dot and its platform the click, a tie to the platform', () => {
 		expect(pick({ x: 100, y: 99 }, scene)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'placed' });
-		expect(pick({ x: 100, y: 106 }, scene)).toEqual({ kind: 'piece', entityId: 'p' });
+		expect(pick({ x: 100, y: 106 }, scene)).toEqual({ kind: 'piece', pieceId: 'p' });
 		// 2 px from the dot's center but on the bar, as at low zoom
-		const low = { ...scene, pieces: [{ entityId: 'p', corners: [{ x: 70, y: 98 }, { x: 130, y: 98 }, { x: 130, y: 104 }, { x: 70, y: 104 }] }] };
-		expect(pick({ x: 101, y: 100 }, low)).toEqual({ kind: 'piece', entityId: 'p' });
+		const low = { ...scene, pieces: [{ pieceId: 'p', corners: [{ x: 70, y: 98 }, { x: 130, y: 98 }, { x: 130, y: 104 }, { x: 70, y: 104 }] }] };
+		expect(pick({ x: 101, y: 100 }, low)).toEqual({ kind: 'piece', pieceId: 'p' });
 	});
 
 	it('should keep an open dot ahead of pieces within its wider reach', () => {
 		expect(pick({ x: 307, y: 100 }, scene)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'open' });
-		const over = { ...scene, pieces: [{ entityId: 'q', corners: [{ x: 290, y: 95 }, { x: 310, y: 95 }, { x: 310, y: 105 }, { x: 290, y: 105 }] }] };
+		const over = { ...scene, pieces: [{ pieceId: 'q', corners: [{ x: 290, y: 95 }, { x: 310, y: 95 }, { x: 310, y: 105 }, { x: 290, y: 105 }] }] };
 		expect(pick({ x: 305, y: 100 }, over)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'open' });
 	});
 

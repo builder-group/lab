@@ -1,4 +1,4 @@
-import { PIECE_TYPES, pieceDefinitions, type TPieceType } from '@/modules/simulation';
+import { isPathPieceType, PIECE_TYPES, pieceDefinitions, type TPieceType } from '@/modules/simulation';
 import type { TTrackTool, TPathType } from './keys';
 
 // Items of the Insert library, the tool rail's + popover. A click arms the tool that places the item and a
@@ -34,7 +34,7 @@ export const insertSections: TInsertSection[] = [
 
 /** The tool a click on a library item arms, with the path type for rails and tunnels */
 export function insertTool(item: TInsertItem): { tool: TTrackTool; pathType?: TPathType } {
-	if (item === 'rail' || item === 'tunnel') return { tool: 'path', pathType: item };
+	if (isPathPieceType(item)) return { tool: 'path', pathType: item };
 	return { tool: item };
 }
 

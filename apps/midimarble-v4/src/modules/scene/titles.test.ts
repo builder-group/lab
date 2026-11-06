@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSceneDescription } from './scene-builder';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
 import { addWallTextCommands } from '@/modules/film';
-import { defaultTitleColor, themeCommands, themeTitleColor, titleColorOnWall } from './project-themes';
+import { defaultTitleColor, themeCommands, titleColorOnWall } from './project-themes';
 import { songDisplayName, titleClips, titleSpan, withTitleTime } from './titles';
 
 const TEXT = { text: 'Fin', font: 'Bfont Regular', size: 0.03, color: '#1d1d1f' };
@@ -31,11 +31,11 @@ describe('title timing', () => {
 	it('should list titles as clips by start and pass the times to the scene description', () => {
 		// Prepare
 		let project: TProject = createProject({ title: 'Titles' });
-		const { commands, entityId } = addWallTextCommands(project, { x: 0, y: 0.2 }, { color: '#1f3a5f', frameHeight: 0.5, text: 'Fin' });
+		const { commands, titleId } = addWallTextCommands(project, { x: 0, y: 0.2 }, { color: '#1f3a5f', frameHeight: 0.5, text: 'Fin' });
 		const [isAddedOk, addedErr, added] = applyProjectCommands(project, commands);
 		if (!isAddedOk) throw addedErr;
 		const [isTimedOk, timedErr, timed] = applyProjectCommands(added, [
-			{ type: 'updateFilm', film: { titles: added.film.titles.map((title) => (title.id === entityId ? { ...title, in: 1, out: 3 } : title)) } }
+			{ type: 'updateFilm', film: { titles: added.film.titles.map((title) => (title.id === titleId ? { ...title, in: 1, out: 3 } : title)) } }
 		]);
 		if (!isTimedOk) throw timedErr;
 		project = timed;
@@ -45,8 +45,8 @@ describe('title timing', () => {
 		const description = buildSceneDescription(project, { revision: 0, duration: project.length, marbles: [], pieces: [], hits: [], contacts: [] } as never, { fps: 30 }).description;
 
 		// Assert
-		expect(clips).toEqual([{ entityId, text: 'Fin', start: 1, end: 3 }]);
-		expect(description.wallTexts).toEqual([expect.objectContaining({ id: entityId, in: 1, out: 3 })]);
+		expect(clips).toEqual([{ titleId, text: 'Fin', start: 1, end: 3 }]);
+		expect(description.wallTexts).toEqual([expect.objectContaining({ id: titleId, in: 1, out: 3 })]);
 	});
 });
 
@@ -76,12 +76,6 @@ describe('title color', () => {
 	it('should read on the wall: dark on a light wall, white on a dark one', () => {
 		expect(titleColorOnWall('#f7f5f0')).toBe(DARK);
 		expect(titleColorOnWall('#141a2a')).toBe(WHITE);
-	});
-
-	it("should keep the built-in themes' title colors", () => {
-		expect(themeTitleColor('pegboard')).toBe(WHITE);
-		expect(themeTitleColor('brass')).toBe(WHITE);
-		expect(themeTitleColor('neon')).toBe(WHITE);
 	});
 
 	it('should follow the wall the project shows: its own color, then its theme', () => {

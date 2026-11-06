@@ -3,9 +3,9 @@ import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import type { TPiece, TPlace, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { bowlCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { bowlCatch, getPieceDefinition, isMusicalPiece, isPathPieceType, PIECE_TYPES, RAIL_LAYOUTS, type TPathPieceType, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, freePosition, noteName, toHitKey, tieOf } from '@/modules/project';
-import { pieceProblems, struckPieces, type TPreflightIssue, attachState, isPathPieceType, pathPieceTypes, withPathType, withRailLayout, type TPathPieceType } from '@/modules/building';
+import { pieceProblems, struckPieces, type TPreflightIssue, attachState, withPathType, withRailLayout } from '@/modules/building';
 import { useRunPreflight, PieceIcon } from '@/modules/canvas';
 import type { StudioCx } from '@/modules/studio';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
@@ -15,6 +15,8 @@ import { selectedPlainGroup } from './group-commands';
 import { PlainGroupTiles, plainGroupNotes } from './PatternInspector';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
+
+const pathPieceTypes = PIECE_TYPES.filter(isPathPieceType);
 
 /**
  * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, Shape, the
@@ -83,7 +85,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 				status={status == null ? null : <StatusPill tone={status.tone} label={status.label} detail={status.detail} />}
 				fix={
 					// Fix sits under the problem
-					status == null || link == null ? null : ((status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link)) || (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? <FixButton cx={cx} entityId={first.id} /> : null
+					status == null || link == null ? null : ((status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link)) || (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? <FixButton cx={cx} pieceId={first.id} /> : null
 				}
 			/>
 			{group != null ? <PlainGroupTiles cx={cx} project={project} group={group} /> : null}
@@ -164,12 +166,12 @@ interface TPieceInspectorProps {
 }
 
 /** Fix under a piece's problem pill: says in the notice what it did or why it couldn't, as one undo step */
-export const FixButton: React.FC<{ cx: StudioCx; entityId: string }> = (props) => {
-	const { cx, entityId } = props;
+export const FixButton: React.FC<{ cx: StudioCx; pieceId: string }> = (props) => {
+	const { cx, pieceId } = props;
 	const trackCx = useFeatureState(cx.$trackCx);
 	const fixing = useFeatureState(cx.assist.$fixing);
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(entityId)} title="Try to clear this problem without breaking a hit" type="button">
+		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(pieceId)} title="Try to clear this problem without breaking a hit" type="button">
 			<WandSparkles size={12} strokeWidth={1.9} />
 			Fix
 		</button>

@@ -5,7 +5,7 @@ The camera stands close through a wide lens, turned to the side, and travels wit
 1. Follow point per frame. With several marbles the camera frames the group: the follow point is the weighted center
    of the marbles in flight (a marble weighs 1 while its samples cover the time, up to a moment after its last note
    when another marble plays on (`activeUntil`), and 0.05 before and after) and the distance widens as far as every
-   marble needs, never cropping one. With a shared descent curve (`descent`, the common pace y*(t) of the lanes) the
+   marble needs, never cropping one. With a shared descent curve (`descent`, the common pace y*(t) of the marbles) the
    group center's height follows it. The distance is measured along the camera's own axes, with its pitch, side and
    roll, around the smoothed target of a first pass, and eases slowly (DISTANCE_TAU).
 2. Target: the follow point moved toward where it is at `t + lead` (at most LEAD_LIMIT * distance), smoothed with a
@@ -225,7 +225,7 @@ def framed_marbles(marbles):
 
 def in_flight(marble, motion, times):
     """Whether the camera frames the marble at each time: from its first sample to its last, or to `activeUntil`
-    once its lane has finished playing"""
+    once its marble has finished playing"""
     end = motion[-1, 0]
     if marble.get('activeUntil') is not None:
         end = min(end, float(marble['activeUntil']))
@@ -383,9 +383,9 @@ def spread_need(marbles, motions, times, center, lens, axes):
 
 
 def paced_height(marbles, motions, times, center_y, descent):
-    """The group's height from the shared descent pace, which has no per-lane bounces. It applies while several
+    """The group's height from the shared descent pace, which has no per-marble bounces. It applies while several
     marbles are in flight within the curve's time range, and stays within a quarter of the marbles' vertical spread
-    from their midpoint, so a lane that briefly falls ahead does not pull the frame off the group."""
+    from their midpoint, so a marble that briefly falls ahead does not pull the frame off the group."""
     heights = [np.interp(times, motion[:, 0], motion[:, 2]) for motion in
                (motions.get(marble['id']) for marble in marbles) if motion is not None and len(motion)]
     if len(heights) < 2:
