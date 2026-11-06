@@ -2,7 +2,7 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { assignNotesCommands, createFreePiece, flattenCommands, moveSongCommands, patternLockWords, patternOfPiece } from '@/modules/building';
 import { deleteHitCommands } from '@/modules/track/hand-notes';
 import { pieceForHit } from '@/modules/track/step-loop';
-import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, themeCommands, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
+import { addDecorCommands, assetDecorSource, BUILT_IN_THEMES, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, themeCommands, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
 import { readScatterChoice } from '@/modules/film/decor-actions';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/film/decor-scatter';
 import { skinCommands } from '@/modules/film/film-commands';
@@ -306,7 +306,7 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 			return filmProblem(project, items, command.film);
 		case 'applyTheme': {
 			if (isBuiltInTheme(command.theme) || packThemes.some((item) => item.theme.id === command.theme)) return null;
-			return `There is no theme ${command.theme}. Themes are ${['pegboard', 'brass', 'neon', ...packThemes.map((item) => item.theme.id)].join(', ')}.`;
+			return `There is no theme ${command.theme}. Themes are ${[...BUILT_IN_THEMES.map((theme) => theme.id), ...packThemes.map((item) => item.theme.id)].join(', ')}.`;
 		}
 		case 'applySkin': {
 			if (command.pieceType != null && command.pieceType !== 'marble' && getPieceDefinition(command.pieceType) == null) return `There is no piece type ${command.pieceType}. Use one from ${SKIN_ELEMENTS.join(', ')}.`;

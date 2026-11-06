@@ -3,7 +3,7 @@ import { createId, type TProject, type TProjectCommand, type TSkin, type TVec2, 
 import { sampleCameraTrack, filmCamera } from '@/modules/camera';
 import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { imageToWall } from './image-to-wall';
-import { resolveTheme, resetKeyLightCommands, wallCommands, skinCommand, skinnedOf, type TSkinElement, type TSkinned } from '@/modules/scene';
+import { BUILT_IN_THEMES, resolveTheme, resetKeyLightCommands, wallCommands, skinCommand, skinnedOf, type TSkinElement, type TSkinned } from '@/modules/scene';
 
 
 // Project edits made from the Film workspace. Each function returns the commands of one undoable edit.
@@ -17,16 +17,8 @@ export interface TThemePreset {
 	notePreviewUrl: string;
 }
 
-/** Themes the Blender worker ships; unknown themes fall back to Pegboard there */
-export const themePresets: readonly TThemePreset[] = [
-	themePreset('pegboard', 'Pegboard', 'Birch pegboard and toy colors, like Compose'),
-	themePreset('brass', 'Brass', 'Plaster wall, brass bars and warm studio light'),
-	themePreset('neon', 'Neon', 'Dark navy wall, glossy pieces with glowing edges that flash on a hit')
-];
-
-function themePreset(id: string, label: string, description: string): TThemePreset {
-	return { id, label, description, previewUrl: publicUrl(`themes/${id}-plain.jpg`), notePreviewUrl: publicUrl(`themes/${id}-note.jpg`) };
-}
+/** The built-in themes with their stills; unknown themes fall back to Pegboard in the Blender worker */
+export const themePresets: readonly TThemePreset[] = BUILT_IN_THEMES.map((theme) => ({ ...theme, previewUrl: publicUrl(`themes/${theme.id}-plain.jpg`), notePreviewUrl: publicUrl(`themes/${theme.id}-note.jpg`) }));
 
 /**
  * Sets a built-in skin on the target pieces in one edit, keeping their property overrides: the theme's own skin clears
