@@ -459,19 +459,16 @@ describe('Fix on a small project', () => {
 		expect(problemPieces(outcome.project, after)).toEqual([]);
 	}, 60_000);
 
-	it('should keep the rest of the run with the next platforms taking up a turn', async () => {
+	it('should keep the rest of the run when a platform rolls', async () => {
 		// Prepare
 		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
 		const run = simulate(broken);
 		const rolled = rollingHits(broken, run)[0]?.entityId ?? '';
 
 		// Act
-		const withoutSettle = await fixPiece(broken, run, rolled, { simulate: deps().simulate, autoPlace: deps().autoPlace });
 		const fix = await fixPiece(broken, run, rolled, deps());
 
 		// Assert
-		expect(withoutSettle.commands).toBeNull();
-		expect(withoutSettle.message).toContain('Rebuild From Here');
 		const next = withCommands(broken, fix.commands ?? []);
 		const after = simulate(next);
 		expect(problemPieces(next, after)).not.toContain(rolled);

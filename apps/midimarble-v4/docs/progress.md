@@ -17,7 +17,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 ## Verified
 
 - `test:e2e`: 40 of 40 in 221 s, after the 3×9 fixture rebuild, one Fix and the opening frame. Jingle Bells builds 115 of 115 on time with a clean preflight.
-- Fix on Jingle Bells: 6 Melody notes handed to Backing recover every hit in about 8 s; with 7, Fix cuts 16 broken hits to 10 in about 20 s and says what is left.
+- Fix on Jingle Bells: 4 Melody notes handed to Backing recover every hit in about 5 s; with 6, Fix cuts 44 broken hits to 33 in about 17 s and says what is left. Over 2 to 7 notes it recovers two counts fully and comes out worse on two, which it says.
 - Titles: a white wall title and a white screen title in Eevee stills on the Christmas wall. The wall title reads, with less contrast than the screen title.
 - `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
 - With the chosen look: `blender:design`.

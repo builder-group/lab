@@ -92,7 +92,7 @@ Physics stays out of it:
 
 ## Measured limits
 
-**Density needs gravity and short hops.** The drop per hit is (1 − e) / (1 + e) · gT² / 2. Gravity 0.25 is the default, with hops spaced for a 3.5 cm bar (`PLACEMENT_LENGTH`) and a bounce per bar that aims at the pace's drop. Frames every third of a second over 19 s, by the study's measure:
+**Density needs gravity and short hops.** The drop per hit is (1 − e) / (1 + e) · gT² / 2. Gravity 0.25 is the default, with a bounce per bar that aims at the pace's drop. Hops stay spaced for a 9 cm bar (`PLACEMENT_LENGTH`): 3.5 and 6 cm hops, or a shorter drop to stay under the bar just left, frame no more bars and make the run fall apart under a 0.17° edit. Frames every third of a second over 19 s, by the study's measure:
 
 | | Blobs per frame | At most 6 blobs | Cut by the edge | Coverage |
 |---|---|---|---|---|
@@ -105,7 +105,7 @@ Jingle Bells' count includes two marbles' columns and its Rails. Build Track lea
 
 **Bounce.** Above e ≈ 0.71 a marble rises past the previous piece of the other column. The default is 0.65. A roll is a rise under 0.5 marble radii along the normal within 0.1 s: dead bars reach 0.11 to 0.19 radii, real bounces 0.71 and up.
 
-**Tight columns need low gravity.** A hop under about 1.4 L at half gravity and half-second notes gets stuck on restrikes, so Auto place's hops are spaced by 3.5 cm whatever a bar's own length. The reference's 0.25 s rhythm is half our 0.5 s, and hop height goes with its square, so this probably closes with faster notes or less gravity, not with placement.
+**Tight columns don't fit our rhythm.** A hop under about 1.4 L at half gravity and half-second notes gets stuck on restrikes. The reference's 0.25 s rhythm is half our 0.5 s, and hop height goes with its square, so this probably closes with faster notes or less gravity, not with placement.
 
 **Marbles side by side.** `MARBLE_SPACING` stays 0.26 m. Rebuilds at 0.16 to 0.22 m gave no clean build that frames closer, as built marbles stay 0.26 to 0.29 m apart at every spacing. Closer two-marble films need bands that interleave by design.
 

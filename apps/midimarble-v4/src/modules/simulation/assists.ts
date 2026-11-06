@@ -2,14 +2,14 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
 import { GRAVITY_Y, gravityOf, surfaceNormal } from './geometry';
-import { COLUMN_CLEARANCE, descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
+import { descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
 import { layoutOf } from './piece-layout';
 import { getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit } from './pieces';
 import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
 import { wrapAngle, type TPieceShape } from './shapes';
 import { BOWL_TYPE } from './bowl';
 import { columnOffset } from './build-track-defaults';
-import { bounceTakeoff, extraStrikes, leastBounceTakeoff, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
+import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import { HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from './types';
 
 // Step loop assists. Each one is a pure function over the project and its latest simulation result that
@@ -520,7 +520,7 @@ function placementContext(
 	// and a dot below recovers half its offset per hit and still drops at least `MIN_DROP_SHARE` of the
 	// pace drop, so it never stacks its next piece beside the last one
 	const offset = pace != null && isShared ? dot.y - paceAt(pace, hit.time) : 0;
-	const paceY =
+	const targetY =
 		nextHit != null && pace != null && isPaced
 			? dot.y -
 				(offset >= 0
@@ -530,10 +530,6 @@ function placementContext(
 							pace.rate * interval + PACE_RECOVERY * offset
 						))
 			: null;
-	// The marble turns back under the piece it just left, so its next arc stays under that one even after a short drop
-	const left = index > 0 ? findHitResult(result, marbleId, marble.hits[index - 1]?.id ?? '')?.dot : null;
-	const roomLift = left != null ? Math.max(Math.sqrt(2 * g * Math.max(0, left.y - dot.y - COLUMN_CLEARANCE)), leastBounceTakeoff(marble.radius, g)) : Infinity;
-	const targetY = paceY != null ? Math.min(paceY, dot.y + roomLift * interval - (g * interval * interval) / 2) : null;
 	const allowed = pace != null ? Math.max(pace.limit, Math.abs(offset) + PACE_SLACK) : Infinity;
 	// The next strike must come from above: the takeoff leaves the marble falling at `MIN_ARRIVAL` then
 	const takeoff =

@@ -65,8 +65,8 @@ function halfGravityRun(hitTimes: number[], placed: number): TProject {
 	return project;
 }
 
-// A platform's own length: a step this short would put two pieces side by side
-const MIN_TRAVEL = 0.03;
+// Shorter than a platform plus its clearance, so a step this short would put two pieces side by side
+const MIN_TRAVEL = 0.06;
 const MIN_GAP = 0.003;
 
 /** Auto places every open hit of marble 1 in order, as repeated Next presses do */
@@ -218,13 +218,10 @@ describe('assists', () => {
 		}
 	}, 20_000);
 
-	it('auto places a zigzag that keeps turning back, near its start at the default gravity', () => {
-		const { project, travels } = autoPlaceAll(zigzagStart(evenTimes(8, 0.4), TILT, 0.25));
+	it('auto places a zigzag that keeps alternating', () => {
+		const { project, travels } = autoPlaceAll(zigzagStart(evenTimes(8)));
 		expectClearRun(project, travels);
-		const sameWay = travels.slice(1).filter((travel, i) => Math.sign(travel) === Math.sign(travels[i] ?? 0));
-		expect(sameWay.length).toBeLessThanOrEqual(2);
-		const dots = simulate(project).hits.map((hit) => hit.dot?.x ?? 0);
-		for (const x of dots) expect(Math.abs(x)).toBeLessThan(0.1);
+		travels.slice(1).forEach((travel, i) => expect(Math.sign(travel)).toBe(-Math.sign(travels[i] ?? 0)));
 	});
 
 	it('auto places after a staircase start without bouncing in place', () => {

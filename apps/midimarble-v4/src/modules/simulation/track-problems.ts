@@ -213,11 +213,6 @@ export function bounceTakeoff(marbleRadius: number, gravity: number): number {
 	return (BOUNCE_RISE_RADII * marbleRadius) / BOUNCE_RISE_WITHIN + (gravity * BOUNCE_RISE_WITHIN) / 2;
 }
 
-/** Least takeoff speed that still counts as a bounce, with a little to spare */
-export function leastBounceTakeoff(marbleRadius: number, gravity: number): number {
-	return (1.2 * ROLL_RISE_RADII * marbleRadius) / BOUNCE_RISE_WITHIN + (gravity * BOUNCE_RISE_WITHIN) / 2;
-}
-
 /** A platform its marble rolls along instead of bouncing off */
 export interface TRollingHit {
 	entityId: string;
