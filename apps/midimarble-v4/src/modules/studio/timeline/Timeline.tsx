@@ -131,7 +131,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 		if (header == null) return;
 		const view = element.getBoundingClientRect();
 		const rect = header.getBoundingClientRect();
-		if (rect.top < view.top + RULER_HEIGHT) element.scrollTop -= view.top + RULER_HEIGHT - rect.top;
+		// A row taller than the view shows from its top, where its name and disclosure are
+		if (rect.top < view.top + RULER_HEIGHT || rect.height > view.height - RULER_HEIGHT - SCROLLBAR_ROOM) element.scrollTop -= view.top + RULER_HEIGHT - rect.top;
 		else if (rect.bottom > view.bottom - SCROLLBAR_ROOM) element.scrollTop += rect.bottom - view.bottom + SCROLLBAR_ROOM;
 	}, [cx, first]);
 
@@ -245,9 +246,11 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const audible = currentMix(project, mix);
 	const showsTitles = workspace === 'film' && project.film.titles.length > 0;
 	const rollOf = (songId: string): TPitchRange | null => (expandedSongs.includes(songId) ? (songRows.get(songId) ?? null) : null);
+	// An open roll fits the rows' view, so its name and disclosure stay on screen
+	const rollRoom = (height > 0 ? height : fittedHeight(Number.POSITIVE_INFINITY)) - TRANSPORT_HEIGHT - RULER_HEIGHT - 20;
 	const songHeight = (songId: string): number => {
 		const roll = rollOf(songId);
-		return roll != null ? Math.min(SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(roll) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
+		return roll != null ? Math.min(rollRoom, SONG_ROLL_MAX_HEIGHT, Math.max(SONG_ROW_HEIGHT, rowCount(roll) * NOTE_ROW_HEIGHT)) : SONG_ROW_HEIGHT;
 	};
 	const rowsHeight = project.marbles.length * ROW_HEIGHT + songs.reduce((sum, song) => sum + songHeight(song.id), 0) + CAMERA_ROW_HEIGHT;
 

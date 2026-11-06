@@ -367,7 +367,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 				icon: isRecording ? <AudioLines size={14} strokeWidth={1.75} /> : <Music size={14} strokeWidth={1.75} />,
 				label: row.label,
 				title: row.source.path == null ? 'Song · Backing' : isRecording ? `Song · Recording · ${row.source.name}` : `Song · MIDI · ${row.source.name}`,
-				subtitle: row.source.name
+				...(row.label !== row.source.name ? { subtitle: row.source.name } : {})
 			};
 		}
 		case 'marble':

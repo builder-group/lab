@@ -28,12 +28,14 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const { cx, project, song, tint, name, analysis, zoom, width, range, isExpanded, isFirst, height, selection, drag, onDragStart, move, onMove, onAddHit, timeAt } = props;
 	const isAudio = song.kind === 'audio';
 	const backingCount = song.backing.length;
+	// With several songs the row already leads with the file's name
+	const file = name === song.name ? (isAudio ? 'Recording' : 'MIDI') : song.name;
 	const details =
 		song.path == null
 			? ['Backing', backingCount === 1 ? '1 note' : `${backingCount} notes`]
 			: isAudio
-				? [song.name, analysis == null ? null : formatTime(analysis.duration)]
-				: [song.name, song.tempo == null ? null : `${Math.round(song.tempo.bpm)} BPM`];
+				? [file, analysis == null ? null : formatTime(analysis.duration)]
+				: [file, song.tempo == null ? null : `${Math.round(song.tempo.bpm)} BPM`];
 	const span = songSpan(project, song, analysis?.duration);
 	const moved = move?.songId === song.id ? move.delta : 0;
 	const songKey = toSongKey(song.id);
