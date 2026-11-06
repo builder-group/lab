@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type TDecor, type TPiece, type TProject, CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, toSongKey, toDecorKey, toHitKey, toLightKey, toShotKey, WALL_KEY } from '@/modules/project';
 import { inspectorTarget, selectionEnteringFilm } from './inspector-target';
-import { buildOutline, DECOR_KEY, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
+import { buildOutline, isSelectableRow, TITLES_KEY, type TOutlineRow } from './outline';
 
 function fullProject(): TProject {
 	const project = createProject({ id: 'project', title: 'Jingle Bells' });

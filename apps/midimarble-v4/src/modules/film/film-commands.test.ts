@@ -5,7 +5,6 @@ import type { TProject } from '@/modules/project';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
 import { cameraCommands } from '@/modules/camera';
 import { addWallTextCommands, handChangeCount, resetHandChangesCommands, builtInSkinCommands, isScreenTitle, itemFitsPieceType, previewPointToWall, resetToThemeCommands, skinPropertyCommands, skinTargetIds, skinCommands, pieceCountLabel, skinAppliedMessage, titleStyleTiming, withTitleStyle } from './film-commands';
-import { libraryEntries } from './FilmLibraryCx';
 import { apply } from '@/modules/project/test-helpers';
 
 function pieceIds(project: TProject): string[] {

@@ -1,5 +1,4 @@
-import { DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_TILT, DEFAULT_GRAVITY, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TVec2, type TMarble, createMarble } from '@/modules/project';
-import { KIT_SCALE } from './pieces';
+import { DEFAULT_CAMERA_DISTANCE, DEFAULT_CAMERA_TILT, DEFAULT_GRAVITY, type TProject, type TVec2, type TMarble, createMarble } from '@/modules/project';
 import { createLinkedPiece } from './placement';
 
 // Deterministic example projects for fixtures and tests. Pieces are linked to hits, so their positions

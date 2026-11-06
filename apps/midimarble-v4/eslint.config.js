@@ -12,12 +12,13 @@ const TYPES_FROM_STUDIO = ['canvas', 'track', 'film', 'mcp'];
 const PLAIN_LAYERS = 5;
 const NOT_PLAIN = ['react', 'react-dom', 'three', 'three/**', '@tauri-apps/**', 'feature-state', 'feature-react', 'feature-react/**', 'lucide-react', '@/components', '@/components/**', '@/environment', '@/environment/**', '@/hooks', '@/hooks/**'];
 
-// The shared config loads eslint-plugin-only-warn, which turns every error into a warning. The layers must fail the lint.
+// The shared config loads eslint-plugin-only-warn, which turns every error into a warning. The layers and unused code must fail the lint.
 const LAYER_RULE = '@typescript-eslint/no-restricted-imports';
+const FAILING_RULES = new Set([LAYER_RULE, '@typescript-eslint/no-unused-vars']);
 const verify = Linter.prototype.verify;
 Linter.prototype.verify = function (...args) {
 	const messages = verify.apply(this, args);
-	for (const message of messages) if (message.ruleId === LAYER_RULE) message.severity = 2;
+	for (const message of messages) if (FAILING_RULES.has(message.ruleId)) message.severity = 2;
 	return messages;
 };
 
