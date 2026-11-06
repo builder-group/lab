@@ -114,7 +114,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						role="button"
 						tabIndex={-1}
 						aria-label={`${group.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`}
-						title={`${group.name} · ${formatTime(span.from)} to ${formatTime(span.to)}`}
+						title={Math.abs(span.to - span.from) < 1e-6 ? `${group.name} · ${formatTime(span.from)}` : `${group.name} · ${formatTime(span.from)} to ${formatTime(span.to)}`}
 						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--row-color' as string]: marble.labelColor }}
 						onPointerDown={(event) => event.stopPropagation()}
 						onPointerEnter={() => setHoverX(null)}

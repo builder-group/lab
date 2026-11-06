@@ -45,7 +45,8 @@ describe('buildOutline with Groups', () => {
 	});
 
 	it('should start a Group closed', () => {
-		const rows = buildOutline(project(), { workspace: 'track', collapsed: defaultCollapsed(project(), 'track') });
+		const marbleId = project().marbles[0]?.id;
+		const rows = buildOutline(project(), { workspace: 'track', collapsed: defaultCollapsed(project(), 'track').filter((key) => key !== marbleId) });
 		expect(rows.some((row) => row.id === 'p1')).toBe(false);
 		expect(rows.some((row) => row.id === 'p3')).toBe(true);
 	});

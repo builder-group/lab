@@ -71,10 +71,13 @@ export interface TTieSpan {
 }
 
 /** Height that shows every track with a little room, like a video editor sizing its timeline to the tracks */
+// Share of the window the timeline takes on its own; a drag of its edge can give it more
+const MAX_FITTED_SHARE = 0.36;
+
 export function fittedHeight(rowsHeight: number): number {
 	const content = TRANSPORT_HEIGHT + RULER_HEIGHT + Math.max(rowsHeight, ROW_HEIGHT) + 20;
-	// A window that opens tiny, or hidden, still keeps the transport and a row
-	return Math.round(Math.max(MIN_HEIGHT, Math.min(Math.max(content, 150), window.innerHeight * 0.45)));
+	// A window that opens tiny, or hidden, still keeps the transport and a row. More rows scroll, so the wall keeps its room
+	return Math.round(Math.max(MIN_HEIGHT, Math.min(Math.max(content, 150), window.innerHeight * MAX_FITTED_SHARE)));
 }
 
 export function clampZoom(zoom: number): number {
