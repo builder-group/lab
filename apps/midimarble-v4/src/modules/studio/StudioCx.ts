@@ -101,7 +101,6 @@ export class StudioCx {
 	readonly $showHitboxes = createState(false);
 	/** Dragging the playhead on the ruler plays the song where it is, like Logic's Scrub. Remembered on this Mac. */
 	readonly $audioScrubbing = createState(readText(AUDIO_SCRUBBING_KEY) !== 'off');
-	readonly $phoneSpeaker = createState(false);
 	readonly sources = new SourcesCx(this);
 	readonly hints = new HintsCx(this);
 	readonly simulation = new SimulationCx(this);
@@ -234,18 +233,8 @@ export class StudioCx {
 
 	/** Created on first use because WebKit only allows audio after a user gesture */
 	get audio(): TAudioEngine {
-		if (this.audioEngine == null) {
-			this.audioEngine = createAudioEngine();
-			this.audioEngine.setPhoneSpeaker(this.$phoneSpeaker.get());
-		}
+		this.audioEngine ??= createAudioEngine();
 		return this.audioEngine;
-	}
-
-	/** Phone Speaker: hear the song as a phone plays it. A preview only, never in the film or the project */
-	togglePhoneSpeaker(): void {
-		const isOn = !this.$phoneSpeaker.get();
-		this.$phoneSpeaker.set(isOn);
-		this.audioEngine?.setPhoneSpeaker(isOn);
 	}
 
 	resolveSourceUrl = (source: TSong): string | null => {

@@ -8,8 +8,6 @@ import { decodeAudioFile } from './waveform';
 
 const SAMPLE_RATE = 48000;
 const BANK_URL = '/audio/marble-instruments.sf2';
-/** A phone's speaker reproduces little under this many Hz */
-const PHONE_SPEAKER_CUT = 300;
 
 /**
  * Seconds the soundtrack fades out over at the film end, so a note still ringing after `SONG_TAIL` is not cut off.
@@ -20,10 +18,6 @@ export function createAudioEngine(): TAudioEngine {
 	const context = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
 	const master = context.createGain();
 	master.connect(context.destination);
-	const phoneSpeaker = context.createBiquadFilter();
-	phoneSpeaker.type = 'highpass';
-	phoneSpeaker.frequency.value = PHONE_SPEAKER_CUT;
-	phoneSpeaker.connect(context.destination);
 	const auditionCache = new Map<string, AudioBuffer>();
 	let timeline: AudioBuffer | null = null;
 	let signature: string | null = null;
@@ -138,10 +132,6 @@ export function createAudioEngine(): TAudioEngine {
 		setVolume(volume) {
 			master.gain.setTargetAtTime(Math.max(0, volume), context.currentTime, 0.01);
 		},
-		setPhoneSpeaker(isOn) {
-			master.disconnect();
-			master.connect(isOn ? phoneSpeaker : context.destination);
-		},
 		dispose() {
 			endScrub();
 			stop();
@@ -167,8 +157,6 @@ export interface TAudioEngine {
 	// Plays one note of the Song; a hit without a pitch has nothing to play
 	audition: (marble: TMarble, pitch: number) => Promise<void>;
 	setVolume: (volume: number) => void;
-	// Hears everything roughly as a phone's speaker plays it, under Hz it can't; nothing changes in the film
-	setPhoneSpeaker: (isOn: boolean) => void;
 	dispose: () => void;
 }
 

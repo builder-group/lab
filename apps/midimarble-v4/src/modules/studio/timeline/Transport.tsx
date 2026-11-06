@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack, Smartphone } from 'lucide-react';
+import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { problemSummary } from '@/modules/building';
@@ -36,7 +36,6 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 					/>
 					<TransportButton cx={cx} command="play.nextHit" icon={<ChevronLast size={17} strokeWidth={1.75} />} />
 					<RepeatButton cx={cx} />
-					<PhoneSpeakerButton cx={cx} />
 				</div>
 				<TimeReadout cx={cx} />
 			</div>
@@ -128,18 +127,6 @@ const RepeatButton: React.FC<{ cx: StudioCx }> = (props) => {
 	return (
 		<button className="mm-transport-button" data-repeat={isOn} onClick={() => target.run(cx)} title={`Repeat: play a range on the ruler again and again (${target.shortcut ?? ''})`} aria-label={target.title} aria-pressed={isOn} type="button">
 			<Repeat size={15} strokeWidth={1.75} />
-		</button>
-	);
-};
-
-/** Phone Speaker: hear the song as a phone plays it, with little under 300 Hz. A preview only. */
-const PhoneSpeakerButton: React.FC<{ cx: StudioCx }> = (props) => {
-	const { cx } = props;
-	const isOn = useFeatureState(cx.$phoneSpeaker);
-	const target = getCommand('play.phoneSpeaker');
-	return (
-		<button className="mm-transport-button" data-repeat={isOn} onClick={() => target.run(cx)} title="Phone Speaker: hear the song as a phone plays it. The film doesn't change" aria-label={target.title} aria-pressed={isOn} type="button">
-			<Smartphone size={15} strokeWidth={1.75} />
 		</button>
 	);
 };

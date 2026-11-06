@@ -485,7 +485,6 @@ export const commands: readonly TCommand[] = [
 	{ id: 'play.previousHit', title: 'Previous Hit', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
 	{ id: 'play.nextHit', title: 'Next Hit', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
 	{ id: 'play.repeat', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownRepeatRange(cx.$repeatRange.get(), cx.project?.id, cx.project?.length ?? 0)?.isOn === true, run: (cx) => cx.toggleRepeatRange() },
-	{ id: 'play.phoneSpeaker', title: 'Phone Speaker', section: 'Playback', keywords: 'listen hear high-pass bass mobile small speaker', isEnabled: hasProject, isChecked: (cx) => cx.$phoneSpeaker.get(), run: (cx) => cx.togglePhoneSpeaker() },
 	{ id: 'play.tap', title: 'Tap Hit at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
 
 	// MARK: - Tools
@@ -823,7 +822,6 @@ export type TCommandId =
 	| 'play.previousHit'
 	| 'play.nextHit'
 	| 'play.repeat'
-	| 'play.phoneSpeaker'
 	| 'play.tap'
 	| `tool.${Exclude<TTrackTool, 'marble'>}`
 	| 'view.snap'
