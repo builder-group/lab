@@ -179,6 +179,22 @@ const SRide = z.strictObject({
 	frames: z.array(z.number())
 });
 
+/**
+ * Where a marble is at a note, from which the hop after it runs again to the bit: in the coordinates of the world it ran in,
+ * with `origin` where that world's zero stands on the wall, so a hop shifted along the song keeps its run. An edit leaves a
+ * seam a run from the release can't give, so these are kept with the track, as Blender keeps a bake. Samples aren't: each hop
+ * runs again from its hand-over on load.
+ */
+const SHandOver = z.strictObject({
+	step: z.number().int(),
+	position: SVec2,
+	origin: SVec2,
+	velocity: SVec2,
+	rotation: z.tuple([z.number(), z.number()]),
+	spin: z.number(),
+	rotors: z.array(z.strictObject({ pieceId: SId, rotation: z.tuple([z.number(), z.number()]), spin: z.number() })).optional()
+});
+
 // One marble: a name and color that organize it, what it sounds like, its body, where it starts, and the hits it plays
 export const SMarble = z.strictObject({
 	id: SId,
@@ -190,7 +206,10 @@ export const SMarble = z.strictObject({
 	radius: z.number().positive(),
 	start: SMarbleStart,
 	skin: SSkin.optional(),
-	hits: z.array(SHit)
+	hits: z.array(SHit),
+	handOvers: z.array(SHandOver).optional(),
+	// The hit from which this marble flies free and the pieces wait where its hand-overs have them
+	waitsFrom: SId.optional()
 });
 
 export const SPiece = z.strictObject({
@@ -435,6 +454,7 @@ export type TPlace = z.infer<typeof SPlace>;
 export type TPlays = z.infer<typeof SPlays>;
 export type TFollows = z.infer<typeof SFollows>;
 export type TRide = z.infer<typeof SRide>;
+export type THandOver = z.infer<typeof SHandOver>;
 export type TTitle = z.infer<typeof STitle>;
 export type TFilm = z.infer<typeof SFilm>;
 export type TFilmTheme = z.infer<typeof SFilmTheme>;

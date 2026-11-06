@@ -1,5 +1,5 @@
 import RAPIER from '@dimforge/rapier3d-deterministic-compat';
-import { type TProject, type TRide, type TVec2, tieOf } from '@/modules/project';
+import { type THandOver, type TProject, type TVec2, tieOf } from '@/modules/project';
 import { createPlan, lowPointOf, resolvedFromLayout, STEP_EPSILON, type TPlan, type TRunInput, type TStaticPiece, type TPlanEvent } from './create-plan';
 import { ballistic, gravityOf } from './geometry';
 import { layoutAtMarble, layoutFree, type TLayoutInput, type TPieceLayout, type TRotorLayout } from './piece-layout';
@@ -8,6 +8,12 @@ import { descentPace, descentPoints } from './pace';
 import { LEAVE_STEPS, rideFrame, rideLength, rideTolerance, rideVelocity } from './ride';
 import { shapeClosestPoint, shapeDistance, shapesBounds, transformShape, wrapAngle, type TBounds2, type TPieceShape } from './shapes';
 import { HIT_DRIFT, HIT_TOLERANCE, IMPACT_SPEED, PHYSICS_HZ, type TContact, type THitResult, type TMarbleSample, type TPieceDefinition, type TPieceMotionSample, type TResolvedPiece, type TSimulationResult } from './types';
+
+// A run is hops: one short Rapier world per stretch between a marble's notes, from a hand-over (where the marble is, how it
+// moves and turns, how the windmills stand) to the next note. A hop holds only what it can reach. With wires as one surface
+// and no recycled contacts a piece the marble doesn't touch changes no bit of its run, so hops of different marbles stand
+// alone; marbles that meet run in one world for as long as that takes. Hops are kept by what they start from, so what an
+// edit doesn't touch is never run again. See `edit-rule.ts` for what an edit does with them.
 
 const DT = 1 / PHYSICS_HZ;
 const GLASS_DENSITY = 2500;
@@ -28,29 +34,24 @@ const COLLIDER_DEPTH = 0.045;
 const FALL_LIMIT = 20;
 // Earlier samples may touch a new piece by this much before it counts as blocked
 const BLOCK_TOLERANCE = 0.0005;
-const MAX_SNAPSHOTS = 512;
-// Every marble has a Rapier world of its own, and a piece is in a marble's world only while that marble
-// could reach it before the next check. Any enabled collider reshapes Rapier's broad-phase tree, even one
-// that never meets anything, and the tree's shape sets the order of the contacts a marble meets in one
-// step, such as two rail wires; that order changes the solve in the last bits, and a tightly tuned
-// run cascades from there. Keeping far pieces and the other marbles' pieces out of a marble's world
-// leaves its run bit for bit unchanged until it comes near them. Checks run every few steps on the global
-// step grid so resumed runs match. Parking also keeps Rapier's step cost, which grows with every
-// collider, to what is near.
-const PARKING_INTERVAL = 6;
-const PARKING_MARGIN = 0.05;
-// Speed slack of the parking reach, in m/s
+// A hop checks every few steps, on the global step grid, what its marble could reach before the next check
+const REACH_INTERVAL = 6;
+const REACH_MARGIN = 0.05;
+// Speed slack of the reach, in m/s
 const SPEED_SLACK = 1;
+// What a kept hop answers for: the pieces this near its path. A piece further off wasn't in its world
+const KEPT_REACH = 0.1;
 // Windmill parts are light wood
 const ROTOR_DENSITY = 600;
 // Collision groups as membership << 16 | filter. Marbles keep the default and meet everything. Static
 // pieces meet everything but rotors, and rotors meet only marbles, so a turning blade never jams on a
-// platform next to it. A proxy, the copy of another marble in a marble's world, meets only marbles.
+// platform next to it.
 const STATIC_GROUPS = 0x0002ffff;
 const ROTOR_GROUPS = 0x00040001;
-const PROXY_GROUPS = 0x00080001;
 // Marbles this close after a step touch, within Rapier's allowed penetration
 const MARBLE_SLOP = 0.001;
+// Marbles this much closer than their speeds' next two steps may meet, so they share a world
+const MEETING_SLACK = 0.002;
 // A wire's rolling stays calm only with these two: more solver work on each contact, and a contact solved afresh every
 // step rather than recycled from the last. Rapier has no setter for recycling, but it never recycles a pair with hooks.
 const SOLVER_ITERATIONS = 8;
@@ -60,605 +61,1129 @@ const NO_RECYCLING: RAPIER.PhysicsHooks = {
 	filterContactPair: () => RAPIER.SolverFlags.COMPUTE_IMPULSE,
 	filterIntersectionPair: () => true
 };
+// A stored hand-over stands while the hop before it lands this near it: a seam at a bounce doesn't show
+export const SEAM_DISTANCE = 0.01;
+export const SEAM_SPEED = 0.1;
+// Steps into a hop in which a touch the hop before ended in may be reported again
+const CARRIED_STEPS = 3;
+// Samples kept across runs, about a minute of song a hundred times over
+const KEPT_SAMPLES = 1_500_000;
 
 /** What a run reads, and which project and revision its result answers for */
 export type TSimulationInput = TRunInput & Pick<TProject, 'id' | 'revision'>;
 
 export interface TSimulator {
 	/**
-	 * Simulates the project, resuming from the latest snapshot whose inputs are unchanged. With a `horizon` it stops
-	 * that many seconds after the point it resumed from, and past there the result shows what the latest whole run found.
+	 * Simulates the project, keeping every hop whose inputs are unchanged. With a `horizon` it stops that many seconds after
+	 * the first hop it has to run, and past there the result shows what the latest whole run found.
 	 */
 	simulate: (project: TSimulationInput, horizon?: number) => TSimulationResult;
+	/** The hops of a run, for the edit rule. `until` stops once every marble has passed that step */
+	walk: (project: TRunInput, until?: number) => TWalk;
 	dispose: () => void;
 }
 
 let rapierReady: Promise<void> | null = null;
 
-export async function createSimulator(): Promise<TSimulator> {
+export async function createSimulator(options: { isOneRun?: boolean } = {}): Promise<TSimulator> {
 	rapierReady ??= RAPIER.init();
 	await rapierReady;
-	let cache = new Map<string, TSnapshot>();
+	const kept = createHopStore();
 	let whole: { projectId: string; result: TSimulationResult } | null = null;
 	return {
 		simulate(project, horizon) {
 			const far = whole?.projectId === project.id ? whole.result : null;
-			const [result, nextCache] = runSimulation(project, cache, far != null ? horizon : undefined);
-			cache = nextCache;
+			const startedAt = now();
+			const walk = walkHops(project, kept, { horizon: far != null ? horizon : undefined, isOneRun: options.isOneRun === true });
+			const result = buildResult(project, walk);
+			result.stats = { computeMs: now() - startedAt, reusedUntil: walk.reusedUntil, steps: walk.steps };
 			if (far != null && result.duration < project.length - 1 / PHYSICS_HZ) return withFarRun(result, far);
 			whole = { projectId: project.id, result };
 			return result;
 		},
+		walk: (project, until) => walkHops(project, kept, { until, isOneRun: false }),
 		dispose() {
-			cache.clear();
+			kept.hops.clear();
 		}
 	};
 }
 
-function runSimulation(
-	project: TSimulationInput,
-	cache: Map<string, TSnapshot>,
-	horizon?: number
-): [TSimulationResult, Map<string, TSnapshot>] {
-	const startedAt = now();
-	const plan = createPlan(project);
-	const nextCache = new Map<string, TSnapshot>();
-
-	// The latest snapshot whose inputs are unchanged, where edited parkable pieces were still out of reach
-	let resumeIndex = -1;
-	for (let i = plan.events.length - 1; i >= 0; i--) {
-		const event = plan.events[i];
-		const key = plan.eventKeys[i];
-		if (event == null || key == null || event.step > plan.endStep) continue;
-		const snapshot = cache.get(key);
-		if (snapshot != null && canResume(plan, snapshot)) {
-			resumeIndex = i;
-			break;
-		}
-	}
-
-	let worlds: RAPIER.World[];
-	let state: TRunState;
-	const resumed = resumeIndex >= 0 ? cache.get(plan.eventKeys[resumeIndex] ?? '') : undefined;
-	if (resumed != null) {
-		worlds = resumed.worlds.map((bytes) => {
-			const world = RAPIER.World.restoreSnapshot(bytes);
-			setUpWorld(world);
-			return world;
-		});
-		state = restoreState(resumed);
-		rebaseStaticPieces(plan, state, resumed);
-		for (let i = 0; i <= resumeIndex; i++) {
-			const key = plan.eventKeys[i] ?? '';
-			const snapshot = cache.get(key);
-			if (snapshot != null) nextCache.set(key, snapshot);
-		}
-	} else {
-		resumeIndex = -1;
-		worlds = plan.marbles.map(() => {
-			const world = new RAPIER.World({ x: 0, y: plan.gravity, z: 0 });
-			setUpWorld(world);
-			return world;
-		});
-		state = createInitialState(plan);
-	}
-	const reusedUntil = resumed != null ? state.step / PHYSICS_HZ : 0;
-
-	const run = horizon != null ? { ...plan, endStep: Math.min(plan.endStep, state.step + Math.ceil(horizon * PHYSICS_HZ)) } : plan;
-	const steps = advance(worlds, run, state, nextCache, resumeIndex);
-	for (const world of worlds) world.free();
-
-	const result = buildResult(project, run, state);
-	result.stats = { computeMs: now() - startedAt, reusedUntil, steps };
-	return [result, trimCache(nextCache)];
-}
-
-function setUpWorld(world: RAPIER.World): void {
-	world.timestep = DT;
-	world.profilerEnabled = false;
-	world.integrationParameters.numSolverIterations = SOLVER_ITERATIONS;
-}
-
-/** The real clock, whatever `advance` has put in its place */
+/** The real clock, whatever a hop has put in its place */
 const now = performance.now.bind(performance);
-
-/**
- * True when the snapshot's world matches what a run from scratch would build: every parkable piece that was
- * added, removed or changed since the snapshot's run was out of every marble's parking reach at every step
- * up to the snapshot, so it never entered the world. The reach uses the fastest speed so far, a bound on
- * what each parking check used.
- */
-function canResume(plan: TPlan, snapshot: TSnapshot): boolean {
-	const before = new Set<string>();
-	for (const piece of snapshot.pieces) if (piece.key !== '') before.add(piece.key);
-	const after = new Set<string>();
-	for (const piece of plan.staticPieces) if (piece.key !== '') after.add(piece.key);
-	const changed: TBounds2[] = [];
-	for (const piece of snapshot.pieces) if (piece.key !== '' && !after.has(piece.key)) changed.push(piece.bounds);
-	for (const piece of plan.staticPieces) {
-		if (piece.key !== '' && !before.has(piece.key)) changed.push(shapesBounds(piece.layout.shapes));
-	}
-	if (!changed.length) return true;
-	// A marble that ended before the snapshot ended at a depth set by the lowest piece
-	if (snapshot.staticLowY !== plan.staticLowY && snapshot.marbles.some((marble) => marble.status === 'ended'))
-		return false;
-
-	let fastest = 0;
-	let radius = 0;
-	for (let i = 0; i < snapshot.marbles.length; i++) {
-		const marble = snapshot.marbles[i];
-		if (marble == null) continue;
-		radius = Math.max(radius, plan.marbles[i]?.radius ?? 0);
-		for (let k = 0; k < marble.count; k++) {
-			const velocity = marble.samples[k]?.velocity;
-			if (velocity != null) fastest = Math.max(fastest, Math.hypot(velocity.x, velocity.y));
-		}
-	}
-	// The fastest blade tip so far, which bounds what a strike may add
-	let tip = 0;
-	for (const rotor of snapshot.rotors) {
-		for (let k = 1; k < rotor.count; k++) {
-			const turn = Math.abs((rotor.motion[k]?.angle ?? 0) - (rotor.motion[k - 1]?.angle ?? 0));
-			tip = Math.max(tip, turn * PHYSICS_HZ * rotorRadius(rotor));
-		}
-		tip = Math.max(tip, Math.abs(rotor.spin) * rotorRadius(rotor));
-	}
-	const horizon = (PARKING_INTERVAL + 1) * DT;
-	// Bounds every check's reach: twice the fastest marble, the slack and twice the fastest blade tip
-	const speed = 2 * fastest + SPEED_SLACK + 2 * tip;
-	const reach =
-		speed * horizon - 0.5 * plan.gravity * horizon * horizon + radius + PARKING_MARGIN;
-	for (const marble of snapshot.marbles) {
-		for (let k = 0; k < marble.count; k++) {
-			const position = marble.samples[k]?.position;
-			if (position == null) continue;
-			for (const bounds of changed) {
-				if (
-					position.x >= bounds.minX - reach &&
-					position.x <= bounds.maxX + reach &&
-					position.y >= bounds.minY - reach &&
-					position.y <= bounds.maxY + reach
-				)
-					return false;
-			}
-		}
-	}
-	return true;
-}
-
-/**
- * Swaps the snapshot's parkable pieces for the plan's, in plan order as a run from scratch inserts them.
- * Unchanged pieces keep their colliders; edited ones start parked, as `canResume` checked they were.
- */
-function rebaseStaticPieces(plan: TPlan, state: TRunState, snapshot: TSnapshot): void {
-	const kept = new Map<string, { record: TPieceRecord; handles: number[][] }>();
-	const placed: { record: TPieceRecord; handles: number[][] }[] = [];
-	const parked = (): number[][] => state.marbles.map(() => []);
-	for (let i = 0; i < snapshot.pieces.length; i++) {
-		const record = snapshot.pieces[i];
-		if (record == null) continue;
-		const entry = { record, handles: state.pieceHandles[i] ?? parked() };
-		if (record.key !== '') kept.set(record.key, entry);
-		else if (plan.staticPieces.some((piece) => piece.key === '' && piece.pieceId === record.pieceId))
-			kept.set(`rotor:${record.pieceId}`, entry);
-		else placed.push(entry);
-	}
-	const pieces: TPieceRecord[] = [];
-	const handles: number[][][] = [];
-	for (const piece of plan.staticPieces) {
-		const entry = kept.get(piece.key !== '' ? piece.key : `rotor:${piece.pieceId}`);
-		pieces.push(entry?.record ?? staticRecord(piece));
-		handles.push(entry?.handles ?? parked());
-	}
-	for (const entry of placed) {
-		pieces.push(entry.record);
-		handles.push(entry.handles);
-	}
-	state.pieces = pieces;
-	state.pieceHandles = handles;
-}
-
-// Run state
-
-interface TMarbleRun {
-	bodyHandle: number;
-	status: 'waiting' | 'live' | 'ended';
-	samples: TMarbleSample[];
-}
-
-type TColliderInfo =
-	| { kind: 'marble'; marbleIndex: number }
-	/** Another marble's copy in a marble's world */
-	| { kind: 'proxy'; marbleIndex: number }
-	/** `shapes` are what the collider stands for, in world coordinates for static pieces and relative to the hub for rotors */
-	| { kind: 'piece'; pieceId: string; shapes: TPieceShape[]; rotorIndex: number };
-
-interface TPlacement {
-	piece: TResolvedPiece;
-	dot: TVec2 | null;
-	velocity: TVec2 | null;
-}
-
-interface TRunState {
-	step: number;
-	eventIndex: number;
-	/** Marble `i` lives in world `i` */
-	marbles: TMarbleRun[];
-	/** Collider info per world, by collider handle */
-	colliders: Map<number, TColliderInfo>[];
-	contacts: TContact[];
-	placements: Map<string, TPlacement>;
-	lowestPieceY: number;
-	/** Every piece inserted so far, in insertion order */
-	pieces: TPieceRecord[];
-	/** Collider handles per piece and world, empty while parked there */
-	pieceHandles: number[][][];
-	rotors: TRotorRun[];
-	/** Proxy body handle per world and other marble, -1 while that marble is far */
-	proxies: number[][];
-	/** Touching collider count per marble index and piece piece, so a rail logs one contact */
-	touching: Map<string, number>;
-	/** Marble pairs Rapier reports in contact that have not touched yet, by `low|high` index */
-	meeting: Map<string, [number, number]>;
-	/** Per marble bounds of complete sample chunks, derived from samples; append-only, so a snapshot shares them like the samples */
-	chunkBounds: number[][];
-	/** Per marble the ride it is taking, null while physics moves it */
-	rides: (TActiveRide | null)[];
-	/** Per marble the platform that says how it leaves, until `LEAVE_STEPS` after its hit */
-	leaving: (TLeaving | null)[];
-}
-
-interface TLeaving {
-	pieceId: string;
-	step: number;
-	velocity: TVec2;
-	spin: number;
-}
-
-/** A marble following a stored ride */
-interface TActiveRide {
-	pieceId: string;
-	stored: TRide;
-	startStep: number;
-	origin: TVec2;
-	angle: number;
-}
-
-interface TPieceRecord {
-	pieceId: string;
-	definition: TPieceDefinition;
-	params: Record<string, number>;
-	shapes: TPieceShape[];
-	/** Shape bounds, or the disc a windmill's blades sweep */
-	bounds: TBounds2;
-	/** Index into `TRunState.rotors`, -1 for static pieces */
-	rotorIndex: number;
-	rotor: TRotorLayout | null;
-	/** `TStaticPiece.key` of parkable static pieces, empty for windmills and placed pieces */
-	key: string;
-}
-
-/**
- * A windmill is in the world of every marble that could reach it. The first of those worlds drives it and
- * the copies in the others follow its pose each step. In no world it turns on by its motor or damping.
- */
-interface TRotorRun {
-	pieceId: string;
-	/** Body handle per world, -1 while parked there */
-	bodyHandles: number[];
-	hub: TVec2;
-	motorSpeed: number;
-	damping: number;
-	/** Angular velocity after the last step */
-	spin: number;
-	/** The disc the blades sweep */
-	bounds: TBounds2;
-	motion: TPieceMotionSample[];
-}
-
-interface TSnapshot {
-	worlds: Uint8Array[];
-	step: number;
-	eventIndex: number;
-	marbles: {
-		bodyHandle: number;
-		status: TMarbleRun['status'];
-		samples: TMarbleSample[];
-		count: number;
-	}[];
-	colliders: Map<number, TColliderInfo>[];
-	contacts: TContact[];
-	contactCount: number;
-	placements: Map<string, TPlacement>;
-	lowestPieceY: number;
-	pieces: TPieceRecord[];
-	pieceHandles: number[][][];
-	rotors: (Omit<TRotorRun, 'motion'> & { motion: TPieceMotionSample[]; count: number })[];
-	proxies: number[][];
-	touching: Map<string, number>;
-	meeting: Map<string, [number, number]>;
-	staticLowY: number;
-	rides: (TActiveRide | null)[];
-	leaving: (TLeaving | null)[];
-	/** The chunk bounds as they were, the live arrays: only their first `count / CHUNK` chunks belong to the snapshot */
-	chunkBounds: number[][];
-}
-
-function createInitialState(plan: TPlan): TRunState {
-	const state: TRunState = {
-		step: plan.startStep,
-		eventIndex: 0,
-		marbles: plan.marbles.map(() => ({ bodyHandle: -1, status: 'waiting', samples: [] })),
-		colliders: plan.marbles.map(() => new Map()),
-		contacts: [],
-		placements: new Map(),
-		lowestPieceY: Infinity,
-		pieces: [],
-		pieceHandles: [],
-		rotors: [],
-		proxies: plan.marbles.map(() => plan.marbles.map(() => -1)),
-		touching: new Map(),
-		meeting: new Map(),
-		chunkBounds: plan.marbles.map(() => []),
-		rides: plan.marbles.map(() => null),
-		leaving: plan.marbles.map(() => null)
-	};
-	// Every static piece starts parked; the first parking check brings in those a marble can reach
-	for (const piece of plan.staticPieces) {
-		if (piece.key === '')
-			insertPiece(state, piece.pieceId, piece.definition, piece.params, piece.layout, false);
-		else {
-			state.pieces.push(staticRecord(piece));
-			state.pieceHandles.push(plan.marbles.map(() => []));
-		}
-	}
-	return state;
-}
-
-function staticRecord(piece: TStaticPiece): TPieceRecord {
-	return {
-		pieceId: piece.pieceId,
-		definition: piece.definition,
-		params: piece.params,
-		shapes: piece.layout.shapes,
-		bounds: shapesBounds(piece.layout.shapes),
-		rotorIndex: -1,
-		rotor: null,
-		key: piece.key
-	};
-}
-
-function takeSnapshot(worlds: RAPIER.World[], plan: TPlan, state: TRunState): TSnapshot {
-	return {
-		worlds: worlds.map((world) => world.takeSnapshot()),
-		step: state.step,
-		eventIndex: state.eventIndex,
-		marbles: state.marbles.map((marble) => ({
-			bodyHandle: marble.bodyHandle,
-			status: marble.status,
-			samples: marble.samples,
-			count: marble.samples.length
-		})),
-		colliders: state.colliders.map((colliders) => new Map(colliders)),
-		contacts: state.contacts,
-		contactCount: state.contacts.length,
-		placements: new Map(state.placements),
-		lowestPieceY: state.lowestPieceY,
-		pieces: state.pieces.slice(),
-		pieceHandles: state.pieceHandles.map((handles) => handles.slice()),
-		rotors: state.rotors.map((rotor) => ({
-			...rotor,
-			bodyHandles: rotor.bodyHandles.slice(),
-			count: rotor.motion.length
-		})),
-		proxies: state.proxies.map((proxies) => proxies.slice()),
-		touching: new Map(state.touching),
-		meeting: new Map(state.meeting),
-		staticLowY: plan.staticLowY,
-		rides: state.rides.slice(),
-		leaving: state.leaving.slice(),
-		chunkBounds: state.chunkBounds
-	};
-}
-
-function restoreState(snapshot: TSnapshot): TRunState {
-	return {
-		step: snapshot.step,
-		eventIndex: snapshot.eventIndex,
-		marbles: snapshot.marbles.map((marble) => ({
-			bodyHandle: marble.bodyHandle,
-			status: marble.status,
-			samples: marble.samples.slice(0, marble.count)
-		})),
-		colliders: snapshot.colliders.map((colliders) => new Map(colliders)),
-		contacts: snapshot.contacts.slice(0, snapshot.contactCount),
-		placements: new Map(snapshot.placements),
-		lowestPieceY: snapshot.lowestPieceY,
-		pieces: snapshot.pieces.slice(),
-		pieceHandles: snapshot.pieceHandles.map((handles) => handles.slice()),
-		rotors: snapshot.rotors.map(({ count, ...rotor }) => ({
-			...rotor,
-			bodyHandles: rotor.bodyHandles.slice(),
-			motion: rotor.motion.slice(0, count)
-		})),
-		proxies: snapshot.proxies.map((proxies) => proxies.slice()),
-		touching: new Map(snapshot.touching),
-		meeting: new Map(snapshot.meeting),
-		// Rebuilding them from every sample on each resume cost a long song's short runs more than their steps
-		chunkBounds: snapshot.marbles.map((marble, i) => (snapshot.chunkBounds[i] ?? []).slice(0, Math.floor(marble.count / CHUNK) * 4)),
-		rides: snapshot.rides.slice(),
-		leaving: snapshot.leaving.slice()
-	};
-}
-
-function trimCache(cache: Map<string, TSnapshot>): Map<string, TSnapshot> {
-	if (cache.size <= MAX_SNAPSHOTS) return cache;
-	// Keep snapshots spread evenly over the run
-	const entries = [...cache.entries()];
-	const stride = entries.length / MAX_SNAPSHOTS;
-	const trimmed = new Map<string, TSnapshot>();
-	for (let i = 0; i < MAX_SNAPSHOTS; i++) {
-		const entry = entries[Math.floor(i * stride)];
-		if (entry != null) trimmed.set(entry[0], entry[1]);
-	}
-	return trimmed;
-}
-
-// Stepping
-
-function advance(
-	worlds: RAPIER.World[],
-	plan: TPlan,
-	state: TRunState,
-	cache: Map<string, TSnapshot>,
-	resumeIndex: number
-): number {
-	const queues = worlds.map(() => new RAPIER.EventQueue(true));
-	let steps = 0;
-	// Rapier reads the clock about seventy times a step for counters it never shows, with its profiler off: a tenth of a
-	// run's time in Node. A still clock while stepping costs it nothing to read; `runSimulation` keeps the real one.
-	const clock = performance.now;
-	performance.now = stillClock;
-	try {
-		stepUntilEnd(worlds, queues, plan, state, cache, resumeIndex, () => steps++);
-	} finally {
-		performance.now = clock;
-	}
-	for (const queue of queues) queue.free();
-	return steps;
-}
 
 function stillClock(): number {
 	return 0;
 }
 
-function stepUntilEnd(worlds: RAPIER.World[], queues: RAPIER.EventQueue[], plan: TPlan, state: TRunState, cache: Map<string, TSnapshot>, resumeIndex: number, stepped: () => void): void {
-	for (;;) {
-		const hasReleased = releaseMarbles(worlds, plan, state);
+// Hops
+
+/** A marble's state, in the coordinates of its hop's world */
+export interface TBodyState {
+	x: number;
+	y: number;
+	vx: number;
+	vy: number;
+	qz: number;
+	qw: number;
+	spin: number;
+}
+
+interface TRotorState {
+	qz: number;
+	qw: number;
+	spin: number;
+}
+
+/** A hop as it ran, in its world's coordinates, kept for as long as what it starts from stays the same */
+export interface THopRecord {
+	key: string;
+	from: number;
+	to: number;
+	marbles: THopMarble[];
+	contacts: { time: number; marbleIndex: number; otherId: string; kind: TContact['kind']; position: TVec2; speed?: number }[];
+	rotors: { pieceId: string; from: number; angles: number[]; spins: number[]; end: TRotorState }[];
+	/** The pieces and windmills near its path as it ran, what `reachKey` compares */
+	reachKey: string;
+	bounds: TBounds2;
+	steps: number;
+	/** Wall samples by world origin, so a hop shifted along its song builds them once */
+	wall: { origin: TVec2; samples: TMarbleSample[][] } | null;
+}
+
+interface THopMarble {
+	index: number;
+	/** First step this marble is in the world */
+	from: number;
+	samples: TMarbleSample[];
+	end: TBodyState | null;
+	status: 'live' | 'ended';
+	touching: string[];
+	/** What its events did, in order: where the marble was when each came */
+	placed: THopPlaced[];
+}
+
+interface THopPlaced {
+	eventIndex: number;
+	x: number;
+	y: number;
+	vx: number;
+	vy: number;
+	/** Samples of the hop before it came */
+	sampleCount: number;
+	isBlocked: boolean;
+}
+
+interface THopStore {
+	hops: Map<string, THopRecord>;
+	samples: number;
+}
+
+function createHopStore(): THopStore {
+	return { hops: new Map(), samples: 0 };
+}
+
+function keepHop(store: THopStore, record: THopRecord): void {
+	const count = record.marbles.reduce((sum, marble) => sum + marble.samples.length, 0);
+	store.hops.set(record.key, record);
+	store.samples += count;
+	// Oldest first, and a hop in use was just kept again
+	for (const [key, old] of store.hops) {
+		if (store.samples <= KEPT_SAMPLES || old === record) break;
+		store.hops.delete(key);
+		store.samples -= old.marbles.reduce((sum, marble) => sum + marble.samples.length, 0);
+	}
+}
+
+/** One marble's way through a run */
+export interface TMarbleWalk {
+	index: number;
+	status: 'waiting' | 'live' | 'ended';
+	/** Steps at which a hop starts: the release and each note */
+	boundaries: number[];
+	nextBoundary: number;
+	step: number;
+	state: TBodyState | null;
+	origin: TVec2;
+	touching: string[];
+	hops: TWalkHop[];
+	stored: Map<number, THandOver>;
+	/** From this step on the marble flies free and its pieces wait where the stored hand-overs have them */
+	waitsFrom: number | null;
+	events: TEventRef[];
+	nextEvent: number;
+}
+
+interface TEventRef {
+	event: TPlanEvent;
+	index: number;
+}
+
+export interface TWalkHop {
+	record: THopRecord;
+	/** Index into `record.marbles` */
+	track: number;
+	origin: TVec2;
+	from: number;
+	to: number;
+	start: TBodyState;
+	/** How far the hop before it landed from this hop's stored start, null without one */
+	seam: { distance: number; speed: number } | null;
+	/** True when the stored start was taken */
+	isStored: boolean;
+	isKept: boolean;
+}
+
+/** A piece on the wall */
+interface TWorldPiece {
+	pieceId: string;
+	definition: TPieceDefinition;
+	params: Record<string, number>;
+	/** Wall coordinates */
+	shapes: TPieceShape[];
+	bounds: TBounds2;
+	rotorIndex: number;
+	rotor: TRotorLayout | null;
+	enterStep: number;
+	marbleIndex: number;
+	/** Says what a hop near it needs to know */
+	signature: string;
+	/** Wall position, for the signature's offset to a hop's world */
+	at: TVec2;
+	/** The same shapes in the coordinates of the world that placed it, so a hop in that world sees them to the bit */
+	frame: { origin: TVec2; shapes: TPieceShape[] } | null;
+}
+
+/** A windmill's turning over the run */
+interface TRotorRun {
+	pieceId: string;
+	hub: TVec2;
+	motorSpeed: number;
+	damping: number;
+	localShapes: TPieceShape[];
+	/** Step of `motion[0]` */
+	firstStep: number;
+	motion: TPieceMotionSample[];
+	spins: number[];
+	/** The exact state at a step, the end of the hop that last moved it */
+	exact: { step: number; state: TRotorState } | null;
+	bounds: TBounds2;
+	/** Marble that last struck it and the steps of that hop, so a second marble there shares its world */
+	struck: { marbleIndex: number; from: number; to: number } | null;
+}
+
+interface TPlacement {
+	piece: TResolvedPiece;
+	dot: TVec2 | null;
+	velocity: TVec2 | null;
+	marbleIndex: number;
+	step: number;
+}
+
+/** A run, as far as it went */
+export interface TWalk {
+	plan: TPlan;
+	marbles: TMarbleWalk[];
+	pieces: TWorldPiece[];
+	/** Index of each piece on the wall by its ID */
+	onWall: Map<string, number>;
+	grid: PieceGrid;
+	placements: Map<string, TPlacement>;
+	rotors: TRotorRun[];
+	lowestPieceY: number;
+	/** Seconds up to which nothing had to run */
+	reusedUntil: number;
+	steps: number;
+	end: number;
+}
+
+function zeroOrigin(): TVec2 {
+	return { x: 0, y: 0 };
+}
+
+function isZero(origin: TVec2): boolean {
+	return origin.x === 0 && origin.y === 0;
+}
+
+/**
+ * Walks the plan: each marble's next hop in turn, the one that ends soonest first, so what any hop can meet has already been
+ * placed. A hop comes from the store when what it starts from and what stands near its path are as they were.
+ */
+function walkHops(project: TRunInput, store: THopStore, options: { horizon?: number | undefined; until?: number | undefined; isOneRun: boolean }): TWalk {
+	const plan = createPlan(project);
+	const walk = startWalk(project, plan);
+	let limit = options.until ?? plan.endStep;
+	const clock = performance.now;
+	// Rapier reads the clock about seventy times a step for counters it never shows, with its profiler off: a tenth of a
+	// run's time in Node. A still clock while stepping costs it nothing to read; `now` keeps the real one.
+	performance.now = stillClock;
+	try {
+		if (options.isOneRun) {
+			runShared(walk, store, walk.marbles.filter((marble) => marble.status !== 'ended'), plan.startStep, plan.endStep);
+			placeRemaining(walk);
+			walk.end = plan.endStep;
+			return walk;
+		}
+		let meetings = 0;
 		for (;;) {
-			const event = plan.events[state.eventIndex];
-			if (event == null || event.step > state.step) break;
-			if (state.eventIndex !== resumeIndex) {
-				cache.set(plan.eventKeys[state.eventIndex] ?? '', takeSnapshot(worlds, plan, state));
+			const walker = nextWalker(walk, limit);
+			if (walker == null) break;
+			const before = walk.steps;
+			const hop = runNextHop(walk, store, walker);
+			if (before === 0 && walk.steps > 0) {
+				walk.reusedUntil = hop.from / PHYSICS_HZ;
+				if (options.horizon != null) limit = Math.min(limit, hop.from + Math.ceil(options.horizon * PHYSICS_HZ));
 			}
-			processEvent(worlds, plan, state, event);
-			state.eventIndex++;
+			const meeting = meetings < MAX_MEETINGS ? findMeeting(walk, walker, hop) : null;
+			if (meeting != null) {
+				meetings++;
+				shareWorld(walk, store, walker, hop, meeting);
+			}
 		}
-		if (state.step >= plan.endStep) break;
-		if (hasReleased || state.step % PARKING_INTERVAL === 0) parkPieces(worlds, plan, state);
-		if (worlds.length > 1) updateProxies(worlds, plan, state);
-		followCopies(worlds, state);
-
-		for (let k = 0; k < worlds.length; k++) stepWorld(worlds[k], queues[k]);
-		state.step++;
-		stepped();
-		followRides(worlds, plan, state);
-		sampleMarbles(worlds, plan, state);
-		sampleRotors(worlds, state);
-		for (let k = 0; k < worlds.length; k++) {
-			queues[k]?.drainCollisionEvents((handleA, handleB, started) => {
-				recordContact(plan, state, k, handleA, handleB, started);
-			});
-		}
-		for (const key of [...state.meeting.keys()]) recordMarbleContact(plan, state, key);
+		placeRemaining(walk);
+		walk.end = limit;
+		if (walk.steps === 0) walk.reusedUntil = limit / PHYSICS_HZ;
+		return walk;
+	} finally {
+		performance.now = clock;
 	}
 }
 
-/** `World.step` without its walk over every body and collider after the step, which only finds what soft-body tears split off */
-function stepWorld(world: RAPIER.World | undefined, queue: RAPIER.EventQueue | undefined): void {
-	world?.physicsPipeline.step(world.gravity, world.integrationParameters, world.islands, world.broadPhase, world.narrowPhase, world.bodies, world.colliders, world.softBodies, world.impulseJoints, world.multibodyJoints, world.ccdSolver, queue, NO_RECYCLING);
+const MAX_MEETINGS = 64;
+
+function startWalk(project: TRunInput, plan: TPlan): TWalk {
+	const walk: TWalk = {
+		plan,
+		marbles: [],
+		pieces: [],
+		onWall: new Map(),
+		grid: new PieceGrid(),
+		placements: new Map(),
+		rotors: [],
+		lowestPieceY: Infinity,
+		reusedUntil: 0,
+		steps: 0,
+		end: plan.endStep
+	};
+	plan.marbles.forEach((marble, index) => {
+		const events = plan.events.flatMap((event, eventIndex) => (event.marbleIndex === index ? [{ event, index: eventIndex }] : []));
+		const notes = events.filter(({ event }) => !event.isAnchor && event.step > marble.releaseStep && event.step < plan.endStep).map(({ event }) => event.step);
+		const boundaries = [...new Set([marble.releaseStep, ...notes, plan.endStep])].filter((step) => step <= plan.endStep).sort((a, b) => a - b);
+		const hits = project.marbles.find((item) => item.id === marble.marbleId);
+		const stored = new Map((hits?.handOvers ?? []).map((handOver) => [handOver.step, handOver]));
+		const waitsHit = hits?.waitsFrom != null ? hits.hits.find((hit) => hit.id === hits.waitsFrom) : null;
+		walk.marbles.push({
+			index,
+			status: 'waiting',
+			boundaries,
+			nextBoundary: 0,
+			step: marble.releaseStep,
+			state: null,
+			origin: zeroOrigin(),
+			touching: [],
+			hops: [],
+			stored,
+			waitsFrom: waitsHit != null ? Math.floor(waitsHit.time * PHYSICS_HZ + STEP_EPSILON) : null,
+			events,
+			nextEvent: 0
+		});
+	});
+	for (const piece of plan.staticPieces) addStaticPiece(walk, piece);
+	return walk;
 }
 
-/** Releases marbles due at the current step and returns whether any entered */
-function releaseMarbles(worlds: RAPIER.World[], plan: TPlan, state: TRunState): boolean {
-	let hasReleased = false;
-	for (let i = 0; i < plan.marbles.length; i++) {
-		const marble = plan.marbles[i];
-		const run = state.marbles[i];
-		const world = worlds[i];
-		if (
-			marble == null ||
-			run == null ||
-			world == null ||
-			run.status !== 'waiting' ||
-			marble.releaseStep > state.step
-		)
-			continue;
-		const time = state.step / PHYSICS_HZ;
+function addStaticPiece(walk: TWalk, piece: TStaticPiece): void {
+	let rotorIndex = -1;
+	let bounds = shapesBounds(piece.layout.shapes);
+	if (piece.layout.rotor != null) {
+		rotorIndex = walk.rotors.length;
+		bounds = sweptDisc(piece.layout.rotor);
+		walk.rotors.push(rotorRun(piece.pieceId, piece.layout.rotor, walk.plan.startStep, bounds));
+	}
+	addWorldPiece(walk, {
+		pieceId: piece.pieceId,
+		definition: piece.definition,
+		params: piece.params,
+		shapes: piece.layout.shapes,
+		bounds,
+		rotorIndex,
+		rotor: piece.layout.rotor,
+		enterStep: -Infinity,
+		marbleIndex: -1,
+		signature: piece.key !== '' ? piece.key : `${piece.pieceId}|${JSON.stringify(piece.layout.rotor)}`,
+		at: piece.layout.position,
+		frame: null
+	});
+}
+
+function rotorRun(pieceId: string, rotor: TRotorLayout, firstStep: number, bounds: TBounds2): TRotorRun {
+	return {
+		pieceId,
+		hub: rotor.hub,
+		motorSpeed: rotor.motorSpeed,
+		damping: rotor.damping,
+		localShapes: rotor.localShapes,
+		firstStep,
+		// Adding zero turns the -0 of step 0 into 0
+		motion: [{ time: firstStep / PHYSICS_HZ + 0, angle: rotor.angle }],
+		spins: [rotor.motorSpeed],
+		exact: null,
+		bounds,
+		struck: null
+	};
+}
+
+function addWorldPiece(walk: TWalk, piece: TWorldPiece): void {
+	walk.onWall.set(piece.pieceId, walk.pieces.length);
+	walk.pieces.push(piece);
+	walk.grid.add(walk.pieces.length - 1, piece.bounds);
+}
+
+function nextWalker(walk: TWalk, limit: number): TMarbleWalk | null {
+	let best: TMarbleWalk | null = null;
+	let bestEnd = Infinity;
+	for (const marble of walk.marbles) {
+		if (marble.status === 'ended' || marble.step >= walk.plan.endStep || marble.step >= limit) continue;
+		const end = marble.boundaries[marble.nextBoundary + 1] ?? marble.step;
+		if (end < bestEnd) {
+			best = marble;
+			bestEnd = end;
+		}
+	}
+	return best;
+}
+
+/** Runs or finds this marble's next hop and moves it on */
+function runNextHop(walk: TWalk, store: THopStore, walker: TMarbleWalk): TWalkHop {
+	const { plan } = walk;
+	const from = walker.boundaries[walker.nextBoundary] ?? walker.step;
+	const to = walker.boundaries[walker.nextBoundary + 1] ?? plan.endStep;
+	const start = hopStart(walk, walker, from);
+	if (start.isStored) takeStoredRotors(walk, walker.stored.get(from), from);
+	const events = hopEvents(walker, from, to, plan.endStep);
+	const key = hopKey(walk, [{ walker, start: start.state, from }], from, to, events);
+	const fallY = fallLimit(walk, walker.index);
+	const kept = store.hops.get(key);
+	const wholeReach = (record: THopRecord): boolean => reachKeyOf(walk, record, start.origin, to, from) === record.reachKey;
+	let record: THopRecord;
+	let isKept = false;
+	if (kept != null && wholeReach(kept) && kept.bounds.minY + start.origin.y >= fallY && replaysAlike(walk, kept, start.origin)) {
+		record = kept;
+		isKept = true;
+		keepHop(store, record);
+	} else {
+		record = runStretch(walk, {
+			key,
+			from,
+			to,
+			origin: start.origin,
+			marbles: [{ walker, start: start.state, from }],
+			events,
+			fallY
+		});
+		record.reachKey = reachKeyOf(walk, record, start.origin, to, from);
+		walk.steps += record.steps;
+		if (record.bounds.minY + start.origin.y >= fallY) keepHop(store, record);
+	}
+	applyPlacements(walk, record, start.origin, [walker]);
+	const hop: TWalkHop = { record, track: 0, origin: start.origin, from, to, start: start.state, seam: start.seam, isStored: start.isStored, isKept };
+	advanceWalker(walk, walker, hop);
+	return hop;
+}
+
+function advanceWalker(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): void {
+	const track = hop.record.marbles[hop.track];
+	walker.hops.push(hop);
+	applyRotors(walk, hop.record, hop.origin);
+	if (track == null) return;
+	walker.status = track.status;
+	walker.state = track.end;
+	walker.origin = hop.origin;
+	walker.step = hop.to;
+	walker.touching = track.touching;
+	walker.nextBoundary++;
+	walker.nextEvent = walker.events.findIndex(({ event }) => event.step >= hop.to && hop.to < walk.plan.endStep);
+	if (walker.nextEvent < 0) walker.nextEvent = walker.events.length;
+}
+
+interface THopStart {
+	state: TBodyState;
+	origin: TVec2;
+	seam: { distance: number; speed: number } | null;
+	isStored: boolean;
+}
+
+/** What a hop starts from: the release, the hop before it, or the stored hand-over when the hop before it lands near that */
+function hopStart(walk: TWalk, walker: TMarbleWalk, from: number): THopStart {
+	const marble = walk.plan.marbles[walker.index] as TPlan['marbles'][number];
+	const before = walker.status === 'waiting' ? null : walker.state;
+	if (before == null) {
 		// The marble enters on the first step at or after its release time, moved along its free flight
-		const { position, velocity } = ballistic(
-			marble.release,
-			marble.releaseVelocity,
-			Math.max(0, time - marble.releaseTime),
-			plan.gravity
-		);
-		const body = world.createRigidBody(
-			marbleBodyDesc().setTranslation(position.x, position.y, MARBLE_Z).setLinvel(velocity.x, velocity.y, 0).setAngvel({ x: 0, y: 0, z: marble.releaseSpin })
-		);
-		const collider = world.createCollider(
-			marbleColliderDesc(marble.radius).setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
-			body
-		);
-		state.colliders[i]?.set(collider.handle, { kind: 'marble', marbleIndex: i });
-		run.bodyHandle = body.handle;
-		run.status = 'live';
-		run.samples.push({ time, position, angle: 0, velocity });
-		hasReleased = true;
+		const time = from / PHYSICS_HZ;
+		const { position, velocity } = ballistic(marble.release, marble.releaseVelocity, Math.max(0, time - marble.releaseTime), walk.plan.gravity);
+		return { state: { x: position.x, y: position.y, vx: velocity.x, vy: velocity.y, qz: 0, qw: 1, spin: marble.releaseSpin }, origin: zeroOrigin(), seam: null, isStored: false };
 	}
-	return hasReleased;
+	const stored = walker.waitsFrom != null && from >= walker.waitsFrom ? undefined : walker.stored.get(from);
+	if (stored == null) return { state: before, origin: walker.origin, seam: null, isStored: false };
+	const seam = {
+		distance: Math.hypot(before.x + walker.origin.x - stored.position.x - stored.origin.x, before.y + walker.origin.y - stored.position.y - stored.origin.y),
+		speed: Math.hypot(before.vx - stored.velocity.x, before.vy - stored.velocity.y)
+	};
+	if (seam.distance > SEAM_DISTANCE || seam.speed > SEAM_SPEED) return { state: before, origin: walker.origin, seam, isStored: false };
+	return {
+		state: { x: stored.position.x, y: stored.position.y, vx: stored.velocity.x, vy: stored.velocity.y, qz: stored.rotation[0], qw: stored.rotation[1], spin: stored.spin },
+		origin: stored.origin,
+		seam,
+		isStored: true
+	};
 }
 
-/** Spin from the two samples before `time`, a contact, which the steps just before it don't feel yet */
-function spinBefore(samples: TMarbleSample[], time: number): number {
-	let low = 0;
-	let high = samples.length;
-	while (low < high) {
-		const middle = (low + high) >> 1;
-		if ((samples[middle]?.time ?? Infinity) < time - 2 * DT) low = middle + 1;
-		else high = middle;
+function takeStoredRotors(walk: TWalk, handOver: THandOver | undefined, step: number): void {
+	for (const stored of handOver?.rotors ?? []) {
+		const rotor = walk.rotors.find((item) => item.pieceId === stored.pieceId);
+		if (rotor != null) rotor.exact = { step, state: { qz: stored.rotation[0], qw: stored.rotation[1], spin: stored.spin } };
 	}
-	const a = samples[low - 2];
-	const b = samples[low - 1];
-	if (a == null || b == null || b.time <= a.time) return 0;
-	return Math.atan2(Math.sin(b.angle - a.angle), Math.cos(b.angle - a.angle)) / (b.time - a.time);
 }
 
-function marbleBodyDesc(): RAPIER.RigidBodyDesc {
-	return RAPIER.RigidBodyDesc.dynamic()
-		.enabledTranslations(true, true, false)
-		.enabledRotations(false, false, true)
-		.setCcdEnabled(true)
-		.setCanSleep(false);
+function hopEvents(walker: TMarbleWalk, from: number, to: number, endStep: number): TEventRef[] {
+	const events: TEventRef[] = [];
+	for (let i = walker.nextEvent; i < walker.events.length; i++) {
+		const ref = walker.events[i];
+		if (ref == null) break;
+		if (ref.event.step >= to && !(to === endStep && ref.event.step === to)) break;
+		events.push(ref);
+	}
+	return events;
 }
 
-function marbleColliderDesc(radius: number): RAPIER.ColliderDesc {
-	return RAPIER.ColliderDesc.ball(radius)
-		.setDensity(GLASS_DENSITY)
-		.setRestitution(MARBLE_RESTITUTION)
-		.setFriction(MARBLE_FRICTION)
-		.setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS);
+function fallLimit(walk: TWalk, marbleIndex: number): number {
+	const marble = walk.plan.marbles[marbleIndex];
+	return Math.min(marble?.release.y ?? 0, walk.lowestPieceY, walk.plan.staticLowY) - FALL_LIMIT;
+}
+
+/** Everything that decides a hop besides what stands near it */
+function hopKey(walk: TWalk, marbles: { walker: TMarbleWalk; start: TBodyState; from: number }[], from: number, to: number, events: TEventRef[]): string {
+	const parts: (string | number)[] = [walk.plan.gravity, from, to];
+	for (const { walker, start, from: entered } of marbles) {
+		const stored = walker.waitsFrom != null && walker.waitsFrom <= to ? 'w' : '';
+		parts.push(walker.index, entered, walk.plan.marbles[walker.index]?.radius ?? 0, start.x, start.y, start.vx, start.vy, start.qz, start.qw, start.spin, walker.touching.join(), stored);
+	}
+	for (const { event, index } of events) parts.push(event.hash, event.time, index, heldBy(walk, event)?.dot.x ?? '', heldBy(walk, event)?.dot.y ?? '');
+	return parts.join('|');
+}
+
+/** Where a piece waits instead of following the marble: as the edit left it held, or at its stored hand-over while the marble is released */
+function heldBy(walk: TWalk, event: TPlanEvent): { dot: TVec2; velocity: TVec2 | null } | null {
+	const walker = walk.marbles[event.marbleIndex];
+	if (walker?.waitsFrom == null || event.step < walker.waitsFrom || event.isAnchor) return event.held;
+	const stored = walker.stored.get(event.step);
+	if (stored == null) return event.held;
+	const flight = ballistic({ x: stored.position.x + stored.origin.x, y: stored.position.y + stored.origin.y }, stored.velocity, Math.max(0, event.time - stored.step / PHYSICS_HZ), walk.plan.gravity);
+	return { dot: flight.position, velocity: flight.velocity };
+}
+
+/** The pieces and windmills near a hop's path, with how they sit against its world: while these stay, so does the hop */
+function reachKeyOf(walk: TWalk, record: THopRecord, origin: TVec2, to: number, from: number): string {
+	const minX = record.bounds.minX + origin.x - KEPT_REACH;
+	const maxX = record.bounds.maxX + origin.x + KEPT_REACH;
+	const minY = record.bounds.minY + origin.y - KEPT_REACH;
+	const maxY = record.bounds.maxY + origin.y + KEPT_REACH;
+	const own = record.marbles.map((marble) => marble.index);
+	const parts: string[] = [];
+	for (const piece of walk.pieces) {
+		// What the hop itself places follows from what it starts from
+		if (piece.enterStep >= from && own.includes(piece.marbleIndex)) continue;
+		if (piece.enterStep > to || piece.bounds.maxX < minX || piece.bounds.minX > maxX || piece.bounds.maxY < minY || piece.bounds.minY > maxY) continue;
+		// Micrometers, as a piece following a marble that was shifted differs from its old offset in the last bits
+		const rotor = walk.rotors[piece.rotorIndex];
+		parts.push(`${piece.pieceId}|${piece.signature}|${piece.enterStep}|${Math.round((piece.at.x - origin.x) * 1e6)}|${Math.round((piece.at.y - origin.y) * 1e6)}${rotor != null ? `|${rotorKey(rotor, from)}` : ''}`);
+	}
+	return parts.join(';');
+}
+
+function rotorKey(rotor: TRotorRun, step: number): string {
+	const state = rotorStateAt(rotor, step);
+	return `${state.qz}|${state.qw}|${state.spin}`;
+}
+
+/** A windmill's pose at a step, by its motor or damping from the last it was known when no hop moved it since */
+function rotorStateAt(rotor: TRotorRun, step: number): TRotorState {
+	if (rotor.exact?.step === step) return rotor.exact.state;
+	extendRotor(rotor, step);
+	const index = Math.max(0, step - rotor.firstStep);
+	const angle = rotor.motion[index]?.angle ?? rotor.motion[0]?.angle ?? 0;
+	const rotation = zRotation(angle);
+	return { qz: rotation.z, qw: rotation.w, spin: rotor.spins[index] ?? rotor.motorSpeed };
+}
+
+function extendRotor(rotor: TRotorRun, step: number): void {
+	while (rotor.firstStep + rotor.motion.length - 1 < step) {
+		const last = rotor.motion[rotor.motion.length - 1];
+		const spin = rotor.spins[rotor.spins.length - 1] ?? rotor.motorSpeed;
+		const next = rotor.motorSpeed !== 0 ? rotor.motorSpeed : spin / (1 + DT * rotor.damping);
+		rotor.motion.push({ time: (rotor.firstStep + rotor.motion.length) / PHYSICS_HZ, angle: (last?.angle ?? 0) + next * DT });
+		rotor.spins.push(next);
+	}
+}
+
+/** Whether a kept hop's pieces would be placed as they were: a piece blocked or free depends on the run before it */
+function replaysAlike(walk: TWalk, record: THopRecord, origin: TVec2): boolean {
+	for (const track of record.marbles) {
+		for (const placed of track.placed) {
+			const event = walk.plan.events[placed.eventIndex];
+			if (event == null || heldBy(walk, event) != null || event.definition == null) continue;
+			const marble = walk.plan.marbles[track.index];
+			if (marble == null) continue;
+			const wall = wallLayout(event, marble.radius, placed, origin);
+			const isBlocked = isLayoutBlocked(walk, wall, event.time, record, track, placed.sampleCount, origin);
+			if (isBlocked !== placed.isBlocked) return false;
+		}
+	}
+	return true;
+}
+
+function eventLayoutInput(event: TPlanEvent, radius: number): TLayoutInput {
+	return {
+		type: event.definition.type,
+		params: event.params,
+		path: event.path,
+		extraPaths: event.extraPaths,
+		layout: event.railLayout,
+		angle: event.angle,
+		contactAt: event.contactAt,
+		marbleRadius: radius
+	};
+}
+
+function wallLayout(event: TPlanEvent, radius: number, placed: THopPlaced, origin: TVec2): TPieceLayout {
+	const position = { x: placed.x + origin.x, y: placed.y + origin.y };
+	const input = eventLayoutInput(event, radius);
+	return event.offset != null ? layoutFree(input, { x: position.x + event.offset.x, y: position.y + event.offset.y }) : layoutAtMarble(input, position, { x: placed.vx, y: placed.vy });
+}
+
+/** Puts what a hop placed on the wall, and its events that never came as out of reach */
+function applyPlacements(walk: TWalk, record: THopRecord, origin: TVec2, walkers: TMarbleWalk[]): void {
+	for (const walker of walkers) {
+		const track = record.marbles.find((item) => item.index === walker.index);
+		if (track == null) continue;
+		for (const placed of track.placed) applyPlaced(walk, record, track, placed, origin);
+	}
+}
+
+function applyPlaced(walk: TWalk, record: THopRecord, track: THopMarble, placed: THopPlaced, origin: TVec2): void {
+	const event = walk.plan.events[placed.eventIndex];
+	const marble = walk.plan.marbles[track.index];
+	if (event == null || marble == null) return;
+	const held = heldBy(walk, event);
+	if (held != null) {
+		const input = eventLayoutInput(event, marble.radius);
+		const { dot, velocity } = held;
+		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
+		const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
+		if (event.isAnchor) resolved.entryTime = event.time;
+		walk.placements.set(event.pieceId, { piece: resolved, dot, velocity, marbleIndex: track.index, step: event.step });
+		placeOnWall(walk, event, layout, track.index, zeroOrigin(), layout.shapes);
+		return;
+	}
+	const layout = wallLayout(event, marble.radius, placed, origin);
+	const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, placed.isBlocked ? 'blocked' : 'placed', event.railLayout);
+	if (event.isAnchor) resolved.entryTime = event.time;
+	const flight = { x: placed.x + origin.x, y: placed.y + origin.y };
+	walk.placements.set(event.pieceId, { piece: resolved, dot: flight, velocity: { x: placed.vx, y: placed.vy }, marbleIndex: track.index, step: event.step });
+	if (!placed.isBlocked) placeOnWall(walk, event, layout, track.index, origin, null);
+}
+
+function placeOnWall(walk: TWalk, event: TPlanEvent, layout: TPieceLayout, marbleIndex: number, origin: TVec2, frameShapes: TPieceShape[] | null): void {
+	if (walk.onWall.has(event.pieceId)) return;
+	let rotorIndex = -1;
+	let bounds = shapesBounds(layout.shapes);
+	if (layout.rotor != null) {
+		rotorIndex = walk.rotors.findIndex((rotor) => rotor.pieceId === event.pieceId);
+		bounds = sweptDisc(layout.rotor);
+		if (rotorIndex < 0) {
+			rotorIndex = walk.rotors.length;
+			walk.rotors.push(rotorRun(event.pieceId, layout.rotor, event.step, bounds));
+		}
+	}
+	addWorldPiece(walk, {
+		pieceId: event.pieceId,
+		definition: event.definition,
+		params: event.params,
+		shapes: layout.shapes,
+		bounds,
+		rotorIndex,
+		rotor: layout.rotor,
+		enterStep: event.step,
+		marbleIndex,
+		signature: event.hash,
+		at: layout.position,
+		frame: frameShapes != null ? { origin, shapes: frameShapes } : null
+	});
+	walk.lowestPieceY = Math.min(walk.lowestPieceY, lowPointOf(layout));
+}
+
+function applyRotors(walk: TWalk, record: THopRecord, origin: TVec2): void {
+	void origin;
+	for (const run of record.rotors) {
+		const rotor = walk.rotors.find((item) => item.pieceId === run.pieceId);
+		if (rotor == null) continue;
+		extendRotor(rotor, run.from);
+		const index = run.from - rotor.firstStep;
+		rotor.motion.length = index + 1;
+		rotor.spins.length = index + 1;
+		let previous = rotor.motion[index]?.angle ?? 0;
+		for (let i = 0; i < run.angles.length; i++) {
+			previous += wrapAngle((run.angles[i] ?? 0) - previous);
+			rotor.motion.push({ time: (run.from + i + 1) / PHYSICS_HZ, angle: previous });
+			rotor.spins.push(run.spins[i] ?? 0);
+		}
+		rotor.exact = { step: record.to, state: run.end };
+	}
+}
+
+/** The events no hop came to, as a whole run would leave them */
+function placeRemaining(walk: TWalk): void {
+	const { plan } = walk;
+	for (const event of plan.events) {
+		if (walk.placements.has(event.pieceId)) continue;
+		const marble = plan.marbles[event.marbleIndex];
+		const held = heldBy(walk, event);
+		if (held != null && marble != null && event.step <= plan.endStep) {
+			const input = eventLayoutInput(event, marble.radius);
+			const { dot, velocity } = held;
+			const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
+			const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
+			if (event.isAnchor) resolved.entryTime = event.time;
+			walk.placements.set(event.pieceId, { piece: resolved, dot, velocity, marbleIndex: event.marbleIndex, step: event.step });
+			continue;
+		}
+		const unreached: TResolvedPiece = {
+			pieceId: event.pieceId,
+			type: event.definition.type,
+			...(event.railLayout != null ? { layout: event.railLayout } : {}),
+			position: marble?.release ?? { x: 0, y: 0 },
+			angle: event.angle,
+			params: event.params,
+			contactPoint: null,
+			contactNormal: null,
+			hitTime: event.hitTime,
+			status: 'unreached'
+		};
+		if (event.isAnchor) unreached.entryTime = event.time;
+		walk.placements.set(event.pieceId, { piece: unreached, dot: null, velocity: null, marbleIndex: event.marbleIndex, step: event.step });
+	}
+}
+
+// Marbles that meet
+
+interface TMeeting {
+	other: TMarbleWalk;
+	step: number;
+}
+
+function wallSampleAt(walker: TMarbleWalk, step: number): { x: number; y: number; speed: number } | null {
+	for (let h = walker.hops.length - 1; h >= 0; h--) {
+		const hop = walker.hops[h];
+		if (hop == null || step > hop.to) break;
+		if (step <= hop.from) continue;
+		const track = hop.record.marbles[hop.track];
+		const sample = track?.samples[step - (track?.from ?? 0) - 1];
+		if (sample == null) return null;
+		return { x: sample.position.x + hop.origin.x, y: sample.position.y + hop.origin.y, speed: Math.hypot(sample.velocity.x, sample.velocity.y) };
+	}
+	return null;
+}
+
+/** The first step of a hop at which another marble, as far as it has run, could touch this one */
+function findMeeting(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): TMeeting | null {
+	if (walk.marbles.length < 2) return null;
+	const track = hop.record.marbles[hop.track];
+	const radius = walk.plan.marbles[walker.index]?.radius ?? 0;
+	if (track == null) return null;
+	for (const other of walk.marbles) {
+		if (other === walker || !other.hops.length) continue;
+		const otherRadius = walk.plan.marbles[other.index]?.radius ?? 0;
+		// Marbles a hop apart, in the same world already, were solved there
+		if (other.hops.at(-1)?.record === hop.record) continue;
+		const otherEnd = other.hops.at(-1)?.to ?? 0;
+		const last = Math.min(hop.to, otherEnd);
+		for (let step = hop.from + 1; step <= last; step++) {
+			const sample = track.samples[step - track.from - 1];
+			if (sample == null) break;
+			const at = wallSampleAt(other, step);
+			if (at == null) continue;
+			const gap = Math.hypot(sample.position.x + hop.origin.x - at.x, sample.position.y + hop.origin.y - at.y) - radius - otherRadius;
+			const closing = Math.hypot(sample.velocity.x, sample.velocity.y) + at.speed;
+			if (gap <= closing * 2 * DT + MEETING_SLACK) return { other, step };
+			// Far apart, no need to look at each step
+			if (gap > 0.5) step += Math.floor(((gap - 0.25) / Math.max(closing + 1, 1)) * PHYSICS_HZ * 0.5);
+		}
+	}
+	// A windmill struck by another marble in the same stretch turns for both
+	for (const run of hop.record.rotors) {
+		const rotor = walk.rotors.find((item) => item.pieceId === run.pieceId);
+		if (rotor == null) continue;
+		const isStruck = hop.record.contacts.some((contact) => contact.otherId === run.pieceId && contact.marbleIndex === walker.index);
+		if (!isStruck) continue;
+		const struck = rotor.struck;
+		if (struck != null && struck.marbleIndex !== walker.index && struck.to > hop.from && struck.from < hop.to) {
+			const other = walk.marbles[struck.marbleIndex];
+			if (other != null) return { other, step: Math.max(struck.from, hop.from) + 1 };
+		}
+		rotor.struck = { marbleIndex: walker.index, from: hop.from, to: hop.to };
+	}
+	return null;
+}
+
+/**
+ * Two marbles that may touch run in one world, from the later of the hop starts the meeting falls in to the end of both
+ * hops. What each did alone from there on is taken back first. The marble ahead picks up again from where the shared world
+ * ends, on a boundary of its own.
+ */
+function shareWorld(walk: TWalk, store: THopStore, walker: TMarbleWalk, hop: TWalkHop, meeting: TMeeting): void {
+	const { other, step } = meeting;
+	takeBack(walk, walker, hop.from);
+	const otherIndex = other.hops.findIndex((item) => item.to >= step);
+	const otherHop = other.hops[otherIndex];
+	if (otherHop == null) return;
+	takeBack(walk, other, otherHop.from);
+	const from = Math.min(hop.from, otherHop.from);
+	const to = Math.max(walker.boundaries[walker.nextBoundary + 1] ?? hop.to, other.boundaries[other.nextBoundary + 1] ?? otherHop.to);
+	runShared(walk, store, [walker, other].sort((a, b) => a.index - b.index), from, to);
+}
+
+/** Takes a marble back to the start of the hop that begins at `step` */
+function takeBack(walk: TWalk, walker: TMarbleWalk, step: number): void {
+	while ((walker.hops.at(-1)?.from ?? -Infinity) >= step) walker.hops.pop();
+	const last = walker.hops.at(-1);
+	const track = last?.record.marbles[last.track];
+	walker.state = track?.end ?? null;
+	walker.origin = last?.origin ?? zeroOrigin();
+	walker.status = track?.status ?? 'waiting';
+	walker.touching = track?.touching ?? [];
+	walker.step = step;
+	walker.nextBoundary = walker.boundaries.indexOf(step);
+	if (walker.nextBoundary < 0) {
+		walker.boundaries = [...new Set([...walker.boundaries, step])].sort((a, b) => a - b);
+		walker.nextBoundary = walker.boundaries.indexOf(step);
+	}
+	walker.nextEvent = walker.events.findIndex(({ event }) => event.step >= step);
+	if (walker.nextEvent < 0) walker.nextEvent = walker.events.length;
+	// Its pieces from there on are placed again
+	for (const ref of walker.events) {
+		if (ref.event.step < step) continue;
+		walk.placements.delete(ref.event.pieceId);
+		const index = walk.onWall.get(ref.event.pieceId);
+		if (index != null) walk.pieces[index] = { ...(walk.pieces[index] as TWorldPiece), enterStep: Infinity, pieceId: '' };
+		walk.onWall.delete(ref.event.pieceId);
+	}
+}
+
+/** One world for several marbles, each from where it is, up to `to` */
+function runShared(walk: TWalk, store: THopStore, walkers: TMarbleWalk[], from: number, to: number): void {
+	const entries = walkers.map((walker) => {
+		const entered = walker.boundaries[walker.nextBoundary] ?? walker.step;
+		return { walker, from: entered, start: hopStart(walk, walker, entered) };
+	});
+	const origin = (entries.find((entry) => !isZero(entry.start.origin)) ?? entries[0])?.start.origin ?? zeroOrigin();
+	const marbles = entries.map((entry) => ({
+		walker: entry.walker,
+		from: entry.from,
+		start: isZero(entry.start.origin) && isZero(origin) ? entry.start.state : { ...entry.start.state, x: entry.start.state.x + entry.start.origin.x - origin.x, y: entry.start.state.y + entry.start.origin.y - origin.y }
+	}));
+	const events = walkers.flatMap((walker) => hopEvents(walker, walker.step, to, walk.plan.endStep)).sort((a, b) => a.index - b.index);
+	const key = `shared|${hopKey(walk, marbles, from, to, events)}`;
+	const kept = store.hops.get(key);
+	let record: THopRecord;
+	if (kept != null && reachKeyOf(walk, kept, origin, to, from) === kept.reachKey && replaysAlike(walk, kept, origin)) {
+		record = kept;
+		keepHop(store, record);
+	} else {
+		record = runStretch(walk, { key, from, to, origin, marbles, events, fallY: Math.min(...walkers.map((walker) => fallLimit(walk, walker.index))) });
+		record.reachKey = reachKeyOf(walk, record, origin, to, from);
+		walk.steps += record.steps;
+		keepHop(store, record);
+	}
+	applyPlacements(walk, record, origin, walkers);
+	applyRotors(walk, record, origin);
+	marbles.forEach((entry, track) => {
+		const { walker } = entry;
+		const part = record.marbles[track];
+		if (part == null) return;
+		walker.hops.push({ record, track, origin, from: entry.from, to, start: entry.start, seam: null, isStored: false, isKept: false });
+		walker.status = part.status;
+		walker.state = part.end;
+		walker.origin = origin;
+		walker.step = to;
+		walker.touching = part.touching;
+		walker.boundaries = [...new Set([...walker.boundaries.filter((step) => step <= entry.from || step >= to), to])].sort((a, b) => a - b);
+		walker.nextBoundary = walker.boundaries.indexOf(to);
+		walker.nextEvent = walker.events.findIndex(({ event }) => event.step >= to && to < walk.plan.endStep);
+		if (walker.nextEvent < 0) walker.nextEvent = walker.events.length;
+	});
+}
+
+// One world
+
+interface TStretch {
+	key: string;
+	from: number;
+	to: number;
+	origin: TVec2;
+	marbles: { walker: TMarbleWalk; start: TBodyState; from: number }[];
+	events: TEventRef[];
+	fallY: number;
+}
+
+type TColliderInfo =
+	| { kind: 'marble'; track: number }
+	/** `shapes` are what the collider stands for, in the world's coordinates, and relative to the hub for rotors */
+	| { kind: 'piece'; pieceId: string; shapes: TPieceShape[]; rotor: TLiveRotor | null };
+
+interface TLiveRotor {
+	run: TRotorRun;
+	/** Step it entered this world */
+	from: number;
+	body: RAPIER.RigidBody;
+	hub: TVec2;
+	angles: number[];
+	spins: number[];
+	struck: boolean;
+	/** The two last angles */
+	previous: number;
+	last: number;
+}
+
+interface TLeaving {
+	step: number;
+	velocity: TVec2;
+	spin: number;
+}
+
+interface TLiveRide {
+	pieceId: string;
+	stored: NonNullable<TPlanEvent['ride']>;
+	startStep: number;
+	origin: TVec2;
+	angle: number;
+}
+
+interface TLiveMarble {
+	track: number;
+	entered: boolean;
+	start: TBodyState;
+	from: number;
+	body: RAPIER.RigidBody | null;
+	colliderHandle: number;
+	radius: number;
+	result: THopMarble;
+	touching: Map<string, number>;
+	/** Pieces the hop before ended touching: their first report here isn't a new touch */
+	carried: Set<string>;
+	ride: TLiveRide | null;
+	leaving: TLeaving | null;
+	last: TMarbleSample | null;
+	before: TMarbleSample | null;
+}
+
+function runStretch(walk: TWalk, stretch: TStretch): THopRecord {
+	const { plan } = walk;
+	const { origin, from, to } = stretch;
+	const world = new RAPIER.World({ x: 0, y: plan.gravity, z: 0 });
+	world.timestep = DT;
+	world.profilerEnabled = false;
+	world.integrationParameters.numSolverIterations = SOLVER_ITERATIONS;
+	const queue = new RAPIER.EventQueue(true);
+	const colliders = new Map<number, TColliderInfo>();
+	const record: THopRecord = { key: stretch.key, from, to, marbles: [], contacts: [], rotors: [], reachKey: '', bounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }, steps: 0, wall: null };
+	const live: TLiveMarble[] = stretch.marbles.map((entry, track) => {
+		const marble = plan.marbles[entry.walker.index] as TPlan['marbles'][number];
+		const result: THopMarble = { index: entry.walker.index, from: entry.from, samples: [], end: null, status: 'live', touching: [], placed: [] };
+		record.marbles.push(result);
+		return { track, entered: false, start: entry.start, from: entry.from, body: null, colliderHandle: -1, radius: marble.radius, result, touching: new Map(), carried: new Set(entry.walker.touching), ride: null, leaving: null, last: null, before: null };
+	});
+	const inWorld = new Set<number>();
+	const liveRotors: TLiveRotor[] = [];
+	let eventIndex = 0;
+	const meeting = new Set<string>();
+
+	const bringIn = (index: number): void => {
+		const piece = walk.pieces[index];
+		if (piece == null || inWorld.has(index)) return;
+		inWorld.add(index);
+		const rotor = walk.rotors[piece.rotorIndex];
+		if (rotor != null) liveRotors.push(addRotorBody(world, colliders, piece, rotor, step0(), origin));
+		else addPieceColliders(world, colliders, piece, origin);
+	};
+	let step = from;
+	const step0 = (): number => step;
+	const updateReach = (): void => {
+		const found = new Set<number>();
+		for (const marble of live) {
+			if (marble.body == null) continue;
+			const position = marble.body.translation();
+			const velocity = marble.body.linvel();
+			const speed = Math.hypot(velocity.x, velocity.y);
+			const horizon = (REACH_INTERVAL + 1) * DT;
+			let tip = 0;
+			for (const rotor of walk.rotors) tip = Math.max(tip, Math.abs(rotor.spins[rotor.spins.length - 1] ?? 0) * ((rotor.bounds.maxX - rotor.bounds.minX) / 2));
+			const reach = (2 * speed + SPEED_SLACK + 2 * tip) * horizon - 0.5 * plan.gravity * horizon * horizon + marble.radius + REACH_MARGIN;
+			const x = position.x + origin.x;
+			const y = position.y + origin.y;
+			const near = new Set<number>();
+			walk.grid.query(x, y, reach, near);
+			for (const index of near) {
+				const piece = walk.pieces[index];
+				if (piece == null || piece.enterStep > step || inWorld.has(index)) continue;
+				if (piece.bounds.maxX >= x - reach && piece.bounds.minX <= x + reach && piece.bounds.maxY >= y - reach && piece.bounds.minY <= y + reach) found.add(index);
+			}
+		}
+		for (const index of [...found].sort((a, b) => a - b)) bringIn(index);
+	};
+
+	for (;;) {
+		let hasEntered = false;
+		for (const marble of live) {
+			if (marble.entered || marble.from > step) continue;
+			enterMarble(walk, world, colliders, marble, step, origin);
+			hasEntered = true;
+		}
+		while (eventIndex < stretch.events.length && (stretch.events[eventIndex]?.event.step ?? Infinity) <= step) {
+			const ref = stretch.events[eventIndex++] as TEventRef;
+			const marble = live.find((item) => item.result.index === ref.event.marbleIndex);
+			const index = marble != null ? placeInWorld(walk, ref, marble, step, origin, record) : -1;
+			if (index >= 0) bringIn(index);
+		}
+		if (step >= to) break;
+		if (hasEntered || step % REACH_INTERVAL === 0) updateReach();
+		for (const rotor of liveRotors) rotor.previous = rotor.last;
+		world.physicsPipeline.step(world.gravity, world.integrationParameters, world.islands, world.broadPhase, world.narrowPhase, world.bodies, world.colliders, world.softBodies, world.impulseJoints, world.multibodyJoints, world.ccdSolver, queue, NO_RECYCLING);
+		step++;
+		record.steps++;
+		if (step - from === CARRIED_STEPS) for (const marble of live) marble.carried.clear();
+		followRides(plan, live, step);
+		sampleMarbles(walk, world, colliders, live, step, record, stretch.fallY, origin);
+		for (const rotor of liveRotors) {
+			const rotation = rotor.body.rotation();
+			rotor.last = 2 * Math.atan2(rotation.z, rotation.w);
+			rotor.angles.push(rotor.last);
+			rotor.spins.push(rotor.body.angvel().z);
+		}
+		queue.drainCollisionEvents((a, b, started) => {
+			recordContact(plan, live, colliders, record, step, a, b, started, meeting);
+		});
+		for (const key of [...meeting]) recordMarbleContact(plan, live, meeting, record, step, key);
+		if (live.every((marble) => marble.result.status === 'ended') && eventIndex >= stretch.events.length) break;
+	}
+	for (const marble of live) {
+		if (marble.result.status === 'ended') continue;
+		marble.result.end = marble.body != null ? bodyState(marble.body) : marble.start;
+		marble.result.touching = [...marble.touching.entries()].filter(([, count]) => count > 0).map(([id]) => id);
+	}
+	for (const rotor of liveRotors) {
+		const rotation = rotor.body.rotation();
+		record.rotors.push({ pieceId: rotor.run.pieceId, from: rotor.from, angles: rotor.angles, spins: rotor.spins, end: { qz: rotation.z, qw: rotation.w, spin: rotor.body.angvel().z } });
+	}
+	queue.free();
+	world.free();
+	if (!Number.isFinite(record.bounds.minX)) record.bounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+	return record;
+}
+
+function bodyState(body: RAPIER.RigidBody): TBodyState {
+	const position = body.translation();
+	const velocity = body.linvel();
+	const rotation = body.rotation();
+	return { x: position.x, y: position.y, vx: velocity.x, vy: velocity.y, qz: rotation.z, qw: rotation.w, spin: body.angvel().z };
+}
+
+function enterMarble(walk: TWalk, world: RAPIER.World, colliders: Map<number, TColliderInfo>, marble: TLiveMarble, step: number, origin: TVec2): void {
+	const { start } = marble;
+	const body = world.createRigidBody(
+		RAPIER.RigidBodyDesc.dynamic()
+			.enabledTranslations(true, true, false)
+			.enabledRotations(false, false, true)
+			.setCcdEnabled(true)
+			.setCanSleep(false)
+			.setTranslation(start.x, start.y, MARBLE_Z)
+			.setRotation({ x: 0, y: 0, z: start.qz, w: start.qw })
+			.setLinvel(start.vx, start.vy, 0)
+			.setAngvel({ x: 0, y: 0, z: start.spin })
+	);
+	const collider = world.createCollider(
+		RAPIER.ColliderDesc.ball(marble.radius)
+			.setDensity(GLASS_DENSITY)
+			.setRestitution(MARBLE_RESTITUTION)
+			.setFriction(MARBLE_FRICTION)
+			.setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS)
+			.setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS),
+		body
+	);
+	colliders.set(collider.handle, { kind: 'marble', track: marble.track });
+	marble.body = body;
+	marble.colliderHandle = collider.handle;
+	marble.entered = true;
+	const time = step / PHYSICS_HZ;
+	marble.last = { time, position: { x: start.x, y: start.y }, angle: 2 * Math.atan2(start.qz, start.qw), velocity: { x: start.vx, y: start.vy } };
+	marble.before = null;
+	void walk;
+	void origin;
+}
+
+/** Places an event's piece where its marble is, and returns its index on the wall, -1 when none enters */
+function placeInWorld(walk: TWalk, ref: TEventRef, marble: TLiveMarble, step: number, origin: TVec2, record: THopRecord): number {
+	const { event } = ref;
+	const { plan } = walk;
+	const last = marble.last;
+	const held = heldBy(walk, event);
+	const placed: THopPlaced = { eventIndex: ref.index, x: 0, y: 0, vx: 0, vy: 0, sampleCount: marble.result.samples.length, isBlocked: false };
+	if (held != null) {
+		marble.result.placed.push(placed);
+		const input = eventLayoutInput(event, marble.radius);
+		const { dot, velocity } = held;
+		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
+		placeOnWall(walk, event, layout, marble.result.index, zeroOrigin(), layout.shapes);
+		return walk.onWall.get(event.pieceId) ?? -1;
+	}
+	if (last == null || marble.result.status !== 'live' || event.step !== step) return -1;
+	const { position, velocity } = ballistic(last.position, last.velocity, Math.max(0, event.time - last.time), plan.gravity);
+	placed.x = position.x;
+	placed.y = position.y;
+	placed.vx = velocity.x;
+	placed.vy = velocity.y;
+	const input = eventLayoutInput(event, marble.radius);
+	const frame = event.offset != null ? layoutFree(input, { x: position.x + event.offset.x, y: position.y + event.offset.y }) : layoutAtMarble(input, position, velocity);
+	const wall = isZero(origin) ? frame : wallLayout(event, marble.radius, placed, origin);
+	placed.isBlocked = isLayoutBlocked(walk, wall, event.time, record, marble.result, marble.result.samples.length, origin);
+	marble.result.placed.push(placed);
+	const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, wall, event.hitTime, placed.isBlocked ? 'blocked' : 'placed', event.railLayout);
+	if (event.isAnchor) resolved.entryTime = event.time;
+	walk.placements.set(event.pieceId, { piece: resolved, dot: { x: position.x + origin.x, y: position.y + origin.y }, velocity, marbleIndex: marble.result.index, step });
+	if (placed.isBlocked) return -1;
+	placeOnWall(walk, event, wall, marble.result.index, origin, frame.shapes);
+	if (event.leaves != null) marble.leaving = { step: step + LEAVE_STEPS, velocity: event.leaves.velocity, spin: event.leaves.spin };
+	if (event.ride != null && Math.hypot(last.velocity.x - event.ride.entry.x, last.velocity.y - event.ride.entry.y) <= rideTolerance(plan.gravity / gravityOf({}))) {
+		marble.ride = { pieceId: event.pieceId, stored: event.ride, startStep: step, origin: last.position, angle: last.angle };
+	}
+	return walk.onWall.get(event.pieceId) ?? -1;
 }
 
 /** Puts every marble on a ride where its ride says, after the step moved it; the last frame hands it back to physics */
-function followRides(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
-	for (let i = 0; i < state.rides.length; i++) {
-		const leaving = state.leaving[i];
-		if (leaving != null && state.step >= leaving.step) {
-			state.leaving[i] = null;
-			const body = state.marbles[i]?.status === 'live' ? worlds[i]?.getRigidBody(state.marbles[i]?.bodyHandle ?? -1) : null;
-			const velocity = body?.linvel();
-			const isClose = velocity != null && Math.hypot(velocity.x - leaving.velocity.x, velocity.y - leaving.velocity.y) <= rideTolerance(plan.gravity / gravityOf({}));
-			if (body != null && isClose) {
+function followRides(plan: TPlan, live: TLiveMarble[], step: number): void {
+	for (const marble of live) {
+		const { body } = marble;
+		if (body == null || marble.result.status !== 'live') continue;
+		const { leaving } = marble;
+		if (leaving != null && step >= leaving.step) {
+			marble.leaving = null;
+			const velocity = body.linvel();
+			if (Math.hypot(velocity.x - leaving.velocity.x, velocity.y - leaving.velocity.y) <= rideTolerance(plan.gravity / gravityOf({}))) {
 				body.setLinvel({ x: leaving.velocity.x, y: leaving.velocity.y, z: 0 }, false);
 				body.setAngvel({ x: 0, y: 0, z: leaving.spin }, false);
 			}
 		}
-		const ride = state.rides[i];
-		const run = state.marbles[i];
-		if (ride == null || run == null || run.status !== 'live') continue;
-		const body = worlds[i]?.getRigidBody(run.bodyHandle);
-		if (body == null) continue;
-		const index = state.step - ride.startStep - 1;
+		const { ride } = marble;
+		if (ride == null) continue;
+		const index = step - ride.startStep - 1;
 		const last = rideLength(ride.stored) - 1;
 		if (index >= last) {
 			const { exit } = ride.stored;
@@ -666,7 +1191,7 @@ function followRides(worlds: RAPIER.World[], plan: TPlan, state: TRunState): voi
 			body.setRotation(zRotation(ride.angle + exit.angle), false);
 			body.setLinvel({ x: exit.velocity.x, y: exit.velocity.y, z: 0 }, false);
 			body.setAngvel({ x: 0, y: 0, z: exit.spin }, false);
-			state.rides[i] = null;
+			marble.ride = null;
 			continue;
 		}
 		const frame = rideFrame(ride.stored, index);
@@ -679,161 +1204,48 @@ function followRides(worlds: RAPIER.World[], plan: TPlan, state: TRunState): voi
 	}
 }
 
-function sampleMarbles(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
-	const time = state.step / PHYSICS_HZ;
-	for (let i = 0; i < state.marbles.length; i++) {
-		const run = state.marbles[i];
-		const marble = plan.marbles[i];
-		const world = worlds[i];
-		if (run == null || marble == null || world == null || run.status !== 'live') continue;
-		const body = world.getRigidBody(run.bodyHandle);
+function sampleMarbles(walk: TWalk, world: RAPIER.World, colliders: Map<number, TColliderInfo>, live: TLiveMarble[], step: number, record: THopRecord, fallY: number, origin: TVec2): void {
+	const time = step / PHYSICS_HZ;
+	void walk;
+	for (const marble of live) {
+		const { body } = marble;
+		if (body == null || marble.result.status !== 'live') continue;
 		const translation = body.translation();
-		const lowest = Math.min(marble.release.y, state.lowestPieceY, plan.staticLowY);
-		if (translation.y < lowest - FALL_LIMIT) {
-			for (let c = 0; c < body.numColliders(); c++) state.colliders[i]?.delete(body.collider(c).handle);
+		if (translation.y + origin.y < fallY) {
+			for (let c = 0; c < body.numColliders(); c++) colliders.delete(body.collider(c).handle);
 			world.removeRigidBody(body);
-			run.status = 'ended';
-			// Its copies leave the other worlds with it
-			for (let k = 0; k < worlds.length; k++) removeProxy(worlds, state, k, i);
+			marble.body = null;
+			marble.result.status = 'ended';
 			continue;
 		}
 		const rotation = body.rotation();
 		const linvel = body.linvel();
-		run.samples.push({
+		const sample: TMarbleSample = {
 			time,
 			position: { x: translation.x, y: translation.y },
 			angle: 2 * Math.atan2(rotation.z, rotation.w),
 			velocity: { x: linvel.x, y: linvel.y }
-		});
+		};
+		marble.result.samples.push(sample);
+		marble.before = marble.last;
+		marble.last = sample;
+		const { bounds } = record;
+		if (translation.x < bounds.minX) bounds.minX = translation.x;
+		if (translation.x > bounds.maxX) bounds.maxX = translation.x;
+		if (translation.y < bounds.minY) bounds.minY = translation.y;
+		if (translation.y > bounds.maxY) bounds.maxY = translation.y;
 	}
 }
 
-function sampleRotors(worlds: RAPIER.World[], state: TRunState): void {
-	const time = state.step / PHYSICS_HZ;
-	for (const rotor of state.rotors) {
-		const previous = rotor.motion[rotor.motion.length - 1]?.angle ?? 0;
-		const lead = rotor.bodyHandles.findIndex((handle) => handle >= 0);
-		let angle: number;
-		if (lead >= 0) {
-			const body = worlds[lead]?.getRigidBody(rotor.bodyHandles[lead] ?? -1);
-			if (body == null) continue;
-			const rotation = body.rotation();
-			const raw = 2 * Math.atan2(rotation.z, rotation.w);
-			angle = previous + wrapAngle(raw - previous);
-			rotor.spin = body.angvel().z;
-		} else {
-			// Parked everywhere: a motor keeps its speed, a free hub slows down as Rapier damps it
-			rotor.spin = rotor.motorSpeed !== 0 ? rotor.motorSpeed : rotor.spin / (1 + DT * rotor.damping);
-			angle = previous + rotor.spin * DT;
-		}
-		rotor.motion.push({ time, angle });
-	}
+function frameShape(shape: TPieceShape, delta: TVec2): TPieceShape {
+	return delta.x === 0 && delta.y === 0 ? shape : transformShape(shape, delta, 0);
 }
 
-/**
- * Before each step, windmill copies take the pose of the copy that drives them, and proxies take the state
- * of the marble they stand for, so every world sees the same windmills and marbles.
- */
-function followCopies(worlds: RAPIER.World[], state: TRunState): void {
-	for (const rotor of state.rotors) {
-		const lead = rotor.bodyHandles.findIndex((handle) => handle >= 0);
-		if (lead < 0) continue;
-		const angle = rotor.motion[rotor.motion.length - 1]?.angle ?? 0;
-		for (let k = lead + 1; k < worlds.length; k++) {
-			const handle = rotor.bodyHandles[k] ?? -1;
-			if (handle < 0) continue;
-			const body = worlds[k]?.getRigidBody(handle);
-			body?.setRotation(zRotation(angle), false);
-			body?.setAngvel({ x: 0, y: 0, z: rotor.spin }, false);
-		}
-	}
-	for (let k = 0; k < worlds.length; k++) {
-		for (let j = 0; j < worlds.length; j++) {
-			const handle = state.proxies[k]?.[j] ?? -1;
-			if (handle < 0) continue;
-			const source = worlds[j]?.getRigidBody(state.marbles[j]?.bodyHandle ?? -1);
-			const proxy = worlds[k]?.getRigidBody(handle);
-			if (source == null || proxy == null) continue;
-			copyBodyState(source, proxy);
-		}
-	}
-}
-
-function copyBodyState(source: RAPIER.RigidBody, target: RAPIER.RigidBody): void {
-	target.setTranslation(source.translation(), false);
-	target.setRotation(source.rotation(), false);
-	target.setLinvel(source.linvel(), false);
-	target.setAngvel(source.angvel(), false);
-}
-
-function insertPiece(
-	state: TRunState,
-	pieceId: string,
-	definition: TPieceDefinition,
-	params: Record<string, number>,
-	layout: TPieceLayout,
-	isPlaced = true
-): number {
-	let bounds = shapesBounds(layout.shapes);
-	let rotorIndex = -1;
-	if (layout.rotor != null) {
-		rotorIndex = state.rotors.length;
-		bounds = sweptDisc(layout.rotor);
-		// Adding zero turns the -0 of step 0 into 0
-		const time = state.step / PHYSICS_HZ + 0;
-		state.rotors.push({
-			pieceId,
-			bodyHandles: state.marbles.map(() => -1),
-			hub: layout.rotor.hub,
-			motorSpeed: layout.rotor.motorSpeed,
-			damping: layout.rotor.damping,
-			spin: layout.rotor.motorSpeed,
-			bounds,
-			motion: [{ time, angle: layout.rotor.angle }]
-		});
-	}
-	state.pieces.push({
-		pieceId,
-		definition,
-		params,
-		shapes: layout.shapes,
-		bounds,
-		rotorIndex,
-		rotor: layout.rotor,
-		key: ''
-	});
-	state.pieceHandles.push(state.marbles.map(() => []));
-	// Static pieces count through `TPlan.staticLowY`
-	if (isPlaced) state.lowestPieceY = Math.min(state.lowestPieceY, lowPointOf(layout));
-	return state.pieces.length - 1;
-}
-
-/** Bounds of the disc a windmill's blades sweep around its hub */
-function sweptDisc(rotor: TRotorLayout): TBounds2 {
-	const local = shapesBounds(rotor.localShapes);
-	const reach = Math.max(
-		Math.hypot(local.minX, local.minY),
-		Math.hypot(local.maxX, local.maxY),
-		Math.hypot(local.minX, local.maxY),
-		Math.hypot(local.maxX, local.minY)
-	);
-	return {
-		minX: rotor.hub.x - reach,
-		minY: rotor.hub.y - reach,
-		maxX: rotor.hub.x + reach,
-		maxY: rotor.hub.y + reach
-	};
-}
-
-function addPieceColliders(
-	world: RAPIER.World,
-	colliders: Map<number, TColliderInfo>,
-	piece: TPieceRecord
-): number[] {
+function addPieceColliders(world: RAPIER.World, colliders: Map<number, TColliderInfo>, piece: TWorldPiece, origin: TVec2): void {
 	const { definition, params } = piece;
-	const handles: number[] = [];
-	for (const shapes of colliderGroups(piece.shapes)) {
-		const desc = staticColliderDesc(shapes, definition);
+	const shapes = piece.frame != null && piece.frame.origin.x === origin.x && piece.frame.origin.y === origin.y ? piece.frame.shapes : piece.shapes.map((shape) => frameShape(shape, { x: -origin.x, y: -origin.y }));
+	for (const group of colliderGroups(shapes)) {
+		const desc = staticColliderDesc(group, definition);
 		if (desc == null) continue;
 		const collider = world.createCollider(
 			desc
@@ -843,15 +1255,8 @@ function addPieceColliders(
 				.setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min)
 				.setCollisionGroups(STATIC_GROUPS)
 		);
-		colliders.set(collider.handle, {
-			kind: 'piece',
-			pieceId: piece.pieceId,
-			shapes,
-			rotorIndex: -1
-		});
-		handles.push(collider.handle);
+		colliders.set(collider.handle, { kind: 'piece', pieceId: piece.pieceId, shapes: group, rotor: null });
 	}
-	return handles;
 }
 
 /** A piece's shapes by the collider each becomes: a wire's joined capsules together, anything else alone */
@@ -886,11 +1291,7 @@ function staticColliderDesc(shapes: TPieceShape[], definition: TPieceDefinition)
 			return RAPIER.ColliderDesc.trimesh(vertices, indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES);
 		}
 		case 'ball':
-			return RAPIER.ColliderDesc.ball(shape.radius).setTranslation(
-				shape.center.x,
-				shape.center.y,
-				MARBLE_Z
-			);
+			return RAPIER.ColliderDesc.ball(shape.radius).setTranslation(shape.center.x, shape.center.y, MARBLE_Z);
 	}
 }
 
@@ -944,18 +1345,13 @@ function wireSurface(points: TVec2[], radius: number): { vertices: Float32Array;
 /**
  * A windmill is a body that may only turn around the wall normal through its hub. Without a motor it is
  * dynamic with angular damping; with a motor it is kinematic at a fixed angular velocity, so strikes
- * never slow it down. It enters a world at the windmill's current angle and spin.
+ * never slow it down. It enters a world at its angle and spin there.
  */
-function addRotorBody(
-	world: RAPIER.World,
-	colliders: Map<number, TColliderInfo>,
-	piece: TPieceRecord,
-	run: TRotorRun
-): { body: number; handles: number[] } | null {
-	const rotor = piece.rotor;
-	if (rotor == null) return null;
-	const angle = run.motion[run.motion.length - 1]?.angle ?? rotor.angle;
+function addRotorBody(world: RAPIER.World, colliders: Map<number, TColliderInfo>, piece: TWorldPiece, run: TRotorRun, step: number, origin: TVec2): TLiveRotor {
+	const rotor = piece.rotor as TRotorLayout;
+	const state = rotorStateAt(run, step);
 	const hasMotor = rotor.motorSpeed !== 0;
+	const hub = { x: rotor.hub.x - origin.x, y: rotor.hub.y - origin.y };
 	const bodyDesc = (
 		hasMotor
 			? RAPIER.RigidBodyDesc.kinematicVelocityBased().setAngvel({ x: 0, y: 0, z: rotor.motorSpeed })
@@ -963,13 +1359,14 @@ function addRotorBody(
 					.enabledTranslations(false, false, false)
 					.enabledRotations(false, false, true)
 					.setAngularDamping(rotor.damping)
-					.setAngvel({ x: 0, y: 0, z: run.spin })
+					.setAngvel({ x: 0, y: 0, z: state.spin })
 	)
-		.setTranslation(rotor.hub.x, rotor.hub.y, MARBLE_Z)
-		.setRotation(zRotation(angle))
+		.setTranslation(hub.x, hub.y, MARBLE_Z)
+		.setRotation({ x: 0, y: 0, z: state.qz, w: state.qw })
 		.setCanSleep(false);
 	const body = world.createRigidBody(bodyDesc);
-	const handles: number[] = [];
+	const angle = 2 * Math.atan2(state.qz, state.qw);
+	const live: TLiveRotor = { run, from: step, body, hub, angles: [], spins: [], struck: false, previous: angle, last: angle };
 	for (const shape of rotor.localShapes) {
 		let desc: RAPIER.ColliderDesc;
 		if (shape.kind === 'box') {
@@ -978,11 +1375,7 @@ function addRotorBody(
 				.setTranslation(box.cx, box.cy, piece.definition.wallOffset + COLLIDER_DEPTH / 2 - MARBLE_Z)
 				.setRotation(zRotation(box.angle));
 		} else if (shape.kind === 'ball') {
-			desc = RAPIER.ColliderDesc.ball(shape.radius).setTranslation(
-				shape.center.x,
-				shape.center.y,
-				0
-			);
+			desc = RAPIER.ColliderDesc.ball(shape.radius).setTranslation(shape.center.x, shape.center.y, 0);
 		} else continue;
 		const collider = world.createCollider(
 			desc
@@ -994,138 +1387,20 @@ function addRotorBody(
 				.setCollisionGroups(ROTOR_GROUPS),
 			body
 		);
-		colliders.set(collider.handle, {
-			kind: 'piece',
-			pieceId: piece.pieceId,
-			shapes: [shape],
-			rotorIndex: piece.rotorIndex
-		});
-		handles.push(collider.handle);
+		colliders.set(collider.handle, { kind: 'piece', pieceId: piece.pieceId, shapes: [shape], rotor: live });
 	}
-	return { body: body.handle, handles };
+	return live;
 }
 
 function zRotation(angle: number): RAPIER.Rotation {
 	return { x: 0, y: 0, z: Math.sin(angle / 2), w: Math.cos(angle / 2) };
 }
 
-interface TReach {
-	x: number;
-	y: number;
-	reach: number;
-}
-
-/**
- * How far each live marble could get before the next check, null for marbles not live. The speed bound is
- * twice the marble's own speed plus `SPEED_SLACK`; a collision with another marble can add that marble's
- * speed and a blade strike twice the tip speed, so those count when they are near. A far marble never
- * widens another's reach.
- */
-function marbleReaches(plan: TPlan, state: TRunState): (TReach | null)[] {
-	const horizon = (PARKING_INTERVAL + 1) * DT;
-	const reachAt = (speed: number, radius: number): number =>
-		speed * horizon - 0.5 * plan.gravity * horizon * horizon + radius + PARKING_MARGIN;
-	const own = state.marbles.map((run, i) => {
-		const sample = run.samples[run.samples.length - 1];
-		const marble = plan.marbles[i];
-		if (run.status !== 'live' || sample == null || marble == null) return null;
-		const speed = Math.hypot(sample.velocity.x, sample.velocity.y);
-		const reach = reachAt(2 * speed + SPEED_SLACK, marble.radius);
-		return { x: sample.position.x, y: sample.position.y, reach, speed, radius: marble.radius };
-	});
-	return own.map((marble, k) => {
-		if (marble == null) return null;
-		let fastest = marble.speed;
-		for (let j = 0; j < own.length; j++) {
-			const other = own[j];
-			if (j === k || other == null) continue;
-			const span = marble.reach + other.reach;
-			if (Math.abs(other.x - marble.x) <= span && Math.abs(other.y - marble.y) <= span)
-				fastest = Math.max(fastest, other.speed);
-		}
-		let tip = 0;
-		for (const rotor of state.rotors) {
-			if (isWithin(marble, rotor.bounds)) tip = Math.max(tip, Math.abs(rotor.spin) * rotorRadius(rotor));
-		}
-		const reach = reachAt(2 * fastest + SPEED_SLACK + 2 * tip, marble.radius);
-		return { x: marble.x, y: marble.y, reach };
-	});
-}
-
-function rotorRadius(rotor: TRotorRun): number {
-	return (rotor.bounds.maxX - rotor.bounds.minX) / 2;
-}
-
-function isWithin(marble: TReach | null, bounds: TBounds2): boolean {
-	return (
-		marble != null &&
-		marble.x >= bounds.minX - marble.reach &&
-		marble.x <= bounds.maxX + marble.reach &&
-		marble.y >= bounds.minY - marble.reach &&
-		marble.y <= bounds.maxY + marble.reach
-	);
-}
-
-/**
- * Keeps in each marble's world only the pieces that marble could reach before the next check.
- * With `only`, updates that piece alone, right after it is placed.
- */
-function parkPieces(worlds: RAPIER.World[], plan: TPlan, state: TRunState, only?: number): void {
-	const reaches = marbleReaches(plan, state);
-	const index = pieceIndex(state);
-	for (let k = 0; k < worlds.length; k++) {
-		const world = worlds[k];
-		const colliders = state.colliders[k];
-		const present = index.present[k];
-		if (world == null || colliders == null || present == null) continue;
-		const reach = reaches[k] ?? null;
-		// Pieces in the grid cells the reach covers plus those in the world, in insertion order as a full
-		// pass over every piece would update them
-		let candidates: number[];
-		if (only != null) candidates = [only];
-		else {
-			const found = new Set(present);
-			if (reach != null) index.grid.query(reach.x, reach.y, reach.reach, found);
-			candidates = [...found].sort((a, b) => a - b);
-		}
-		for (const i of candidates) {
-			const piece = state.pieces[i];
-			const handles = state.pieceHandles[i];
-			if (piece == null || handles == null) continue;
-			const isNear = isWithin(reach, piece.bounds);
-			const rotor = state.rotors[piece.rotorIndex];
-			if (rotor != null) {
-				const body = rotor.bodyHandles[k] ?? -1;
-				if (isNear && body < 0) {
-					const added = addRotorBody(world, colliders, piece, rotor);
-					if (added != null) {
-						rotor.bodyHandles[k] = added.body;
-						handles[k] = added.handles;
-						present.add(i);
-					}
-				} else if (!isNear && body >= 0) {
-					world.removeRigidBody(world.getRigidBody(body));
-					for (const handle of handles[k] ?? []) colliders.delete(handle);
-					rotor.bodyHandles[k] = -1;
-					handles[k] = [];
-					present.delete(i);
-				}
-				continue;
-			}
-			const current = handles[k] ?? [];
-			if (isNear && !current.length) {
-				handles[k] = addPieceColliders(world, colliders, piece);
-				if (handles[k]?.length) present.add(i);
-			} else if (!isNear && current.length > 0) {
-				for (const handle of current) {
-					world.removeCollider(world.getCollider(handle), false);
-					colliders.delete(handle);
-				}
-				handles[k] = [];
-				present.delete(i);
-			}
-		}
-	}
+/** Bounds of the disc a windmill's blades sweep around its hub */
+function sweptDisc(rotor: TRotorLayout): TBounds2 {
+	const local = shapesBounds(rotor.localShapes);
+	const reach = Math.max(Math.hypot(local.minX, local.minY), Math.hypot(local.maxX, local.maxY), Math.hypot(local.minX, local.maxY), Math.hypot(local.maxX, local.minY));
+	return { minX: rotor.hub.x - reach, minY: rotor.hub.y - reach, maxX: rotor.hub.x + reach, maxY: rotor.hub.y + reach };
 }
 
 const GRID_CELL = 0.5;
@@ -1164,361 +1439,102 @@ function cellKey(cx: number, cy: number): number {
 	return (cx + 1e6) * 2e6 + (cy + 1e6);
 }
 
-interface TPieceIndex {
-	/** Pieces covered so far, so placed pieces are added as they come */
-	count: number;
-	grid: PieceGrid;
-	/** Per world, the pieces with colliders in it */
-	present: Set<number>[];
-}
-
-const pieceIndexes = new WeakMap<TRunState, TPieceIndex>();
-
-/** Grid and per world presence of the run's pieces, derived from the state and never snapshotted */
-function pieceIndex(state: TRunState): TPieceIndex {
-	let index = pieceIndexes.get(state);
-	if (index == null) {
-		index = {
-			count: 0,
-			grid: new PieceGrid(),
-			present: state.marbles.map((_, k) => {
-				const present = new Set<number>();
-				state.pieceHandles.forEach((handles, i) => {
-					const body = state.rotors[state.pieces[i]?.rotorIndex ?? -1]?.bodyHandles[k] ?? -1;
-					if ((handles[k]?.length ?? 0) > 0 || body >= 0) present.add(i);
-				});
-				return present;
-			})
-		};
-		pieceIndexes.set(state, index);
-	}
-	for (; index.count < state.pieces.length; index.count++) {
-		const piece = state.pieces[index.count];
-		if (piece != null) index.grid.add(index.count, piece.bounds);
-	}
-	return index;
-}
-
 /**
- * Another marble enters a marble's world as a proxy only while the two could touch within the next two
- * steps. Checked every step with the marbles' own speeds, so neighboring marbles, which pass within a
- * parking reach of each other all the time, stay apart.
+ * True when any earlier sample of any marble overlaps the piece, in wall coordinates: every marble's finished hops, and the
+ * `count` first samples of the hop now running. A motor windmill is checked against its blades where they were at each
+ * sample's time, since it turns before its hit.
  */
-function updateProxies(worlds: RAPIER.World[], plan: TPlan, state: TRunState): void {
-	const span = 2 * DT;
-	for (let k = 0; k < worlds.length; k++) {
-		for (let j = 0; j < worlds.length; j++) {
-			if (j === k) continue;
-			const a = state.marbles[k];
-			const b = state.marbles[j];
-			const sampleA = a?.samples[a.samples.length - 1];
-			const sampleB = b?.samples[b.samples.length - 1];
-			let isNear = false;
-			if (a?.status === 'live' && b?.status === 'live' && sampleA != null && sampleB != null) {
-				const gap =
-					Math.hypot(
-						sampleA.position.x - sampleB.position.x,
-						sampleA.position.y - sampleB.position.y
-					) -
-					(plan.marbles[k]?.radius ?? 0) -
-					(plan.marbles[j]?.radius ?? 0);
-				const closing =
-					Math.hypot(sampleA.velocity.x, sampleA.velocity.y) +
-					Math.hypot(sampleB.velocity.x, sampleB.velocity.y) +
-					1;
-				isNear = gap <= closing * span + PARKING_MARGIN;
-			}
-			const handle = state.proxies[k]?.[j] ?? -1;
-			if (isNear && handle < 0) addProxy(worlds, plan, state, k, j);
-			else if (!isNear && handle >= 0) removeProxy(worlds, state, k, j);
-		}
-	}
-}
-
-/**
- * A proxy is a dynamic copy of marble `j` in marble `k`'s world. It takes `j`'s state before every step, so
- * the contact between the two is solved in both worlds as between two marbles, and each world keeps only
- * its own marble's response.
- */
-function addProxy(
-	worlds: RAPIER.World[],
-	plan: TPlan,
-	state: TRunState,
-	k: number,
-	j: number
-): void {
-	const world = worlds[k];
-	const source = worlds[j]?.getRigidBody(state.marbles[j]?.bodyHandle ?? -1);
-	const marble = plan.marbles[j];
-	const proxies = state.proxies[k];
-	if (world == null || source == null || marble == null || proxies == null) return;
-	const body = world.createRigidBody(marbleBodyDesc());
-	copyBodyState(source, body);
-	const collider = world.createCollider(
-		marbleColliderDesc(marble.radius).setCollisionGroups(PROXY_GROUPS),
-		body
-	);
-	state.colliders[k]?.set(collider.handle, { kind: 'proxy', marbleIndex: j });
-	proxies[j] = body.handle;
-}
-
-function removeProxy(worlds: RAPIER.World[], state: TRunState, k: number, j: number): void {
-	const world = worlds[k];
-	const proxies = state.proxies[k];
-	const handle = proxies?.[j] ?? -1;
-	if (world == null || proxies == null || handle < 0) return;
-	const body = world.getRigidBody(handle);
-	for (let c = 0; c < body.numColliders(); c++) state.colliders[k]?.delete(body.collider(c).handle);
-	world.removeRigidBody(body);
-	proxies[j] = -1;
-	if (k < j) state.meeting.delete(`${k}|${j}`);
-}
-
-// Placement by construction: the piece appears at its hit time with its contact face touching the marble
-
-function processEvent(
-	worlds: RAPIER.World[],
-	plan: TPlan,
-	state: TRunState,
-	event: TPlanEvent
-): void {
-	const marble = plan.marbles[event.marbleIndex];
-	const run = state.marbles[event.marbleIndex];
-	const last = run?.samples[run.samples.length - 1];
-	const unreached: TPlacement = {
-		piece: {
-			pieceId: event.pieceId,
-			type: event.definition.type,
-			...(event.railLayout != null ? { layout: event.railLayout } : {}),
-			position: marble?.release ?? { x: 0, y: 0 },
-			angle: event.angle,
-			params: event.params,
-			contactPoint: null,
-			contactNormal: null,
-			hitTime: event.hitTime,
-			status: 'unreached'
-		},
-		dot: null,
-		velocity: null
-	};
-	if (event.isAnchor) unreached.piece.entryTime = event.time;
-	if (event.held != null && marble != null) {
-		const input = { type: event.definition.type, params: event.params, path: event.path, extraPaths: event.extraPaths, layout: event.railLayout, angle: event.angle, contactAt: event.contactAt, marbleRadius: marble.radius };
-		const { dot, velocity } = event.held;
-		const layout = event.offset != null ? layoutFree(input, { x: dot.x + event.offset.x, y: dot.y + event.offset.y }) : layoutAtMarble(input, dot, velocity);
-		const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, 'held', event.railLayout);
-		if (unreached.piece.entryTime != null) resolved.entryTime = unreached.piece.entryTime;
-		state.placements.set(event.pieceId, { piece: resolved, dot, velocity });
-		const held = insertPiece(state, event.pieceId, event.definition, event.params, layout);
-		parkPieces(worlds, plan, state, held);
-		return;
-	}
-	if (
-		marble == null ||
-		run == null ||
-		last == null ||
-		run.status !== 'live' ||
-		event.step !== state.step
-	) {
-		state.placements.set(event.pieceId, unreached);
-		return;
-	}
-
-	const { position, velocity } = ballistic(
-		last.position,
-		last.velocity,
-		Math.max(0, event.time - last.time),
-		plan.gravity
-	);
-	const input: TLayoutInput = {
-		type: event.definition.type,
-		params: event.params,
-		path: event.path,
-		extraPaths: event.extraPaths,
-		layout: event.railLayout,
-		angle: event.angle,
-		contactAt: event.contactAt,
-		marbleRadius: marble.radius
-	};
-	// An anchor with an offset keeps its pose relative to the marble; others touch the marble
-	const layout =
-		event.offset != null
-			? layoutFree(input, { x: position.x + event.offset.x, y: position.y + event.offset.y })
-			: layoutAtMarble(input, position, velocity);
-	const isBlocked = isLayoutBlocked(plan, state, layout, event.time);
-	const resolved = resolvedFromLayout(
-		event.pieceId,
-		event.definition.type,
-		event.params,
-		layout,
-		event.hitTime,
-		isBlocked ? 'blocked' : 'placed',
-		event.railLayout
-	);
-	if (unreached.piece.entryTime != null) resolved.entryTime = unreached.piece.entryTime;
-	state.placements.set(event.pieceId, { piece: resolved, dot: position, velocity });
-	if (isBlocked) return;
-	const index = insertPiece(state, event.pieceId, event.definition, event.params, layout);
-	// It touches its marble, so it enters that marble's world at once
-	parkPieces(worlds, plan, state, index);
-	if (event.leaves != null) state.leaving[event.marbleIndex] = { pieceId: event.pieceId, step: state.step + LEAVE_STEPS, velocity: event.leaves.velocity, spin: event.leaves.spin };
-	if (event.ride != null && Math.hypot(last.velocity.x - event.ride.entry.x, last.velocity.y - event.ride.entry.y) <= rideTolerance(plan.gravity / gravityOf({}))) {
-		state.rides[event.marbleIndex] = { pieceId: event.pieceId, stored: event.ride, startStep: state.step, origin: last.position, angle: last.angle };
-	}
-}
-
-const CHUNK = 64;
-
-/**
- * True when any earlier sample of any marble overlaps the piece. A motor windmill is checked against its
- * blades where they were at each sample's time, since it turns before its hit.
- */
-function isLayoutBlocked(
-	plan: TPlan,
-	state: TRunState,
-	layout: TPieceLayout,
-	time: number
-): boolean {
+function isLayoutBlocked(walk: TWalk, layout: TPieceLayout, time: number, record: THopRecord, current: THopMarble, count: number, origin: TVec2): boolean {
 	const rotor = layout.rotor;
 	const hasMotor = rotor != null && rotor.motorSpeed !== 0;
 	const bounds = hasMotor ? sweptDisc(rotor) : shapesBounds(layout.shapes);
-	const distance = (sample: TMarbleSample): number => {
+	const distance = (x: number, y: number, sampleTime: number): number => {
 		if (!hasMotor) {
 			let d = Infinity;
-			for (const shape of layout.shapes)
-				d = Math.min(d, shapeDistance(shape, sample.position.x, sample.position.y));
+			for (const shape of layout.shapes) d = Math.min(d, shapeDistance(shape, x, y));
 			return d;
 		}
 		// Moves the sample into the rotor frame at its time instead of turning every blade
-		const angle = rotor.angle + rotor.motorSpeed * (sample.time - time);
+		const angle = rotor.angle + rotor.motorSpeed * (sampleTime - time);
 		const cos = Math.cos(-angle);
 		const sin = Math.sin(-angle);
-		const dx = sample.position.x - rotor.hub.x;
-		const dy = sample.position.y - rotor.hub.y;
-		const x = dx * cos - dy * sin;
-		const y = dx * sin + dy * cos;
+		const dx = x - rotor.hub.x;
+		const dy = y - rotor.hub.y;
 		let d = Infinity;
-		for (const shape of rotor.localShapes) d = Math.min(d, shapeDistance(shape, x, y));
+		for (const shape of rotor.localShapes) d = Math.min(d, shapeDistance(shape, dx * cos - dy * sin, dx * sin + dy * cos));
 		return d;
 	};
-	for (let m = 0; m < state.marbles.length; m++) {
-		const run = state.marbles[m];
-		const marble = plan.marbles[m];
-		const chunkBounds = state.chunkBounds[m];
-		if (run == null || marble == null || chunkBounds == null) continue;
+	const touches = (samples: TMarbleSample[], total: number, at: TVec2, reach: number): boolean => {
+		for (let i = 0; i < total; i++) {
+			const sample = samples[i];
+			if (sample != null && distance(sample.position.x + at.x, sample.position.y + at.y, sample.time) < reach) return true;
+		}
+		return false;
+	};
+	for (const walker of walk.marbles) {
+		const marble = walk.plan.marbles[walker.index];
+		if (marble == null) continue;
 		const reach = marble.radius - BLOCK_TOLERANCE;
 		const minX = bounds.minX - reach;
 		const maxX = bounds.maxX + reach;
 		const minY = bounds.minY - reach;
 		const maxY = bounds.maxY + reach;
-		const { samples } = run;
-		updateChunkBounds(samples, chunkBounds);
-		for (let start = 0; start < samples.length; start += CHUNK) {
-			const chunk = start / CHUNK;
-			if (chunk * 4 < chunkBounds.length) {
-				const isOutside =
-					(chunkBounds[chunk * 4 + 2] ?? 0) < minX ||
-					(chunkBounds[chunk * 4] ?? 0) > maxX ||
-					(chunkBounds[chunk * 4 + 3] ?? 0) < minY ||
-					(chunkBounds[chunk * 4 + 1] ?? 0) > maxY;
-				if (isOutside) continue;
-			}
-			const end = Math.min(samples.length, start + CHUNK);
-			for (let i = start; i < end; i++) {
-				const sample = samples[i];
-				if (sample != null && distance(sample) < reach) return true;
-			}
+		for (const hop of walker.hops) {
+			const box = hop.record.bounds;
+			if (box.maxX + hop.origin.x < minX || box.minX + hop.origin.x > maxX || box.maxY + hop.origin.y < minY || box.minY + hop.origin.y > maxY) continue;
+			const track = hop.record.marbles[hop.track];
+			if (track != null && touches(track.samples, track.samples.length, hop.origin, reach)) return true;
 		}
+		// The hop now running, as far as it came
+		const part = walker.index === current.index ? current : record.marbles.find((item) => item.index === walker.index);
+		if (part != null && touches(part.samples, part === current ? count : part.samples.length, origin, reach)) return true;
 	}
 	return false;
 }
 
-/** Appends min x, min y, max x, max y for every complete chunk not yet covered */
-function updateChunkBounds(samples: TMarbleSample[], bounds: number[]): void {
-	for (let chunk = bounds.length / 4; (chunk + 1) * CHUNK <= samples.length; chunk++) {
-		let minX = Infinity;
-		let minY = Infinity;
-		let maxX = -Infinity;
-		let maxY = -Infinity;
-		for (let i = chunk * CHUNK; i < (chunk + 1) * CHUNK; i++) {
-			const position = samples[i]?.position;
-			if (position == null) continue;
-			minX = Math.min(minX, position.x);
-			minY = Math.min(minY, position.y);
-			maxX = Math.max(maxX, position.x);
-			maxY = Math.max(maxY, position.y);
-		}
-		bounds.push(minX, minY, maxX, maxY);
-	}
-}
-
 // Contacts
 
-function recordContact(
-	plan: TPlan,
-	state: TRunState,
-	worldIndex: number,
-	handleA: number,
-	handleB: number,
-	started: boolean
-): void {
-	const colliders = state.colliders[worldIndex];
-	const a = colliders?.get(handleA);
-	const b = colliders?.get(handleB);
+function recordContact(plan: TPlan, live: TLiveMarble[], colliders: Map<number, TColliderInfo>, record: THopRecord, step: number, handleA: number, handleB: number, started: boolean, meeting: Set<string>): void {
+	const a = colliders.get(handleA);
+	const b = colliders.get(handleB);
 	if (a == null || b == null) return;
-	if (a.kind === 'proxy' || b.kind === 'proxy') {
-		// Both marbles' worlds see the contact; the world of the lower marble tracks it
-		if (a.kind === 'piece' || b.kind === 'piece') return;
-		const low = Math.min(a.marbleIndex, b.marbleIndex);
-		if (low !== worldIndex) return;
-		const key = `${low}|${Math.max(a.marbleIndex, b.marbleIndex)}`;
+	if (a.kind === 'marble' && b.kind === 'marble') {
+		const key = `${Math.min(a.track, b.track)}|${Math.max(a.track, b.track)}`;
 		if (started) {
-			state.meeting.set(key, [low, Math.max(a.marbleIndex, b.marbleIndex)]);
-			state.rides[low] = null;
-			state.rides[Math.max(a.marbleIndex, b.marbleIndex)] = null;
-		}
-		else state.meeting.delete(key);
+			meeting.add(key);
+			for (const track of [a.track, b.track]) {
+				const marble = live[track];
+				if (marble != null) marble.ride = null;
+			}
+		} else meeting.delete(key);
 		return;
 	}
-	const pair =
-		a.kind === 'marble' && b.kind === 'piece'
-			? { marbleIndex: a.marbleIndex, piece: b }
-			: a.kind === 'piece' && b.kind === 'marble'
-				? { marbleIndex: b.marbleIndex, piece: a }
-				: null;
-	if (pair == null) return;
+	const pair = a.kind === 'marble' && b.kind === 'piece' ? { track: a.track, piece: b } : a.kind === 'piece' && b.kind === 'marble' ? { track: b.track, piece: a } : null;
+	const marble = pair != null ? live[pair.track] : null;
+	if (pair == null || marble == null) return;
 	// A piece made of several colliders logs a contact only when the marble starts touching any of them
-	const key = `${pair.marbleIndex}|${pair.piece.pieceId}`;
-	const count = state.touching.get(key) ?? 0;
+	const key = pair.piece.pieceId;
+	const count = marble.touching.get(key) ?? 0;
 	if (!started) {
-		if (count <= 1) state.touching.delete(key);
-		else state.touching.set(key, count - 1);
+		if (count <= 1) marble.touching.delete(key);
+		else marble.touching.set(key, count - 1);
 		return;
 	}
-	state.touching.set(key, count + 1);
+	marble.touching.set(key, count + 1);
 	if (count > 0) return;
+	// A touch the hop before ended in goes on
+	if (marble.carried.delete(key)) return;
 	// Something else in the way ends a ride: from here physics decides what happens
-	const ride = state.rides[pair.marbleIndex];
-	if (ride != null && ride.pieceId !== pair.piece.pieceId && !ride.stored.touches.includes(pair.piece.pieceId)) state.rides[pair.marbleIndex] = null;
-	recordPieceContact(
-		plan,
-		state,
-		pair.marbleIndex,
-		pair.piece.pieceId,
-		worldShapes(state, pair.piece),
-		state.rotors[pair.piece.rotorIndex] ?? null
-	);
+	const { ride } = marble;
+	if (ride != null && ride.pieceId !== key && !ride.stored.touches.includes(key)) marble.ride = null;
+	recordPieceContact(plan, marble, key, pieceShapesNow(pair.piece), pair.piece.rotor, record, step);
 }
 
 /** World shapes of a piece collider; rotor parts use the pose at the start of the step */
-function worldShapes(
-	state: TRunState,
-	info: Extract<TColliderInfo, { kind: 'piece' }>
-): TPieceShape[] {
-	const rotor = state.rotors[info.rotorIndex];
+function pieceShapesNow(info: Extract<TColliderInfo, { kind: 'piece' }>): TPieceShape[] {
+	const { rotor } = info;
 	if (rotor == null) return info.shapes;
-	const angle = rotor.motion[rotor.motion.length - 2]?.angle ?? rotor.motion[0]?.angle ?? 0;
-	return info.shapes.map((shape) => transformShape(shape, rotor.hub, angle));
+	return info.shapes.map((shape) => transformShape(shape, rotor.hub, rotor.previous));
 }
 
 /** The shape nearest a point, and its distance */
@@ -1535,33 +1551,15 @@ function nearestShape(shapes: TPieceShape[], x: number, y: number): { shape: TPi
 	return { shape, distance };
 }
 
-/** The state at the start of the step that produced the event, or null if the marble has no such state */
-function preStepSample(run: TMarbleRun | undefined, step: number): TMarbleSample | null {
-	if (run == null) return null;
-	const sample = run.samples[run.samples.length - 2];
-	if (sample == null || Math.round(sample.time * PHYSICS_HZ) !== step - 1) return null;
-	return sample;
-}
-
 // Contact times are refined from the state at the start of the step along free flight. Rapier reports
 // contacts per step, sometimes early through predictive contacts, so the search covers three steps. The
 // approach speed uses the marble velocity at that time and, for windmill blades, the blade's own velocity.
-function recordPieceContact(
-	plan: TPlan,
-	state: TRunState,
-	marbleIndex: number,
-	pieceId: string,
-	shapes: TPieceShape[],
-	rotor: TRotorRun | null
-): void {
-	const marble = plan.marbles[marbleIndex];
-	const run = state.marbles[marbleIndex];
-	if (marble == null || run == null) return;
-	const stepTime = state.step / PHYSICS_HZ;
-	const pre = preStepSample(run, state.step);
-	const last = run.samples[run.samples.length - 1];
+function recordPieceContact(plan: TPlan, marble: TLiveMarble, pieceId: string, shapes: TPieceShape[], rotor: TLiveRotor | null, record: THopRecord, step: number): void {
+	const stepTime = step / PHYSICS_HZ;
+	const pre = marble.before;
+	const last = marble.last;
 	let time = stepTime;
-	let center = last?.position ?? marble.release;
+	let center = last?.position ?? { x: marble.start.x, y: marble.start.y };
 	let velocity = (pre ?? last)?.velocity ?? { x: 0, y: 0 };
 	if (pre != null) {
 		const gap = (tau: number): number => {
@@ -1578,23 +1576,11 @@ function recordPieceContact(
 	}
 	const near = nearestShape(shapes, center.x, center.y).shape;
 	const position = near != null ? shapeClosestPoint(near, center.x, center.y) : center;
-	state.contacts.push({
-		time,
-		marbleId: marble.marbleId,
-		otherId: pieceId,
-		kind: 'piece',
-		position,
-		speed: approachSpeed(center, velocity, position, rotor)
-	});
+	record.contacts.push({ time, marbleIndex: marble.result.index, otherId: pieceId, kind: 'piece', position, speed: approachSpeed(center, velocity, position, rotor) });
 }
 
 /** Speed of the marble toward the surface along the contact normal, relative to the surface */
-function approachSpeed(
-	center: TVec2,
-	velocity: TVec2,
-	point: TVec2,
-	rotor: TRotorRun | null
-): number {
+function approachSpeed(center: TVec2, velocity: TVec2, point: TVec2, rotor: TLiveRotor | null): number {
 	let nx = center.x - point.x;
 	let ny = center.y - point.y;
 	const length = Math.hypot(nx, ny);
@@ -1605,12 +1591,7 @@ function approachSpeed(
 	let vx = velocity.x;
 	let vy = velocity.y;
 	if (rotor != null) {
-		const motion = rotor.motion;
-		const spin =
-			motion.length >= 2
-				? ((motion[motion.length - 1]?.angle ?? 0) - (motion[motion.length - 2]?.angle ?? 0)) *
-					PHYSICS_HZ
-				: rotor.motorSpeed;
+		const spin = wrapAngle(rotor.last - rotor.previous) * PHYSICS_HZ;
 		vx += spin * (point.y - rotor.hub.y);
 		vy -= spin * (point.x - rotor.hub.x);
 	}
@@ -1618,25 +1599,22 @@ function approachSpeed(
 }
 
 /**
- * Logs a marble pair Rapier reported as meeting once they touch. Contacts against a proxy start while the
- * marbles are still several steps apart, so the pair waits until free flight from the state at the start
- * of the step meets within two steps, since Rapier's speculative contact stops the marbles just short of
- * touching, or until they are within `MARBLE_SLOP` after it.
+ * Logs a marble pair Rapier reported as meeting once they touch. Contacts start while the marbles are still several steps
+ * apart, so the pair waits until free flight from the state at the start of the step meets within two steps, since Rapier's
+ * speculative contact stops the marbles just short of touching, or until they are within `MARBLE_SLOP` after it.
  */
-function recordMarbleContact(plan: TPlan, state: TRunState, key: string): void {
-	const [indexA, indexB] = state.meeting.get(key) ?? [-1, -1];
-	const marbleA = plan.marbles[indexA];
-	const marbleB = plan.marbles[indexB];
-	const runA = state.marbles[indexA];
-	const runB = state.marbles[indexB];
-	if (marbleA == null || marbleB == null || runA == null || runB == null) return;
+function recordMarbleContact(plan: TPlan, live: TLiveMarble[], meeting: Set<string>, record: THopRecord, step: number, key: string): void {
+	const [trackA, trackB] = key.split('|').map(Number);
+	const marbleA = live[trackA ?? -1];
+	const marbleB = live[trackB ?? -1];
+	if (marbleA == null || marbleB == null) return;
 	const reach = marbleA.radius + marbleB.radius;
-	let time = state.step / PHYSICS_HZ;
-	let a = runA.samples[runA.samples.length - 1]?.position ?? marbleA.release;
-	let b = runB.samples[runB.samples.length - 1]?.position ?? marbleB.release;
+	let time = step / PHYSICS_HZ;
+	let a = marbleA.last?.position ?? { x: 0, y: 0 };
+	let b = marbleB.last?.position ?? { x: 0, y: 0 };
 	let isTouching = Math.hypot(b.x - a.x, b.y - a.y) - reach <= MARBLE_SLOP;
-	const preA = preStepSample(runA, state.step);
-	const preB = preStepSample(runB, state.step);
+	const preA = marbleA.before;
+	const preB = marbleB.before;
 	if (preA != null && preB != null) {
 		// Both marbles fall under the same gravity, so their relative motion is linear
 		const dx = preB.position.x - preA.position.x;
@@ -1652,25 +1630,12 @@ function recordMarbleContact(plan: TPlan, state: TRunState, key: string): void {
 		}
 	}
 	if (!isTouching) return;
-	state.meeting.delete(key);
+	meeting.delete(key);
 	const share = marbleA.radius / reach;
 	const position = { x: a.x + (b.x - a.x) * share, y: a.y + (b.y - a.y) * share };
-	state.contacts.push(
-		{
-			time,
-			marbleId: marbleA.marbleId,
-			otherId: marbleB.marbleId,
-			kind: 'marble',
-			position
-		},
-		{
-			time,
-			marbleId: marbleB.marbleId,
-			otherId: marbleA.marbleId,
-			kind: 'marble',
-			position
-		}
-	);
+	const idA = plan.marbles[marbleA.result.index]?.marbleId ?? '';
+	const idB = plan.marbles[marbleB.result.index]?.marbleId ?? '';
+	record.contacts.push({ time, marbleIndex: marbleA.result.index, otherId: idB, kind: 'marble', position }, { time, marbleIndex: marbleB.result.index, otherId: idA, kind: 'marble', position });
 }
 
 /** First t in [0, span] where `gap` reaches zero, or null */
@@ -1696,17 +1661,108 @@ function findFirstRoot(gap: (t: number) => number, span: number): number | null 
 	return high;
 }
 
+/** Spin from the two samples before `time`, a contact, which the steps just before it don't feel yet */
+function spinBefore(samples: TMarbleSample[], time: number): number {
+	let low = 0;
+	let high = samples.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if ((samples[middle]?.time ?? Infinity) < time - 2 * DT) low = middle + 1;
+		else high = middle;
+	}
+	const a = samples[low - 2];
+	const b = samples[low - 1];
+	if (a == null || b == null || b.time <= a.time) return 0;
+	return Math.atan2(Math.sin(b.angle - a.angle), Math.cos(b.angle - a.angle)) / (b.time - a.time);
+}
+
+/** The whole track of a marble on the wall, and its contacts */
+function wallSamples(walker: TMarbleWalk): TMarbleSample[] {
+	const samples: TMarbleSample[] = [];
+	const first = walker.hops[0];
+	if (first != null) {
+		// The release is a sample of its own
+		const { start, origin } = first;
+		samples.push({ time: first.from / PHYSICS_HZ, position: { x: start.x + origin.x, y: start.y + origin.y }, angle: 0, velocity: { x: start.vx, y: start.vy } });
+	}
+	for (const hop of walker.hops) {
+		const part = wallPart(hop);
+		for (const sample of part) samples.push(sample);
+	}
+	return samples;
+}
+
+function wallPart(hop: TWalkHop): TMarbleSample[] {
+	const { record, origin, track } = hop;
+	const samples = record.marbles[track]?.samples ?? [];
+	if (isZero(origin)) return samples;
+	if (record.wall?.origin.x !== origin.x || record.wall.origin.y !== origin.y) {
+		record.wall = {
+			origin,
+			samples: record.marbles.map((marble) =>
+				marble.samples.map((sample) => ({ time: sample.time, position: { x: sample.position.x + origin.x, y: sample.position.y + origin.y }, angle: sample.angle, velocity: sample.velocity }))
+			)
+		};
+	}
+	return record.wall.samples[track] ?? [];
+}
+
+function wallContacts(walk: TWalk): TContact[] {
+	const contacts: TContact[] = [];
+	const seen = new Set<THopRecord>();
+	for (const walker of walk.marbles) {
+		for (const hop of walker.hops) {
+			if (seen.has(hop.record)) continue;
+			seen.add(hop.record);
+			for (const contact of hop.record.contacts) {
+				const entry: TContact = {
+					time: contact.time,
+					marbleId: walk.plan.marbles[contact.marbleIndex]?.marbleId ?? '',
+					otherId: contact.otherId,
+					kind: contact.kind,
+					position: { x: contact.position.x + hop.origin.x, y: contact.position.y + hop.origin.y }
+				};
+				if (contact.speed != null) entry.speed = contact.speed;
+				contacts.push(entry);
+			}
+		}
+	}
+	return contacts;
+}
+
+/** Each hand-over a run went through, in step order, from which it can be run again; the first hop runs from the release */
+export function handOversOf(walk: TWalk, marbleIndex: number): THandOver[] {
+	const walker = walk.marbles[marbleIndex];
+	if (walker == null) return [];
+	const handOvers: THandOver[] = [];
+	for (const hop of walker.hops.slice(1)) {
+		const { start, origin, from } = hop;
+		const entry: THandOver = { step: from, position: { x: start.x, y: start.y }, origin, velocity: { x: start.vx, y: start.vy }, rotation: [start.qz, start.qw], spin: start.spin };
+		const rotors = walk.rotors.filter((rotor) => rotor.firstStep <= from);
+		if (rotors.length) {
+			entry.rotors = rotors.map((rotor) => {
+				const state = rotorStateAt(rotor, from);
+				return { pieceId: rotor.pieceId, rotation: [state.qz, state.qw], spin: state.spin };
+			});
+		}
+		handOvers.push(entry);
+	}
+	return handOvers;
+}
+
 // Result
 
-function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): TSimulationResult {
+function buildResult(project: TSimulationInput, walk: TWalk): TSimulationResult {
+	const plan: TPlan = { ...walk.plan, endStep: walk.end };
 	const staticById = new Map(plan.staticPieces.map((piece) => [piece.pieceId, piece.resolved]));
+	const trackOf = walk.marbles.map(wallSamples);
 	const pieces: TResolvedPiece[] = [];
 	for (const piece of project.track.pieces) {
-		
 		if (piece == null || getPieceDefinition(piece.type) == null) continue;
-		const resolved = staticById.get(piece.id) ?? state.placements.get(piece.id)?.piece;
+		const resolved = staticById.get(piece.id) ?? walk.placements.get(piece.id)?.piece;
 		if (resolved != null) {
-			const rotor = state.rotors.find((r) => r.pieceId === piece.id);
+			const rotor = walk.rotors.find((r) => r.pieceId === piece.id);
+			if (rotor != null) extendRotor(rotor, plan.endStep);
 			pieces.push(rotor != null ? { ...resolved, motion: rotorMotion(plan, rotor) } : resolved);
 			continue;
 		}
@@ -1729,7 +1785,7 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 	}
 	const pieceById = new Map(pieces.map((piece) => [piece.pieceId, piece]));
 
-	const contacts = state.contacts.slice().sort((a, b) => a.time - b.time);
+	const contacts = wallContacts(walk).sort((a, b) => a.time - b.time);
 	// A marble's contacts with each piece in time order, so a hit finds its first contact without a walk over every contact
 	const contactsByPair = new Map<string, TContact[]>();
 	for (const contact of contacts) {
@@ -1755,12 +1811,12 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 	for (const marble of project.marbles) {
 		const marbleIndex = plan.marbles.findIndex((item) => item.marbleId === marble.id);
 		const plannedMarble = plan.marbles[marbleIndex];
-		const samples = state.marbles[marbleIndex]?.samples ?? [];
+		const samples = trackOf[marbleIndex] ?? [];
 		let isBehindBreak = false;
 		for (const hit of marble.hits) {
 			const pieceId = linkByHit.get(`${marble.id}/${hit.id}`) ?? null;
 			const piece = pieceId != null ? pieceById.get(pieceId) : undefined;
-			const placement = pieceId != null ? state.placements.get(pieceId) : undefined;
+			const placement = pieceId != null ? walk.placements.get(pieceId) : undefined;
 			const onTrajectory =
 				placement?.dot != null ? null : trajectoryAt(samples, hit.time, plan.gravity);
 			const result: THitResult = {
@@ -1821,7 +1877,7 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 		marbles: plan.marbles.map((marble, i) => ({
 			marbleId: marble.marbleId,
 			radius: marble.radius,
-			samples: state.marbles[i]?.samples ?? []
+			samples: trackOf[i] ?? []
 		})),
 		pieces,
 		contacts,
