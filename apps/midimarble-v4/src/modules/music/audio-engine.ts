@@ -166,7 +166,7 @@ export type TResolveSourceUrl = (source: TSong) => string | null;
 export async function renderProjectAudio(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl,
-	options: { sampleRate?: number } = {}
+	options: { sampleRate?: number; bank?: BasicSoundBank } = {}
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE } = options;
 	const audioSources = recordingsOf(project);
@@ -174,7 +174,7 @@ export async function renderProjectAudio(
 	const backing = backingVoices(project);
 	if (!audioSources.length && !backing.length && marbles.every((marble) => !marble.hits.length)) return silentAudio(project.length, sampleRate);
 	const hasNotes = backing.length > 0 || marbles.some((marble) => marble.hits.length > 0);
-	const audio = hasNotes ? renderMarbles(marbles, { sampleRate, duration: project.length, bank: await loadInstrumentBank(), backing }) : silentAudio(project.length, sampleRate);
+	const audio = hasNotes ? renderMarbles(marbles, { sampleRate, duration: project.length, bank: options.bank ?? (await loadInstrumentBank()), backing }) : silentAudio(project.length, sampleRate);
 	const decodedSources = await Promise.all(
 		audioSources.map(async (source) => ({
 			source,

@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
 import type { StudioCx } from '@/modules/studio';
 import { host } from '@/environment';
-import { blender, renderFilm, type TRenderFilmResult } from '@/modules/blender';
+import { blender, renderFilm, type TExportedFilm } from '@/modules/blender';
 import type { TFilmEngine, TRenderPreset } from '@/modules/scene';
 import { soundtrackProject } from '@/modules/music';
 import { filmFileName, type TMeasuredRender } from '@/modules/scene';
@@ -141,7 +141,7 @@ export class FilmExportCx {
 		this.$job.set({ ...this.$job.get(), phase: 'failed', error: message });
 	}
 
-	private remember(preset: TRenderPreset, result: TRenderFilmResult): void {
+	private remember(preset: TRenderPreset, result: TExportedFilm): void {
 		if (!(result.msPerFrame > 0)) return;
 		const measured = { ...this.$measured.get(), [result.engine]: { preset, engine: result.engine, msPerFrame: result.msPerFrame, pixels: result.width * result.height } };
 		this.$measured.set(measured);
@@ -173,7 +173,7 @@ export interface TExportJob {
 	msPerFrame: number | null;
 	/** 0 to 1; rendering covers 0 to 0.95, encoding the rest */
 	progress: number;
-	result: TRenderFilmResult | null;
+	result: TExportedFilm | null;
 	error: string | null;
 	/** The save panel pointed outside the package; the film was written to the package's Renders folder */
 	outsidePackage: boolean;

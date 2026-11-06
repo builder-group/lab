@@ -5,7 +5,7 @@ import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
 import type { TRenderPreset } from '@/modules/scene';
-import { mutedSoundtrackNote } from '@/modules/music';
+import { FILM_LOUDNESS, FILM_PEAK, formatLoudness, mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
 import { estimateExport, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate } from '@/modules/scene';
 import { ExportPreflight } from './ExportPreflight';
@@ -127,7 +127,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 
 			<div className="mm-summary">
 				<div className="mm-tabular">
-					{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)}
+					{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)} · {formatLoudness({ lufs: FILM_LOUDNESS, truePeak: FILM_PEAK })}
 				</div>
 				<div className="flex items-baseline justify-between gap-3">
 					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
@@ -194,7 +194,7 @@ const ExportDone: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 			<video className="mm-film" src={convertFileSrc(result.path)} controls playsInline style={{ aspectRatio: `${result.width} / ${result.height}` }} />
 			<div className="mm-tabular text-[11px] text-[var(--text-secondary)]">
 				{result.width} × {result.height} · {result.fps} fps · {formatClock(result.duration)} · rendered in {formatClock(seconds)}
-				{result.hasAudio ? '' : ' · no song'}
+				{result.hasAudio ? ` · ${formatLoudness(result.loudness)}` : ' · no song'}
 			</div>
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" onClick={() => void reveal()} type="button">
