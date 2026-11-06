@@ -177,7 +177,7 @@ A dropped platform that can't reach its spot says so in the chip, **Stays: the m
 | --- | --- | --- |
 | **Add Platform** | click an open note's dot to see it, then click again or ↩; the hit inspector and the dot's menu | places a platform tilted so the marble lands on time. Until then it is only an outline, dashed, with its hint "↩ Add platform". A long-gap dot shows its Rail the same way and a dot no platform can reach says why, as Next does; a right-click on a dot has every choice: Add Platform, Add Rail, Add Rail: Switchback, Add Rail: Chain, Add Tunnel, Go to Note |
 | **Next** (in menus **Place Next Platform**) | N; A with nothing selected | adds the platform for the next open note, or the bridge when a long gap comes first |
-| **Build Track** | ⇧N, on the build bar and in the Track menu | builds every open note of every marble in time order, starts each on a short Rail and ends each in a Bowl; both are ordinary pieces anyone can delete. Its notice reads "Building track · 42 of 115 hits · about 40 s left" with Stop, then "Built the track: 115 of 115 hits on time, 129 pieces." or "Built what fits: …" naming the hits that need attention |
+| **Build Track** | ⇧N, behind the chevron beside Next and in the Track menu | builds every open note of every marble in time order, starts each on a short Rail and ends each in a Bowl; both are ordinary pieces anyone can delete. Its notice reads "Building track · 42 of 115 hits · about 40 s left" with Stop, then "Built the track: 115 of 115 hits on time, 129 pieces." or "Built what fits: …" naming the hits that need attention |
 | **Continue Pattern** | Tab | repeats the pattern of the last platforms for as many notes as fit; the button shows the count: "Continue Pattern (4)" |
 | **Mirror Last Platform** | M | the last platform's tilt mirrored, for zigzags |
 | **Repeat Last Platform** | R | the same tilt again |
@@ -263,7 +263,7 @@ Actions: **New Project** (it opens at once, unsaved; the first Save asks where t
 
 1. The start screen shows examples first-class; an example plays on Space at once
 2. Quick Help (Help › MidiMarble Help, ⇧⌘/, ⌘K) labels the regions of the window in place, like GarageBand's Quick Help; it is optional and never modal
-3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Press ⇧N to build the whole track, or click a note's dot to see its platform" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
+3. At most three one-line hints appear once, where the next step is, and disappear when done: "This is your song: each marble plays some of its notes" (Song layer) → "Press N for the next platform, or ⇧N to build the whole track" (first open dot) → "Switch to Film to choose the look and export" (after the first full run)
 4. The hit summary in the timeline header says when the run works: "12 of 12 hits on time"
 
 ## Progressive disclosure

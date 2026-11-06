@@ -19,6 +19,8 @@ export type { TTrackTool } from './keys';
 
 /** Meters of the wall kept around a framed problem */
 const FRAME_ROOM = 0.25;
+// Pixels kept clear around the next step: the build bar's height and the notice under it
+const NEXT_STEP_INSET = 90;
 
 /**
  * Owns the Track canvas: camera, tools, pointer and keyboard interaction and the WebGL renderer. The
@@ -1615,7 +1617,7 @@ export class TrackCx {
 		const piece = id != null ? this.result?.pieces.find((item) => item.pieceId === id) : undefined;
 		if (piece == null || this.$drag.get() != null) return;
 		this.placedId = null;
-		this.revealPoint(piece.contactPoint ?? piece.position);
+		this.revealNextStep(piece.contactPoint ?? piece.position);
 	}
 
 	/** A click on a piece on the wall moves the playhead to its hit, unless playing. Nothing else selecting does */
@@ -2083,6 +2085,21 @@ export class TrackCx {
 	 * Centers the view on `point` unless it and `margin` meters around it lie at least `inset` pixels inside
 	 * the canvas
 	 */
+	/** A piece just placed and the dot it sends the marble to, with room for the build bar below: the next step stays in sight */
+	private revealNextStep(point: TVec2): void {
+		const project = this.project;
+		const result = this.result;
+		const next = project != null && result != null ? findStepTarget(project, result, this.studio.$selection.get())?.dot : null;
+		if (next == null) {
+			this.revealPoint(point);
+			return;
+		}
+		const camera = this.$camera.get();
+		const bounds = { minX: Math.min(point.x, next.x), minY: Math.min(point.y, next.y), maxX: Math.max(point.x, next.x), maxY: Math.max(point.y, next.y) };
+		if (isBoundsVisible(camera.view, this.$viewport.get(), bounds, NEXT_STEP_INSET)) return;
+		this.navigateTo({ ...camera.view, center: { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 } });
+	}
+
 	private revealPoint(point: TVec2 | null, inset = 60, margin = 0.03): void {
 		if (point == null) return;
 		const camera = this.$camera.get();

@@ -2756,6 +2756,11 @@ button.mm-lcd-length:hover {
 	transition-delay: 0.45s;
 }
 
+.mm-assist-more {
+	min-width: 20px;
+	padding: 0 3px;
+}
+
 .mm-assist-divider {
 	width: 1px;
 	height: 16px;

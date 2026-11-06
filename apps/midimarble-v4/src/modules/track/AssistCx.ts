@@ -387,7 +387,8 @@ export class AssistCx {
 			const time = project.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
 			if (last != null) this.studio.$selection.set([last.piece.id]);
 			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
-			this.studio.notifyEdit(`Added ${acceptableCount(ghost)} ${acceptableCount(ghost) === 1 ? 'platform' : 'platforms'}`);
+			// One is a press of Next, which says nothing
+			if (acceptableCount(ghost) > 1) this.studio.notifyEdit(`Added ${acceptableCount(ghost)} platforms`);
 		} else {
 			this.studio.$selection.set([ghost.answer.piece.id]);
 			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());

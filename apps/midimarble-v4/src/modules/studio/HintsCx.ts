@@ -77,7 +77,7 @@ export type THintId = 'song' | 'tap' | 'dot' | 'film';
 export const hintTexts: Record<THintId, string> = {
 	song: 'This is your song: each marble plays some of its notes',
 	tap: 'Press T to add a hit at the playhead, or play and tap along with T',
-	dot: "Press ⇧N to build the whole track, or click a note's dot to see its platform",
+	dot: 'Press N for the next platform, or ⇧N to build the whole track',
 	film: 'Switch to Film to choose a theme and export'
 };
 
@@ -92,6 +92,8 @@ export interface THintFacts {
 	editCount: number;
 	// Notes without a platform yet; null while the run belongs to an older revision
 	openCount: number | null;
+	// A piece is on the wall, so the step the dot's hint names has been found
+	hasPieces: boolean;
 	// Every hit has a platform and is on time
 	isAllOnTime: boolean;
 }
@@ -122,7 +124,8 @@ export function hintFacts(
 		workspace: view.workspace,
 		isPlaying: view.isPlaying,
 		editCount,
-		openCount: isCurrent ? hits.filter((hit) => hit.status === 'open' && hit.dot != null).length : null,
+		openCount: isCurrent ? hits.filter((hit) => hit.status === 'open').length : null,
+		hasPieces: project.track.pieces.length > 0,
 		isAllOnTime: hits.length > 0 && hits.every((hit) => hit.status === 'onTime')
 	};
 }
@@ -169,7 +172,7 @@ function canOpen(id: THintId, seen: THintId[], facts: THintFacts): boolean {
 		case 'tap':
 			return facts.hasSong && !facts.hasHits;
 		case 'dot':
-			return (seen.includes('song') || !facts.hasSong) && (facts.openCount ?? 0) > 0;
+			return (seen.includes('song') || !facts.hasSong) && !facts.hasPieces && (facts.openCount ?? 0) > 0;
 		case 'film':
 			return facts.isAllOnTime && facts.editCount > 0;
 	}

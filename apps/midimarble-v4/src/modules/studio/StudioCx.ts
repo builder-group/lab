@@ -3,7 +3,7 @@ import type { TResult } from 'tuple-result';
 import { isTauri } from '@tauri-apps/api/core';
 import { host, notSongFileMessage, songFileKind, specta, type THostPickedFile, type THostRecentProject } from '@/environment';
 import { audibleProject, createAudioEngine, DEFAULT_PROJECT_END, EMPTY_MIX, endsOnBowl, isAutoEnd, projectSongEnd, type TAudioEngine, type TMix } from '@/modules/music';
-import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_KEY, isFilmLayerKey, parseGroupKey, parseHitKey, stepHitTarget, toHitKey, tieOf, songPlayingAt } from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, createId, createMarble, createProject, MARBLE_SPACING, isPatternGroup, parseProject, pushHistory, redoHistory, serializeProject, undoHistory, type TMarble, type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TSong, type TVec2, KEY_LIGHT_KEY, isFilmLayerKey, parseGroupKey, parseHitKey, stepHitTarget, toHitKey, tieOf, songPlayingAt } from '@/modules/project';
 import type { TClipboard } from './clipboard';
 import { editLabel } from './edit-label';
 import { hasUnsavedChanges, saveChangesQuestion, savePanelTitle } from './document';
@@ -991,7 +991,10 @@ export class StudioCx {
 		const left = selection.filter((id) => !removed.has(id));
 		// A live Pattern a step brought back stands for its pieces again, as a click on one does
 		const whole = withWholePatterns(next.present, left);
-		if (whole.length !== selection.length) this.$selection.set(whole);
+		// Undoing a Next stays on its marble, with the platform before it selected, so N and the arrows go on from there
+		const before = whole.length === 0 && selection.length === 1 ? pieceBefore(next.present, history.present.track.pieces.find((piece) => piece.id === selection[0])) : null;
+		if (before != null) this.$selection.set([before]);
+		else if (whole.length !== selection.length) this.$selection.set(whole);
 		// The notice of the edit this step took back would still say it happened
 		const notice = this.$notice.get();
 		if (notice != null && notice.actions?.some((action) => action.isUndo === true && action.undoGroup === history.groups.present) === true) this.dismissNotice(notice.id);
@@ -1292,4 +1295,18 @@ function watchForWork(onWork: () => void): () => void {
 		for (const name of events) window.removeEventListener(name, onWork, options);
 		window.removeEventListener('pointermove', onPointerMove, options);
 	};
+}
+
+/** The piece tied to the hit nearest before `removed`'s on the same marble, in `project`; null when there is none */
+export function pieceBefore(project: TProject, removed: TPiece | undefined): string | null {
+	const tie = tieOf(removed);
+	const hits = project.marbles.find((marble) => marble.id === tie?.marbleId)?.hits;
+	if (tie == null || hits == null) return null;
+	const order = new Map(hits.map((hit, index) => [hit.id, index]));
+	const limit = order.get(tie.hitId) ?? hits.length;
+	const earlier = project.track.pieces.filter((piece) => {
+		const other = tieOf(piece);
+		return other?.marbleId === tie.marbleId && (order.get(other.hitId) ?? limit) < limit;
+	});
+	return earlier.sort((a, b) => (order.get(tieOf(a)?.hitId ?? '') ?? 0) - (order.get(tieOf(b)?.hitId ?? '') ?? 0)).at(-1)?.id ?? null;
 }

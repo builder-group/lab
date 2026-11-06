@@ -4,7 +4,7 @@ import { stepHints, type THintFacts, type THintState } from './HintsCx';
 const empty: THintState = { open: null, seen: [], mark: { editCount: 0, openCount: 0 } };
 
 function facts(overrides: Partial<THintFacts> = {}): THintFacts {
-	return { hasSong: true, hasHits: true, workspace: 'track', isPlaying: false, editCount: 0, openCount: 3, isAllOnTime: false, ...overrides };
+	return { hasSong: true, hasHits: true, workspace: 'track', isPlaying: false, editCount: 0, openCount: 3, hasPieces: false, isAllOnTime: false, ...overrides };
 }
 
 describe('stepHints function', () => {
@@ -82,6 +82,10 @@ describe('stepHints function', () => {
 	it('should never open a hint again once seen', () => {
 		const state: THintState = { ...empty, seen: ['song', 'dot', 'film'] };
 		expect(stepHints(state, facts({ isAllOnTime: true, editCount: 4 })).open).toBeNull();
+	});
+
+	it('should not open the hint about the dot once a piece is on the wall', () => {
+		expect(stepHints({ ...empty, seen: ['song', 'tap'] }, facts({ hasPieces: true })).open).toBeNull();
 	});
 
 	it('should not open hints in Film', () => {

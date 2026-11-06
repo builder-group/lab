@@ -1,8 +1,8 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, ChevronDown, ChevronsRight, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
+import { Anchor, ChevronDown, ChevronsRight, CopyPlus, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
-import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
@@ -886,6 +886,7 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const ghosts = useFeatureState(trackCx.studio.assist.$ghosts);
 	const queued = useFeatureState(trackCx.studio.assist.$queuedNext);
 	const building = useFeatureState(trackCx.studio.assist.$building);
+	const notice = useFeatureState(cx.$notice);
 	// The bar sits at screen positions, so it moves with the view
 	useFeatureState(trackCx.$camera);
 	const viewport = useFeatureState(trackCx.$viewport);
@@ -923,7 +924,9 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 	// The bar belongs next to what it acts on; when that is out of view it stays away
 	if (anchor.x < 0 || anchor.x > viewport.width || anchor.y < 0 || anchor.y > viewport.height + 20) return null;
 	const continueCount = ghosts.ghost?.kind === 'continue' ? acceptableCount(ghosts.ghost) : 0;
-	const { left, top } = placeBar(anchor, size, ghostRects(trackCx, ghosts.ghost), viewport);
+	const hasLastPlatform = linkedPieces(project).some((item) => item.piece.type === 'platform' && tieOf(item.piece)?.marbleId === target.marbleId);
+	// Clear of the notice at the bottom of the canvas while one shows
+	const { left, top } = placeBar(anchor, size, ghostRects(trackCx, ghosts.ghost), notice != null ? { ...viewport, height: viewport.height - NOTICE_ROOM } : viewport);
 
 	return (
 		<div ref={barRef} className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Assists">
@@ -937,10 +940,26 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
 				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
 			</AssistButton>
-			<AssistButton label="Build Track" detail="Build every open hit, in time order, and end in a Bowl" shortcut="⇧N" onClick={() => void trackCx.studio.assist.buildTrack()} isText>
-				Build Track
-			</AssistButton>
-			{continueCount > 0 ? (
+			<button
+				className="mm-assist-button mm-assist-more"
+				aria-label="More Ways to Build"
+				aria-haspopup="menu"
+				onPointerDown={(event) => event.stopPropagation()}
+				onClick={(event) => openContextMenu(event, [{ label: 'Build Track', shortcut: '⇧N', onSelect: () => void cx.assist.buildTrack() }])}
+				type="button"
+			>
+				<ChevronDown size={13} strokeWidth={1.8} />
+				<span className="mm-tooltip">More Ways to Build</span>
+			</button>
+			{hasLastPlatform ? (
+				<>
+					<div className="mm-assist-divider" />
+					<AssistButton label="Repeat Last Platform" detail="Tilt the same way again, for a staircase; Next would go back" shortcut="R" onClick={() => trackCx.step('repeat')}>
+						<CopyPlus size={14} strokeWidth={1.8} />
+					</AssistButton>
+				</>
+			) : null}
+			{continueCount > 1 ? (
 				<>
 					<div className="mm-assist-divider" />
 					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => trackCx.studio.assist.acceptGhosts()} isText>
@@ -952,6 +971,9 @@ const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
 		</div>
 	);
 };
+
+// Height of the bottom of the canvas a notice takes
+const NOTICE_ROOM = 64;
 
 /** Screen boxes of the ghost pieces and dots on show, which the build bar keeps clear of */
 function ghostRects(trackCx: TrackCx, ghost: ReturnType<AssistCx['$ghosts']['get']>['ghost']): TScreenRect[] {
