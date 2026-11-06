@@ -172,6 +172,16 @@ export class SourcesCx {
 		return true;
 	}
 
+	/** The length stays with a move, so hits it took past the film's end say so, with what brings them back */
+	private sayHitsPastEnd(): void {
+		const project = this.studio.project;
+		if (project == null) return;
+		const past = project.marbles.flatMap((marble) => marble.hits).filter((hit) => hit.time > project.length).length;
+		if (past === 0) return;
+		const words = past === 1 ? '1 hit now falls' : `${past} hits now fall`;
+		this.studio.notifyEdit(`${words} after the film's end at ${formatTime(project.length)}.`, [{ label: 'Fit to Song', title: 'End the film just after the song', run: () => void this.studio.fitToSong() }], { isUndoFirst: true });
+	}
+
 	/** Where a new song starts: after the lead-in when it is the first, at the playhead beside other songs, like Logic */
 	private nextStart(): number {
 		const project = this.studio.project;
@@ -185,7 +195,9 @@ export class SourcesCx {
 		const song = project?.songs.find((item) => item.id === songId);
 		if (project == null || song == null) return false;
 		const to = Math.round(Math.max(earliestSongStart(project, songId), start) * 10000) / 10000;
-		return to !== song.start && this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to));
+		if (to === song.start || !this.studio.execute(moveSongCommands(project, this.studio.simulation.$result.get(), songId, to))) return false;
+		this.sayHitsPastEnd();
+		return true;
 	}
 
 	/** Loads waveform and onsets for audio sources of a reopened project */

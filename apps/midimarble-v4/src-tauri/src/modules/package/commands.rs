@@ -30,7 +30,7 @@ pub fn create_project(
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn open_project(app: AppHandle, path: String) -> Result<OpenedProjectDto, String> {
+pub fn open_project(path: String) -> Result<OpenedProjectDto, String> {
     let package = PathBuf::from(path);
     let project_json = store::read_project(&package).map_err(|error| error.to_string())?;
     return Ok(OpenedProjectDto {

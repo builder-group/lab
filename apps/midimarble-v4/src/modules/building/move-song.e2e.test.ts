@@ -60,7 +60,9 @@ describe('moving a song on a built project', () => {
 		const song = project.songs[0];
 		if (song == null) throw new Error('Jingle Bells has a song');
 
-		const later = moved(project, song.id, song.start + 7.325);
+		// The length stays with a move, so the film is lengthened by hand to hold the song
+		const moves = moved(project, song.id, song.start + 7.325);
+		const later = { ...moves, length: moves.length + 7.325 };
 
 		expectAllOnTime(later);
 		expect(runProblems(later)).toEqual([]);

@@ -342,7 +342,7 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 			});
 		} else if (hit.status === 'missed') {
 			const label = hit.reason === 'resting' && piece?.status !== 'unreached' ? 'Stopped' : 'Missed';
-			issues.push({ id, kind: 'hit', severity: 'warning', marbleId: hit.marbleId, title: is(label), detail: because(hit, missDetail(hit, piece?.status)), time: hit.targetTime, target });
+			issues.push({ id, kind: 'hit', severity: 'warning', marbleId: hit.marbleId, title: is(label), detail: because(hit, missDetail(hit, piece?.status, result.duration)), time: hit.targetTime, target });
 		} else if (hit.status === 'drifting') {
 			const ms = Math.round((hit.error ?? 0) * 1000);
 			issues.push({
@@ -390,7 +390,8 @@ function groupByMarble<T>(items: T[], marbleOf: (item: T) => string): Map<string
 	return groups;
 }
 
-function missDetail(hit: THitResult, pieceStatus: string | undefined): string {
+function missDetail(hit: THitResult, pieceStatus: string | undefined, duration: number): string {
+	if (hit.targetTime > duration) return `The film ends at ${formatTime(duration)}, before this note. Fit to Song lengthens it.`;
 	if (pieceStatus === 'unreached') return 'The marble never reaches this platform.';
 	if (pieceStatus === 'held') return 'An edit before it keeps the marble from this platform. The pieces after it wait where they were until this is fixed.';
 	if (hit.reason === 'resting') return 'The marble stops on the platform instead of striking it.';

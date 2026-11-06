@@ -667,7 +667,8 @@ export class AssistCx {
 		if (this.fixRun == null && this.buildRun == null && result.revision !== this.lastFixRevision) this.rememberGood(project, result);
 		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.fixRun != null || this.buildRun != null) return;
 		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
-		const broken = newlyBroken(previous.hits, result.hits);
+		// A note past the film's end has nothing Fix could do: it's the length, which the move that did this says
+		const broken = newlyBroken(previous.hits, result.hits).filter((hit) => hit.targetTime <= result.duration);
 		if (!broken.length) return;
 		const action = this.fixAction();
 		const notice = this.studio.$notice.get();
