@@ -34,7 +34,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 
 ## Known problems
 
-- Build Track on Jingle Bells goes through on its first release position at Gravity 0.25 and needs the second at 0.3. That is one song's luck, not a fix.
+- Build Track on Jingle Bells goes through on its first release position at Gravity 0.25, where other settings needed the second. That is one song's luck, not a fix.
 - At the default Gravity 0.25 a Zigzag Pattern misses hits at hops under about 0.3 s: 17 of the reference's 58 at Width 10 cm, 58 of 58 at Gravity 0.35. It says so as Problems.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated

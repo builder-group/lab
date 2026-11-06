@@ -97,11 +97,11 @@ Physics stays out of it:
 | | Blobs per frame | At most 6 blobs | Cut by the edge | Coverage |
 |---|---|---|---|---|
 | Reference | 13.3 | 0 % | 3.4 | 14.1 % |
-| `reference-20` rebuilt at Gravity 0.25 | 9.0 | 3.5 % | 1.5 | 8.6 % |
+| `reference-20` rebuilt at Gravity 0.25 | 10.9 | 0 % | 2.0 | 8.6 % |
 | The fixture as stored, Gravity 0.5 | 6.9 | 33 % | 1.2 | 4.7 % |
-| Jingle Bells, Gravity 0.25 | 15.1 | 0 % | 2.6 | 7.1 % |
+| Jingle Bells, Gravity 0.25 | 15.8 | 0 % | 3.4 | 7.0 % |
 
-Jingle Bells' count includes two marbles' columns and its Rails. Build Track leaves every hit of every fixture on time at 0.25. Patterns set the floor for fast rhythm: Zigzag at Width 10 cm on the reference's 58 hits plays 58 at Gravity 0.35, 26 at 0.3 and 17 at 0.25, since its 0.23 s hops want more than the 40° limit, while even hits 0.3 s apart play 24 of 24 at 0.25.
+Jingle Bells' count includes two marbles' columns and its Rails. Bars in frame on `reference-20` go 6.1, 8.4, 9.2, 10.2 at Gravity 0.5, 0.35, 0.3, 0.25. Build Track leaves every hit of every fixture on time at 0.25; at 0.2 `reference-20` loses one of 48. Patterns set the floor for fast rhythm: Zigzag at Width 10 cm on the reference's 58 hits plays 58 at Gravity 0.35, 26 at 0.3 and 17 at 0.25, since its 0.23 s hops want more than the 40° limit, while even hits 0.3 s apart play 24 of 24 at 0.25.
 
 **Bounce.** Above e ≈ 0.71 a marble rises past the previous piece of the other column. The default is 0.65. A roll is a rise under 0.5 marble radii along the normal within 0.1 s: dead bars reach 0.11 to 0.19 radii, real bounces 0.71 and up.
 
