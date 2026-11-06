@@ -1,10 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
+import { ChevronDown, ChevronFirst, ChevronLast, LoaderCircle, Minus, MoveHorizontal, Pause, Play, Plus, Repeat, SkipBack } from 'lucide-react';
 import React from 'react';
+import { MenuButton, openContextMenu } from '@/components';
 import { problemSummary } from '@/modules/building';
-import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
+import { problemMenu } from '../menus';
 import { askedFilmLength, formatTime, parseTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
@@ -56,9 +57,9 @@ interface TTransportProps {
 
 /**
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
- * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. An indicator:
- * with problems a click goes to the first in time order, and the export sheet lists them all. Until the run for the
- * current edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
+ * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. With problems a
+ * click goes to the first in time order, and the chevron or a right-click lists them all. Until the run for the current
+ * edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
  */
 const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
@@ -89,16 +90,19 @@ const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 	}
 	if (!summary.problems.length) {
 		return (
-			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary">
+			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
 				{summary.label}
 			</span>
 		);
 	}
 	return (
-		<button className="mm-hit-summary" data-tone="warn" data-quick-help="hitSummary" onClick={() => cx.showFirstProblem()} title="Show the first problem" type="button">
-			<span className="mm-hit-summary-dot" aria-hidden />
-			{summary.label}
-		</button>
+		<span className="mm-hit-summary-group" data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
+			<button className="mm-hit-summary" data-tone="warn" onClick={() => cx.showFirstProblem()} title="Show the first problem" type="button">
+				<span className="mm-hit-summary-dot" aria-hidden />
+				<span className="min-w-0 truncate">{summary.label}</span>
+			</button>
+			<MenuButton className="mm-hit-summary mm-hit-summary-chevron" title="Show every problem" items={problemMenu(cx)} label={<ChevronDown size={12} strokeWidth={2} />} />
+		</span>
 	);
 };
 

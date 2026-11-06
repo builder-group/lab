@@ -925,8 +925,23 @@ textarea {
 	background: var(--warn);
 }
 
-button.mm-hit-summary:hover {
+button.mm-hit-summary:hover,
+.mm-hit-summary-chevron[data-active='true'] {
 	background: var(--hover);
+}
+
+/* The summary and the chevron of its problem list, like Xcode's issue count */
+.mm-hit-summary-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	min-width: 0;
+}
+
+.mm-hit-summary-chevron {
+	flex-shrink: 0;
+	padding: 0 4px;
+	color: var(--text-secondary);
 }
 
 .mm-hit-summary-dot {
@@ -1002,7 +1017,7 @@ button.mm-hit-summary:hover {
 	position: fixed;
 	z-index: 100;
 	min-width: 200px;
-	max-width: 320px;
+	max-width: 400px;
 	/* A long menu, such as every problem of the run, scrolls inside the window */
 	max-height: calc(100vh - 12px);
 	overflow-y: auto;

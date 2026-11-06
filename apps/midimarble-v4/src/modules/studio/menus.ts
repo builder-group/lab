@@ -1,6 +1,7 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
 import { createId, marbleColors, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
+import { problemSummary } from '@/modules/building';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
 import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
@@ -8,6 +9,33 @@ import { suggestedHitChoices } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
 
 // Context menus list the same commands as the palette and the shortcuts, so each shows its key
+
+/**
+ * The hit summary's menu, like Xcode's issues and Blender's Info: every problem by name in time order, a click goes to
+ * it and its detail is the tooltip; then Fix, and Fit to Song where the length no longer matches the song
+ */
+export function problemMenu(cx: StudioCx): TMenuEntry[] {
+	const workspace = cx.$workspace.get();
+	const { problems } = problemSummary(cx.simulation.$problems.get(), workspace);
+	const fitToSong = getCommand('film.fitToSong');
+	return tidyMenu([
+		...problems.map((issue): TMenuEntry => {
+			const time = issue.time ?? issue.span?.from ?? issue.target?.time;
+			return {
+				label: issue.title,
+				title: issue.detail,
+				disabled: issue.target == null,
+				...(time != null ? { shortcut: formatTime(time) } : {}),
+				onSelect: () => {
+					if (issue.target != null) cx.revealIssue(issue.target);
+				}
+			};
+		}),
+		'separator',
+		problems.length > 0 && workspace === 'track' ? { label: 'Fix', disabled: cx.assist.isFixing, onSelect: () => void cx.assist.fix() } : null,
+		isCommandEnabled(cx, fitToSong) ? commandItem(cx, 'film.fitToSong') : null
+	]);
+}
 
 const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan', 'Red'];
 /** What the list offers: every marble's color, and the red the examples' Melody wears, which new marbles don't start with */

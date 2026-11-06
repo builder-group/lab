@@ -4,7 +4,7 @@ import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import { PieceIcon } from '@/modules/canvas';
 import { unreachableActions, GroupInspector, PatternRangeInspector, PatternTiles, FixButton, PieceInspector, placeAtHit, timingStatus, auditionNote, handNotes } from '@/modules/track';
-import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/building';
+import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, selectionProblems, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
 import { DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, instruments, marbleSounds, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
@@ -30,11 +30,35 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	return (
 		<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
 			<div className="mm-insp-scroll">
+				<SelectionProblems cx={cx} selection={selection} />
 				<TargetInspector cx={cx} project={project} target={target} workspace={workspace} />
 			</div>
 		</aside>
 	);
 };
+
+/** What's wrong with what is selected, in words, above its inspector: a problem's click lands here */
+const SelectionProblems: React.FC<{ cx: StudioCx; selection: readonly string[] }> = (props) => {
+	const { cx, selection } = props;
+	const problems = useFeatureState(cx.simulation.$problems);
+	const shown = React.useMemo(() => selectionProblems(problems, selection).slice(0, MAX_SELECTION_PROBLEMS), [problems, selection]);
+	if (!shown.length) return null;
+	return (
+		<div className="mm-insp-problems" role="status">
+			{shown.map((issue) => (
+				<div key={issue.id} className="mm-insp-problem">
+					<span className="mm-hit-summary-dot mt-[4px] shrink-0" aria-hidden />
+					<span className="min-w-0">
+						<span className="mm-insp-problem-title">{issue.title}</span>
+						{issue.detail != null ? <span className="mm-insp-problem-detail">{issue.detail}</span> : null}
+					</span>
+				</div>
+			))}
+		</div>
+	);
+};
+
+const MAX_SELECTION_PROBLEMS = 3;
 
 /** The inspector of the selected layer; Track and Film differ only in what a piece shows (shape or skin) */
 const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInspectorTarget; workspace: TWorkspace }> = (props) => {

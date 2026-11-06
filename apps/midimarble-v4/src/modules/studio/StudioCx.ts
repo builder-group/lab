@@ -373,7 +373,8 @@ export class StudioCx {
 	showFirstProblem(): void {
 		const project = this.project;
 		if (project == null) return;
-		const summary = problemSummary(this.simulation.$problems.get());
+		const inWorkspace = problemSummary(this.simulation.$problems.get(), this.$workspace.get());
+		const summary = inWorkspace.problems.length > 0 ? inWorkspace : problemSummary(this.simulation.$problems.get());
 		if (summary.state === 'pending') {
 			this.notify('Checking the track…');
 			return;

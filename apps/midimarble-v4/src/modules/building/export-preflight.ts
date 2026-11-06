@@ -3,7 +3,7 @@ import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong, marbleSounds } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, CAMERA_KEY, toHitKey, toSongKey, tieOf } from '@/modules/project';
+import { formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 
@@ -155,6 +155,22 @@ export function struckPieces(preflight: TExportPreflight): Map<string, TPrefligh
  */
 export function framingProblemAt(preflight: TExportPreflight, time: number): TPreflightIssue | null {
 	return preflight.issues.find((issue) => issue.kind === 'framing' && issue.span != null && time >= issue.span.from - 1e-6 && time <= issue.span.to + 1e-6) ?? null;
+}
+
+/**
+ * The problems about exactly what is selected, so a piece or several selected by a problem say what's wrong in words:
+ * the problems of a selected piece, of a selected hit, or the one about two pieces when both are selected. A framing
+ * problem has the Camera's own panel.
+ */
+export function selectionProblems(preflight: TExportPreflight, selection: readonly string[]): TPreflightIssue[] {
+	if (!selection.length || preflight.state !== 'checked') return [];
+	const hit = selection.length === 1 && selection[0] != null ? parseHitKey(selection[0]) : null;
+	const hitId = hit != null ? `hit:${hit.marbleId}:${hit.hitId}` : null;
+	return preflight.issues.filter((issue) => {
+		if (issue.severity !== 'warning' || issue.kind === 'framing' || issue.target == null) return false;
+		const ids = issue.target.ids;
+		return issue.id === hitId || selection.every((id) => ids.includes(id));
+	});
 }
 
 /**

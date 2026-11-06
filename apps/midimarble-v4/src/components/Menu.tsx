@@ -160,6 +160,7 @@ export const MenuList: React.FC<TMenuListProps> = (props) => {
 						data-index={index}
 						data-highlighted={highlighted === index}
 						disabled={entry.disabled}
+						title={entry.title}
 						tabIndex={-1}
 						onPointerEnter={(event) => {
 							setHighlighted(entry.disabled === true ? null : index);
@@ -213,6 +214,8 @@ interface TMenuListProps {
 
 export interface TMenuItem {
 	label: string;
+	/** The native tooltip: more than the label says, such as a problem's detail */
+	title?: string;
 	shortcut?: string;
 	disabled?: boolean;
 	/** Shows a check mark column entry, like View menu toggles */
