@@ -424,13 +424,24 @@ describe('older files', () => {
 		expect(parsedErr?.message).toBe("This project was made with a different version of MidiMarble and can't be opened.");
 	});
 
-	it('should say the same of a file of this version with another shape', () => {
-		const stored = JSON.parse(serializeProject(createProject())) as { marbles: { color?: string }[] };
+	it('should name what is wrong with a file of this version', () => {
+		const stored = JSON.parse(serializeProject(createProject())) as { marbles: { color?: string }[]; film: { theme: unknown; themes?: unknown[] } };
 		const marble = stored.marbles[0];
 		if (marble != null) marble.color = '#778899';
+		stored.film.theme = 'brass';
+		stored.film.themes = [];
 		const [isParsedOk, parsedErr] = parseProject(JSON.stringify(stored));
 		expect(isParsedOk).toBe(false);
-		expect(parsedErr?.message).toBe("This project was made with a different version of MidiMarble and can't be opened.");
+		expect(parsedErr?.message).toMatch(/^This project can't be opened: /);
+		expect(parsedErr?.message).toMatch(/film\.theme should be an object/);
+		expect(parsedErr?.message).toMatch(/doesn't match this version/);
+	});
+
+	it('should say a file that is not JSON is damaged, without the parser\'s words', () => {
+		const [isParsedOk, parsedErr] = parseProject('{ "title": ');
+		expect(isParsedOk).toBe(false);
+		expect(parsedErr?.message).toMatch(/damaged/);
+		expect(parsedErr?.message).not.toMatch(/JSON/);
 	});
 
 	it('should say the same of a file with no version', () => {
