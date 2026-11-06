@@ -11,7 +11,7 @@ export const commands = {
 	 *  Adds an opened project to Recent. The app calls it once the file proved to be a project it can open, so a broken
 	 *  file never joins the list; an unsaved project stays out of it.
 	 */
-	rememberRecentProject: (path: string) => __TAURI_INVOKE<null>("remember_recent_project", { path }),
+	rememberRecentProject: (path: string) => __TAURI_INVOKE<void>("remember_recent_project", { path }),
 	saveProject: (path: string, projectJson: string) => typedError<null, string>(__TAURI_INVOKE("save_project", { path, projectJson })),
 	keepPreviousSave: (path: string) => typedError<null, string>(__TAURI_INVOKE("keep_previous_save", { path })),
 	listRecentProjects: () => __TAURI_INVOKE<RecentProjectDto[]>("list_recent_projects"),
