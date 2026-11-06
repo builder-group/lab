@@ -111,7 +111,16 @@ Draft colors are optional: `draftPieceColors` in `scene/draft-look.ts` gives an 
 
 The Blender worker is Python and can't read the definition, so it names some types itself. A `box` type needs nothing beyond step 4. A `rotor` type also goes in `layout` in `assets.py` and the windmill checks in `skins.py` and `contacts.py`.
 
-A new `layout` kind, or a type drawn with the path tool, is more work: a new kind goes through `piece-layout.ts`, `shapes.ts`, `pieceOutline` and the shapes in `canvas/PieceShapes.tsx`, and a drawn type through `TPathType` in `track/keys.ts`, `pathPieceTypes` in `building/attach-edit.ts` and `pieceToolCommand` in `studio/commands.ts`.
+A type drawn with the path tool also goes through `isPathPieceType` in `simulation/piece-layout.ts` and `pieceToolCommand` in `studio/commands.ts`.
+
+A new `layout` kind is more work. Add it to `TPieceLayoutKind` in `simulation/types.ts`. Only `PieceBody` fails to compile without it; everywhere else a missing kind falls through to another kind's behavior, so go through these by hand:
+
+1. **Build:** `layoutAtMarble`, `layoutAtContact` and `layoutFree` in `simulation/piece-layout.ts`, with its geometry there and its colliders from `simulation/shapes.ts`.
+2. **Outline and picking:** `pieceOutline` in `scene/track-geometry.ts`, `pieceScreenOutline` in `canvas/draft-outline.ts`, and the lines `TrackCx` picks.
+3. **Drawing:** `PieceBody` in `canvas/PieceShapes.tsx`, for Track's pieces and ghosts and the Draft Preview; `canvas/path-meshes.ts` for Track's 3D view; `previewScene` and `PieceDrawing` in `track/PiecePreview.tsx` for its tile.
+4. **Placing:** `followerAt` in `track/step-loop.ts`, and how dragging it snaps in `TrackCx`.
+5. **Editing:** the status and fields in `track/PieceInspector.tsx`, its parameters in `track/piece-panels.ts`, its grip and handles in `track/TrackCanvas.tsx`, and whether it turns in `TrackCx`.
+6. **Blender:** `layout` in `assets.py`, and the checks there and in `skins.py` and `contacts.py` that name a kind.
 
 ## Simulation
 

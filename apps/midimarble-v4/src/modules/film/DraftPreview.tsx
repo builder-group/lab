@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { LoaderCircle } from 'lucide-react';
 import React from 'react';
 import { openContextMenu } from '@/components';
-import { BowlShape, RailShape, RailPathsShape, toPoints, TunnelShape } from '@/modules/canvas';
+import { PieceBody, toPoints } from '@/modules/canvas';
 import { pieceKind, SCREEN_TITLE_BACKING, SCREEN_TITLE_FONT, SCREEN_TITLE_SHADOW, type TDraftMarble, type TScreenTitleLayout } from '@/modules/scene';
 import type { TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
@@ -161,15 +161,7 @@ const DraftOverlay: React.FC<{ draft: DraftPreviewCx }> = (props) => {
 					})}
 				</g>
 			) : null}
-			{pieces.map((piece) => {
-				const kind = pieceKind(piece);
-				const palette = draft.colorsOf(piece);
-				if (kind === 'path') return <RailShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
-				if (kind === 'tube') return <TunnelShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'generated') return <RailPathsShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} />;
-				if (kind === 'catcher') return <BowlShape key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={palette} tint={palette.bar} />;
-				return null;
-			})}
+			{pieces.map((piece) => <PieceBody key={piece.pieceId} projection={draft} piece={piece} scale={scale} opacity={1} palette={draft.colorsOf(piece)} />)}
 			{/* A skin's shape cue on its platform: chrome caps, a key, a lens or a grille, so a skin shows before Blender renders it */}
 			{pieces.map((piece) =>
 				draft.skinMarks(piece).map((mark) => <polygon key={`${piece.pieceId}:${mark.id}`} points={toPoints(mark.points)} fill={mark.color} stroke={mark.color} strokeWidth={0.5} strokeLinejoin="round" />)

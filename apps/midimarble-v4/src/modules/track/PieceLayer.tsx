@@ -3,7 +3,7 @@ import React from 'react';
 import { trackPieceColors, pieceKind, worldToScreen } from '@/modules/scene';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { TrackCx } from './TrackCx';
-import { paletteOf, BowlShape, isFinitePoint, projectedOutline, RailPathsShape, RailShape, TunnelShape, type TScreenProjection } from '@/modules/canvas';
+import { paletteOf, isFinitePoint, PieceBody, projectedOutline, type TScreenProjection } from '@/modules/canvas';
 
 /**
  * Pieces the overlay draws in screen space: rails and tunnels, which are thin lines on the wall, and a
@@ -38,12 +38,7 @@ interface TPieceLayerProps {
 
 const PieceShape = React.memo(function PieceShape(props: { projection: TScreenProjection; piece: TResolvedPiece; scale: number; palette: { bar: string; nub: string } }) {
 	const { projection, piece, scale, palette } = props;
-	const kind = pieceKind(piece);
-	if (kind === 'path') return <RailShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	if (kind === 'tube') return <TunnelShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	if (kind === 'generated') return <RailPathsShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	if (kind === 'catcher') return <BowlShape projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} />;
-	return <MinimumShape projection={projection} piece={piece} palette={palette} />;
+	return <PieceBody projection={projection} piece={piece} scale={scale} opacity={1} palette={palette} solid={() => <MinimumShape projection={projection} piece={piece} palette={palette} />} />;
 });
 
 /**

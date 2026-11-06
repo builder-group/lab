@@ -1,5 +1,5 @@
 import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, layoutOf, PHYSICS_HZ, projectOnPath, smoothPath, type THitResult, type TMarbleTrack, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, layoutOf, PHYSICS_HZ, projectOnPath, smoothPath, type THitResult, type TMarbleTrack, type TPieceLayoutKind, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { toHitKey } from '@/modules/project';
 import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, type TViewport } from './view';
 
@@ -52,9 +52,7 @@ export function pieceCorners(piece: TResolvedPiece): TVec2[] {
 	].map(([x = 0, y = 0]) => ({ x: piece.position.x + x * cos - y * sin, y: piece.position.y + x * sin + y * cos }));
 }
 
-export type TPieceKind = 'box' | 'path' | 'tube' | 'rotor' | 'generated' | 'catcher';
-
-export function pieceKind(piece: { type: string; layout?: TRailLayout | undefined; paths?: TVec2[][] }): TPieceKind {
+export function pieceKind(piece: { type: string; layout?: TRailLayout | undefined; paths?: TVec2[][] }): TPieceLayoutKind {
 	// A drawn Rail with further paths draws and picks like generated ones, and only its first path has handles
 	if (piece.type === 'rail' && (piece.paths?.length ?? 0) > 1) return 'generated';
 	return layoutOf(piece.type, piece.layout);
