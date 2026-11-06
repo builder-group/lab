@@ -27,6 +27,19 @@ export const MIN_ZOOM = 20;
 export const MAX_ZOOM = 800;
 export const MIN_HEIGHT = 120;
 
+/**
+ * Where the rows must scroll for the playhead at `time` to show past the Layers column, or null when it already does.
+ * It lands a little in from the left edge, like Logic's playhead paging to the next screen.
+ */
+export function playheadScroll(time: number, zoom: number, scrollLeft: number, viewWidth: number): number | null {
+	const x = TIME_ORIGIN + time * zoom;
+	if (x >= scrollLeft + TIME_ORIGIN && x <= scrollLeft + viewWidth) return null;
+	return Math.max(0, time * zoom - PLAYHEAD_LEAD);
+}
+
+// Pixels of the past kept in view left of a playhead the rows scrolled to
+const PLAYHEAD_LEAD = 24;
+
 /** The tint of a song's clip and of the line under the hits tied to it: quiet for the first song, then one each */
 const SONG_TINTS = ['var(--text-tertiary)', '#2fb5a8', '#a77ce8', '#e0749c'];
 
