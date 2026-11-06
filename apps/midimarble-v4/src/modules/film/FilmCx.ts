@@ -2,6 +2,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { blender, type TPreviewFrameResult } from '@/modules/blender';
+import { filmStartOf } from '@/modules/project';
 import { buildSceneDescription, renderFps } from '@/modules/scene';
 import type { StudioCx } from '@/modules/studio';
 import type { TCameraAngles } from '@/modules/camera';
@@ -10,6 +11,8 @@ import { sceneSignature } from './live-preview';
 import { LivePreviewCx } from './LivePreviewCx';
 
 const PREVIEW_DEBOUNCE_MS = 220;
+/** Enough pixels for the export sheet's small still on a Retina screen */
+const OPENING_FRAME_WIDTH = 216;
 /** How often an unchanged scene asks Blender what the user added there */
 const INSPECT_EVERY_MS = 2000;
 
@@ -20,6 +23,8 @@ const INSPECT_EVERY_MS = 2000;
 export class FilmCx {
 	readonly $status = createState<TFilmStatus>('idle');
 	readonly $preview = createState<TFilmPreview | null>(null);
+	/** The film's first frame, shown in the export sheet */
+	readonly $openingFrame = createState<TOpeningFrameStill | null>(null);
 	readonly $error = createState<string | null>(null);
 	readonly $blenderVersion = createState<string | null>(null);
 	/** Link state of app-owned holders by piece ID, from `inspect` after each sync */
@@ -55,6 +60,19 @@ export class FilmCx {
 	/** Starts Blender for the open package if needed, syncs the scene and renders the playhead */
 	async activate(): Promise<void> {
 		if (await this.detect()) this.requestPreview(0);
+	}
+
+	/** Renders the film's first frame for the export sheet, in the same queue as every other render; the last one stays until it's done */
+	async renderOpeningFrame(): Promise<void> {
+		if (!(await this.detect())) return;
+		await this.enqueue(async () => {
+			const project = this.studio.project;
+			const packagePath = this.studio.$path.get();
+			if (project == null || packagePath == null || !(await this.sync())) return;
+			const time = filmStartOf(project);
+			const [isFrameOk, , frame] = await blender.previewFrame(packagePath, { time, width: OPENING_FRAME_WIDTH });
+			if (isFrameOk) this.$openingFrame.set({ url: convertFileSrc(frame.path), width: frame.width, height: frame.height, time });
+		});
 	}
 
 	/** Finds Blender without starting it, so the title bar knows whether it is installed in Track too */
@@ -318,6 +336,13 @@ export interface TFilmPreview {
 	time: number;
 	revision: number;
 	renderMs: number;
+}
+
+export interface TOpeningFrameStill {
+	url: string;
+	width: number;
+	height: number;
+	time: number;
 }
 
 export interface TFilmLink {

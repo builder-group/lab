@@ -93,8 +93,15 @@ export function projectToFrame(track: TCameraTrack, frame: number, x: number, y:
 	return [0.5 + (local[0] ?? 0) / depth / halfWidth / 2, 0.5 + (local[1] ?? 0) / depth / halfHeight / 2];
 }
 
+/** A marble's width at this point as a share of the frame's width: a ball's outline stands off the view by its distance alone */
+export function marbleFrameShare(track: TCameraTrack, frame: number, point: { x: number; y: number }, radius: number): number {
+	const distance = Math.hypot(point.x - (track.position[frame * 3] ?? 0), -track.depth - (track.position[frame * 3 + 1] ?? 0), point.y - (track.position[frame * 3 + 2] ?? 0));
+	const halfWidth = Math.tan((verticalFov(track.lens, track.aspect) * Math.PI) / 360) * track.aspect;
+	return radius / distance / halfWidth;
+}
+
 /** Marble center at `time` between its samples, or null before its release */
-function marblePosition(marble: TMarbleTrack, time: number): { x: number; y: number } | null {
+export function marblePosition(marble: TMarbleTrack, time: number): { x: number; y: number } | null {
 	const samples = marble.samples;
 	const first = samples[0];
 	if (first == null || time < first.time) return null;

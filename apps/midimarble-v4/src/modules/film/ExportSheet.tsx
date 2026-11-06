@@ -4,7 +4,7 @@ import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
-import { filmStartOf } from '@/modules/project';
+import { filmStartOf, formatTime } from '@/modules/project';
 import type { TRenderPreset } from '@/modules/scene';
 import { FILM_LOUDNESS, FILM_PEAK, formatLoudness, mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
@@ -126,13 +126,17 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				</span>
 			</div>
 
-			<div className="mm-summary">
-				<div className="mm-tabular">
-					{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)} · {formatLoudness({ lufs: FILM_LOUDNESS, truePeak: FILM_PEAK })}
-				</div>
-				<div className="flex items-baseline justify-between gap-3">
-					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
-					{estimate.basis !== 'none' ? <span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span> : null}
+			<div className="flex items-stretch gap-3">
+				<OpeningFrame cx={cx} aspect={project.format.width / project.format.height} />
+				<div className="mm-summary min-w-0 flex-1">
+					<div className="mm-tabular">
+						{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)}
+					</div>
+					<div className="mm-tabular">{formatLoudness({ lufs: FILM_LOUDNESS, truePeak: FILM_PEAK })}</div>
+					<div className="flex items-baseline justify-between gap-3">
+						<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
+						{estimate.basis !== 'none' ? <span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span> : null}
+					</div>
 				</div>
 			</div>
 
@@ -148,6 +152,20 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				</button>
 			</div>
 		</>
+	);
+};
+
+/** The frame a viewer sees first, small and beside the summary, so it's looked at before every export */
+const OpeningFrame: React.FC<{ cx: StudioCx; aspect: number }> = (props) => {
+	const { cx, aspect } = props;
+	const still = useFeatureState(cx.film.$openingFrame);
+	React.useEffect(() => {
+		void cx.film.renderOpeningFrame();
+	}, [cx]);
+	return (
+		<figure className="mm-opening-frame" style={{ aspectRatio: String(aspect) }} title={still != null ? `The film's first frame, at ${formatTime(still.time)}` : "The film's first frame"}>
+			{still != null ? <img src={still.url} alt="The film's first frame" /> : null}
+		</figure>
 	);
 };
 

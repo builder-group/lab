@@ -1564,6 +1564,23 @@ button.mm-hit-summary:hover,
 	background: #000;
 }
 
+/* The film's first frame in the export sheet */
+.mm-opening-frame {
+	flex: none;
+	width: 72px;
+	margin: 0;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--separator);
+}
+
+.mm-opening-frame img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
 .mm-error-box {
 	max-height: 140px;
 	overflow-y: auto;
