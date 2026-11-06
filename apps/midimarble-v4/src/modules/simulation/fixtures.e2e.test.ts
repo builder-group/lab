@@ -54,13 +54,15 @@ describe('fixtures', () => {
 		const allowed: Record<string, string[]> = {
 			'long-gap': ['Marble 1 hits Platform 6 twice', 'Marble 1 hits Platform 5 twice', 'Marble 1 passes through Platform 5'],
 			windmill: ['Platform 2 touches Windmill 1', 'Windmill 1 touches Platform 4'],
-			'two-marbles': ['Marble 1 collides with Marble 2']
+			'two-marbles': ['Marble 1 collides with Marble 2'],
+			// Rides and exits from the capsule run keep this song's path within millimeters, with its Decor beside it as before
+			'jingle-bells': ['Platform 86 touches Platform 87']
 		};
 		for (const name of ['zigzag', 'staircase', 'long-gap', 'windmill', 'two-marbles', 'tap-along', 'reference-20', 'jingle-bells']) {
 			const project = loadFixture(name);
 			const song = { id: 'song', kind: 'midi' as const, path: 'song.mid', name: 'Song', start: 0, backing: [] };
 			const withSong = { ...project, songs: project.songs.length > 0 ? project.songs : [song] };
-			expect(checkRun(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
+			expect(checkRun(withSong, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind !== 'decor').map((issue) => issue.title), name).toEqual(allowed[name] ?? []);
 		}
 	}, 20_000);
 

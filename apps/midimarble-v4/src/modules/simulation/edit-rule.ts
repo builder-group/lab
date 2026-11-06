@@ -100,7 +100,7 @@ export function answerEdit(simulator: TSimulator, request: TEditRequest): TEditA
 	const chains = before.marbles.flatMap((marble, index) => {
 		const now = after.marbles.find((item) => item.id === marble.id);
 		if (now == null) return [];
-		const handOvers = marble.handOvers ?? handOversOf(base, index);
+		const handOvers = chainOf(before, base, index);
 		const chain: TChain = { marbleId: marble.id, index: after.marbles.indexOf(now), handOvers, original: handOvers, waitsFrom: null, stored: storedBars(before, base, index, marble.id) };
 		return [chain];
 	});
@@ -136,6 +136,16 @@ export function answerEdit(simulator: TSimulator, request: TEditRequest): TEditA
 	return answer;
 }
 
+/** What a marble's run went through. Past where it waits, what it would go through: the stored hand-overs that wait for it */
+function chainOf(project: TProject, walk: TWalk, index: number): THandOver[] {
+	const marble = project.marbles[index];
+	const handOvers = handOversOf(walk, index);
+	const waits = marble?.hits.find((hit) => hit.id === marble.waitsFrom);
+	if (marble == null || waits == null) return handOvers;
+	const from = stepOf(waits.time);
+	return [...handOvers.filter((handOver) => handOver.step < from), ...(marble.handOvers ?? []).filter((handOver) => handOver.step >= from)];
+}
+
 interface TEditState {
 	project: TProject;
 	chains: TChain[];
@@ -167,7 +177,7 @@ function cloneState(state: TEditState): TEditState {
 function absorbAll(simulator: TSimulator, state: TEditState, maxTakers: number, g: number, isOwnBar = false): void {
 	let takers = 0;
 	for (let guard = 0; guard < maxTakers * 4 + 8; guard++) {
-		const deviation = firstDeviation(simulator.walk(state.project), state.chains);
+		const deviation = firstDeviation(simulator.walk(state.project, undefined, true), state.chains);
 		if (deviation == null) return;
 		const { chain, step } = deviation;
 		state.touched.add(chain.marbleId);
@@ -237,7 +247,7 @@ function withTwoBarsIfNeeded(simulator: TSimulator, state: TEditState, before: T
 	const other = first.state;
 	const otherChain = other.chains.find((item) => item.marbleId === first.marbleId);
 	if (otherChain == null) return state;
-	const deviation = firstDeviation(simulator.walk(other.project), other.chains);
+	const deviation = firstDeviation(simulator.walk(other.project, undefined, true), other.chains);
 	const marble = other.project.marbles.find((item) => item.id === first.marbleId);
 	const next = marble?.hits.find((hit) => stepOf(hit.time) === first.laterStep);
 	const target = otherChain.original.find((item) => item.step === first.laterStep);
@@ -317,18 +327,14 @@ function firstDeviation(walk: TWalk, chains: TChain[]): TDeviation | null {
 		const walker = walk.marbles[chain.index];
 		if (walker == null) continue;
 		const stored = new Map(chain.handOvers.map((handOver) => [handOver.step, handOver]));
-		for (let h = 1; h < walker.hops.length; h++) {
-			const hop = walker.hops[h];
-			const previous = walker.hops[h - 1];
-			if (hop == null || previous == null) continue;
-			const handOver = stored.get(hop.from);
-			const track = previous.record.marbles[previous.track];
-			const landed = track?.end;
+		for (const previous of walker.hops) {
+			const handOver = stored.get(previous.to);
+			const landed = previous.record.marbles[previous.track]?.end;
 			if (handOver == null || landed == null) continue;
 			const distance = Math.hypot(landed.x + previous.origin.x - handOver.position.x - handOver.origin.x, landed.y + previous.origin.y - handOver.position.y - handOver.origin.y);
 			const speed = Math.hypot(landed.vx - handOver.velocity.x, landed.vy - handOver.velocity.y);
 			if (distance <= ABSORBED_DISTANCE && speed <= ABSORBED_SPEED) continue;
-			if (best == null || hop.from < best.step) best = { chain, walker, step: hop.from, landed, origin: previous.origin, distance, speed };
+			if (best == null || previous.to < best.step) best = { chain, walker, step: previous.to, landed, origin: previous.origin, distance, speed };
 			break;
 		}
 	}

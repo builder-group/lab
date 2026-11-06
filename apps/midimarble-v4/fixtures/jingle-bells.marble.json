@@ -1999,7 +1999,7 @@
 					"bounce": 0.72,
 					"entryDelay": 0
 				},
-				"angle": -0.09599310885968812,
+				"angle": 0.0262,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -3870,7 +3870,7 @@
 					"bounce": 0.63,
 					"entryDelay": 0
 				},
-				"angle": 1.0157816246606999,
+				"angle": 1.0507,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
@@ -7470,24 +7470,15 @@
 					"length": 0.03,
 					"thickness": 0.012,
 					"depth": 0.15,
-					"bounce": 0.63,
+					"bounce": 0.55,
 					"entryDelay": 0
 				},
-				"angle": -0.1832595714594046,
+				"angle": -0.2181661564992912,
 				"place": {
 					"kind": "plays",
 					"marbleId": "marble-1",
 					"hitId": "hit-1-43",
-					"contactAt": 0.5,
-					"leaves": {
-						"velocity": {
-							"x": 0.12809105217456818,
-							"y": 0.3841701149940491
-						},
-						"spin": -4.054871526141304,
-						"angle": -0.1832595714594046,
-						"bounce": 0.63
-					}
+					"contactAt": 0.5
 				}
 			},
 			{

@@ -39,8 +39,10 @@ const REACH_INTERVAL = 6;
 const REACH_MARGIN = 0.05;
 // Speed slack of the reach, in m/s
 const SPEED_SLACK = 1;
-// What a kept hop answers for: the pieces this near its path. A piece further off wasn't in its world
-const KEPT_REACH = 0.1;
+// What a kept hop answers for: the pieces this far from its marble's surface, past Rapier's speculative margin of 2 cm. A
+// sample every few steps sees that, at the speeds of a song. A piece further off has no contact to solve
+const KEPT_REACH = 0.03;
+const NEAR_STRIDE = 3;
 // Windmill parts are light wood
 const ROTOR_DENSITY = 600;
 // Collision groups as membership << 16 | filter. Marbles keep the default and meet everything. Static
@@ -52,6 +54,7 @@ const ROTOR_GROUPS = 0x00040001;
 const MARBLE_SLOP = 0.001;
 // Marbles this much closer than their speeds' next two steps may meet, so they share a world
 const MEETING_SLACK = 0.002;
+const MEETING_MARGIN = 0.05;
 // A wire's rolling stays calm only with these two: more solver work on each contact, and a contact solved afresh every
 // step rather than recycled from the last. Rapier has no setter for recycling, but it never recycles a pair with hooks.
 const SOLVER_ITERATIONS = 8;
@@ -78,8 +81,11 @@ export interface TSimulator {
 	 * the first hop it has to run, and past there the result shows what the latest whole run found.
 	 */
 	simulate: (project: TSimulationInput, horizon?: number) => TSimulationResult;
-	/** The hops of a run, for the edit rule. `until` stops once every marble has passed that step */
-	walk: (project: TRunInput, until?: number) => TWalk;
+	/**
+	 * The hops of a run, for the edit rule. `until` stops once every marble has passed that step, `stopsOffChain` at the first
+	 * marble that lands off its stored hand-over, as what would run from there is no use to it
+	 */
+	walk: (project: TRunInput, until?: number, stopsOffChain?: boolean) => TWalk;
 	dispose: () => void;
 }
 
@@ -101,7 +107,7 @@ export async function createSimulator(options: { isOneRun?: boolean } = {}): Pro
 			whole = { projectId: project.id, result };
 			return result;
 		},
-		walk: (project, until) => walkHops(project, kept, { until, isOneRun: false }),
+		walk: (project, until, stopsOffChain) => walkHops(project, kept, { until, stopsOffChain: stopsOffChain === true, isOneRun: false }),
 		dispose() {
 			kept.hops.clear();
 		}
@@ -146,8 +152,11 @@ export interface THopRecord {
 	reachKey: string;
 	bounds: TBounds2;
 	steps: number;
-	/** Wall samples by world origin, so a hop shifted along its song builds them once */
+	/** Wall samples and layouts of what it placed by world origin, so a hop shifted along its song builds them once */
 	wall: { origin: TVec2; samples: TMarbleSample[][] } | null;
+	layouts: { origin: TVec2; byEvent: Map<number, TPieceLayout> } | null;
+	/** Whether its path comes near a piece, by how the piece sits against its world */
+	nearness: Map<string, boolean>;
 }
 
 interface THopMarble {
@@ -211,6 +220,8 @@ export interface TMarbleWalk {
 	origin: TVec2;
 	touching: string[];
 	hops: TWalkHop[];
+	/** Its hops by where they ran. An index past `hops` was taken back */
+	hopGrid: PieceGrid;
 	stored: Map<number, THandOver>;
 	/** From this step on the marble flies free and its pieces wait where the stored hand-overs have them */
 	waitsFrom: number | null;
@@ -313,7 +324,7 @@ function isZero(origin: TVec2): boolean {
  * Walks the plan: each marble's next hop in turn, the one that ends soonest first, so what any hop can meet has already been
  * placed. A hop comes from the store when what it starts from and what stands near its path are as they were.
  */
-function walkHops(project: TRunInput, store: THopStore, options: { horizon?: number | undefined; until?: number | undefined; isOneRun: boolean }): TWalk {
+function walkHops(project: TRunInput, store: THopStore, options: { horizon?: number | undefined; until?: number | undefined; stopsOffChain?: boolean; isOneRun: boolean }): TWalk {
 	const plan = createPlan(project);
 	const walk = startWalk(project, plan);
 	let limit = options.until ?? plan.endStep;
@@ -332,6 +343,7 @@ function walkHops(project: TRunInput, store: THopStore, options: { horizon?: num
 		for (;;) {
 			const walker = nextWalker(walk, limit);
 			if (walker == null) break;
+			if (options.stopsOffChain === true && isOffChain(walk, walker)) break;
 			const before = walk.steps;
 			const hop = runNextHop(walk, store, walker);
 			if (before === 0 && walk.steps > 0) {
@@ -354,6 +366,12 @@ function walkHops(project: TRunInput, store: THopStore, options: { horizon?: num
 }
 
 const MAX_MEETINGS = 64;
+
+function isOffChain(walk: TWalk, walker: TMarbleWalk): boolean {
+	if (walker.state == null) return false;
+	const start = hopStart(walk, walker, walker.boundaries[walker.nextBoundary] ?? walker.step);
+	return start.seam != null && !start.isStored;
+}
 
 function startWalk(project: TRunInput, plan: TPlan): TWalk {
 	const walk: TWalk = {
@@ -386,6 +404,7 @@ function startWalk(project: TRunInput, plan: TPlan): TWalk {
 			origin: zeroOrigin(),
 			touching: [],
 			hops: [],
+			hopGrid: new PieceGrid(),
 			stored,
 			waitsFrom: waitsHit != null ? Math.floor(waitsHit.time * PHYSICS_HZ + STEP_EPSILON) : null,
 			events,
@@ -495,9 +514,15 @@ function runNextHop(walk: TWalk, store: THopStore, walker: TMarbleWalk): TWalkHo
 	return hop;
 }
 
+function addHop(walker: TMarbleWalk, hop: TWalkHop): void {
+	const box = hop.record.bounds;
+	walker.hopGrid.add(walker.hops.length, { minX: box.minX + hop.origin.x, minY: box.minY + hop.origin.y, maxX: box.maxX + hop.origin.x, maxY: box.maxY + hop.origin.y });
+	walker.hops.push(hop);
+}
+
 function advanceWalker(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): void {
 	const track = hop.record.marbles[hop.track];
-	walker.hops.push(hop);
+	addHop(walker, hop);
 	applyRotors(walk, hop.record, hop.origin);
 	if (track == null) return;
 	walker.status = track.status;
@@ -506,8 +531,16 @@ function advanceWalker(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): void {
 	walker.step = hop.to;
 	walker.touching = track.touching;
 	walker.nextBoundary++;
-	walker.nextEvent = walker.events.findIndex(({ event }) => event.step >= hop.to && hop.to < walk.plan.endStep);
-	if (walker.nextEvent < 0) walker.nextEvent = walker.events.length;
+	moveToEvents(walker, hop.to, walk.plan.endStep);
+}
+
+/** The marble's next event is the first at or after this step, none at the song's end */
+function moveToEvents(walker: TMarbleWalk, step: number, endStep: number): void {
+	if (step >= endStep) {
+		walker.nextEvent = walker.events.length;
+		return;
+	}
+	while (walker.nextEvent < walker.events.length && (walker.events[walker.nextEvent]?.event.step ?? Infinity) < step) walker.nextEvent++;
 }
 
 interface THopStart {
@@ -587,23 +620,55 @@ function heldBy(walk: TWalk, event: TPlanEvent): { dot: TVec2; velocity: TVec2 |
 	return { dot: flight.position, velocity: flight.velocity };
 }
 
-/** The pieces and windmills near a hop's path, with how they sit against its world: while these stay, so does the hop */
+/**
+ * The pieces and windmills a hop's path comes near, with how they sit against its world: while these stay, so does the hop.
+ * A piece further off has no contact to solve and changes no bit of the run, wherever it stands.
+ */
 function reachKeyOf(walk: TWalk, record: THopRecord, origin: TVec2, to: number, from: number): string {
-	const minX = record.bounds.minX + origin.x - KEPT_REACH;
-	const maxX = record.bounds.maxX + origin.x + KEPT_REACH;
-	const minY = record.bounds.minY + origin.y - KEPT_REACH;
-	const maxY = record.bounds.maxY + origin.y + KEPT_REACH;
+	const reach = KEPT_REACH + Math.max(...record.marbles.map((marble) => walk.plan.marbles[marble.index]?.radius ?? 0));
+	const minX = record.bounds.minX + origin.x - reach;
+	const maxX = record.bounds.maxX + origin.x + reach;
+	const minY = record.bounds.minY + origin.y - reach;
+	const maxY = record.bounds.maxY + origin.y + reach;
 	const own = record.marbles.map((marble) => marble.index);
+	const near = new Set<number>();
+	walk.grid.queryBox(minX, minY, maxX, maxY, near);
 	const parts: string[] = [];
-	for (const piece of walk.pieces) {
+	for (const index of [...near].sort((x, y) => x - y)) {
+		const piece = walk.pieces[index] as TWorldPiece;
 		// What the hop itself places follows from what it starts from
 		if (piece.enterStep >= from && own.includes(piece.marbleIndex)) continue;
 		if (piece.enterStep > to || piece.bounds.maxX < minX || piece.bounds.minX > maxX || piece.bounds.maxY < minY || piece.bounds.minY > maxY) continue;
-		// Micrometers, as a piece following a marble that was shifted differs from its old offset in the last bits
 		const rotor = walk.rotors[piece.rotorIndex];
-		parts.push(`${piece.pieceId}|${piece.signature}|${piece.enterStep}|${Math.round((piece.at.x - origin.x) * 1e6)}|${Math.round((piece.at.y - origin.y) * 1e6)}${rotor != null ? `|${rotorKey(rotor, from)}` : ''}`);
+		// Micrometers, as a piece following a marble that was shifted differs from its old offset in the last bits
+		const key = `${piece.pieceId}|${piece.signature}|${piece.enterStep}|${Math.round((piece.at.x - origin.x) * 1e6)}|${Math.round((piece.at.y - origin.y) * 1e6)}`;
+		if (rotor != null) {
+			parts.push(`${key}|${rotorKey(rotor, from)}`);
+			continue;
+		}
+		let isNear = record.nearness.get(key);
+		if (isNear == null) {
+			isNear = comesNear(record, piece, origin, reach);
+			record.nearness.set(key, isNear);
+		}
+		if (isNear) parts.push(key);
 	}
 	return parts.join(';');
+}
+
+/** Whether any sample of a hop's path comes within `reach` of a piece's shapes */
+function comesNear(record: THopRecord, piece: TWorldPiece, origin: TVec2, reach: number): boolean {
+	for (const marble of record.marbles) {
+		for (let i = 0; i < marble.samples.length; i += NEAR_STRIDE) {
+			const sample = marble.samples[i];
+			if (sample == null) continue;
+			const x = sample.position.x + origin.x;
+			const y = sample.position.y + origin.y;
+			if (x < piece.bounds.minX - reach || x > piece.bounds.maxX + reach || y < piece.bounds.minY - reach || y > piece.bounds.maxY + reach) continue;
+			for (const shape of piece.shapes) if (shapeDistance(shape, x, y) < reach) return true;
+		}
+	}
+	return false;
 }
 
 function rotorKey(rotor: TRotorRun, step: number): string {
@@ -639,7 +704,7 @@ function replaysAlike(walk: TWalk, record: THopRecord, origin: TVec2): boolean {
 			if (event == null || heldBy(walk, event) != null || event.definition == null) continue;
 			const marble = walk.plan.marbles[track.index];
 			if (marble == null) continue;
-			const wall = wallLayout(event, marble.radius, placed, origin);
+			const wall = keptLayout(record, event, marble.radius, placed, origin);
 			const isBlocked = isLayoutBlocked(walk, wall, event.time, record, track, placed.sampleCount, origin);
 			if (isBlocked !== placed.isBlocked) return false;
 		}
@@ -666,6 +731,16 @@ function wallLayout(event: TPlanEvent, radius: number, placed: THopPlaced, origi
 	return event.offset != null ? layoutFree(input, { x: position.x + event.offset.x, y: position.y + event.offset.y }) : layoutAtMarble(input, position, { x: placed.vx, y: placed.vy });
 }
 
+function keptLayout(record: THopRecord, event: TPlanEvent, radius: number, placed: THopPlaced, origin: TVec2): TPieceLayout {
+	if (record.layouts?.origin.x !== origin.x || record.layouts.origin.y !== origin.y) record.layouts = { origin, byEvent: new Map() };
+	let layout = record.layouts.byEvent.get(placed.eventIndex);
+	if (layout == null) {
+		layout = wallLayout(event, radius, placed, origin);
+		record.layouts.byEvent.set(placed.eventIndex, layout);
+	}
+	return layout;
+}
+
 /** Puts what a hop placed on the wall, and its events that never came as out of reach */
 function applyPlacements(walk: TWalk, record: THopRecord, origin: TVec2, walkers: TMarbleWalk[]): void {
 	for (const walker of walkers) {
@@ -690,7 +765,7 @@ function applyPlaced(walk: TWalk, record: THopRecord, track: THopMarble, placed:
 		placeOnWall(walk, event, layout, track.index, zeroOrigin(), layout.shapes);
 		return;
 	}
-	const layout = wallLayout(event, marble.radius, placed, origin);
+	const layout = keptLayout(record, event, marble.radius, placed, origin);
 	const resolved = resolvedFromLayout(event.pieceId, event.definition.type, event.params, layout, event.hitTime, placed.isBlocked ? 'blocked' : 'placed', event.railLayout);
 	if (event.isAnchor) resolved.entryTime = event.time;
 	const flight = { x: placed.x + origin.x, y: placed.y + origin.y };
@@ -786,19 +861,6 @@ interface TMeeting {
 	step: number;
 }
 
-function wallSampleAt(walker: TMarbleWalk, step: number): { x: number; y: number; speed: number } | null {
-	for (let h = walker.hops.length - 1; h >= 0; h--) {
-		const hop = walker.hops[h];
-		if (hop == null || step > hop.to) break;
-		if (step <= hop.from) continue;
-		const track = hop.record.marbles[hop.track];
-		const sample = track?.samples[step - (track?.from ?? 0) - 1];
-		if (sample == null) return null;
-		return { x: sample.position.x + hop.origin.x, y: sample.position.y + hop.origin.y, speed: Math.hypot(sample.velocity.x, sample.velocity.y) };
-	}
-	return null;
-}
-
 /** The first step of a hop at which another marble, as far as it has run, could touch this one */
 function findMeeting(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): TMeeting | null {
 	if (walk.marbles.length < 2) return null;
@@ -810,18 +872,28 @@ function findMeeting(walk: TWalk, walker: TMarbleWalk, hop: TWalkHop): TMeeting 
 		const otherRadius = walk.plan.marbles[other.index]?.radius ?? 0;
 		// Marbles a hop apart, in the same world already, were solved there
 		if (other.hops.at(-1)?.record === hop.record) continue;
-		const otherEnd = other.hops.at(-1)?.to ?? 0;
-		const last = Math.min(hop.to, otherEnd);
-		for (let step = hop.from + 1; step <= last; step++) {
-			const sample = track.samples[step - track.from - 1];
-			if (sample == null) break;
-			const at = wallSampleAt(other, step);
-			if (at == null) continue;
-			const gap = Math.hypot(sample.position.x + hop.origin.x - at.x, sample.position.y + hop.origin.y - at.y) - radius - otherRadius;
-			const closing = Math.hypot(sample.velocity.x, sample.velocity.y) + at.speed;
-			if (gap <= closing * 2 * DT + MEETING_SLACK) return { other, step };
-			// Far apart, no need to look at each step
-			if (gap > 0.5) step += Math.floor(((gap - 0.25) / Math.max(closing + 1, 1)) * PHYSICS_HZ * 0.5);
+		for (let h = other.hops.length - 1; h >= 0; h--) {
+			const part = other.hops[h];
+			if (part == null || part.to <= hop.from) break;
+			if (part.from >= hop.to) continue;
+			// Boxes too far apart for either marble to cross in this stretch need no look at each step
+			const a = hop.record.bounds;
+			const b = part.record.bounds;
+			const gapX = Math.max(b.minX + part.origin.x - a.maxX - hop.origin.x, a.minX + hop.origin.x - b.maxX - part.origin.x);
+			const gapY = Math.max(b.minY + part.origin.y - a.maxY - hop.origin.y, a.minY + hop.origin.y - b.maxY - part.origin.y);
+			if (Math.max(gapX, gapY) > radius + otherRadius + MEETING_SLACK + MEETING_MARGIN) continue;
+			const partTrack = part.record.marbles[part.track];
+			if (partTrack == null) continue;
+			const first = Math.max(hop.from, part.from) + 1;
+			const last = Math.min(hop.to, part.to);
+			for (let step = first; step <= last; step++) {
+				const sample = track.samples[step - track.from - 1];
+				const at = partTrack.samples[step - partTrack.from - 1];
+				if (sample == null || at == null) continue;
+				const gap = Math.hypot(sample.position.x + hop.origin.x - at.position.x - part.origin.x, sample.position.y + hop.origin.y - at.position.y - part.origin.y) - radius - otherRadius;
+				const closing = Math.hypot(sample.velocity.x, sample.velocity.y) + Math.hypot(at.velocity.x, at.velocity.y);
+				if (gap <= closing * 2 * DT + MEETING_SLACK) return { other, step };
+			}
 		}
 	}
 	// A windmill struck by another marble in the same stretch turns for both
@@ -915,7 +987,7 @@ function runShared(walk: TWalk, store: THopStore, walkers: TMarbleWalk[], from: 
 		const { walker } = entry;
 		const part = record.marbles[track];
 		if (part == null) return;
-		walker.hops.push({ record, track, origin, from: entry.from, to, start: entry.start, seam: null, isStored: false, isKept: false });
+		addHop(walker, { record, track, origin, from: entry.from, to, start: entry.start, seam: null, isStored: false, isKept: false });
 		walker.status = part.status;
 		walker.state = part.end;
 		walker.origin = origin;
@@ -923,8 +995,7 @@ function runShared(walk: TWalk, store: THopStore, walkers: TMarbleWalk[], from: 
 		walker.touching = part.touching;
 		walker.boundaries = [...new Set([...walker.boundaries.filter((step) => step <= entry.from || step >= to), to])].sort((a, b) => a - b);
 		walker.nextBoundary = walker.boundaries.indexOf(to);
-		walker.nextEvent = walker.events.findIndex(({ event }) => event.step >= to && to < walk.plan.endStep);
-		if (walker.nextEvent < 0) walker.nextEvent = walker.events.length;
+		moveToEvents(walker, to, walk.plan.endStep);
 	});
 }
 
@@ -1000,7 +1071,7 @@ function runStretch(walk: TWalk, stretch: TStretch): THopRecord {
 	world.integrationParameters.numSolverIterations = SOLVER_ITERATIONS;
 	const queue = new RAPIER.EventQueue(true);
 	const colliders = new Map<number, TColliderInfo>();
-	const record: THopRecord = { key: stretch.key, from, to, marbles: [], contacts: [], rotors: [], reachKey: '', bounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }, steps: 0, wall: null };
+	const record: THopRecord = { key: stretch.key, from, to, marbles: [], contacts: [], rotors: [], reachKey: '', bounds: { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }, steps: 0, wall: null, layouts: null, nearness: new Map() };
 	const live: TLiveMarble[] = stretch.marbles.map((entry, track) => {
 		const marble = plan.marbles[entry.walker.index] as TPlan['marbles'][number];
 		const result: THopMarble = { index: entry.walker.index, from: entry.from, samples: [], end: null, status: 'live', touching: [], placed: [] };
@@ -1426,6 +1497,14 @@ class PieceGrid {
 		}
 	}
 
+	queryBox(minX: number, minY: number, maxX: number, maxY: number, into: Set<number>): void {
+		for (let cx = cellOf(minX); cx <= cellOf(maxX); cx++) {
+			for (let cy = cellOf(minY); cy <= cellOf(maxY); cy++) {
+				for (const index of this.cells.get(cellKey(cx, cy)) ?? []) into.add(index);
+			}
+		}
+	}
+
 	/** Adds the indices of pieces whose cells meet the square of half size `reach` around x, y */
 	query(x: number, y: number, reach: number, into: Set<number>): void {
 		for (let cx = cellOf(x - reach); cx <= cellOf(x + reach); cx++) {
@@ -1485,7 +1564,11 @@ function isLayoutBlocked(walk: TWalk, layout: TPieceLayout, time: number, record
 		const maxX = bounds.maxX + reach;
 		const minY = bounds.minY - reach;
 		const maxY = bounds.maxY + reach;
-		for (const hop of walker.hops) {
+		const near = new Set<number>();
+		walker.hopGrid.queryBox(minX, minY, maxX, maxY, near);
+		for (const index of near) {
+			const hop = walker.hops[index];
+			if (hop == null) continue;
 			const box = hop.record.bounds;
 			if (box.maxX + hop.origin.x < minX || box.minX + hop.origin.x > maxX || box.maxY + hop.origin.y < minY || box.minY + hop.origin.y > maxY) continue;
 			const track = hop.record.marbles[hop.track];
