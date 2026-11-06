@@ -76,7 +76,7 @@ export function fitPattern(request: TFitPatternRequest, options: TFitPatternOpti
 	const base = without(project, removedIds);
 	const first = hits[0];
 	const arrival = first != null ? arrivalAt(sim, base, marbleId, first.id, first.time) : null;
-	const { along, barLength, barDepth, drop, fixedBounce, isGhost, keepsDirection, maxTries } = request;
+	const { along, barLength, barDepth, drop, fixedBounce, keepsDirection, maxTries, stopsAtBadBar } = request;
 	const fit = pattern.fit(
 		{ arrival, hits, settings: { width: request.width ?? pattern.defaults.width, bounce: request.bounce ?? pattern.defaults.bounce, ...(request.maxTilt != null ? { maxTilt: request.maxTilt } : {}) } },
 		{
@@ -91,7 +91,7 @@ export function fitPattern(request: TFitPatternRequest, options: TFitPatternOpti
 			...(fixedBounce != null ? { fixedBounce } : {}),
 			...(keepsDirection != null ? { keepsDirection } : {}),
 			...(maxTries != null ? { maxTries } : {}),
-			...(isGhost != null ? { isGhost } : {})
+			...(stopsAtBadBar != null ? { stopsAtBadBar } : {})
 		}
 	);
 	const said = [...fit.verdicts, ...(fit.ending != null ? [fit.ending] : [])].flatMap((verdict) => (verdict.words != null ? [{ ...verdict, words: verdict.words }] : []));

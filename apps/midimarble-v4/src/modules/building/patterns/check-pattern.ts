@@ -146,7 +146,7 @@ export function checkPattern(project: TProject, ask: TPatternAsk, options: TPatt
 	for (const [index, attempt] of attempts.entries()) {
 		if (runs > CHECK_RUNS && refused.length > 0) break;
 		const tried: TGroupChange = { ...change, width: attempt.width };
-		const outcome = runGroupChange(project, tried, { ...run, sim: counting, ...(attempt.along != null ? { along: attempt.along } : {}), ...(index > 0 ? { maxTries: 1 } : {}), ...scaled(run.onProgress, index, attempts.length) });
+		const outcome = runGroupChange(project, tried, { ...run, sim: counting, stopsAtBadBar: true, ...(attempt.along != null ? { along: attempt.along } : {}), ...(index > 0 ? { maxTries: 1 } : {}), ...scaled(run.onProgress, index, attempts.length) });
 		const answer = answerOf(project, outcome, tried, checkFor(project, outcome, ask.marbleId, sim, was), true);
 		if (answer.refusal == null) return answer;
 		refused.push(answer);

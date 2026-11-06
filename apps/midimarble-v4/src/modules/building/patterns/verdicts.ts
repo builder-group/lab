@@ -2,11 +2,12 @@ import type { TSimulationResult } from '@/modules/simulation';
 import type { THitVerdict, TPatternMoment } from './contract';
 import { sampleAt } from './fit-bars';
 
-/** A verdict for every hit: the first thing said about it, and a verdict that doesn't fit before one that does */
+/** A verdict for every hit: it fits unless something said it doesn't, in words saying all of it */
 export function verdictsFor(hits: readonly { id: string }[], said: readonly THitVerdict[]): THitVerdict[] {
 	return hits.map((hit) => {
 		const about = said.filter((item) => item.hitId === hit.id);
-		return about.find((item) => !item.fits) ?? about[0] ?? { hitId: hit.id, fits: true, words: null };
+		const words = about.flatMap((item) => item.words ?? []);
+		return { hitId: hit.id, fits: about.every((item) => item.fits), words: words.length > 0 ? words.join(' ') : null };
 	});
 }
 

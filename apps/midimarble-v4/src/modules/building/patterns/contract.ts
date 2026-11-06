@@ -58,8 +58,8 @@ export interface TPatternOptions {
 	barDepth?: number;
 	/** How many nearby shapes to try for a clean one */
 	maxTries?: number;
-	/** A ghost: the whole shape however it goes, where otherwise the first bar that can't play ends the fit, as nothing can apply after it */
-	isGhost?: boolean;
+	/** End at the first bar that can't play: nothing can apply after it, so a check says no sooner. A ghost goes on, to show the shape */
+	stopsAtBadBar?: boolean;
 	/** The last bar keeps its own direction instead of turning the marble toward the frame's middle */
 	keepsDirection?: boolean;
 	/** The way the track goes now, on a song already built: fit it so what follows can stay where it stands */

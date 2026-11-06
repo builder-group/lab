@@ -1,6 +1,6 @@
 import { isPatternGroup, type THit, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import type { TSimulationResult, TSimulator } from '@/modules/simulation';
-import { gravityOf, LONG_FALL, soundsHit, startRailOf, touchingPairs } from '@/modules/simulation';
+import { LONG_FALL, soundsHit, touchingPairs } from '@/modules/simulation';
 import { RELEASE_LEAD } from '../reachability';
 import { arrivalAt } from './arrival';
 import type { THitVerdict, TPatternCourse, TPatternMoment } from './contract';
@@ -85,6 +85,8 @@ export interface TGroupRunOptions {
 	along?: TPatternCourse;
 	/** How many drops to try */
 	maxTries?: number;
+	/** A check: nothing can apply after a bar that can't play */
+	stopsAtBadBar?: boolean;
 	onProgress?: (progress: TGroupRunProgress) => void;
 }
 
@@ -194,11 +196,10 @@ function hasPiecesBefore(project: TProject, marble: TMarble, time: number, excep
  * When a marble with nothing before this note should be released: null when its release already falls onto that note.
  * After the note before, so that one only waits to be built, and never so late that this one comes too soon.
  */
-function startFor(project: TProject, marble: TMarble, hit: THit): number | null {
-	const lead = hit.time - marble.start.time;
-	const fall = (Math.abs(gravityOf(project)) * lead * lead) / 2;
-	// A start rail holds the marble through most of its lead, and sets out from a release of its own
-	if (lead >= MIN_LEAD && (fall < LONG_FALL || startRailOf(project, marble.id) != null)) return null;
+function startFor(sim: TSimulator, project: TProject, marble: TMarble, hit: THit): number | null {
+	const arrival = hit.time - marble.start.time >= MIN_LEAD ? arrivalAt(sim, project, marble.id, hit.id, hit.time) : null;
+	// As it really goes: a start rail holds the marble through most of its lead
+	if (arrival != null && marble.start.position.y - arrival.position.y < LONG_FALL) return null;
 	const before = [...marble.hits].reverse().find((item) => item.time < hit.time)?.time ?? -Infinity;
 	return Math.max(0, Math.min(hit.time - MIN_LEAD, Math.max(hit.time - RELEASE_LEAD, before + 0.01)));
 }
@@ -263,7 +264,7 @@ function marbleAt(sim: TSimulator, project: TProject, marbleId: string, time: nu
 
 /** Runs a Group's Pattern and what follows it, and answers with one edit. The project isn't touched */
 export function runGroupChange(project: TProject, change: TGroupChange, options: TGroupRunOptions): TGroupRunOutcome {
-	const { sim, isPreview = false, onProgress, along, maxTries } = options;
+	const { sim, isPreview = false, onProgress, along, maxTries, stopsAtBadBar } = options;
 	const marble = project.marbles.find((item) => item.id === change.marbleId);
 	const existing = change.groupId != null ? project.track.groups.filter(isPatternGroup).find((group) => group.id === change.groupId) : undefined;
 	let name = existing != null && existing.pattern.kind === change.kind ? existing.name : nextGroupName(project.track.groups, change.kind);
@@ -287,7 +288,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	if (takesSilence(change.kind) && target.hitIds.length === 1 && railHolding(sim, project, marble.id, hits) == null) working = withReleaseAt(working, marble.id, target.from);
 	// A marble with nothing to play before these notes starts just above them: the notes before wait until someone builds them
 	if (!takesSilence(change.kind) && firstHit != null && !hasPiecesBefore(project, marble, firstHit.time, own)) {
-		const release = startFor(project, marble, firstHit);
+		const release = startFor(sim, working, marble, firstHit);
 		if (release != null) working = withReleaseAt(working, marble.id, release);
 	}
 	const steps = 1 + later.length;
@@ -296,7 +297,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 			project,
 			pieceIds,
 			fitPattern(
-				{ project: working, marbleId: marble.id, hitIds, kind: item.kind, width: item.width, bounce: item.bounce, drop: dropForBounce(item.kind, item.bounce), ...(item.maxTilt != null ? { maxTilt: item.maxTilt } : {}), ...barSizeOf(project, pieceIds), ...(isPreview ? { maxTries: 1, isGhost: true } : maxTries != null ? { maxTries } : {}), ...(along != null && step === 1 ? { along } : {}) },
+				{ project: working, marbleId: marble.id, hitIds, kind: item.kind, width: item.width, bounce: item.bounce, drop: dropForBounce(item.kind, item.bounce), ...(item.maxTilt != null ? { maxTilt: item.maxTilt } : {}), ...barSizeOf(project, pieceIds), ...(isPreview ? { maxTries: 1 } : maxTries != null ? { maxTries } : {}), ...(stopsAtBadBar === true && !isPreview ? { stopsAtBadBar } : {}), ...(along != null && step === 1 ? { along } : {}) },
 				{ sim, onProgress: (fraction) => onProgress?.({ name: label, step, steps, fraction: (step - 1 + fraction) / steps }) }
 			)
 		);

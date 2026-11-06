@@ -51,7 +51,7 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		bounce: world.fixedBounce ?? settings.bounce,
 		...(settings.maxTilt != null ? { maxTilt: settings.maxTilt } : {}),
 		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: frameBand(project).centerX } : {}),
-		...(world.isGhost !== true ? { stopsAtBadBar: true } : {})
+		...(world.stopsAtBadBar === true ? { stopsAtBadBar: true } : {})
 	};
 	if (kind === 'staircase') shape.dir = Math.sign(frameBand(project).centerX - arrival.position.x) || 1;
 
@@ -60,17 +60,23 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 	let best: TScoredFit | null = null;
 	let tries = 0;
 	let sims = 0;
-	const attemptAt = (width: number, drop: number | null, share: number): TScoredFit => {
+	const runs = runsOf(project, hits);
+	const attemptAt = (over: readonly THit[][], drop: number | null): TScoredFit => {
 		const attempt = tries++;
-		const fit = fitRuns(world, runsOf(project, hits), isNextClose ? next : null, arrival, { ...shape, width, ...(drop != null ? { drop } : {}) }, (drop ?? 1) / (askedDrop ?? 1), (done, total) => world.onProgress?.(share * ((attempt + done / total) / maxTries)));
+		const fit = fitRuns(world, over, isNextClose ? next : null, arrival, { ...shape, width: asked, ...(drop != null ? { drop } : {}) }, (drop ?? 1) / (askedDrop ?? 1), (done, total) => world.onProgress?.((attempt + done / total) / maxTries));
 		sims += fit.sims;
-		return scoreFit(sim, fit, marbleId, ids, isNextClose, width, drop, last.time);
+		return scoreFit(sim, fit, marbleId, ids, isNextClose, asked, drop, last.time);
 	};
 	for (const drop of drops) {
 		if (tries >= maxTries) break;
-		const scored = attemptAt(asked, drop, 1);
+		const scored = attemptAt(runs, drop);
 		if (best == null || scored.score < best.score) best = scored;
 		if (scored.score === 0) break;
+	}
+	// A rail across a long hop can stand in the way of what comes before it: a bounce may still make that hop, and the fall is judged
+	if (best != null && best.score > 0 && runs.length > 1 && world.along == null && tries < maxTries + 1) {
+		const scored = attemptAt([[...hits]], best.drop);
+		if (scored.score < best.score) best = scored;
 	}
 	const chosen = best as TScoredFit;
 	const result = sim.simulate({ ...chosen.project, length: (next?.time ?? last.time + 0.3) + 0.01 });

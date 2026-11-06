@@ -110,6 +110,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	const times = new Map(marble.hits.map((hit) => [hit.id, hit.time]));
 	const length = shape.barLength ?? BAR_LENGTH;
 	const maxTilt = (shape.maxTilt ?? MAX_TILT) * DEGREE;
+	const isFollowing = shape.endAt != null || shape.leaveLike != null;
 	const scanTilt = Math.floor((shape.maxTilt ?? MAX_TILT) / 4) * 4;
 	let sims = 0;
 	const run = (next: TProject, until: number): TSimulationResult => {
@@ -214,8 +215,8 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		};
 		const score = (item: TTrial): number => (item.why.length > 0 ? 10 : 0) + Math.abs(item.errX) * 20 + Math.abs(item.errY) * 2;
 		const isGood = (item: TTrial): boolean => !item.why.length && Math.abs(item.errX) < 0.001 && (targetY == null || Math.abs(item.errY) < 0.005 || (item.bounce <= 0.1 && item.errY < 0) || (item.bounce >= 0.95 && item.errY > 0));
-		// Held for the column and the drop: not worth a scan that may trade the drop for the last millimeters
-		const isCloseEnough = (item: TTrial): boolean => !item.why.length && Math.abs(item.errX) < COLUMN_CLOSE && (targetY == null || Math.abs(item.errY) < 0.01);
+		// Following a track, held for the column and the drop: not worth a scan that may trade the drop for the last millimeters
+		const isCloseEnough = (item: TTrial): boolean => isFollowing && !item.why.length && Math.abs(item.errX) < 0.002 && (targetY == null || Math.abs(item.errY) < 0.01);
 		const keep = (item: TTrial): void => {
 			if (found.best == null || score(item) < score(found.best)) found.best = item;
 		};
@@ -227,8 +228,8 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 			const item = trial(angle, bounce);
 			keep(item);
 			if (isGood(item)) break;
-			// The model is only a guess at the slope: a step that overshoots the column halves those after it
-			if (item.errX * lastErrX < 0) settling /= 2;
+			// The model is only a guess at the slope: following a track, a step that overshoots halves those after it
+			if (isFollowing && item.errX * lastErrX < 0) settling /= 2;
 			lastErrX = item.errX;
 			const dvx = item.errX / hop;
 			const dvy = item.errY / hop;
@@ -265,7 +266,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		}
 
 		// Slow path: tilt scan with the bounce held, then bisection between clean trials on either side of the column
-		if (nextId != null && (found.best == null || !isCloseEnough(found.best))) {
+		if (nextId != null && (found.best == null || (!isGood(found.best) && !isCloseEnough(found.best)))) {
 			const seeds = shape.drop != null ? [0, 0.1, -0.1, 0.2, -0.2, 0.3].map((d) => bounceSeed + d) : [0, 0.08, 0.16, -0.08, 0.24, -0.16].map((d) => shape.bounce + d);
 			// Each bounce has its own root, and the one nearest the drop aimed for wins: the first found can fall many times further
 			let solved: TTrial | null = null;

@@ -91,8 +91,8 @@ Physics stays out of it:
 
 | | All fixtures | Jingle Bells |
 | --- | --- | --- |
-| Zigzag, no pieces | 140/144 | 39/42 |
-| Staircase, no pieces | 118/144 | 23/42 |
+| Zigzag, no pieces | 139/144 | 37/42 |
+| Staircase, no pieces | 121/144 | 26/42 |
 | Long Rail, no pieces | 28/31 | 14/14 |
 | Zigzag, after Build Track | 132/144 | 30/42 |
 | Staircase, after Build Track | 106/144 | 11/42 |

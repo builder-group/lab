@@ -22,7 +22,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
 - With the chosen look: `blender:design`.
 - The film's look against the reference, on Brass's defaults: gold, wall, marble and scroll energy near its numbers (`references.md`, Look). The camera holds at both 85 mm and the 30 mm trial.
-- Patterns on the reference's hit times: 58 of 58 on time, no double hits or rolls, at Width 14 cm and Gravity 0.5. On 638 real ranges of the fixtures, how often they fit, and that none left a track worse (`references.md`).
+- Patterns on the reference's hit times: 58 of 58 on time at Width 14 cm and Gravity 0.5, chained without the check: it leaves 2 double hits and 2 rolls, which the check refuses. On 638 real ranges of the fixtures, how often they fit, and that none left a track worse (`references.md`).
 
 ## Not verified
 
