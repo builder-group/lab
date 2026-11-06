@@ -1,7 +1,7 @@
 // How often Patterns fit on real songs, and why they don't: each Pattern on many hit ranges of different lengths, on each
 // fixture with no pieces (unbuilt) and after Build Track (built). A success means the app applied it, and the result is
 // measured as well: its hits play on time, no hit that was on time went off time, and there are no new Problems.
-// Usage: tsx scripts/pattern-measure.ts <label> [--only <fixture,fixture>] [--state unbuilt|built] [--quick]
+// Usage: tsx scripts/pattern-measure.ts <label> [--only <fixture,fixture>] [--state unbuilt|built] [--quick] [--gravity <g>]
 // Writes .local/pattern-measure/<label>.json, or <label>-<fixture>-<state>.json with --only, and prints the table.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -46,10 +46,13 @@ function argument(name: string): string | null {
 	return index >= 0 ? (process.argv[index + 1] ?? null) : null;
 }
 
+/** Every fixture at this Gravity instead of its own, as if a new project */
+const GRAVITY = argument('gravity');
+
 function loadFixture(name: string): TProject {
 	const [isOk, err, project] = parseProject(readFileSync(new URL(`../fixtures/${name}.marble.json`, import.meta.url), 'utf8'));
 	if (!isOk) throw err;
-	return project;
+	return GRAVITY != null ? { ...project, gravity: Number(GRAVITY) } : project;
 }
 
 function bare(project: TProject): TProject {
@@ -58,14 +61,15 @@ function bare(project: TProject): TProject {
 
 /** Build Track's result on a fixture, kept in `.local`: a whole song takes a minute or two */
 async function built(name: string, sim: TSimulator): Promise<TProject> {
-	const path = join(OUT, 'built', `${name}.json`);
+	const folder = join(OUT, GRAVITY != null ? `built-${GRAVITY}` : 'built');
+	const path = join(folder, `${name}.json`);
 	if (existsSync(path)) {
 		const [isOk, err, project] = parseProject(readFileSync(path, 'utf8'));
 		if (!isOk) throw err;
 		return project;
 	}
 	const outcome = await buildTrack(bare(loadFixture(name)), localBuildDeps(sim));
-	mkdirSync(join(OUT, 'built'), { recursive: true });
+	mkdirSync(folder, { recursive: true });
 	writeFileSync(path, serializeProject(outcome.project));
 	return outcome.project;
 }

@@ -101,7 +101,7 @@ Physics stays out of it:
 | The fixture as stored, Gravity 0.5 | 6.9 | 33 % | 1.2 | 4.7 % |
 | Jingle Bells, Gravity 0.25 | 15.8 | 0 % | 3.4 | 7.0 % |
 
-Jingle Bells' count includes two marbles' columns and its Rails. Bars in frame on `reference-20` go 6.1, 8.4, 9.2, 10.2 at Gravity 0.5, 0.35, 0.3, 0.25. Build Track leaves every hit of every fixture on time at 0.25; at 0.2 `reference-20` loses one of 48. Patterns set the floor for fast rhythm: Zigzag at Width 10 cm on the reference's 58 hits plays 58 at Gravity 0.35, 26 at 0.3 and 17 at 0.25, since its 0.23 s hops want more than the 40° limit, while even hits 0.3 s apart play 24 of 24 at 0.25.
+Jingle Bells' count includes two marbles' columns and its Rails. Bars in frame on `reference-20` go 6.1, 8.4, 9.2, 10.2 at Gravity 0.5, 0.35, 0.3, 0.25. Build Track leaves every hit of every fixture on time at 0.25; at 0.2 `reference-20` loses one of 48. Patterns refuse more at low Gravity: their table is below.
 
 **Bounce.** Above e ≈ 0.71 a marble rises past the previous piece of the other column. The default is 0.65. A roll is a rise under 0.5 marble radii along the normal within 0.1 s: dead bars reach 0.11 to 0.19 radii, real bounces 0.71 and up.
 
@@ -109,16 +109,18 @@ Jingle Bells' count includes two marbles' columns and its Rails. Bars in frame o
 
 **Marbles side by side.** `MARBLE_SPACING` stays 0.26 m. Rebuilds at 0.16 to 0.22 m gave no clean build that frames closer, as built marbles stay 0.26 to 0.29 m apart at every spacing. Closer two-marble films need bands that interleave by design.
 
-**How often Patterns fit,** from `scripts/pattern-measure.ts`: each Pattern on 638 real ranges of the eight fixtures, of 2 to 16 hits at a song's start, middle and end, and its longest silences, with no Width asked. A fit counts only if the app applies it and the result is measured too: its hits on time, no hit that was on time off time, no new Problems. None of the 638 left a track worse.
+**How often Patterns fit,** from `scripts/pattern-measure.ts --gravity <g>`: each Pattern on 638 real ranges of the eight fixtures, of 2 to 16 hits at a song's start, middle and end, and its longest silences, with no Width asked. A fit counts only if the app applies it and the result is measured too: its hits on time, no hit that was on time off time, no new Problems. None of the 638 left a track worse at any Gravity.
 
-| | All fixtures | Jingle Bells |
-| --- | --- | --- |
-| Zigzag, no pieces | 139/144 | 37/42 |
-| Staircase, no pieces | 121/144 | 26/42 |
-| Long Rail, no pieces | 28/31 | 14/14 |
-| Zigzag, after Build Track | 132/144 | 30/42 |
-| Staircase, after Build Track | 106/144 | 11/42 |
-| Long Rail, after Build Track | 15/31 | 9/14 |
+| | Gravity 0.25 | Jingle Bells | Gravity 0.35 | Jingle Bells | Fixtures' own, mostly 0.5 | Jingle Bells |
+| --- | --- | --- | --- | --- | --- | --- |
+| Zigzag, no pieces | 137/144 | 39/42 | 141/144 | 39/42 | 139/144 | 37/42 |
+| Staircase, no pieces | 111/144 | 25/42 | 119/144 | 26/42 | 121/144 | 26/42 |
+| Long Rail, no pieces | 31/31 | 14/14 | 23/31 | 8/14 | 28/31 | 14/14 |
+| Zigzag, after Build Track | 112/144 | 20/42 | 132/144 | 31/42 | 132/144 | 30/42 |
+| Staircase, after Build Track | 84/144 | 10/42 | 102/144 | 13/42 | 106/144 | 11/42 |
+| Long Rail, after Build Track | 18/31 | 8/14 | 16/31 | 8/14 | 15/31 | 9/14 |
+
+Bars in frame on Build Track's result, `reference-20` and Jingle Bells: 10.2 and 16.0 at 0.25, 8.4 and 12.9 at 0.35. After Build Track at 0.25, most refusals say a later bar would be struck twice, and on Jingle Bells 15 of 26 name one bar that the build leaves barely clear. Fast rhythm is the other limit: even hits 0.25 s apart at 0.25 play 4 of 16 at Width 10 cm and 16 of 16 at 8 cm, while the reference's uneven 58 hits play 17 at 10 cm, 15 at 8 cm, and all at 0.35.
 
 A Staircase on Jingle Bells is the weak one: going one way across a band 26 cm wide runs into the other marble's pieces, or its bars, which is what most of its refusals say. A Long Rail after Build Track fails mostly at a note it changes the arrival of: it replaces a bounce, so what follows is struck differently. A rail already there stays and counts as a fit. A check on built Jingle Bells takes about 2 s to say yes and about 7 s to say no.
 

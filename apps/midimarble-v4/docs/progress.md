@@ -35,7 +35,9 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 ## Known problems
 
 - Build Track on Jingle Bells goes through on its first release position at Gravity 0.25, where other settings needed the second. That is one song's luck, not a fix.
-- At the default Gravity 0.25 a Zigzag Pattern misses hits at hops under about 0.3 s: 17 of the reference's 58 at Width 10 cm, 58 of 58 at Gravity 0.35. It says so as Problems.
+- At the default Gravity 0.25 Patterns refuse more on a built track (Zigzag 112 of 144, against 132 at 0.35) and on fast uneven rhythm (17 of the reference's 58 hits, all at 0.35). `references.md` has the table.
+- At 3 s and 30 s of Jingle Bells the bass touches the frame's edge for a frame or two, half hidden at 3 s. A 9 % wider duet frame would clear it.
+- Fix on a two-marble song recovers less at 0.25: over 2 to 8 notes on Jingle Bells it recovers 2 of 7 fully and leaves more broken hits on 3, against 3 of 6 fully and none worse at 0.5. A result with more broken hits doesn't land. One-marble songs recover every time.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
