@@ -143,7 +143,7 @@ describe('SimulationCx class', () => {
 
 			// Assert
 			expect(cx.$result.get()?.hits.every((hit) => hit.status === 'onTime')).toBe(true);
-			expect(studio.$notice.get()?.message).toMatch(/changed too, so the notes after (it|them) stay on time/);
+			expect(vi.mocked(studio.notifyEdit).mock.lastCall?.[0]).toMatch(/changed too, so the notes after (it|them) stay on time/);
 		});
 
 		it('should leave an undo alone', async () => {
