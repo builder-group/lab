@@ -1,8 +1,11 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { assignNotesCommands, createFreePiece, flattenCommands, moveSongCommands, patternLockWords, patternOfPiece } from '@/modules/building';
-import { deleteHitCommands, pieceForHit } from '@/modules/track';
+import { deleteHitCommands } from '@/modules/track/hand-notes';
+import { pieceForHit } from '@/modules/track/step-loop';
 import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, themeCommands, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
-import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinCommands } from '@/modules/film';
+import { readScatterChoice } from '@/modules/film/decor-actions';
+import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands } from '@/modules/film/decor-scatter';
+import { skinCommands } from '@/modules/film/film-commands';
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
