@@ -43,7 +43,7 @@ export const library = {
 	async addAsset(packagePath: string, path: string, manifestJson: string, pack?: TPackOrigin): Promise<TResult<TLibraryItem, Error>> {
 		if (!isTauri()) return Err(unavailable());
 		const [isManifestOk, manifestErr, manifest] = parseCandidateManifest(manifestJson);
-		if (!isManifestOk) return Err(new Error(`The asset's manifest is invalid: ${manifestErr.message}`));
+		if (!isManifestOk) return Err(new Error(`This item's manifest can't be read: ${manifestErr.message}`));
 		const [isListOk, listErr, items] = await library.list(packagePath);
 		if (!isListOk) return Err(listErr);
 		const itemId = uniqueItemId(
@@ -147,5 +147,5 @@ export function toLibraryItem(dto: specta.LibraryItemDto): TLibraryItem {
 }
 
 function unavailable(): Error {
-	return new Error('The asset library needs the desktop app');
+	return new Error('Packs work in the desktop app. Open MidiMarble on your Mac.');
 }

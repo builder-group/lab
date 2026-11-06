@@ -563,7 +563,7 @@ export class AssistCx {
 				}
 			}, { ...(from != null ? { from } : {}), ...(gapPiece != null ? { gapPiece } : {}) });
 		} catch (error: unknown) {
-			this.studio.notify(`Build Track stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			this.studio.notifyFailed('Build Track stopped. What it built stays; press ⇧N to go on.', error);
 		} finally {
 			this.buildRun = null;
 			this.$building.set(null);
@@ -765,7 +765,7 @@ export class AssistCx {
 				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
 			} else this.studio.notify(fix.message);
 		} catch (error) {
-			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			if (!isSuperseded(error)) this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
 		} finally {
 			this.fixRun = null;
 			this.$fixing.set(null);
@@ -815,7 +815,7 @@ export class AssistCx {
 			if (outcome != null && this.studio.project === project) this.landWholeRun(project, result, outcome, commands, run.isCanceled);
 		} catch (error: unknown) {
 			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
-			this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
 		} finally {
 			this.fixRun = null;
 			this.$fixing.set(null);
@@ -903,7 +903,7 @@ export class AssistCx {
 				}
 			}
 		} catch (error) {
-			if (!isSuperseded(error)) this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			if (!isSuperseded(error)) this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
 		} finally {
 			this.fixRun = null;
 		}

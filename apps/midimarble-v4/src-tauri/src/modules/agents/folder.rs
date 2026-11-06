@@ -169,7 +169,7 @@ fn require_package(package: &Path) -> io::Result<()> {
     }
     return Err(io::Error::new(
         io::ErrorKind::NotFound,
-        format!("{} is not a MidiMarble project", package.display()),
+        format!("{} isn't a MidiMarble project. Choose a .marble package.", package.file_name().map_or_else(|| package.display().to_string(), |name| name.to_string_lossy().into_owned())),
     ));
 }
 

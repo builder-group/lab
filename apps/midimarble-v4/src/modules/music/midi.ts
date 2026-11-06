@@ -4,13 +4,13 @@ import { Err, Ok, type TResult } from 'tuple-result';
 // Node loads the package's CommonJS build, whose exports sit on `default`; bundlers expose them directly
 const { Midi } = (toneMidi as unknown as { default?: typeof toneMidi }).default ?? toneMidi;
 
-/** Parses a Standard MIDI File into note lists per track and channel */
-export function parseMidiFile(bytes: ArrayBuffer | Uint8Array): TResult<TMidiFile, Error> {
+/** Parses a Standard MIDI File into note lists per track and channel. `name` is what errors call the file. */
+export function parseMidiFile(bytes: ArrayBuffer | Uint8Array, name = 'This file'): TResult<TMidiFile, Error> {
 	let midi: InstanceType<typeof Midi>;
 	try {
 		midi = new Midi(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
 	} catch (error) {
-		return Err(new Error(`This is not a readable MIDI file: ${(error as Error).message}`));
+		return Err(new Error(`${name} isn't a MIDI file MidiMarble can read. Choose another .mid file.`, { cause: error }));
 	}
 	const tracks: TMidiTrack[] = [];
 	for (const [index, track] of midi.tracks.entries()) {
@@ -32,7 +32,7 @@ export function parseMidiFile(bytes: ArrayBuffer | Uint8Array): TResult<TMidiFil
 				.sort((a, b) => a.time - b.time || b.pitch - a.pitch)
 		});
 	}
-	if (!tracks.length) return Err(new Error('The MIDI file contains no notes'));
+	if (!tracks.length) return Err(new Error(`${name} has no notes. Choose a MIDI file with notes.`));
 	return Ok({ name: midi.name, duration: midi.duration, tempo: midi.header.tempos[0]?.bpm ?? null, tracks });
 }
 

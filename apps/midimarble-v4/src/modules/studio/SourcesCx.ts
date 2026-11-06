@@ -36,10 +36,10 @@ export class SourcesCx {
 		if (url == null) return;
 		const [isBytesOk, bytesErr, bytes] = await host.readFile(url);
 		if (!isBytesOk) {
-			this.studio.notify(`${file.name} could not be read: ${bytesErr.message}`, 'error');
+			this.studio.notifyFailed(`${file.name} couldn't be read. Choose the file again.`, bytesErr);
 			return;
 		}
-		const [isMidiOk, midiErr, midi] = parseMidiFile(bytes);
+		const [isMidiOk, midiErr, midi] = parseMidiFile(bytes, file.name);
 		if (!isMidiOk) {
 			this.studio.notify(midiErr.message, 'error');
 			return;
@@ -72,7 +72,7 @@ export class SourcesCx {
 		const preview = previewMidiImport(pending);
 		const [isImportedOk, importedErr, relativePath] = await host.importSource(packagePath, pending.file);
 		if (!isImportedOk) {
-			this.studio.notify(`${pending.file.name} could not be copied: ${importedErr.message}`, 'error');
+			this.studio.notifyFailed(`${pending.file.name} couldn't be copied into the project. Check there's room on the disk, then import it again.`, importedErr);
 			return;
 		}
 		const replaced = project.songs.filter((item) => item.id === pending.replaces);
@@ -121,7 +121,7 @@ export class SourcesCx {
 		if (project == null || packagePath == null) return;
 		const [isImportedOk, importedErr, relativePath] = await host.importSource(packagePath, file);
 		if (!isImportedOk) {
-			this.studio.notify(`${file.name} could not be copied: ${importedErr.message}`, 'error');
+			this.studio.notifyFailed(`${file.name} couldn't be copied into the project. Check there's room on the disk, then import it again.`, importedErr);
 			return;
 		}
 		const replaced = project.songs.find((item) => item.id === replaces);
@@ -221,7 +221,7 @@ export class SourcesCx {
 		try {
 			const [isBytesOk, bytesErr, bytes] = await host.readFile(url);
 			if (!isBytesOk) {
-				this.studio.notify(`${source.name} could not be read: ${bytesErr.message}`, 'error');
+				this.studio.notifyFailed(`${source.name} couldn't be read. Put the file back, or choose Replace Song… on its row.`, bytesErr);
 				return null;
 			}
 			const decoded = await decodeAudioFile(bytes);
@@ -235,7 +235,7 @@ export class SourcesCx {
 			this.$analysis.set({ ...this.$analysis.get(), [source.id]: analysis });
 			return analysis;
 		} catch (error) {
-			this.studio.notify(`${source.name} could not be decoded: ${(error as Error).message}`, 'error');
+			this.studio.notifyFailed(`${source.name} isn't a recording MidiMarble can play. Choose Replace Song… on its row and pick a .wav, .mp3 or .m4a file.`, error);
 			return null;
 		} finally {
 			this.loading.delete(source.id);

@@ -68,7 +68,7 @@ export function usePlayback(cx: StudioCx): void {
 				if (cx.$playing.get()) startLoop();
 			} catch (error) {
 				cx.$playing.set(false);
-				cx.notify(`Playback failed: ${(error as Error).message}`, 'error');
+				cx.notifyFailed('Playback stopped. Press Play to try again.', error);
 			}
 		})();
 	});

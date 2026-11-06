@@ -290,7 +290,7 @@ export class StudioCx {
 		const project = this.project;
 		if (project == null || this.$playing.get() || !this.$audioScrubbing.get()) return;
 		this.audio.beginScrub(audibleProject(project, this.$mix.get()), this.resolveSourceUrl).catch((error: unknown) => {
-			this.notify(`Playback failed: ${(error as Error).message}`, 'error');
+			this.notifyFailed('Playback stopped. Press Play to try again.', error);
 		});
 	}
 
@@ -475,6 +475,7 @@ export class StudioCx {
 			this.notify(projectErr.message, 'error');
 			return false;
 		}
+		void host.rememberRecentProject(opened.path);
 		this.load(project, opened.path);
 		return true;
 	}
@@ -495,7 +496,9 @@ export class StudioCx {
 			writeText(OPEN_PROJECT_KEY, null);
 			return;
 		}
-		if (this.$history.get() == null) this.load(project, opened.path, isTemporary);
+		if (this.$history.get() != null) return;
+		void host.rememberRecentProject(opened.path);
+		this.load(project, opened.path, isTemporary);
 	}
 
 	/** Returns false when the user cancels closing an unsaved document with changes */
@@ -772,7 +775,7 @@ export class StudioCx {
 		if (path == null || project == null) return;
 		const result = await specta.commands.agentFolderEnsure(path, project.title);
 		if (result.status === 'error') {
-			this.notify(`The agent folder couldn't be made: ${result.error}`, 'error');
+			this.notifyFailed("The agent folder couldn't be made. Check the project's folder is writable, then try again.", result.error);
 			return;
 		}
 		const [isShownOk, shownErr] = await host.revealInFinder(result.data);
@@ -1066,13 +1069,22 @@ export class StudioCx {
 	 * with actions stays longer, one with `progress` until it is replaced. Returns the notice's id.
 	 */
 	notify(message: string, tone: TNotice['tone'] = 'info', options: TNoticeOptions = {}): number {
-		this.agentStep?.notices.push({ message, tone });
+		// An agent has no Details to open
+		this.agentStep?.notices.push({ message: tone === 'error' && options.details != null ? `${message} ${options.details}` : message, tone });
 		const id = ++this.noticeId;
 		this.noticeShownAt = this.project?.revision ?? null;
 		this.noticeGroup = this.editGroup;
 		this.$notice.set({ id, message, tone, ...options });
 		this.scheduleNoticeEnd();
 		return id;
+	}
+
+	/**
+	 * Says in plain words what stopped and what to do; what the app or the system said about it goes behind Details, as a
+	 * person can't act on it and it's what a bug report needs
+	 */
+	notifyFailed(message: string, error: unknown): number {
+		return this.notify(message, 'error', { details: error instanceof Error ? error.message : String(error) });
 	}
 
 	/** Reports an edit that just happened with an Undo action for it, such as "6 platforms removed" */

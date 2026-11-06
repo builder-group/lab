@@ -289,9 +289,9 @@ fn read_pack(dir: &Path, id: &str) -> Result<PackDto, String> {
 fn read_manifest(dir: &Path) -> Result<PackManifest, String> {
     let path = dir.join(PACK_FILE);
     reject_link(&path)?;
-    let json = fs::read_to_string(&path).map_err(|_| format!("{} is not a MidiMarble Pack", dir.display()))?;
+    let json = fs::read_to_string(&path).map_err(|_| format!("{} isn't a MidiMarble Pack. Choose a folder with a pack.json.", dir.file_name().map_or_else(|| dir.display().to_string(), |name| name.to_string_lossy().into_owned())))?;
     let manifest: PackManifest =
-        serde_json::from_str(&json).map_err(|error| format!("pack.json can't be read: {}", error))?;
+        serde_json::from_str(&json).map_err(|error| format!("This Pack's pack.json can't be read: {}", error))?;
     check_manifest(&manifest)?;
     return Ok(manifest);
 }

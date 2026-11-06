@@ -204,7 +204,7 @@ export class SimulationCx {
 			(error: unknown) => {
 				if (run !== this.settleRun || isSuperseded(error)) return;
 				this.landSettled([], true);
-				this.studio.notify(`The rest of the run couldn't be kept: ${error instanceof Error ? error.message : String(error)}`, 'error');
+				this.studio.notifyFailed("The rest of the run couldn't be kept. Undo the edit, or Fix what it broke.", error);
 			}
 		);
 	}
@@ -274,7 +274,7 @@ export class SimulationCx {
 				return;
 			}
 			this.landSettled([], false);
-			this.studio.notify(`The platform couldn't be moved: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			this.studio.notifyFailed("The platform couldn't be moved, so it stays where it was. Drag it again.", error);
 		} finally {
 			this.dropsLanding--;
 		}
@@ -390,7 +390,7 @@ export class SimulationCx {
 					this.wholeRun = null;
 					this.$computing.set(false);
 				}
-				this.studio.notify(`Simulation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+				this.studio.notifyFailed("The run couldn't be worked out, so the wall shows the last one. Undo the edit, or make another.", error);
 			}
 		);
 	}

@@ -127,7 +127,7 @@ fn packs_root(app: &AppHandle) -> Result<PathBuf, String> {
 fn package(path: &str) -> Result<PathBuf, String> {
     let package = PathBuf::from(path);
     if !Path::new(path).join("project.json").is_file() {
-        return Err(format!("{} is not a MidiMarble project", package.display()));
+        return Err(format!("{} isn't a MidiMarble project. Choose a .marble package.", package.file_name().map_or_else(|| package.display().to_string(), |name| name.to_string_lossy().into_owned())));
     }
     return Ok(package);
 }

@@ -357,13 +357,13 @@ function toPreview(frame: TPreviewFrameResult, revision: number): TFilmPreview {
 async function loadIdPixels(url: string): Promise<TResult<TIdPixels, Error>> {
 	try {
 		const response = await fetch(url);
-		if (!response.ok) return Err(new Error(`The object ID image could not be loaded (${response.status})`));
+		if (!response.ok) return Err(new Error(`What's under the pointer couldn't be read from the frame (status ${response.status}). Click again.`));
 		const bitmap = await createImageBitmap(await response.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
 		const canvas = document.createElement('canvas');
 		canvas.width = bitmap.width;
 		canvas.height = bitmap.height;
 		const context = canvas.getContext('2d', { willReadFrequently: true });
-		if (context == null) return Err(new Error('No 2D canvas for the object ID image'));
+		if (context == null) return Err(new Error("What's under the pointer couldn't be read from the frame. Click again."));
 		context.drawImage(bitmap, 0, 0);
 		bitmap.close();
 		return Ok({ url, width: canvas.width, height: canvas.height, data: context.getImageData(0, 0, canvas.width, canvas.height).data });

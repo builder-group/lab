@@ -18,14 +18,12 @@ const PACKAGE_FOLDERS: [&str; 5] = [
 pub enum PackageError {
     #[error("{0} already exists")]
     AlreadyExists(String),
-    #[error("{0} is not a MidiMarble project")]
+    #[error("{0} isn't a MidiMarble project. Choose a .marble package.")]
     NotAPackage(String),
-    #[error("{action} {path}: {source}")]
-    Io {
-        action: &'static str,
-        path: String,
-        source: std::io::Error,
-    },
+    #[error("{0} no longer exists. If you moved it, choose it with Open Project…")]
+    Gone(String),
+    #[error("{name}: {reason}")]
+    Io { name: String, reason: String },
 }
 
 /// Appends the `.marble` extension when the chosen path does not carry it
@@ -54,6 +52,9 @@ pub fn create_package(path: &Path, project_json: &str) -> Result<PathBuf, Packag
 
 pub fn read_project(package: &Path) -> Result<String, PackageError> {
     let file = package.join(PROJECT_FILE);
+    if !package.exists() {
+        return Err(PackageError::Gone(display(package)));
+    }
     if !file.is_file() {
         return Err(PackageError::NotAPackage(display(package)));
     }
@@ -188,16 +189,19 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), PackageError> {
     return Ok(());
 }
 
+/// The system's reason in its own words, without its error number; `action` is for the log
 pub(super) fn io(action: &'static str, path: &Path, source: std::io::Error) -> PackageError {
+    eprintln!("{action} {}: {source}", path.display());
+    let reason = source.to_string();
     return PackageError::Io {
-        action,
-        path: display(path),
-        source,
+        name: display(path),
+        reason: reason.split(" (os error").next().unwrap_or(&reason).to_string(),
     };
 }
 
+/// A person knows a file by its name, not its whole path
 fn display(path: &Path) -> String {
-    return path.display().to_string();
+    return path.file_name().map_or_else(|| path.display().to_string(), |name| name.to_string_lossy().into_owned());
 }
 
 #[cfg(test)]
