@@ -568,7 +568,7 @@ def main():
     platform_glows = [tuple(material.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value) for material in platform_materials
                   if material.name.startswith('MM · neon trim')]
     platform_bodies = [tuple(material.diffuse_color) for material in platform_materials]
-    check(platform_glows and all(saturation(glow) > 0.8 for glow in platform_glows), 'Neon platforms glow in their label color's hue (%d trims)' % len(platform_glows))
+    check(platform_glows and all(saturation(glow) > 0.8 for glow in platform_glows), 'Neon platforms glow in their label color (%d trims)' % len(platform_glows))
     contrast = min((luminance(marble_body) + 0.05) / (luminance(body) + 0.05) for body in platform_bodies) if platform_bodies else 0.0
     check(contrast >= 3.0, 'a Neon marble is at least 3:1 lighter than every surface of its own platform (%.1f:1)' % contrast)
     # More Skins: a Brass skin dresses a platform as Brass in Neon too
