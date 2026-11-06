@@ -3,6 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, isPatternGroup, type TMarble, type TPatternGroup, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { createSimulator, type TSimulator, extraStrikes, rollingHits, touchingPairs } from '@/modules/simulation';
 import type { TSimulationResult } from '@/modules/simulation';
+import { loadFixture } from '@/modules/project/test-helpers';
+import { checkRun, NO_BLENDER_OBJECTS, problemSummary } from '../export-preflight';
+import { checkPattern } from './check-pattern';
 import { measurePattern } from './measures';
 import { patternSpan, runGroupChange } from './run-group';
 
@@ -44,26 +47,29 @@ function referenceProject(): TProject {
 	]);
 }
 
-const CHAIN: [number, number, 'zigzag' | 'staircase' | 'longRail', number][] = [
-	[0, 24, 'zigzag', 0.14],
-	[24, 25, 'longRail', 0.14],
-	[25, 29, 'staircase', 0.09],
-	[30, 32, 'zigzag', 0.14],
-	[32, 33, 'longRail', 0.14],
-	[33, 42, 'zigzag', 0.14],
-	[42, 43, 'longRail', 0.14],
-	[43, 57, 'zigzag', 0.14]
+const CHAIN: [number, number, 'zigzag' | 'staircase' | 'longRail'][] = [
+	[0, 24, 'zigzag'],
+	[24, 25, 'longRail'],
+	[25, 29, 'staircase'],
+	[30, 32, 'zigzag'],
+	[32, 33, 'longRail'],
+	[33, 42, 'zigzag'],
+	[42, 43, 'longRail'],
+	[43, 57, 'zigzag']
 ];
 
-function buildChain(start: TProject): TProject {
+/** The chain as a person or an agent gets it, with no Width asked, and the refusals of the steps that didn't fit */
+function buildChain(start: TProject): { project: TProject; refused: string[] } {
 	const times = start.marbles[0]?.hits.map((hit) => hit.time) ?? [];
 	let project = start;
-	for (const [first, last, kind, width] of CHAIN) {
+	const refused: string[] = [];
+	for (const [first, last, kind] of CHAIN) {
 		const gap = kind === 'longRail' ? 0.02 : 0;
-		const outcome = runGroupChange(project, { marbleId: MARBLE, from: (times[first] ?? 0) + gap, to: (times[last] ?? 0) - gap, kind, width, bounce: 0.5 }, { sim });
-		project = apply(project, outcome.commands);
+		const check = checkPattern(project, { marbleId: MARBLE, from: (times[first] ?? 0) + gap, to: (times[last] ?? 0) - gap, kind }, { sim });
+		if (check.refusal != null) refused.push(check.refusal.words);
+		else project = apply(project, check.commands);
 	}
-	return project;
+	return { project, refused };
 }
 
 function gapFalls(result: TSimulationResult): number[] {
@@ -71,21 +77,23 @@ function gapFalls(result: TSimulationResult): number[] {
 }
 
 describe('Patterns chained on the reference hits', () => {
-	it('should play all 58 on time with rails in the gaps, and say what a Width cannot do, also when an earlier Width changes', { timeout: 5 * MINUTES }, () => {
+	it('should play all 58 on time on a fresh run with no Width asked, with rails in the gaps, also when an earlier Width changes', { timeout: 5 * MINUTES }, async () => {
 		const startedAt = performance.now();
-		const chain = buildChain(referenceProject());
+		const { project: chain, refused } = buildChain(referenceProject());
 		const chainMs = performance.now() - startedAt;
-		const result = sim.simulate(chain);
+		// A fresh simulator: a project is opened with nothing resumed, and a marginal bounce can tell
+		const fresh = await createSimulator();
+		const result = fresh.simulate(chain);
+		fresh.dispose();
 		const measures = measurePattern(chain, result, MARBLE);
 		const falls = gapFalls(result);
-		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, problems: chain.track.groups?.filter(isPatternGroup).flatMap((group) => group.pattern.problems ?? []).map((problem) => problem.words) }));
+		console.log('chain', JSON.stringify({ ...measures, falls, ms: Math.round(chainMs), touching: touchingPairs(chain, result).length, refused }));
 
+		expect(result.hits.filter((hit) => hit.status === 'missed' || hit.status === 'blocked')).toEqual([]);
+		expect(extraStrikes(chain, result)).toEqual([]);
+		expect(rollingHits(chain, result)).toEqual([]);
+		expect(refused).toEqual([]);
 		expect(measures.onTime).toBe(58);
-		// Width stays what's asked, so what it can't do is said, not fixed by another Width
-		expect(chain.track.groups?.filter(isPatternGroup).every((group) => group.pattern.width === 0.14 || group.pattern.width === 0.09)).toBe(true);
-		const said = chain.track.groups?.filter(isPatternGroup).flatMap((group) => group.pattern.problems ?? []).map((problem) => problem.words).join(' ') ?? '';
-		if (extraStrikes(chain, result).length > 0) expect(said).toMatch(/twice|a second time|another bar/);
-		if (rollingHits(chain, result).length > 0) expect(said).toContain('rolls');
 		for (const fall of falls) expect(fall).toBeLessThan(0.4);
 
 		const spanOf = (group: TPatternGroup) => { const marble = chain.marbles.find((item) => item.id === MARBLE); return marble != null ? patternSpan(marble, group) : null; };
@@ -98,9 +106,37 @@ describe('Patterns chained on the reference hits', () => {
 		const again = measurePattern(after, rerun, MARBLE);
 		console.log('rerun', JSON.stringify({ onTime: again.onTime, later: changed.later.length, ms: Math.round(performance.now() - changedAt), falls: gapFalls(rerun) }));
 
-		expect(changed.later).toHaveLength(7);
+		expect(changed.later.length).toBe(chain.track.groups.filter(isPatternGroup).length - 1);
 		// Later Groups keep their Width too: what no longer fits is said, not hidden
 		if (again.onTime < 58) expect(changed.later.some((item) => item.problems.length > 0)).toBe(true);
+	});
+
+	it('should fit real ranges of a built song, and never leave it worse', { timeout: 20 * MINUTES }, () => {
+		const project = loadFixture('jingle-bells');
+		const ranges = project.marbles.flatMap((marble) => [10, 30].map((first) => ({ marble, first, last: first + 7 })));
+		const before = sim.simulate(project);
+		const onTime = (result: TSimulationResult): Set<string> => new Set(result.hits.filter((hit) => hit.status === 'onTime' || hit.status === 'drifting').map((hit) => hit.hitId));
+		const problems = (next: TProject, result: TSimulationResult): number => problemSummary(checkRun(next, result, NO_BLENDER_OBJECTS), 'track').problems.length;
+		const fitted = { zigzag: 0, staircase: 0 };
+		for (const { marble, first, last } of ranges) {
+			for (const kind of ['zigzag', 'staircase'] as const) {
+				const check = checkPattern(project, { marbleId: marble.id, from: marble.hits[first]?.time ?? 0, to: marble.hits[last]?.time ?? 0, kind }, { sim });
+				if (check.refusal != null) {
+					expect(check.commands).toEqual([]);
+					expect(check.refusal.words).toMatch(/Nothing changed\.$/);
+					continue;
+				}
+				fitted[kind]++;
+				const after = apply(project, check.commands);
+				const result = sim.simulate(after);
+				const now = onTime(result);
+				expect([...onTime(before)].filter((hitId) => !now.has(hitId))).toEqual([]);
+				expect(problems(after, result)).toBeLessThanOrEqual(problems(project, before));
+			}
+		}
+		console.log('fitted', JSON.stringify(fitted), 'of', ranges.length, 'each');
+		// A Pattern that's always refused isn't useful. A Staircase fits far less often beside another marble (`references.md`)
+		expect(fitted.zigzag).toBeGreaterThanOrEqual(ranges.length / 2);
 	});
 
 	it('should answer a hover preview on real rhythm quickly', { timeout: MINUTES }, () => {

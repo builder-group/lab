@@ -1,6 +1,8 @@
 import type { TProject } from '@/modules/project';
+import type { TResolvedPiece } from '@/modules/simulation';
 import type { TPatternAnswer, TPatternWorkerRequest, TPatternWorkerResponse } from './pattern.worker';
-import type { TGroupChange, TGroupRunProgress } from './run-group';
+import type { TPatternAsk } from './check-pattern';
+import type { TGroupRunProgress } from './run-group';
 
 /** A preview running longer than this is ended for a newer one; a quicker one finishes first, as starting the worker costs more */
 const PREVIEW_PATIENCE = 800;
@@ -13,10 +15,12 @@ export class PatternCanceledError extends Error {
 }
 
 export interface TPatternClient {
-	/** Runs a Group change for real, ending whatever runs now */
-	run: (project: TProject, change: TGroupChange, onProgress?: (progress: TGroupRunProgress) => void, isChecked?: boolean) => Promise<TPatternAnswer>;
-	/** Asks for the ghost of a change. Only the newest waiting one runs; older ones reject as canceled */
-	preview: (project: TProject, change: TGroupChange) => Promise<TPatternAnswer>;
+	/** Runs a Pattern for real, ending whatever runs now, unless that's this same question asked by resting on its tile: it takes that answer */
+	run: (project: TProject, change: TPatternAsk, onProgress?: (progress: TGroupRunProgress) => void, isChecked?: boolean) => Promise<TPatternAnswer>;
+	/** Asks a Pattern for a resting pointer, the ghost first. Only the newest waiting one runs; older ones reject as canceled */
+	preview: (project: TProject, change: TPatternAsk, onGhost: (pieces: TResolvedPiece[]) => void) => Promise<TPatternAnswer>;
+	/** Ends a resting pointer's question, running or waiting. A run a click took over goes on */
+	cancelPreview: () => void;
 	/** Ends what runs and what waits */
 	cancel: () => void;
 	dispose: () => void;
@@ -24,10 +28,11 @@ export interface TPatternClient {
 
 interface TJob {
 	project: TProject;
-	change: TGroupChange;
+	change: TPatternAsk;
 	isPreview: boolean;
 	isChecked: boolean;
 	onProgress?: ((progress: TGroupRunProgress) => void) | undefined;
+	onGhost?: ((pieces: TResolvedPiece[]) => void) | undefined;
 	resolve: (answer: TPatternAnswer) => void;
 	reject: (error: Error) => void;
 }
@@ -46,6 +51,10 @@ export function createPatternClient(): TPatternClient {
 			if (current?.id !== response.id) return;
 			if (response.kind === 'progress') {
 				current.onProgress?.(response.progress);
+				return;
+			}
+			if (response.kind === 'ghost') {
+				current.onGhost?.(response.pieces);
 				return;
 			}
 			const job = current;
@@ -96,12 +105,28 @@ export function createPatternClient(): TPatternClient {
 	return {
 		run(project, change, onProgress, isChecked = true) {
 			dropWaiting();
+			const asking = current;
+			if (asking?.isPreview === true && isChecked && asking.project === project && JSON.stringify(asking.change) === JSON.stringify(change)) {
+				const { resolve: resolvePreview, reject: rejectPreview } = asking;
+				return new Promise((resolve, reject) => {
+					asking.isPreview = false;
+					asking.onProgress = onProgress;
+					asking.resolve = (answer) => {
+						resolvePreview(answer);
+						resolve(answer);
+					};
+					asking.reject = (error) => {
+						rejectPreview(error);
+						reject(error);
+					};
+				});
+			}
 			endCurrent();
 			return new Promise((resolve, reject) => start({ project, change, isPreview: false, isChecked, onProgress, resolve, reject }));
 		},
-		preview(project, change) {
+		preview(project, change, onGhost) {
 			return new Promise((resolve, reject) => {
-				const job: TJob = { project, change, isPreview: true, isChecked: false, resolve, reject };
+				const job: TJob = { project, change, isPreview: true, isChecked: true, onGhost, resolve, reject };
 				dropWaiting();
 				if (current == null) return start(job);
 				if (!current.isPreview) return reject(new PatternCanceledError());
@@ -112,6 +137,10 @@ export function createPatternClient(): TPatternClient {
 				endCurrent();
 				start(job);
 			});
+		},
+		cancelPreview() {
+			dropWaiting();
+			if (current?.isPreview === true) endCurrent();
 		},
 		cancel() {
 			dropWaiting();

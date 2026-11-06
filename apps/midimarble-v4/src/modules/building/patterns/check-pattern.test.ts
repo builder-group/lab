@@ -1,8 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyProjectCommands, createProject, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { checkGroupChange } from './check-group';
+import { checkGroupChange } from './check-pattern';
 import { runGroupChange, type TGroupRunOutcome } from './run-group';
+
+// Real fits of a few hits, which an otherwise busy machine runs several times slower
+vi.setConfig({ testTimeout: 30_000 });
 
 const MARBLE = 'marble';
 let sim: TSimulator;

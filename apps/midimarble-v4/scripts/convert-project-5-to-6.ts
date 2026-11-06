@@ -220,8 +220,7 @@ function convertGroup(group: TAny, lanes: TAny[], marbleId: (laneId: string) => 
 			hitIds,
 			width: group.width,
 			bounce: group.bounce,
-			...(group.maxTilt != null ? { maxTilt: group.maxTilt } : {}),
-			...(group.problems != null ? { problems: group.problems } : {})
+			...(group.maxTilt != null ? { maxTilt: group.maxTilt } : {})
 		}
 	};
 }
@@ -242,7 +241,18 @@ function convertSongs(music: TAny, notes: string[]): TAny[] {
 	return songs;
 }
 
+/** A Pattern's verdict is worked out each time now, so what the last run said goes */
+function withoutPatternProblems(project: TAny): TAny {
+	const groups = project.track.groups.map(({ pattern, ...group }: TAny) => {
+		if (pattern == null) return group;
+		const { problems: _problems, ...kept } = pattern;
+		return { ...group, pattern: kept };
+	});
+	return { ...project, track: { ...project.track, groups } };
+}
+
 export default function convert(raw: unknown): unknown {
 	const project = raw as TAny;
-	return project.$schema === 'marble-project@6' ? trimProject(project, []) : convertProject(project);
+	if (project.$schema !== 'marble-project@6') return withoutPatternProblems(convertProject(project));
+	return withoutPatternProblems(project.film?.themes != null ? trimProject(project, []) : project);
 }

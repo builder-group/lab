@@ -4,7 +4,7 @@ import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import type { TReadyPackTheme } from './project-commands';
 import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, patternSpan } from '@/modules/building';
+import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
 import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
@@ -399,17 +399,17 @@ const SApplyPattern = z.strictObject({
 	marbleId: z.string(),
 	from: z.number(),
 	to: z.number(),
-	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	kind: z.enum(PATTERN_KINDS),
 	width: z.number().positive().optional(),
 	bounce: z.number().min(0).max(1).optional(),
 	maxTilt: z.number().positive().optional(),
 	dryRun: z.boolean().optional()
 });
 
-/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same (prototype) */
+/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same */
 async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {
 	const parsed = SApplyPattern.safeParse(command);
-	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
+	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', dryRun: true }`);
 	const { marbleId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
@@ -426,7 +426,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const report = (answer: Awaited<ReturnType<typeof cx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
-			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
+			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, fits: answer.refusal == null, verdicts: answer.verdicts, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), ...(answer.ending != null ? { ending: answer.ending } : {}), ...(answer.offers.length > 0 ? { offers: answer.offers } : {}), ...(answer.movedAfter > 0 ? { movedAfter: answer.movedAfter } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
 		let answer: Awaited<ReturnType<typeof cx.patterns.dryRun>> = null;
@@ -436,7 +436,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 		return text(cx, { changed: false, dryRun: true, ...report(answer) });
 	}
 	if (cx.mcp.presence.stopEpoch !== stop) return text(cx, { changed: false, selection: cx.$selection.get() });
-	cx.mcp.presence.relabel(label ?? `Fitting ${kind === 'longRail' ? 'Long Rail' : kind === 'zigzag' ? 'Zigzag' : 'Staircase'}`);
+	cx.mcp.presence.relabel(label ?? `Fitting ${PATTERNS[kind].label}`);
 	let reply: Record<string, unknown> = {};
 	return editStep(cx, label ?? 'Apply Pattern', async () => {
 		reply = report(await cx.patterns.apply(target, kind, settings));

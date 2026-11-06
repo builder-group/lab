@@ -377,19 +377,18 @@ export const SFilm = z.strictObject({
 export const BACKING_ID = 'backing';
 
 /**
- * What a Pattern made (prototype): an ordinary list of ordinary pieces, one Undo step, named after the Pattern. `hitIds` are
+ * What a Pattern made: an ordinary list of ordinary pieces, one Undo step, named after the Pattern. `hitIds` are
  * the hits it plays, in time order; a Long Rail's are the notes around its silence, or the one note it opens the track for.
  * Its settings let it run again; hand edits to its pieces stay until it does.
  */
 const SPattern = z.strictObject({
-	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	// A name from `PATTERNS`, which only the app's building layer knows
+	kind: z.string(),
 	hitIds: z.array(SId),
 	width: z.number().positive(),
 	bounce: z.number().min(0).max(1),
 	// The steepest a bar may tilt, in degrees, when asked for; absent is the usual limit
-	maxTilt: z.number().positive().optional(),
-	// What the last run couldn't do, shown beside the tiles
-	problems: z.array(z.strictObject({ hitId: z.string(), words: z.string() })).optional()
+	maxTilt: z.number().positive().optional()
 });
 
 // Pieces kept together. `marbleId` while they are one marble's. Without a Pattern it's a plain Group, by hand or left by a

@@ -2846,7 +2846,7 @@ button.mm-lcd-length:hover {
 	}
 }
 
-/* Patterns prototype: the slim strip above a marble's hits */
+/* The Pattern strip: slim, above a marble's hits */
 .mm-pattern-strip {
 	position: absolute;
 	top: 0;
@@ -2939,6 +2939,26 @@ button.mm-lcd-length:hover {
 
 .mm-pattern-edge:hover {
 	background: color-mix(in srgb, var(--accent-strong) 45%, transparent);
+}
+
+.mm-pattern-verdict {
+	position: absolute;
+	top: 50%;
+	width: 4px;
+	height: 4px;
+	border-radius: 50%;
+	background: var(--good);
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+}
+
+/* A taller bar, so the shape says it as well as the color */
+.mm-pattern-verdict[data-fits='false'] {
+	width: 3px;
+	height: 12px;
+	border-radius: 1px;
+	background: var(--bad);
+	pointer-events: auto;
 }
 
 .mm-pattern-fields {

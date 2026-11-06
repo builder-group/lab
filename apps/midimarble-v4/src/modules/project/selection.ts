@@ -90,7 +90,7 @@ function stepFocus(project: TProject, selection: readonly string[]): { marbleId:
 	return null;
 }
 
-/** A Group from a Pattern (prototype), selected together with its pieces */
+/** A Group from a Pattern, selected together with its pieces */
 export function toGroupKey(groupId: string): string {
 	return `pattern:${groupId}`;
 }

@@ -1,12 +1,12 @@
 import { createState } from 'feature-state';
-import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, patternLockWords, patternOfPiece, patternSpan, PATTERN_DEFAULTS, PATTERN_LABELS, PatternCanceledError, type TGroupChange, type TPatternClient, type TPatternKind, type TPatternProblem } from '@/modules/building';
+import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternLockWords, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type THitVerdict, type TPatternAsk, type TPatternClient, type TPatternKind, type TPatternOffer, type TPatternRefusal } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
 import { parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 
-/** How long a pointer rests on a tile before its ghost is worked out: real rhythm takes about 230 ms for 9 hits, so moving across tiles asks nothing */
+/** How long a pointer rests on a tile before it is asked: moving across tiles asks nothing */
 const HOVER_DELAY = 180;
 /** A second try on a locked piece within this is the same try, and says nothing new */
 const LOCK_NOTICE_MS = 3000;
@@ -25,8 +25,10 @@ export interface TPatternPreview {
 	key: string;
 	marbleId: string;
 	pieces: TResolvedPiece[];
-	/** Milliseconds from asking in the worker to the answer, for the check of hover speed */
+	/** Milliseconds from asking in the worker to the ghost, for the check of hover speed */
 	ms: number;
+	/** False once the whole song has said no */
+	isOk: boolean;
 }
 
 /** What the inspector or an agent asks of a Pattern, past its range */
@@ -36,26 +38,38 @@ export interface TPatternSettings {
 	maxTilt?: number;
 }
 
-/** What the tiles say for a range that couldn't take a Pattern */
-export interface TPatternFailure {
+/** What the tiles and the strip say about a range: while it's asked, then a verdict per hit */
+export interface TPatternVerdict {
 	key: string;
-	problems: TPatternProblem[];
+	marbleId: string;
+	kind: TPatternKind;
+	isChecking: boolean;
+	verdicts: THitVerdict[];
+	/** The Pattern doesn't fit: the hit named and why. Null while asked, or when it fits */
+	refusal: TPatternRefusal | null;
+	/** What fits instead, on a refusal */
+	offers: TPatternOffer[];
+	/** Pieces after the range that would move with the marble */
+	movedAfter: number;
+	/** Only what resting on a tile showed, gone with the pointer */
+	isHover: boolean;
 }
 
 /**
- * The Patterns prototype in Track: a click on a tile makes or changes a Group, one Undo step, with progress and Stop in
- * the notice; resting on a tile shows its ghost on the wall. Agents come here too, with `applyPattern`.
+ * Patterns in Track. Resting on a tile asks it: its ghost on the wall, then a verdict per hit in the strip and under the
+ * tiles. A click applies that answer, or asks and applies, one Undo step, with progress and Stop in the notice. Agents come
+ * here too, with `applyPattern`.
  */
 export class PatternsCx {
 	readonly $preview = createState<TPatternPreview | null>(null);
-	readonly $failure = createState<TPatternFailure | null>(null);
+	readonly $verdict = createState<TPatternVerdict | null>(null);
 	readonly $isRunning = createState(false);
 
 	private client: TPatternClient | null = null;
 	private hoverTimer: ReturnType<typeof setTimeout> | undefined;
 	private hoverKey: string | null = null;
-	/** `$failure` is only what the ghost's one shape showed, gone with the hover */
-	private isHoverFailure = false;
+	/** The newest answer from resting on a tile, which a click on it applies without asking again */
+	private answered: { key: string; project: TProject; answer: TPatternAnswer } | null = null;
 	/** The run on its way, which an edit ends; `isReplaced` when a newer click takes its place, which says nothing */
 	private run: { key: string; isReplaced: boolean } | null = null;
 
@@ -63,15 +77,19 @@ export class PatternsCx {
 
 	mount(): () => void {
 		this.$preview.set(null);
-		this.$failure.set(null);
+		this.$verdict.set(null);
 		const unlisten = [
 			this.studio.$history.listen(({ value }) => {
 				if (this.$preview.get() != null && this.$preview.get()?.revision !== value?.present.revision) this.$preview.set(null);
+				// What a resting pointer asked was about the project as it was
+				if (this.run == null) this.endAsking();
 				// A new Undo step or an Undo is an edit; the song's length and a settled run amend the step they follow
 				if (this.run != null && value != null && stepKey(value) !== this.run.key) this.client?.cancel();
 			}),
 			this.studio.$selection.listen(() => {
-				if (this.$failure.get() != null) this.$failure.set(null);
+				if (this.$verdict.get() != null) this.$verdict.set(null);
+				// A question about the old selection is only in the way of the next one
+				if (this.run == null) this.endAsking();
 			})
 		];
 		return () => {
@@ -82,7 +100,7 @@ export class PatternsCx {
 		};
 	}
 
-	/** Rest on a tile. The ghost shows the first of several marbles */
+	/** Rest on a tile: the ghost shows the first of several marbles, then the whole song is asked */
 	hover(target: TPatternTarget, kind: TPatternKind): void {
 		const project = this.studio.project;
 		if (project == null || this.run != null) return;
@@ -90,22 +108,25 @@ export class PatternsCx {
 		const key = previewKey(change);
 		this.hoverKey = key;
 		clearTimeout(this.hoverTimer);
+		const isCurrent = (): boolean => this.hoverKey === key && this.studio.project?.revision === project.revision;
 		this.hoverTimer = setTimeout(() => {
 			const startedAt = performance.now();
+			this.$verdict.set({ key: verdictKey(target), marbleId: target.marbleId, kind, isChecking: true, verdicts: [], refusal: null, offers: [], movedAfter: 0, isHover: true });
 			this.clientNow()
-				.preview(project, change)
-				.then((answer) => {
-					if (this.hoverKey !== key || this.studio.project?.revision !== project.revision) return;
-					this.$preview.set({ revision: project.revision, kind, key, marbleId: change.marbleId, pieces: answer.pieces, ms: performance.now() - startedAt });
-					// The ghost is one shape, so a click may still find a better one: what's wrong with it is only said to be likely
-					const [blocking] = answer.blocking;
-					if (blocking != null) {
-						this.isHoverFailure = true;
-						this.$failure.set({ key: failureKey(target), problems: [{ ...blocking, words: `May not fit: ${blocking.words}` }] });
-					}
+				.preview(project, change, (pieces) => {
+					if (!isCurrent()) return;
+					this.$preview.set({ revision: project.revision, kind, key, marbleId: change.marbleId, pieces, ms: performance.now() - startedAt, isOk: true });
 					// Notes in free fall lie far below the view: a ghost nobody sees previews nothing, so the view pans to it, keeping the zoom
-					const middle = answer.pieces[Math.floor(answer.pieces.length / 2)];
+					const middle = pieces[Math.floor(pieces.length / 2)];
 					if (middle != null) this.studio.$reveal.set({ ids: [], point: middle.position });
+				})
+				.then((answer) => {
+					// A check is worth keeping once it's done, even for a pointer that has moved on
+					this.answered = { key, project, answer };
+					if (!isCurrent()) return;
+					const preview = this.$preview.get();
+					this.$preview.set({ revision: project.revision, kind, key, marbleId: change.marbleId, pieces: answer.pieces.length > 0 ? answer.pieces : (preview?.pieces ?? []), ms: preview?.ms ?? performance.now() - startedAt, isOk: answer.refusal == null });
+					this.$verdict.set(verdictOf(target, kind, answer, true));
 				})
 				.catch((error: unknown) => {
 					if (!(error instanceof PatternCanceledError)) console.warn(error);
@@ -113,12 +134,17 @@ export class PatternsCx {
 		}, HOVER_DELAY);
 	}
 
+	/** Stops what a resting pointer asked, with its ghost */
+	private endAsking(): void {
+		this.endHover();
+		this.client?.cancelPreview();
+	}
+
 	endHover(): void {
 		this.hoverKey = null;
 		clearTimeout(this.hoverTimer);
 		if (this.$preview.get() != null) this.$preview.set(null);
-		if (this.isHoverFailure) this.$failure.set(null);
-		this.isHoverFailure = false;
+		if (this.$verdict.get()?.isHover === true) this.$verdict.set(null);
 	}
 
 	stop(): void {
@@ -142,6 +168,7 @@ export class PatternsCx {
 			const group = groupsOfMarble(project, marble.id).find((item) => patternSpan(marble, item) != null);
 			const span = group != null ? patternSpan(marble, group) : null;
 			if (group == null || span == null) continue;
+			if (!isPatternKind(group.pattern.kind)) continue;
 			const answer = await this.fit(changeFor({ marbleId: group.marbleId, from: span.from, to: span.to, group }, group.pattern.kind), false);
 			if (answer == null) {
 				if (this.isStopped) this.studio.undo();
@@ -162,13 +189,14 @@ export class PatternsCx {
 		const marble = this.studio.project?.marbles.find((item) => item.id === target.marbleId);
 		const span = marble != null && target.group != null ? patternSpan(marble, target.group) : null;
 		const change = changeFor(target, kind, settings);
-		const answer = await this.fit(change);
+		const answered = this.answered;
+		const answer = answered != null && answered.key === previewKey(change) && answered.project === this.studio.project ? answered.answer : await this.fit(change);
 		if (answer == null) return null;
 		if (!answer.commands.length || answer.groupId == null) {
 			this.refuse(target, kind, settings, answer);
 			return answer;
 		}
-		if (!this.studio.simulation.landWorkedOut(answer.commands, { label: PATTERN_LABELS[kind] })) return null;
+		if (!this.studio.simulation.landWorkedOut(answer.commands, { label: PATTERNS[kind].label })) return null;
 		const group = this.studio.project?.track.groups.find((item) => item.id === answer.groupId);
 		const pieceIds = group?.pieceIds ?? [];
 		this.studio.$selection.set([toGroupKey(answer.groupId), ...pieceIds]);
@@ -178,14 +206,18 @@ export class PatternsCx {
 		return answer;
 	}
 
-	/** Nothing changed: the notice says which hit and why, the wall shows it, the tiles keep saying it */
+	/** Nothing changed: the notice says which hit and why, and offers what fits instead; the wall shows it; the tiles keep saying it */
 	private refuse(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings, answer: TPatternAnswer): void {
-		const { refusal, nearestWidth } = answer;
-		const words = refusal?.words ?? answer.problems[0]?.words ?? `${PATTERN_LABELS[kind]} can't fit here.`;
-		this.$failure.set({ key: failureKey(target), problems: [{ hitId: refusal?.hitId ?? answer.problems[0]?.hitId ?? '', words }] });
-		const width = nearestWidth != null && settings.width !== nearestWidth ? nearestWidth : null;
-		const actions = width != null ? [{ label: `Try Width ${Math.round(width * 100)} cm`, title: 'The nearest Width with no problems', run: () => void this.apply(target, kind, { ...settings, width }) }] : [];
-		this.studio.notify(words, 'error', { actions });
+		const { refusal } = answer;
+		const words = refusal?.words ?? answer.problems[0]?.words ?? `${PATTERNS[kind].label} can't fit here.`;
+		this.$verdict.set({ ...verdictOf(target, kind, answer, false), refusal: refusal ?? { marbleId: target.marbleId, hitId: answer.problems[0]?.hitId ?? null, words } });
+		const actions = answer.offers.map((offer) => ({
+			label: offer.label,
+			title: offer.words,
+			run: () => void this.apply({ ...target, from: offer.from ?? target.from, to: offer.to ?? target.to }, kind, { ...settings, ...(offer.width != null ? { width: offer.width } : {}) })
+		}));
+		const said = answer.offers.map((offer) => offer.words).join(' ');
+		this.studio.notify(said.length > 0 ? `${words} ${said}` : words, 'error', { actions });
 		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.marbleId, refusal.hitId)], isZoomKept: true });
 	}
 
@@ -222,7 +254,7 @@ export class PatternsCx {
 		return this.client;
 	}
 
-	private async fit(change: TGroupChange, isChecked = true): Promise<TPatternAnswer | null> {
+	private async fit(change: TPatternAsk, isChecked = true): Promise<TPatternAnswer | null> {
 		const project = this.studio.project;
 		if (project == null) return null;
 		if (this.run != null) this.run.isReplaced = true;
@@ -230,10 +262,10 @@ export class PatternsCx {
 		const run = { key: history != null ? stepKey(history) : '', isReplaced: false };
 		this.run = run;
 		this.$isRunning.set(true);
-		const label = PATTERN_LABELS[change.kind];
+		const label = patternLabel(change.kind);
 		const noticeId = this.studio.notify(`Fitting ${label}`, 'info', { progress: 0, actions: [{ label: 'Stop', title: 'Stop fitting; nothing changes', run: () => this.stop() }] });
 		try {
-			const answer = await this.clientNow().run(project, change, (progress) => {
+			const answer = await this.clientNow().run(project, change, (progress: TGroupRunProgress) => {
 				const steps = progress.steps > 1 ? ` · ${progress.step} of ${progress.steps} Groups` : '';
 				this.studio.updateNotice(noticeId, { message: `Fitting ${progress.name}${steps}`, progress: progress.fraction });
 			}, isChecked);
@@ -277,15 +309,21 @@ export class PatternsCx {
 	}
 }
 
-/** Where the tiles say why a Pattern doesn't fit */
-function failureKey(target: TPatternTarget): string {
+function verdictOf(target: TPatternTarget, kind: TPatternKind, answer: TPatternAnswer, isHover: boolean): TPatternVerdict {
+	return { key: verdictKey(target), marbleId: target.marbleId, kind, isChecking: false, verdicts: answer.verdicts, refusal: answer.refusal, offers: answer.offers, movedAfter: answer.movedAfter, isHover };
+}
+
+/** Where the tiles say what a Pattern makes of a range */
+export function verdictKey(target: TPatternTarget): string {
 	return target.group != null ? toGroupKey(target.group.id) : toRangeKey(target.marbleId, target.from, target.to);
 }
 
-function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TGroupChange {
+/** What to ask of a Pattern: what was set, what its Group has, and otherwise no Width, so the app picks one that fits */
+function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatternSettings = {}): TPatternAsk {
 	const { group, marbleId, from, to } = target;
-	const defaults = PATTERN_DEFAULTS[kind];
 	const isSameKind = group?.pattern.kind === kind;
+	const width = settings.width ?? (isSameKind ? group.pattern.width : undefined);
+	const bounce = settings.bounce ?? (isSameKind ? group.pattern.bounce : undefined);
 	const maxTilt = settings.maxTilt ?? (isSameKind ? group.pattern.maxTilt : undefined);
 	return {
 		...(group != null ? { groupId: group.id } : {}),
@@ -293,8 +331,8 @@ function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatter
 		from,
 		to,
 		kind,
-		width: settings.width ?? (isSameKind ? group.pattern.width : defaults.width),
-		bounce: settings.bounce ?? (isSameKind ? group.pattern.bounce : defaults.bounce),
+		...(width != null ? { width } : {}),
+		...(bounce != null ? { bounce } : {}),
 		...(maxTilt != null ? { maxTilt } : {})
 	};
 }
@@ -303,7 +341,7 @@ function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatter
 function madeWords(target: TPatternTarget, span: { from: number; to: number } | null, kind: TPatternKind, settings: TPatternSettings, name: string): string {
 	const { group } = target;
 	if (group == null) return `Made ${name}`;
-	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERN_LABELS[kind]}`;
+	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERNS[kind].label}`;
 	if (settings.width != null) return `${name}: Width ${(settings.width * 100).toFixed(0)} cm`;
 	if (settings.bounce != null) return `${name}: Bounce ${settings.bounce.toFixed(2)}`;
 	if (settings.maxTilt != null) return `${name}: Tilt limit ${settings.maxTilt.toFixed(0)}°`;
@@ -314,7 +352,7 @@ function stepKey(history: { past: readonly unknown[]; future: readonly unknown[]
 	return `${history.past.length}:${history.future.length}`;
 }
 
-function previewKey(change: TGroupChange): string {
+function previewKey(change: TPatternAsk): string {
 	return JSON.stringify(change);
 }
 

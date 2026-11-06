@@ -7,7 +7,7 @@ Where the build stands today. Update this page in place; it stays about a page. 
 The app is trimmed and waiting for the owner's test against a to-do list.
 
 - **Compose:** Marbles, Song, hits and Backing; Platform, one Rail with Layouts (Drawn, Curve, C, Chain, Switchback), Tunnel, Windmill, Bowl. Next, Build Track, Rebuild From Here and one Fix. Edits stay local (`simulation/local-edit.ts`). Problems are physics only.
-- **Patterns:** Zigzag, Staircase and Long Rail, Groups and Flatten. A prototype the owner hasn't approved: if undone, the commits starting `#11 Patterns prototype:` and later Flatten work go, with the Patterns sections of the docs.
+- **Patterns:** Zigzag, Staircase and Long Rail, checked before they're applied with a ghost and a verdict per hit, Groups and Flatten.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
@@ -22,7 +22,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - `typecheck`, `lint`, `test`, `camera:check`, `blender:check`.
 - With the chosen look: `blender:design`.
 - The film's look against the reference, on Brass's defaults: gold, wall, marble and scroll energy near its numbers (`references.md`, Look).
-- Patterns on the reference's hit times: 58 of 58 on time, no double hits or rolls, at Width 14 cm and Gravity 0.5.
+- Patterns on the reference's hit times: 58 of 58 on time at Gravity 0.5 with no Width asked, no double hits, rolls or touching pieces, on a fresh run. On 638 real ranges of the fixtures, how often they fit, and that none left a track worse (`references.md`).
 
 ## Not verified
 
@@ -38,6 +38,8 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
+- Patterns fit far less often as Staircases on two-marble songs (11 of 42 on built Jingle Bells), and a Long Rail on a built song about half the time (`references.md`). A check that says no takes about 7 s on built Jingle Bells, in the Pattern worker, with the ghost and "Checking the whole song…" showing.
+- Build Track after a Pattern in the middle of a bare song names the notes before it in its attention list instead of moving the marble's release back; a Pattern on them does move it.
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
 - No Problem for a missing asset: only Blender knows, and only while open
 - `blender:design` stops at its last step: `export-marble-skin-scenes.ts` imports `film-commands`, which reaches `inspector.css`, so the script can't run under tsx. Its Blender checks pass when the script runs with CSS stubbed.
