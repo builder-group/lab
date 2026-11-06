@@ -108,7 +108,7 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 		case 'node':
 		case 'nodeIn':
 		case 'nodeOut':
-			if (!cx.$selection.get().includes(target.entityId)) cx.$selection.set([target.entityId]);
+			if (!cx.$selection.get().includes(target.pieceId)) cx.$selection.set([target.pieceId]);
 			openContextMenu(event, cx.menus.piece());
 			return;
 		case 'dot': {
@@ -123,8 +123,8 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 			return;
 		}
 		case 'release': {
-			const marble = trackCx.project?.marbles.find((item) => item.id === target.entityId);
-			cx.$selection.set([target.entityId]);
+			const marble = trackCx.project?.marbles.find((item) => item.id === target.marbleId);
+			cx.$selection.set([target.marbleId]);
 			if (marble != null) openContextMenu(event, cx.menus.marble(marble));
 			return;
 		}
@@ -207,8 +207,8 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const grip = single != null && !isPathPiece && singleKind !== 'catcher' && !isMoveDrag ? trackCx.screenGrip(single) : null;
 	const pathHandles = single != null && isPathPiece && frame == null && singleKind !== 'generated' ? trackCx.screenPathHandles(single) : null;
 	const isRotating = drag?.kind === 'rotate';
-	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.entityId === single?.pieceId));
-	const hoveredPiece = hover?.kind === 'piece' ? hover.entityId : null;
+	const showArc = grip != null && (isRotating || (hover?.kind === 'rotate' && hover.pieceId === single?.pieceId));
+	const hoveredPiece = hover?.kind === 'piece' ? hover.pieceId : null;
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
 	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.pieceId) : undefined;
@@ -247,10 +247,10 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 				{drag?.kind === 'move' && drag.moved && drag.plays != null && drag.origin != null ? <PlaysGhost trackCx={trackCx} origin={drag.origin} dot={drag.plays.dot} /> : null}
 				{project.marbles.map((marble) => {
 					if (hidden.includes(marble.id)) return null;
-					const position = drag?.kind === 'release' && drag.entityId === marble.id ? drag.position : marble.start.position;
+					const position = drag?.kind === 'release' && drag.marbleId === marble.id ? drag.position : marble.start.position;
 					const center = trackCx.toScreen(position);
 					const isSelected = selection.includes(marble.id);
-					const isActive = isSelected || (hover?.kind === 'release' && hover.entityId === marble.id) || (drag?.kind === 'release' && drag.entityId === marble.id);
+					const isActive = isSelected || (hover?.kind === 'release' && hover.marbleId === marble.id) || (drag?.kind === 'release' && drag.marbleId === marble.id);
 					const radius = Math.max(9, marble.radius * camera.view.scale + 5);
 					const labelColor = marble.labelColor;
 					return (
@@ -297,8 +297,8 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 						<circle cx={grip.grip.x} cy={grip.grip.y} r={5} fill="white" stroke="var(--accent-strong)" strokeWidth={1.5} />
 					</g>
 				) : null}
-				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} entityId={single.pieceId} /> : null}
-				{frame != null && single != null ? <RailNodes trackCx={trackCx} entityId={single.pieceId} frame={frame} hover={hover} drag={drag} /> : null}
+				{pathHandles != null && single != null ? <PathHandles handles={pathHandles} hover={hover} drag={drag} pieceId={single.pieceId} /> : null}
+				{frame != null && single != null ? <RailNodes trackCx={trackCx} pieceId={single.pieceId} frame={frame} hover={hover} drag={drag} /> : null}
 				{hover?.kind === 'track' && drag == null ? (
 					<circle cx={hover.position.x} cy={hover.position.y} r={4.5} fill="var(--canvas)" stroke={paletteOf('windmill').bar} strokeWidth={2} />
 				) : null}
@@ -531,9 +531,9 @@ const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2;
 /** While Play a Note… is armed: which piece waits for a note's dot, and that Escape stops */
 const PlayNoteHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const { trackCx } = props;
-	const entityId = useFeatureState(trackCx.$playNoteFor);
-	if (entityId == null) return null;
-	const name = trackCx.project?.track.pieces.find((piece) => piece.id === entityId)?.name ?? 'The platform';
+	const pieceId = useFeatureState(trackCx.$playNoteFor);
+	if (pieceId == null) return null;
+	const name = trackCx.project?.track.pieces.find((piece) => piece.id === pieceId)?.name ?? 'The platform';
 	return (
 		<div className="mm-hint mm-ghost-in absolute top-[52px] left-1/2 z-10 -translate-x-1/2 whitespace-nowrap">
 			Click a note's dot for {name} to play <kbd className="opacity-60">⎋</kbd>
@@ -560,17 +560,17 @@ const WhatIfCount: React.FC<{ trackCx: TrackCx; result: TSimulationResult | null
 /** Points and handles of a selected rail drawn with the path tool, editable like a Figma vector */
 const RailNodes: React.FC<{
 	trackCx: TrackCx;
-	entityId: string;
+	pieceId: string;
 	frame: { nodes: TPathNode[]; base: TPose };
 	hover: ReturnType<TrackCx['$hover']['get']>;
 	drag: ReturnType<TrackCx['$drag']['get']>;
 }> = (props) => {
-	const { trackCx, entityId, frame, hover, drag } = props;
+	const { trackCx, pieceId, frame, hover, drag } = props;
 	const map = (point: TVec2): TVec2 => trackCx.frameToScreen(frame.base, point);
 	const nodes = mapNodes(frame.nodes, map);
 	const isActive = (kind: 'node' | 'nodeIn' | 'nodeOut', index: number): boolean =>
-		(hover != null && 'index' in hover && hover.kind === kind && hover.entityId === entityId && hover.index === index) ||
-		(drag?.kind === 'node' && drag.entityId === entityId && drag.index === index && (drag.handle === 'point' ? 'node' : drag.handle === 'in' ? 'nodeIn' : 'nodeOut') === kind);
+		(hover != null && 'index' in hover && hover.kind === kind && hover.pieceId === pieceId && hover.index === index) ||
+		(drag?.kind === 'node' && drag.pieceId === pieceId && drag.index === index && (drag.handle === 'point' ? 'node' : drag.handle === 'in' ? 'nodeIn' : 'nodeOut') === kind);
 	return (
 		<g>
 			<path d={nodesPathData(frame.nodes, map)} fill="none" stroke="var(--accent-strong)" strokeWidth={1} strokeOpacity={0.9} />
@@ -648,13 +648,13 @@ const PathHandles: React.FC<{
 	handles: { end: TVec2; bend: TVec2; entry: TVec2 };
 	hover: ReturnType<TrackCx['$hover']['get']>;
 	drag: ReturnType<TrackCx['$drag']['get']>;
-	entityId: string;
+	pieceId: string;
 }> = (props) => {
-	const { handles, hover, drag, entityId } = props;
+	const { handles, hover, drag, pieceId } = props;
 	const { end, bend, entry } = handles;
 	const isActive = (kind: 'pathEnd' | 'pathBend'): boolean =>
-		(hover?.kind === kind && hover.entityId === entityId) ||
-		(drag?.kind === 'path' && drag.entityId === entityId && drag.handle === (kind === 'pathEnd' ? 'end' : 'bend'));
+		(hover?.kind === kind && hover.pieceId === pieceId) ||
+		(drag?.kind === 'path' && drag.pieceId === pieceId && drag.handle === (kind === 'pathEnd' ? 'end' : 'bend'));
 	return (
 		<g>
 			<polyline points={toPoints([entry, bend, end])} fill="none" stroke="var(--accent-strong)" strokeWidth={1} strokeDasharray="2 3" strokeOpacity={0.8} />

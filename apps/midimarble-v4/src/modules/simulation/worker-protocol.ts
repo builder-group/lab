@@ -18,7 +18,7 @@ export type TWorkerRequest =
 			marbleId: string;
 			hitId: string;
 			type: string;
-			entityId?: string;
+			pieceId?: string;
 			/** Angle range searched first, in radians; see `TAutoPlaceOptions` */
 			range?: [number, number];
 	  }
@@ -49,14 +49,14 @@ export type TWorkerRequest =
 			marbleId: string;
 			fromHitId: string;
 			toHitId: string;
-			entityId?: string;
+			pieceId?: string;
 	  };
 
 export type TWorkerMessage = TWorkerRequest & { id: number };
 
 /** What a search spread over the assists pool looks for */
 export type TSearchRequest =
-	| { assist: 'autoPlace'; project: TProject; marbleId: string; hitId: string; type: string; entityId: string; range?: [number, number] }
+	| { assist: 'autoPlace'; project: TProject; marbleId: string; hitId: string; type: string; pieceId: string; range?: [number, number] }
 	| {
 			assist: 'gapPiece';
 			type: TGapPieceType;
@@ -64,7 +64,7 @@ export type TSearchRequest =
 			marbleId: string;
 			fromHitId: string;
 			toHitId: string;
-			entityId: string;
+			pieceId: string;
 	  };
 
 /** Answers to some of a search's tries, in the order they were asked, with the search's plan */
@@ -160,8 +160,8 @@ export function answerWorkerRequest(
 	const result = simulate(request.project);
 	switch (request.kind) {
 		case 'autoPlace': {
-			const { project, marbleId, hitId, type, entityId, range } = request;
-			const [isOk, error, placement] = autoPlace(project, result, marbleId, hitId, { simulate, type, id: entityId, ...(range != null ? { range } : {}) });
+			const { project, marbleId, hitId, type, pieceId, range } = request;
+			const [isOk, error, placement] = autoPlace(project, result, marbleId, hitId, { simulate, type, id: pieceId, ...(range != null ? { range } : {}) });
 			if (!isOk) throw error;
 			return {
 				piece: placement.piece,
@@ -178,9 +178,9 @@ export function answerWorkerRequest(
 			return { ...answer, revision: project.revision, marbleId, computeMs: performance.now() - startedAt };
 		}
 		case 'gapPiece': {
-			const { project, marbleId, fromHitId, toHitId, entityId, type } = request;
+			const { project, marbleId, fromHitId, toHitId, pieceId, type } = request;
 			const create = type === 'switchback' ? createSwitchbackForGap : type === 'chain' ? createChainForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
-			const [isOk, error, proposal] = create(project, result, marbleId, fromHitId, toHitId, { simulate, id: entityId });
+			const [isOk, error, proposal] = create(project, result, marbleId, fromHitId, toHitId, { simulate, id: pieceId });
 			if (!isOk) throw error;
 			return gapAnswer(simulate, request, proposal, startedAt);
 		}
@@ -241,7 +241,7 @@ function answerTries(
 
 /** Simulates the search's project up to the end of its trials, plus `BASE_MARGIN`, the only part its checks read */
 function prepareSearch(simulate: TSimulateFn, request: TSearchRequest): TResult<TPreparedSearch, Error> {
-	const { project, marbleId, entityId: id } = request;
+	const { project, marbleId, pieceId: id } = request;
 	if (request.assist === 'autoPlace') {
 		const horizon = autoPlaceHorizon(project, marbleId, request.hitId);
 		const base = horizon != null ? simulateTrial(simulate, project, horizon + BASE_MARGIN) : simulate(project);

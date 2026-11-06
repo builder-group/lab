@@ -55,7 +55,7 @@ export function insertDropHandlers<E extends Element>(options: {
 	setDropTarget: (isTarget: boolean) => void;
 	imagePoint: (event: React.DragEvent<E>) => { u: number; v: number };
 	pieceAt: (event: React.DragEvent<E>) => string | null | Promise<string | null>;
-	onDropAsset: (entityId: string, asset: { id: string; scope: string }) => void;
+	onDropAsset: (id: string, asset: { id: string; scope: string }) => void;
 }): Pick<React.DOMAttributes<E>, 'onDragOver' | 'onDragLeave' | 'onDrop'> {
 	const { studio, setDropTarget, imagePoint, pieceAt, onDropAsset } = options;
 	return {

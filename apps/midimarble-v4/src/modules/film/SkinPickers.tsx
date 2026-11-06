@@ -33,7 +33,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 	const plural = elementPlural(element);
 	const ids = pieces.map((piece) => piece.id);
 	const items = libraryEntries(projectItems, packs).filter((item) => itemFitsPieceType(item, pieceType));
-	const targetOf = (toAll: boolean): TSkinTarget => (toAll ? { kind: 'pieceType', pieceType } : { kind: 'pieces', entityIds: ids });
+	const targetOf = (toAll: boolean): TSkinTarget => (toAll ? { kind: 'pieceType', pieceType } : { kind: 'pieces', skinnedIds: ids });
 	const tileTitle = (label: string): string => `${label}: click applies to the selection, ⌥-click to all ${plural.toLowerCase()}`;
 
 	function notify(label: string, assetId: string | null): void {

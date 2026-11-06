@@ -109,10 +109,10 @@ function pairsWithin(bounds: readonly TBounds2[], gap: number): [number, number]
 }
 
 /** Air from `piece` to the nearest other standing piece in the wall plane, for a check while placing */
-export function nearestPieceGap(project: TProject, result: TSimulationResult, entityId: string, limit: number): number {
+export function nearestPieceGap(project: TProject, result: TSimulationResult, pieceId: string, limit: number): number {
 	const radius = marbleRadiusOf(project);
 	const resolvedPieces = standingPieces(result);
-	const piece = resolvedPieces.find((item) => item.pieceId === entityId);
+	const piece = resolvedPieces.find((item) => item.pieceId === pieceId);
 	if (piece == null) return Infinity;
 	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
 	const shapes = visualShapes(piece, radius);
@@ -129,7 +129,7 @@ export const LONG_FALL = 1;
 
 /** A platform its own marble strikes more than the once its note asks for */
 export interface TExtraStrike {
-	entityId: string;
+	pieceId: string;
 	marbleId: string;
 	hitId: string;
 	/** Every strike of the marble on it, the note's included */
@@ -151,22 +151,22 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 	const marbleOf = new Map(result.marbles.map((marble) => [marble.marbleId, marble.marbleId]));
 	const strikes: TExtraStrike[] = [];
 	for (const hit of result.hits) {
-		const entityId = hit.pieceId;
-		if (entityId == null || hit.actualTime == null || (hit.status !== 'onTime' && hit.status !== 'drifting')) continue;
-		const piece = project.track.pieces.find((item) => item.id === entityId);
+		const pieceId = hit.pieceId;
+		if (pieceId == null || hit.actualTime == null || (hit.status !== 'onTime' && hit.status !== 'drifting')) continue;
+		const piece = project.track.pieces.find((item) => item.id === pieceId);
 		const type = piece?.type;
 		if (type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(piece))) continue;
 		const marbleId = marbleOf.get(hit.marbleId);
 		const note = hit.actualTime;
 		const isLast = project.marbles.find((marble) => marble.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
 		const extra = result.contacts.filter((contact) => {
-			if (contact.marbleId !== marbleId || contact.otherId !== entityId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE) return false;
+			if (contact.marbleId !== marbleId || contact.otherId !== pieceId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE) return false;
 			// After the marble's last note it may come to rest; only another real bounce still shows
 			return !isLast || contact.time < note || (contact.speed ?? Infinity) >= IMPACT_SPEED;
 		});
 		const first = extra[0];
 		if (first == null) continue;
-		strikes.push({ entityId, marbleId: hit.marbleId, hitId: hit.hitId, times: extra.length + 1, time: first.time, position: first.position });
+		strikes.push({ pieceId, marbleId: hit.marbleId, hitId: hit.hitId, times: extra.length + 1, time: first.time, position: first.position });
 	}
 	return strikes.sort((a, b) => a.time - b.time);
 }
@@ -176,7 +176,7 @@ const PASS_DEPTH_RADII = 0.25;
 
 /** A piece whose skin a marble goes through, where it has no hitbox */
 export interface TPassThrough {
-	entityId: string;
+	pieceId: string;
 	marbleId: string;
 	time: number;
 	position: TVec2;
@@ -206,7 +206,7 @@ export function passThroughs(project: TProject, result: TSimulationResult): TPas
 				}
 				if (found != null) break;
 			}
-			if (found != null) passes.push({ entityId: piece.pieceId, marbleId: marble.marbleId, time: found.time, position: found.position });
+			if (found != null) passes.push({ pieceId: piece.pieceId, marbleId: marble.marbleId, time: found.time, position: found.position });
 		}
 	}
 	return passes.sort((a, b) => a.time - b.time);
@@ -262,7 +262,7 @@ export function bounceTakeoff(marbleRadius: number, gravity: number): number {
 
 /** A platform its marble rolls along instead of bouncing off */
 export interface TRollingHit {
-	entityId: string;
+	pieceId: string;
 	marbleId: string;
 	hitId: string;
 	/** Height the marble reached above the platform in the time a bounce has, in meters */
@@ -310,8 +310,8 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 	const pieces = new Map(project.track.pieces.map((piece) => [piece.id, piece]));
 	const rolls: TRollingHit[] = [];
 	for (const marble of project.marbles) {
-		const marbleEntity = result.marbles.find((item) => item.marbleId === marble.id);
-		if (marbleEntity == null) continue;
+		const marbleTrack = result.marbles.find((item) => item.marbleId === marble.id);
+		if (marbleTrack == null) continue;
 		const hits = new Map(result.hits.filter((hit) => hit.marbleId === marble.id).map((hit) => [hit.hitId, hit]));
 		marble.hits.forEach((item, index) => {
 			const hit = hits.get(item.id);
@@ -321,9 +321,9 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 			const resolvedPiece = resolvedPieces.get(hit.pieceId);
 			const type = piece?.type;
 			if (resolvedPiece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(piece))) return;
-			const risen = riseAfterHit(resolvedPiece, marbleEntity, hit.actualTime, following.time);
+			const risen = riseAfterHit(resolvedPiece, marbleTrack, hit.actualTime, following.time);
 			if (risen == null || risen.isBounce) return;
-			rolls.push({ entityId: hit.pieceId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? resolvedPiece.position });
+			rolls.push({ pieceId: hit.pieceId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? resolvedPiece.position });
 		});
 	}
 	return rolls.sort((a, b) => a.time - b.time);

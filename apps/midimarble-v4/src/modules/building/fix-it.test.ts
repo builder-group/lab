@@ -154,8 +154,8 @@ describe('fixTrack function', () => {
 		const problems = problemPieces(project, result);
 		expect(problems.length).toBeGreaterThan(0);
 		let fixed = 0;
-		for (const entityId of problems.slice(0, 3)) {
-			const fix = await fixPiece(project, result, entityId, deps());
+		for (const pieceId of problems.slice(0, 3)) {
+			const fix = await fixPiece(project, result, pieceId, deps());
 			// Near the start of a song every later hit follows a tilt, so a small change isn't enough
 			if (fix.commands == null) {
 				expect(fix.rebuildFrom).toBeDefined();
@@ -164,7 +164,7 @@ describe('fixTrack function', () => {
 			fixed++;
 			const next = withCommands(project, fix.commands);
 			const run = simulate(next);
-			expect(problemPieces(next, run)).not.toContain(entityId);
+			expect(problemPieces(next, run)).not.toContain(pieceId);
 			expect(newlyBroken(result.hits, run.hits)).toEqual([]);
 		}
 		expect(fixed).toBeGreaterThanOrEqual(0);
@@ -471,7 +471,7 @@ describe('Fix on a small project', () => {
 		if (piece == null || inside == null) throw new Error('Missing piece');
 		const below = { ...inside, time: Math.min(inside.time, run.duration), position: { x: piece.position.x, y: piece.position.y } };
 		const passed = { ...run, marbles: run.marbles.map((marble) => ({ ...marble, samples: [...marble.samples, below] })) };
-		expect(passThroughs(track, passed).some((pass) => pass.entityId === piece.pieceId)).toBe(true);
+		expect(passThroughs(track, passed).some((pass) => pass.pieceId === piece.pieceId)).toBe(true);
 
 		// Act
 		const fix = await fixPiece(track, passed, piece.pieceId, deps());
@@ -498,7 +498,7 @@ describe('Fix on a small project', () => {
 		// Prepare
 		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
 		const run = simulate(broken);
-		const rolled = rollingHits(broken, run)[0]?.entityId ?? '';
+		const rolled = rollingHits(broken, run)[0]?.pieceId ?? '';
 
 		// Act
 		const fix = await fixPiece(broken, run, rolled, deps());
@@ -516,15 +516,15 @@ describe('Fix on a small project', () => {
 		const run = simulate(broken);
 		const before = new Set(problemPieces(broken, run));
 
-		for (const entityId of before) {
+		for (const pieceId of before) {
 			// Act
-			const fix = await fixPiece(broken, run, entityId, deps());
+			const fix = await fixPiece(broken, run, pieceId, deps());
 
 			// Assert
 			expect(fix.message.length).toBeGreaterThan(0);
 			if (fix.commands == null) continue;
 			const next = withCommands(broken, fix.commands);
-			expect(problemPieces(next, simulate(next)).every((id) => before.has(id) && id !== entityId)).toBe(true);
+			expect(problemPieces(next, simulate(next)).every((id) => before.has(id) && id !== pieceId)).toBe(true);
 		}
 	}, 60_000);
 });

@@ -84,7 +84,7 @@ def node_types(material):
 
 
 def check_long_posts():
-    # Past the body's depth a skin keeps the bar's size and stands it out on a post; its body still reaches the marble's lane
+    # Past the body's depth a skin keeps the bar's size and stands it out on a post; its body still reaches the marble's path
     for skin in ('platform:plate-gold', 'platform:chrome-device', 'platform:dark-housing', 'platform:gold', 'platform:device'):
         def back_and_reach(depth):
             context = {**skins.skin_context('brass', RADIUS), 'pathDepth': depth / 2}

@@ -26,16 +26,16 @@ export const themePresets: readonly TThemePreset[] = BUILT_IN_THEMES.map((theme)
  */
 export function builtInSkinCommands(project: TProject, target: TSkinTarget, skinId: string): TProjectCommand[] {
 	const element = skinId.split(':')[0] as TSkinElement;
-	const entityIds = skinTargetIds(project, target);
-	const commands = resolveTheme(project.film).parts[element]?.skin !== skinId ? skinCommands(project, target, skinId) : followThemeSkinCommands(project, entityIds);
+	const skinnedIds = skinTargetIds(project, target);
+	const commands = resolveTheme(project.film).parts[element]?.skin !== skinId ? skinCommands(project, target, skinId) : followThemeSkinCommands(project, skinnedIds);
 	return commands;
 }
 
 /** The pieces show the theme's skin again and keep their property overrides */
-export function followThemeSkinCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
+export function followThemeSkinCommands(project: TProject, skinnedIds: readonly string[]): TProjectCommand[] {
 	return skinnedOf(project).flatMap((piece) => {
 		const skin = piece.skin;
-		if (skin == null || !entityIds.includes(piece.id)) return [];
+		if (skin == null || !skinnedIds.includes(piece.id)) return [];
 		const { assetId: _assetId, ...rest } = skin;
 		return [skinValueCommand(piece, rest)];
 	});
@@ -53,9 +53,9 @@ export type TSkinPropertyPatch = { [K in 'colorSource' | 'color' | 'onHit' | 'gl
 /**
  * Changes skin properties on the target pieces, as one edit.
  */
-export function skinPropertyCommands(project: TProject, entityIds: readonly string[], patch: TSkinPropertyPatch): TProjectCommand[] {
+export function skinPropertyCommands(project: TProject, skinnedIds: readonly string[], patch: TSkinPropertyPatch): TProjectCommand[] {
 	return skinnedOf(project)
-		.filter((piece) => entityIds.includes(piece.id))
+		.filter((piece) => skinnedIds.includes(piece.id))
 		.flatMap((piece): TProjectCommand[] => {
 			const { property, ...fields } = patch;
 			const merged: Record<string, unknown> = { ...piece.skin, ...fields };
@@ -70,9 +70,9 @@ export function skinPropertyCommands(project: TProject, entityIds: readonly stri
 }
 
 /** Reset to Theme: the pieces lose their own skin and properties, as one edit */
-export function resetToThemeCommands(project: TProject, entityIds: readonly string[]): TProjectCommand[] {
+export function resetToThemeCommands(project: TProject, skinnedIds: readonly string[]): TProjectCommand[] {
 	return skinnedOf(project)
-		.filter((piece) => entityIds.includes(piece.id))
+		.filter((piece) => skinnedIds.includes(piece.id))
 		.flatMap((piece): TProjectCommand[] => {
 			const skin = piece.skin;
 			if (skin == null) return [];
@@ -108,7 +108,7 @@ function publicUrl(path: string): string {
 	return `/${path}`;
 }
 
-export type TSkinTarget = { kind: 'pieces'; entityIds: string[] } | { kind: 'pieceType'; pieceType: string };
+export type TSkinTarget = { kind: 'pieces'; skinnedIds: string[] } | { kind: 'pieceType'; pieceType: string };
 
 /** Pieces and marbles a skin target covers: the given pieces, or every one of a type (`marble` for the marbles) */
 export function skinTargetIds(project: TProject, target: TSkinTarget): string[] {
@@ -116,7 +116,7 @@ export function skinTargetIds(project: TProject, target: TSkinTarget): string[] 
 }
 
 function skinTargets(project: TProject, target: TSkinTarget): TSkinned[] {
-	return skinnedOf(project).filter((piece) => (target.kind === 'pieces' ? target.entityIds.includes(piece.id) : ('type' in piece ? piece.type : 'marble') === target.pieceType));
+	return skinnedOf(project).filter((piece) => (target.kind === 'pieces' ? target.skinnedIds.includes(piece.id) : ('type' in piece ? piece.type : 'marble') === target.pieceType));
 }
 
 /** Sets a linked skin on everything targeted, keeping what each has chosen for its properties */
@@ -225,7 +225,7 @@ export function frameHeightOnWall(project: TProject, result: TSimulationResult |
 }
 
 /** A new Wall Title at a wall point, in `color` (`defaultTitleColor`) and a size that reads in the frame */
-export function addWallTextCommands(project: TProject, point: TVec2, options: { color: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; entityId: string; title: TTitle } {
+export function addWallTextCommands(project: TProject, point: TVec2, options: { color: string; frameHeight: number; text?: string }): { commands: TProjectCommand[]; titleId: string; title: TTitle } {
 	const text = options.text ?? DEFAULT_WALL_TEXT.text;
 	const title: TTitle = {
 		id: createId('text'),
@@ -237,7 +237,7 @@ export function addWallTextCommands(project: TProject, point: TVec2, options: { 
 		position: { x: round(point.x), y: round(point.y) },
 		angle: 0
 	};
-	return { commands: [{ type: 'updateFilm', film: { titles: [...project.film.titles, title] } }], entityId: title.id, title };
+	return { commands: [{ type: 'updateFilm', film: { titles: [...project.film.titles, title] } }], titleId: title.id, title };
 }
 
 /**

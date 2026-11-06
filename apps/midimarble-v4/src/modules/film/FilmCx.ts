@@ -152,9 +152,9 @@ export class FilmCx {
 	}
 
 	/** Discards Blender changes of unlinked holders and lets the app drive them again */
-	async relink(entityIds: string[]): Promise<boolean> {
+	async relink(ids: string[]): Promise<boolean> {
 		return this.enqueue(async () => {
-			const applied = await this.sync({ relink: entityIds });
+			const applied = await this.sync({ relink: ids });
 			if (applied) this.requestPreview(0);
 			return applied;
 		});

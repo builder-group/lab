@@ -7,13 +7,13 @@ import { PHYSICS_HZ, type TSimulationResult } from './types';
 // A marble rolling along a rail repeats nothing: a turn of a thousandth of a degree before it
 // changes where it comes out by tens of centimeters. So once a track is edited its gap pieces keep the ride they gave,
 // as frames relative to where the marble entered, and every later piece stays where it is. A ride is used while the
-// marble enters within `TRANSIT_TOLERANCE` of the speed it was made with; past that the piece is simulated again.
+// marble enters within `RIDE_TOLERANCE` of the speed it was made with; past that the piece is simulated again.
 
 /** How far an entry may differ from the ride's, in m/s at Earth's gravity; speeds at a rhythm scale with gravity */
-const TRANSIT_TOLERANCE = 0.6;
+const RIDE_TOLERANCE = 0.6;
 
 export function rideTolerance(gravity: number): number {
-	return TRANSIT_TOLERANCE * gravity;
+	return RIDE_TOLERANCE * gravity;
 }
 
 /** Physics steps after its hit at which a marble has left a platform */

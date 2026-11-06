@@ -30,14 +30,14 @@ function startRailsOf(project: TProject): Map<string, string> {
 const pieceIndexes = new WeakMap<TProject, Map<string, TPiece>>();
 
 /** Pieces by id per project state, since every piece asks on every draw. An edit makes a new project, and with it a new index */
-function entityOf(project: TProject, entityId: string): TPiece | undefined {
+function pieceOf(project: TProject, pieceId: string): TPiece | undefined {
 	let index = pieceIndexes.get(project);
 	if (index == null) {
 		index = new Map();
 		for (const piece of project.track.pieces) if (!index.has(piece.id)) index.set(piece.id, piece);
 		pieceIndexes.set(project, index);
 	}
-	return index.get(entityId);
+	return index.get(pieceId);
 }
 
 const trackColors = new Map<string, TDraftColors>();
@@ -46,8 +46,8 @@ const trackColors = new Map<string, TDraftColors>();
  * A piece in Track, 2D and 3D, the way the Pegboard theme's Draft draws it whatever the project's theme: in its label color,
  * or plain wood without one. The same object for the same color, so memoized shapes stay put.
  */
-export function trackPieceColors(project: TProject | null | undefined, entityId: string, type: string): TDraftColors {
-	const piece = project != null ? entityOf(project, entityId) : undefined;
+export function trackPieceColors(project: TProject | null | undefined, pieceId: string, type: string): TDraftColors {
+	const piece = project != null ? pieceOf(project, pieceId) : undefined;
 	const color = project != null && piece != null ? pieceLabelColor(project, piece) : null;
 	const key = `${type}:${color ?? ''}`;
 	let colors = trackColors.get(key);

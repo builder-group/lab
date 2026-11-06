@@ -42,11 +42,11 @@ export const StudioWindow: React.FC<{ cx: StudioCx }> = (props) => {
 							else if (id != null) cx.$selection.set(selection.includes(id) ? selection.filter((item) => item !== id) : [...selection, id]);
 						}}
 						onPlace={(u, v) => cx.placeWallText(u, v)}
-						onDropAsset={(entityId, asset) => {
+						onDropAsset={(id, asset) => {
 							const item = cx.library.$projectItems.get().find((candidate) => candidate.id === asset.id && candidate.scope === asset.scope);
 							if (item == null) return;
-							cx.$selection.set([entityId]);
-							void cx.library.applySkin(item, { kind: 'pieces', entityIds: [entityId] });
+							cx.$selection.set([id]);
+							void cx.library.applySkin(item, { kind: 'pieces', skinnedIds: [id] });
 						}}
 					/>
 				)

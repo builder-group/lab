@@ -1405,7 +1405,7 @@ function flawedGhosts(project: TProject, trial: TSimulationResult, ghosts: TGhos
 		if (index != null) flawed.add(index);
 	}
 	for (const roll of rollingHits(project, trial)) {
-		const index = indexOf.get(roll.entityId);
+		const index = indexOf.get(roll.pieceId);
 		if (index != null) flawed.add(index);
 	}
 	return flawed;
@@ -1627,7 +1627,7 @@ function hasStrayContact(
 	result: TSimulationResult,
 	project: TProject,
 	marbleId: string,
-	entityId: string,
+	pieceId: string,
 	from: number,
 	until: number,
 	frontiers: Map<string, number> = new Map()
@@ -1637,7 +1637,7 @@ function hasStrayContact(
 	const environment = new Set(
 		project.track.pieces
 			.filter((piece) => {
-				return piece.id !== entityId && !soundsHit(piece.type, tieOf(piece));
+				return piece.id !== pieceId && !soundsHit(piece.type, tieOf(piece));
 			})
 			.map((piece) => piece.id)
 	);
@@ -1645,12 +1645,12 @@ function hasStrayContact(
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.03) return false;
 		if (contact.marbleId !== marble?.id) {
 			if (contact.time > (frontiers.get(contact.marbleId) ?? Infinity)) return false;
-			return contact.otherId === entityId;
+			return contact.otherId === pieceId;
 		}
 		if (contact.kind === 'marble' && contact.time > (frontiers.get(contact.otherId) ?? Infinity))
 			return false;
 		if (contact.kind === 'piece' && environment.has(contact.otherId)) return false;
-		return contact.otherId !== entityId;
+		return contact.otherId !== pieceId;
 	});
 }
 
@@ -1666,7 +1666,7 @@ export function crossesOtherMarbles(
 	trial: TSimulationResult,
 	project: TProject,
 	marbleId: string,
-	entityId: string,
+	pieceId: string,
 	from: number,
 	until: number,
 	frontiers: Map<string, number>
@@ -1680,7 +1680,7 @@ export function crossesOtherMarbles(
 	const isCrossing = trial.contacts.some((contact) => {
 		if (contact.time <= from + 0.005 || contact.time >= until - 0.01) return false;
 		if (contact.marbleId !== marbleId)
-			return contact.otherId === entityId && contact.time <= (frontiers.get(contact.marbleId) ?? Infinity);
+			return contact.otherId === pieceId && contact.time <= (frontiers.get(contact.marbleId) ?? Infinity);
 		if (contact.kind === 'marble') return contact.time <= (frontiers.get(contact.otherId) ?? Infinity);
 		const pieceMarble = marbleOfPiece.get(contact.otherId);
 		return pieceMarble != null && pieceMarble !== marbleId;

@@ -4,9 +4,9 @@ import { parseProject, type TProject, tieOf } from '@/modules/project';
 import { createPerfProject, createStaircaseProject } from './fixture-projects';
 import { createSimulator } from './simulate';
 
-function setAngle(project: TProject, entityId: string, angle: number): void {
-	const piece = project.track.pieces.find((piece) => piece.id === entityId);
-	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${entityId}`);
+function setAngle(project: TProject, pieceId: string, angle: number): void {
+	const piece = project.track.pieces.find((piece) => piece.id === pieceId);
+	if (piece == null || tieOf(piece) == null) throw new Error(`Missing linked piece ${pieceId}`);
 	piece.angle = angle;
 }
 

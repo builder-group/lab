@@ -50,7 +50,7 @@ export interface TRenderPiece {
 
 /** Wall surface in the Camera view: its color and the peg hole color, or no holes for a plain wall */
 export interface TRenderMarble {
-	entityId: string;
+	marbleId: string;
 	color: string;
 	radius: number;
 	position: TVec2;
@@ -59,7 +59,7 @@ export interface TRenderMarble {
 }
 
 export interface TRenderTrack {
-	entityId: string;
+	marbleId: string;
 	color: string;
 	/** Flat x, y pairs and the time of each point */
 	points: Float32Array;
@@ -261,8 +261,8 @@ export class TrackRenderer {
 	}
 
 	/** Turns a platform or windmill already set, for a playhead tick that changes nothing else; a path piece has no angle here */
-	setPieceAngle(entityId: string, angle: number): void {
-		const object = this.pieces.get(entityId);
+	setPieceAngle(pieceId: string, angle: number): void {
+		const object = this.pieces.get(pieceId);
 		if (object != null && object.pathSource == null) object.group.rotation.z = angle;
 	}
 
@@ -299,13 +299,13 @@ export class TrackRenderer {
 	setMarbles(items: TRenderMarble[]): void {
 		const seen = new Set<string>();
 		for (const item of items) {
-			seen.add(item.entityId);
-			let marble = this.marbles.get(item.entityId);
+			seen.add(item.marbleId);
+			let marble = this.marbles.get(item.marbleId);
 			if (marble == null) {
 				const mesh = new THREE.Mesh(this.sphereGeometry);
 				mesh.renderOrder = 3;
 				marble = { mesh, radius: item.radius };
-				this.marbles.set(item.entityId, marble);
+				this.marbles.set(item.marbleId, marble);
 				this.scene.add(mesh);
 			}
 			marble.radius = item.radius;
@@ -324,12 +324,12 @@ export class TrackRenderer {
 	setTracks(items: TRenderTrack[]): void {
 		const seen = new Set<string>();
 		for (const item of items) {
-			seen.add(item.entityId);
-			let track = this.tracks.get(item.entityId);
+			seen.add(item.marbleId);
+			let track = this.tracks.get(item.marbleId);
 			if (track == null) {
 				track = new TrackLine(2);
 				track.setPlayhead(this.playhead);
-				this.tracks.set(item.entityId, track);
+				this.tracks.set(item.marbleId, track);
 				this.scene.add(track.mesh);
 			}
 			track.mesh.visible = this.camera.mode !== 'camera';

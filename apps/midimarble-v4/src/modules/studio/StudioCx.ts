@@ -289,11 +289,11 @@ export class StudioCx {
 		const result = this.simulation.$result.get();
 		const time = this.$playhead.get();
 		const point = previewPointToWall(project, result, time, u, v);
-		const { commands, entityId } = addWallTextCommands(project, point, { color: defaultTitleColor(project.film), frameHeight: frameHeightOnWall(project, result, time) });
+		const { commands, titleId } = addWallTextCommands(project, point, { color: defaultTitleColor(project.film), frameHeight: frameHeightOnWall(project, result, time) });
 		if (!this.execute(commands)) return;
-		this.$selection.set([entityId]);
+		this.$selection.set([titleId]);
 		// Typing starts at once, like Figma's text tool: the inspector focuses the Text field with its contents selected
-		this.film.$editingTitle.set(entityId);
+		this.film.$editingTitle.set(titleId);
 	}
 
 	/** A new Caption, Song Name or End Card at its default timing, selected, with its text ready to type */

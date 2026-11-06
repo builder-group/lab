@@ -41,7 +41,7 @@ function mounted(): { cx: StudioCx; trackCx: TrackCx; renderer: TrackRenderer; w
 	const result = {
 		revision: project.revision,
 		duration: project.length,
-		marbles: [{ entityId: marble.id, marbleId: marble.id, samples }],
+		marbles: [{ marbleId: marble.id, samples }],
 		pieces: [{ ...displayPiece(windmill, { pose }), motion: [{ time: 0, angle: 0 }, { time: 10, angle: 10 }] }],
 		contacts: [],
 		hits: [],

@@ -241,9 +241,9 @@ function distanceToPath(path: TVec2[], point: TVec2): number {
 }
 
 /** When the marble last touches the rail before the next hit, and whether it stands still on it */
-function railRide(result: TSimulationResult, marbleId: string, entityId: string, until: number, radius: number): { leave: number | null; isTrapped: boolean; isBlocked: boolean } {
+function railRide(result: TSimulationResult, marbleId: string, pieceId: string, until: number, radius: number): { leave: number | null; isTrapped: boolean; isBlocked: boolean } {
 	const marble = result.marbles.find((item) => item.marbleId === marbleId);
-	const piece = result.pieces.find((item) => item.pieceId === entityId);
+	const piece = result.pieces.find((item) => item.pieceId === pieceId);
 	if (piece == null || marble == null) return { leave: null, isTrapped: false, isBlocked: true };
 	const paths = piece.paths ?? (piece.path != null ? [piece.path] : []);
 	const reach = radius + (piece.params['radius'] ?? 0.004) + 0.003;

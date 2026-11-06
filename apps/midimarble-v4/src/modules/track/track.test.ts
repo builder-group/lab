@@ -73,14 +73,14 @@ describe('angles', () => {
 
 describe('picking', () => {
 	const scene: TPickScene = {
-		handles: [{ kind: 'rotate', entityId: 'a', position: { x: 300, y: 100 }, radius: 6 }],
+		handles: [{ kind: 'rotate', id: 'a', position: { x: 300, y: 100 }, radius: 6 }],
 		dots: [
 			{ marbleId: 'l', hitId: 'h1', position: { x: 100, y: 100 } },
 			{ marbleId: 'l', hitId: 'h2', position: { x: 108, y: 100 } }
 		],
 		pieces: [
 			{
-				entityId: 'a',
+				pieceId: 'a',
 				corners: [
 					{ x: 200, y: 95 },
 					{ x: 290, y: 95 },
@@ -92,11 +92,11 @@ describe('picking', () => {
 	};
 
 	it('prefers handles, then the nearest dot, then pieces', () => {
-		expect(pick({ x: 303, y: 102 }, scene)).toEqual({ kind: 'rotate', entityId: 'a' });
+		expect(pick({ x: 303, y: 102 }, scene)).toEqual({ kind: 'rotate', pieceId: 'a' });
 		expect(pick({ x: 106, y: 101 }, scene)).toEqual({ kind: 'dot', marbleId: 'l', hitId: 'h2' });
-		expect(pick({ x: 250, y: 100 }, scene)).toEqual({ kind: 'piece', entityId: 'a' });
+		expect(pick({ x: 250, y: 100 }, scene)).toEqual({ kind: 'piece', pieceId: 'a' });
 		// Thin pieces stay clickable a few pixels outside their outline
-		expect(pick({ x: 250, y: 108 }, scene)).toEqual({ kind: 'piece', entityId: 'a' });
+		expect(pick({ x: 250, y: 108 }, scene)).toEqual({ kind: 'piece', pieceId: 'a' });
 		expect(pick({ x: 500, y: 500 }, scene)).toBeNull();
 	});
 
@@ -108,25 +108,25 @@ describe('picking', () => {
 });
 
 describe('picking a Rail', () => {
-	const rail = { entityId: 'rail', corners: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], lines: [[{ x: 0, y: 0 }, { x: 100, y: 0 }]] };
-	const platform = { entityId: 'platform', corners: [{ x: 40, y: 45 }, { x: 60, y: 45 }, { x: 60, y: 55 }, { x: 40, y: 55 }] };
+	const rail = { pieceId: 'rail', corners: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }], lines: [[{ x: 0, y: 0 }, { x: 100, y: 0 }]] };
+	const platform = { pieceId: 'platform', corners: [{ x: 40, y: 45 }, { x: 60, y: 45 }, { x: 60, y: 55 }, { x: 40, y: 55 }] };
 
 	it('takes only its path, so its empty box leaves the click to what lies inside', () => {
-		expect(pick({ x: 50, y: 50 }, { handles: [], dots: [], pieces: [platform, rail] })).toEqual({ kind: 'piece', entityId: 'platform' });
+		expect(pick({ x: 50, y: 50 }, { handles: [], dots: [], pieces: [platform, rail] })).toEqual({ kind: 'piece', pieceId: 'platform' });
 		expect(pick({ x: 20, y: 60 }, { handles: [], dots: [], pieces: [platform, rail] })).toBeNull();
-		expect(pick({ x: 20, y: 2 }, { handles: [], dots: [], pieces: [platform, rail] })).toEqual({ kind: 'piece', entityId: 'rail' });
+		expect(pick({ x: 20, y: 2 }, { handles: [], dots: [], pieces: [platform, rail] })).toEqual({ kind: 'piece', pieceId: 'rail' });
 	});
 
 	it('lets the selected piece win over one on top of it', () => {
-		const below = { entityId: 'below', corners: platform.corners, isSelected: true };
-		expect(pick({ x: 50, y: 50 }, { handles: [], dots: [], pieces: [below, platform] })).toEqual({ kind: 'piece', entityId: 'below' });
+		const below = { pieceId: 'below', corners: platform.corners, isSelected: true };
+		expect(pick({ x: 50, y: 50 }, { handles: [], dots: [], pieces: [below, platform] })).toEqual({ kind: 'piece', pieceId: 'below' });
 	});
 });
 
 describe('scene', () => {
 	it('interpolates the marble between samples and waits at the release before', () => {
 		const track = {
-			entityId: 'm',
+			pieceId: 'm',
 			marbleId: 'l',
 			radius: 0.008,
 			samples: [0, 1, 2].map((index) => ({

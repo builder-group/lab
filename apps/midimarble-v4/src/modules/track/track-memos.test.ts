@@ -35,7 +35,7 @@ describe('pickScene method', () => {
 	it('should rebuild for what a pick depends on', () => {
 		// Prepare
 		const { cx, trackCx, piece, result } = shown();
-		const pieceIds = (): string[] => trackCx.pickScene().pieces.map((item) => item.entityId);
+		const pieceIds = (): string[] => trackCx.pickScene().pieces.map((item) => item.pieceId);
 		const isSelected = (): boolean | undefined => trackCx.pickScene().pieces[0]?.isSelected;
 		const outline = (): unknown => trackCx.pickScene().pieces[0]?.corners;
 		expect(pieceIds()).toEqual([piece.pieceId]);
@@ -113,7 +113,7 @@ describe('displayPieces method', () => {
 	it('should show a placing piece and drop a hidden one', () => {
 		// Prepare
 		const { cx, trackCx, piece } = shown();
-		const placing = { ...piece, entityId: 'placing' };
+		const placing = { ...piece, pieceId: 'placing' };
 
 		// Act
 		trackCx.$placing.set(placing);

@@ -838,7 +838,7 @@ def neon_mount_material():
 
 
 def neon_marble_core(color):
-    """Linear color of a Neon marble's body: near-white with a hint of its lane's hue. The pieces glow in the lane's
+    """Linear color of a Neon marble's body: near-white with a hint of its label color's hue. The pieces glow in that
     saturated hue, so a marble in that hue vanished against its own platforms; the reference channels light their
     marbles white or pearl and keep the color for the rim"""
     hue = neon_color(color, 1.0)
@@ -846,8 +846,8 @@ def neon_marble_core(color):
 
 
 def neon_marble_material(color):
-    """Glossy pearl-white marble with a faint glow of its own and a rim in its lane's saturated hue, so it reads
-    against the dark wall and against its own lane's glowing pieces"""
+    """Glossy pearl-white marble with a faint glow of its own and a rim in its label color's saturated hue, so it reads
+    against the dark wall and against its own glowing pieces"""
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links
@@ -888,7 +888,7 @@ NEON_MARBLE_RIM = 3.5
 
 
 # Marble contrast: the marble is the film's subject, so it stays 3:1 apart from its wall and its own pieces in every
-# theme. Pearl white with its lane's hue on the rim on a dark wall (Neon), its lane's hue made deep on a light one
+# theme. Pearl white with its label color's hue on the rim on a dark wall (Neon), that hue made deep on a light one
 # (Pegboard's birch, Brass's lavender), whichever contrasts more with both. The rule works on the Draft Preview's
 # display colors so both previews choose alike: the same values and steps as `draftMarble` in draft-look.ts.
 
@@ -898,7 +898,7 @@ DEEP_LUMINANCE = 0.05
 # A deep body on a lighter wall can be lighter too, as long as it keeps MARBLE_CONTRAST against all it rolls over, so a
 # warm wall shows the marble's hue rather than a near-black ball. `deepBody` in draft-look.ts
 DEEP_LUMINANCE_LIGHTEST = 0.09
-# Darker still where its own Pegboard platform is a dark lane color; `DEEP_LUMINANCE_DARKEST` in draft-look.ts
+# Darker still where its own Pegboard platform is a dark label color; `DEEP_LUMINANCE_DARKEST` in draft-look.ts
 DEEP_LUMINANCE_DARKEST = 0.03
 NEON_BODY_VALUE = 0.62
 PEGBOARD_TINT = 0.4
@@ -965,7 +965,7 @@ def marble_surfaces(theme, color):
         return []
     if theme == 'neon':
         return [display_saturate(color, NEON_BODY_VALUE)]
-    # The Draft Preview's lighter tint and the lane color itself, which is what the film's Pegboard platform is painted
+    # The Draft Preview's lighter tint and the label color itself, which is what the film's Pegboard platform is painted
     return [display_tint(color, PEGBOARD_TINT), color]
 
 

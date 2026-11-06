@@ -19,7 +19,7 @@ export function packOriginLine(origin: TPackOrigin, isPackAdded: (packId: string
 
 /** Built-in themes the Blender worker ships, in Library order */
 export const BUILT_IN_THEMES: readonly { id: string; label: string; description: string }[] = [
-	{ id: 'pegboard', label: 'Pegboard', description: 'Birch pegboard and toy colors, like Compose' },
+	{ id: 'pegboard', label: 'Pegboard', description: 'Birch pegboard and toy colors' },
 	{ id: 'brass', label: 'Brass', description: 'Plaster wall, brass bars and warm studio light' },
 	{ id: 'neon', label: 'Neon', description: 'Dark navy wall, glossy pieces with glowing edges that flash on a hit' }
 ];

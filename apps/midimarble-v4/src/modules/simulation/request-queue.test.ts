@@ -95,7 +95,7 @@ describe('worker protocol', () => {
 	it('answers simulate, autoPlace, continue and gapPiece requests', async () => {
 		const simulator = await createSimulator();
 		const zigzag = bareRun([0.15, 0.45, 0.75, 1.05, 1.35, 1.65], [-0.4, 0.4]);
-		const placed = answerWorkerRequest(simulator, { kind: 'autoPlace', project: zigzag, marbleId: 'marble-1', hitId: 'hit-1-3', type: 'platform', entityId: 'auto-1' });
+		const placed = answerWorkerRequest(simulator, { kind: 'autoPlace', project: zigzag, marbleId: 'marble-1', hitId: 'hit-1-3', type: 'platform', pieceId: 'auto-1' });
 		expect(placed).toMatchObject({ piece: { id: 'auto-1' } });
 
 		const continued = answerWorkerRequest(simulator, { kind: 'continue', project: zigzag, marbleId: 'marble-1' }) as TContinueAnswer;

@@ -36,12 +36,12 @@ export function bowlOfMarble(project: TProject, marbleId: string): TPiece | unde
  * Whether the marble of the Bowl's marble lands in it and stays: after its first contact the marble keeps within
  * `CATCH_MARGIN` of the wire until the run ends
  */
-export function bowlCatch(result: TSimulationResult, entityId: string): TBowlCatch {
-	const piece = result.pieces.find((item) => item.pieceId === entityId);
+export function bowlCatch(result: TSimulationResult, pieceId: string): TBowlCatch {
+	const piece = result.pieces.find((item) => item.pieceId === pieceId);
 	const none: TBowlCatch = { status: 'missed', enterTime: null, enterPoint: null };
 	if (piece == null) return none;
 	if (piece.status === 'blocked') return { ...none, status: 'blocked' };
-	const contact = result.contacts.find((item) => item.otherId === entityId && item.kind === 'piece' && trackOf(result, item.marbleId) != null && isOwnMarble(result, piece, item.marbleId));
+	const contact = result.contacts.find((item) => item.otherId === pieceId && item.kind === 'piece' && trackOf(result, item.marbleId) != null && isOwnMarble(result, piece, item.marbleId));
 	if (contact == null) return none;
 	const track = trackOf(result, contact.marbleId) as TMarbleTrack;
 	return catchAlong(piece, track, contact.time, contact.position);

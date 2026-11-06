@@ -566,15 +566,15 @@ function strikeIssues(project: TProject, result: TSimulationResult, names: TName
 	return extraStrikes(project, result).map((strike) => {
 		const count = strike.times === 2 ? 'twice' : `${strike.times} times`;
 		return {
-			id: `strike:${strike.entityId}`,
+			id: `strike:${strike.pieceId}`,
 			kind: 'strike' as const,
 			severity: 'warning' as const,
 			marbleId: strike.marbleId,
-			title: `${names.marble(strike.marbleId)} hits ${names.piece(strike.entityId)} ${count}`,
+			title: `${names.marble(strike.marbleId)} hits ${names.piece(strike.pieceId)} ${count}`,
 			label: strike.times === 2 ? 'Hit Twice' : `Hit ${strike.times} Times`,
 			detail: `Hits it ${strike.times} times from ${formatTime(strike.time)}, with one note.`,
 			time: strike.time,
-			target: { ids: [strike.entityId], point: strike.position, time: strike.time }
+			target: { ids: [strike.pieceId], point: strike.position, time: strike.time }
 		};
 	});
 }
@@ -585,15 +585,15 @@ function strikeIssues(project: TProject, result: TSimulationResult, names: TName
  */
 function rollIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return rollingHits(project, result).map((roll) => ({
-		id: `roll:${roll.entityId}`,
+		id: `roll:${roll.pieceId}`,
 		kind: 'roll' as const,
 		severity: 'warning' as const,
 		marbleId: roll.marbleId,
-		title: `${names.marble(roll.marbleId)} rolls on ${names.piece(roll.entityId)}`,
+		title: `${names.marble(roll.marbleId)} rolls on ${names.piece(roll.pieceId)}`,
 		label: 'Rolls',
 		detail: `Stays on it after the note at ${formatTime(roll.time)} instead of bouncing off.`,
 		time: roll.time,
-		target: { ids: [roll.entityId], point: roll.position, time: roll.time }
+		target: { ids: [roll.pieceId], point: roll.position, time: roll.time }
 	}));
 }
 
@@ -614,15 +614,15 @@ function touchingIssues(project: TProject, result: TSimulationResult, names: TNa
 /** A marble's path through the body of a piece's skin, which has no hitbox there */
 function passIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return passThroughs(project, result).map((pass) => ({
-		id: `passes:${pass.marbleId}:${pass.entityId}`,
+		id: `passes:${pass.marbleId}:${pass.pieceId}`,
 		kind: 'passes' as const,
 		severity: 'warning' as const,
 		marbleId: pass.marbleId,
-		title: `${names.marble(pass.marbleId)} passes through ${names.piece(pass.entityId)}`,
+		title: `${names.marble(pass.marbleId)} passes through ${names.piece(pass.pieceId)}`,
 		label: 'Passes Through',
 		detail: `At ${formatTime(pass.time)} the marble goes through the piece’s skin, below the top the marble bounces on.`,
 		time: pass.time,
-		target: { ids: [pass.entityId], point: pass.position, time: pass.time }
+		target: { ids: [pass.pieceId], point: pass.position, time: pass.time }
 	}));
 }
 

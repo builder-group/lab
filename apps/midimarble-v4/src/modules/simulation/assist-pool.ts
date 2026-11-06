@@ -190,9 +190,9 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 		const search = `search-${nextSearch++}`;
 		const isCanceled = (): boolean => isDisposed || item.options.isCanceled?.() === true;
 		// One id for every worker, which would otherwise each name a new piece differently
-		const entityId = item.request.entityId ?? createId('piece');
+		const pieceId = item.request.pieceId ?? createId('piece');
 		if (item.assist === 'autoPlace') {
-			const prepare: TSearchRequest = { assist: 'autoPlace', ...item.request, entityId };
+			const prepare: TSearchRequest = { assist: 'autoPlace', ...item.request, pieceId };
 			const [isOk, error, placement] = await runAutoPlaceSearch(
 				async (tries) => {
 					const answer = await evaluate(search, prepare, tries);
@@ -209,7 +209,7 @@ export function createAssistPool(options: TAssistPoolOptions): TAssistPool {
 				computeMs: performance.now() - startedAt
 			};
 		}
-		const prepare: TSearchRequest = { assist: 'gapPiece', ...item.request, entityId };
+		const prepare: TSearchRequest = { assist: 'gapPiece', ...item.request, pieceId };
 		const { plan } = await evaluate(search, prepare, []);
 		const steps = gapSearch(plan as TGapSearchPlan);
 		let step = steps.next();

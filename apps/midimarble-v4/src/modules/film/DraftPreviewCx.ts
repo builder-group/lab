@@ -164,7 +164,7 @@ export class DraftPreviewCx {
 			if (text.style === 'caption' || text.style === 'songName' || text.style === 'endCard') {
 				// Screen titles are drawn onto the encoded film: a fixed place and size in the frame, plain unless they ask for a plate
 				const screen = previewScreenTitleLayout(text.style, text.size, this.size, project.format, project.film.quality);
-				return [{ entityId: text.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen, hasPlate: text.plate === true }];
+				return [{ titleId: text.id, text: text.text, color, center: screen.center, fontSize: screen.fontSize, angle: 0, opacity: titleOpacity(time, text), screen, hasPlate: text.plate === true }];
 			}
 			const center = this.toScreen(text.position, 0);
 			const step = 0.01;
@@ -173,7 +173,7 @@ export class DraftPreviewCx {
 			if (!Number.isFinite(pixelsPerMeter) || !Number.isFinite(center.x)) return [];
 			return [
 				{
-					entityId: text.id,
+					titleId: text.id,
 					text: text.text,
 					color,
 					center,
@@ -323,7 +323,7 @@ export class DraftPreviewCx {
 			const label = look.skin === 'marble:contrast' && marble.skin?.color == null ? marble.labelColor : undefined;
 			return [
 				{
-					entityId: marble.id,
+					marbleId: marble.id,
 					radius: marble.radius,
 					position,
 					...draft,
@@ -358,8 +358,8 @@ export class DraftPreviewCx {
 	/** Title or piece under a CSS pixel point of the frame, titles first like the Blender ID pass shows them on top */
 	pick(point: TVec2, titleBoxes: Map<string, TVec2[]>): string | null {
 		for (const title of this.titles()) {
-			const box = titleBoxes.get(title.entityId);
-			if (title.opacity > 0 && box != null && isPointInPolygon(point, box)) return title.entityId;
+			const box = titleBoxes.get(title.titleId);
+			if (title.opacity > 0 && box != null && isPointInPolygon(point, box)) return title.titleId;
 		}
 		const piece = pickPiece(this.pieces(), point, (at, z) => this.toScreen(at, z), this.pathZ());
 		if (piece != null) return piece;
@@ -403,7 +403,7 @@ export class DraftPreviewCx {
 		const items: TRenderPiece[] = pieces.map((piece) => ({ piece, angle: pieceAngleAt(piece, playhead), colors: this.colorsOf(piece), pathZ: this.pathZ() }));
 		renderer.setPieces(items);
 		renderer.setMarbles(
-			this.marbles().map(({ entityId, body, radius, position }) => ({ entityId, color: body, radius, position, z: this.pathZ() }))
+			this.marbles().map(({ marbleId, body, radius, position }) => ({ marbleId, color: body, radius, position, z: this.pathZ() }))
 		);
 		renderer.render();
 		this.shown = this.pose != null ? pieces.filter((piece) => this.isInFrame(piece)) : pieces;
@@ -445,7 +445,7 @@ function wallReach(piece: TResolvedPiece): { minX: number; maxX: number; minY: n
 	return reach;
 }
 
-type TPlacedMarble = TDraftMarble & { entityId: string; radius: number; position: TVec2 };
+type TPlacedMarble = TDraftMarble & { marbleId: string; radius: number; position: TVec2 };
 
 export type TDraftEffect = { kind: 'snowfall'; key: string; opacity: number; flakes: readonly TFlake[]; color: string; size: number; speed: number };
 
@@ -463,7 +463,7 @@ export interface TDraftDecor {
 }
 
 export interface TDraftTitle {
-	entityId: string;
+	titleId: string;
 	text: string;
 	color: string;
 	center: TVec2;

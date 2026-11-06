@@ -14,8 +14,8 @@ function freePlatform(id: string, name: string, x: number): TPiece {
 }
 
 /** Duplicate without a run, which copies to the usual spot */
-async function duplicateWithoutRun(project: TProject, entityIds: string[]): Promise<TDuplicate> {
-	const outcome = await duplicateClear(project, null, entityIds, null, []);
+async function duplicateWithoutRun(project: TProject, pieceIds: string[]): Promise<TDuplicate> {
+	const outcome = await duplicateClear(project, null, pieceIds, null, []);
 	if (outcome.spot === 'refused') throw new Error('Refused');
 	return outcome;
 }

@@ -689,7 +689,7 @@ def add_wood_grain(tree, principled, base):
 
 def post_standoff(frame, k, base):
     """How far a skin's body stands off the wall: `base`, or what a depth past POST_BODY_DEPTH adds as a long post, so a
-    deep bar keeps its size and stands out on the post. The body still reaches past the marble's lane."""
+    deep bar keeps its size and stands out on the post. The body still reaches past the marble's path."""
     longest = frame.wall_y - frame.marble_y - frame.marble_radius * 1.3
     return max(base, min(frame.depth - POST_BODY_DEPTH * k, longest))
 
@@ -750,8 +750,8 @@ def plate_spec(frame, length, thickness, finish):
 
 
 def chrome_device_spec(frame, length, thickness):
-    """A gold pad under the marble's lane that presses, and toward the camera a chrome body with a ball housing, hazard
-    ribs and a gold end block. The body stays clear of the lane, so only the pad meets the marble."""
+    """A gold pad under the marble's path that presses, and toward the camera a chrome body with a ball housing, hazard
+    ribs and a gold end block. The body stays clear of the path, so only the pad meets the marble."""
     k, back, front, top = polished_frame(frame, thickness)
     edge = min(0.0014 * k, thickness * 0.25, length * 0.18)
     pad_front = max(frame.marble_y - frame.marble_radius * 1.3, front + (back - front) * 0.25)
@@ -805,7 +805,7 @@ def chrome_device_spec(frame, length, thickness):
 
 def dark_housing_spec(frame, length, thickness):
     """A slate housing, chamfered toward the camera, with a chrome-ringed lens and a long white key over the marble's
-    lane that presses. The key's top is the contact surface; the housing sits just below it."""
+    path that presses. The key's top is the contact surface; the housing sits just below it."""
     k, back, front, top = polished_frame(frame, thickness)
     depth = back - front
     edge = min(0.0018 * k, thickness * 0.25, length * 0.2)

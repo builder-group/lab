@@ -21,9 +21,9 @@ const SIDE_STEP = 0.05;
 const SIDE_TRIES = 40;
 
 /** The pieces as free pieces where they are now, which ⌘C keeps; a tied piece without a pose in this run is left out */
-export function freePieces(project: TProject, result: TSimulationResult | null, entityIds: string[]): TPiece[] {
-	return entityIds.flatMap((entityId) => {
-		const piece = project.track.pieces.find((item) => item.id === entityId);
+export function freePieces(project: TProject, result: TSimulationResult | null, pieceIds: string[]): TPiece[] {
+	return pieceIds.flatMap((pieceId) => {
+		const piece = project.track.pieces.find((item) => item.id === pieceId);
 		const free = piece != null ? freePiece(project, result, piece) : null;
 		return free != null ? [free] : [];
 	});
@@ -63,8 +63,8 @@ export type TClearDuplicate = (TDuplicate & { spot: 'near the original' | 'besid
  * path and every piece, checked with a what-if run, or to the marble-free side at their height, which the notice
  * then says. When even that would break hits, nothing is copied. Without `simulate` the clearance alone decides.
  */
-export function duplicateClear(project: TProject, result: TSimulationResult | null, entityIds: string[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null, blenderObjects: readonly TBlenderObject[]): Promise<TClearDuplicate> {
-	return pasteClear(project, result, freePieces(project, result, entityIds), simulate, blenderObjects);
+export function duplicateClear(project: TProject, result: TSimulationResult | null, pieceIds: string[], simulate: ((project: TProject) => Promise<TSimulationResult>) | null, blenderObjects: readonly TBlenderObject[]): Promise<TClearDuplicate> {
+	return pasteClear(project, result, freePieces(project, result, pieceIds), simulate, blenderObjects);
 }
 
 /** The same for free pieces kept by ⌘C, which may come from another project */

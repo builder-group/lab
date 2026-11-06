@@ -20,8 +20,8 @@ export function followSelection(cx: StudioCx, marbleId?: string): void {
 	if (project == null || result == null) return;
 	let current = project;
 	const commands: TProjectCommand[] = [];
-	for (const entityId of selectedPieceIds(project, cx.$selection.get())) {
-		const resolved = result.pieces.find((piece) => piece.pieceId === entityId);
+	for (const pieceId of selectedPieceIds(project, cx.$selection.get())) {
+		const resolved = result.pieces.find((piece) => piece.pieceId === pieceId);
 		if (resolved == null) continue;
 		const point = resolved.contactPoint ?? resolved.position;
 		const moments = result.marbles
@@ -34,13 +34,13 @@ export function followSelection(cx: StudioCx, marbleId?: string): void {
 			.sort((a, b) => a.distance - b.distance);
 		const nearest = moments[0];
 		if (nearest == null) continue;
-		const [isOk, error, value] = anchorPiece(current, result, entityId, nearest.marbleId, nearest.time);
+		const [isOk, error, value] = anchorPiece(current, result, pieceId, nearest.marbleId, nearest.time);
 		if (!isOk) {
 			cx.notify(error.message);
 			return;
 		}
 		commands.push(...value.commands);
-		current = { ...current, track: { ...current.track, pieces: current.track.pieces.map((piece) => (piece.id === entityId ? value.piece : piece)) } };
+		current = { ...current, track: { ...current.track, pieces: current.track.pieces.map((piece) => (piece.id === pieceId ? value.piece : piece)) } };
 	}
 	if (commands.length) cx.execute(commands);
 }
@@ -51,11 +51,11 @@ export function detachSelection(cx: StudioCx): void {
 	const result = cx.simulation.$result.get();
 	if (project == null || result == null) return;
 	const commands: TProjectCommand[] = [];
-	for (const entityId of selectedPieceIds(project, cx.$selection.get())) {
-		const piece = project.track.pieces.find((item) => item.id === entityId);
+	for (const pieceId of selectedPieceIds(project, cx.$selection.get())) {
+		const piece = project.track.pieces.find((item) => item.id === pieceId);
 		if (piece == null || tieOf(piece) == null) continue;
 		const attach = attachState(project, piece);
-		const [isOk, error, value] = attach.kind === 'linked' ? unlinkPiece(project, result, entityId) : unanchorPiece(project, result, entityId);
+		const [isOk, error, value] = attach.kind === 'linked' ? unlinkPiece(project, result, pieceId) : unanchorPiece(project, result, pieceId);
 		if (!isOk) {
 			cx.notify(error.message);
 			return;
@@ -89,8 +89,8 @@ export function canPlayNote(cx: StudioCx): boolean {
 
 /** Play a Note…: arms the selected platform for a click on a note's dot */
 export function armPlayNote(cx: StudioCx, trackCx: TrackCx): void {
-	const entityId = pieceToLink(cx);
-	if (entityId != null) trackCx.armPlayNote(entityId);
+	const pieceId = pieceToLink(cx);
+	if (pieceId != null) trackCx.armPlayNote(pieceId);
 }
 
 /** Whether a selected piece can follow a marble in the run */
