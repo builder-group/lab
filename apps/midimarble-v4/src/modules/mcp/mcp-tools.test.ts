@@ -691,6 +691,8 @@ describe('applyPattern', () => {
 
 	beforeAll(async () => {
 		sim = await createSimulator();
+		// Autosave writes to the browser's storage when its timer fires, which can be after these tests end
+		vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
 	});
 	afterAll(() => sim.dispose());
 
