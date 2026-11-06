@@ -108,7 +108,9 @@ export class AssistCx {
 	 * auto placed piece. Before a long gap Auto place launches the marble into the coming rail.
 	 */
 	next(type = 'platform'): void {
-		if (this.$ghosts.get().ghost != null) {
+		// A dot's preview or a gap's bridge is what Next would add; Continue's many are taken with Tab, so one press stays one platform
+		const { ghost } = this.$ghosts.get();
+		if (ghost != null && ghost.kind !== 'continue') {
 			this.acceptGhosts();
 			return;
 		}
@@ -371,7 +373,7 @@ export class AssistCx {
 
 	// MARK: - Ghosts
 
-	/** Tab, or Return while ghosts show: adds every acceptable ghost as one edit */
+	/** Tab, or Return and N on a dot's preview or a gap's bridge: adds every acceptable ghost as one edit */
 	acceptGhosts(): boolean {
 		const { ghost } = this.$ghosts.get();
 		const project = this.studio.project;

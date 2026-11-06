@@ -129,7 +129,7 @@ The canvas is open like Figma: every element is placed with its tool, moved by d
 | W          | Windmill tool                                                   |
 | ⇧I         | Open the Insert library                                         |
 | T          | Tap a hit at the playhead in Compose; Add Title in Film         |
-| Return, N  | Place Next Platform, or accept the ghosts on screen; Return finishes a rail being drawn. Presses made while the run catches up queue and run one by one, shown as "Next ×5" on the build bar; Escape drops them. With only the Song or Camera track selected, Return goes to the start |
+| Return, N  | Place Next Platform, one per press, or accept a dot's preview or a gap's bridge; Return finishes a rail being drawn. Presses made while the run catches up queue and run one by one, shown as "Next ×5" on the build bar; Escape drops them. With only the Song or Camera track selected, Return goes to the start |
 | Tab        | Accept the Continue ghosts or the gap suggestion                |
 | Escape     | Close the Insert library or cancel a drag out of it, cancel the drag or rail, then dismiss ghosts, then leave the tool, then clear the selection; in Film it leaves title placing, then clears the selection (a piece, a title or shots) |
 | R, M      | Repeat Last Platform, Mirror Last Platform                      |
