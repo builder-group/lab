@@ -19,7 +19,7 @@ export function shownDepth(piece: { type: string; params: Record<string, number>
 export const BAR_BODY_DEPTH = 0.09;
 
 /** Bar length that hops, columns and the canvas's fit are spaced by, whatever a bar's own length: a thin bar doesn't crowd the run */
-export const PLACEMENT_LENGTH = 0.09;
+export const PLACEMENT_LENGTH = 0.035;
 
 /** Gap between a marble and the wall at its closest, `MARBLE_WALL_GAP` in `mm_worker/util.py` */
 const MARBLE_WALL_GAP = 0.0005;

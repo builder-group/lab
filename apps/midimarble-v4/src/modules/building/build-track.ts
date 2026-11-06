@@ -1,5 +1,5 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { answerWorkerRequest, changedPieces, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { answerWorkerRequest, changedPieces, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, passThroughs, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';
@@ -54,7 +54,9 @@ const LEANS = [0, 3, -3, 6, -6, 9, -9, 12, -12, 15, -15, 18, -18, 21, -21, 24, -
 const OFF_PACE_DOTS = 2;
 const PACE_OVERSHOOT = 0.15;
 /** A copied tilt counts only while the next dot lands this close to its column, in piece lengths; Auto place corrects the rest */
-const COLUMN_TOLERANCE = 0.25;
+const COLUMN_TOLERANCE = 0.6;
+/** The drop a copied tilt may give, as a share of the pace's */
+const COPY_DROP_SHARE = 1.25;
 /** Steps show at most this often, in milliseconds: each one simulates and draws the whole window again */
 const SHOW_EVERY = 250;
 /** How many hits ahead a choice between pieces is tried, and what each hit it can't reach counts for against its look */
@@ -200,7 +202,7 @@ interface TBuildState {
 	/** Hits left without a piece, which every check looks past */
 	skipped: Set<string>;
 	/** Problems the run already had, which no step is judged by: the person's, and what a forced step left */
-	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string>; strikes: Set<string>; rolls: Set<string>; touching: Set<string> };
+	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string>; strikes: Set<string>; rolls: Set<string>; passes: Set<string>; touching: Set<string> };
 	/** Whether a piece that was there before the build may be turned when nothing else solves a hit */
 	canTurnOwn: boolean;
 	gapPiece: TBuildGapPreference | null;
@@ -223,7 +225,7 @@ function emptyCounts(): TBuildCounts {
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), passes: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
 }
 
 const hitKey = (marbleId: string, hitId: string): string => `${marbleId}/${hitId}`;
@@ -375,6 +377,9 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	// And bounces off it, a platform not being for rolling
 	const rolling = rollingHits(applied, result).filter((roll) => !tolerated.rolls.has(roll.entityId) && roll.time < (frontier.get(roll.marbleId) ?? Infinity));
 	if (rolling.length > 0) return reject(state, `rolls ${rolling.map((roll) => roll.hitId).join(' ')}`);
+	// And goes through no piece's skin on its way
+	const passing = passThroughs(applied, result).filter((pass) => !tolerated.passes.has(contactKey(pass.marbleId, pass.entityId)) && pass.time < (frontier.get(pass.marbleId) ?? Infinity));
+	if (passing.length > 0) return reject(state, `passes through ${passing.map((pass) => pass.entityId).join(' ')}`);
 	// No two pieces touch on the wall
 	const touching = touchingPairs(applied, result).filter((pair) => !tolerated.touching.has(pairKey(pair.a, pair.b)));
 	if (touching.length > 0) return reject(state, `touching ${touching.map((pair) => `${pair.a}/${pair.b}`).join(' ')}`);
@@ -415,7 +420,9 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 	const band = frameBand(project, marbleId);
 	const length = PLACEMENT_LENGTH;
 	const column = band.centerX - Math.sign(from.x - band.centerX) * columnOffset(length);
-	return Math.abs(next.dot.x - column) <= COLUMN_TOLERANCE * length;
+	if (Math.abs(next.dot.x - column) > COLUMN_TOLERANCE * length) return false;
+	// Nor may it fall much further than the pace asks: a copy keeps whatever drop it was given, and Auto place corrects it
+	return result.pace == null || previous == null || from.y - next.dot.y <= COPY_DROP_SHARE * result.pace.rate * (next.targetTime - previous.time);
 }
 
 /** How regular the marble's last hits look, lower is better, per hit: how far each drop lies from the pace's for its interval, in piece lengths */
@@ -495,6 +502,8 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 	const result = await run(state, current);
 	const gap = findLongGaps(current, marbleId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
 	if (gap != null) {
+		// One marble keeps no shared height, so a gap piece may land it anywhere it can go on from
+		const paceLimit = isShared(current) ? (result.pace?.limit ?? Infinity) : Infinity;
 		const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
 		const rodeSwitchback = current.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId && piece.type !== 'platform' && !state.own.has(piece.id)).at(-1)?.layout === 'switchback';
 		for (const type of gapPieceOrder(state.gapPiece)) {
@@ -502,11 +511,11 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 			const entityId = gapPieceId(state, current, type, marbleId);
 			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, entityId }));
 			// A piece that ends far from the pace or the marble leaves the gap to the other, which has to do
-			if (type !== gapPieceOrder(state.gapPiece).at(-1) && answer?.check != null && !gapPieceReads(answer.check, result.pace?.limit ?? Infinity)) {
+			if (type !== gapPieceOrder(state.gapPiece).at(-1) && answer?.check != null && !gapPieceReads(answer.check, paceLimit)) {
 				reject(state, `the ${type} ends ${Math.abs(answer.check.paceError ?? 0).toFixed(2)} m from the pace`);
 				continue;
 			}
-			if (!state.mayLeavePace && Math.abs(answer?.check?.paceError ?? 0) > (result.pace?.limit ?? Infinity)) {
+			if (!state.mayLeavePace && Math.abs(answer?.check?.paceError ?? 0) > paceLimit) {
 				reject(state, `the ${type} ends ${Math.abs(answer?.check?.paceError ?? 0).toFixed(2)} m from the pace`);
 				continue;
 			}
@@ -781,6 +790,7 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
 	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.entityId);
 	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.entityId);
+	for (const pass of passThroughs(project, result)) state.tolerated.passes.add(contactKey(pass.marbleId, pass.entityId));
 	for (const pair of touchingPairs(project, result)) state.tolerated.touching.add(pairKey(pair.a, pair.b));
 }
 

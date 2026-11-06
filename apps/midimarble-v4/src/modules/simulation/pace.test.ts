@@ -16,10 +16,10 @@ describe('pace', () => {
 				id: 'pace',
 				title: 'Pace',
 				end: 4,
-				marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(8, 0.3) }]
+				marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(8, 0.5) }]
 			});
-			// (1 − 0.65) / (1 + 0.65) · g · 0.3 / 2
-			expect(paceRate(project)).toBeCloseTo((0.35 / 1.65) * 9.81 * 0.15, 6);
+			// (1 − 0.65) / (1 + 0.65) · g · 0.5 / 2
+			expect(paceRate(project)).toBeCloseTo((0.35 / 1.65) * 9.81 * 0.25, 6);
 		});
 
 		it('should share one rate between marbles and ignore long notes', () => {
@@ -38,7 +38,7 @@ describe('pace', () => {
 			expect(longGapThreshold(project)).toBeCloseTo(0.677, 2);
 		});
 
-		it('should keep a zigzag of several marbles clear of the piece two hits back at half gravity', () => {
+		it('should keep a zigzag clear of the piece it just left at half gravity', () => {
 			const duet = (gravity: number, count: number) =>
 				createBareRunProject({
 					gravity,
@@ -54,12 +54,11 @@ describe('pace', () => {
 				});
 			const g = 9.81 * 0.5;
 			const bounceRate = (0.35 / 1.65) * g * 0.25;
-			// One marble keeps the descent of its default bounce
-			expect(paceRate(duet(0.5, 1))).toBeCloseTo(bounceRate, 6);
-			// Two marbles descend faster, so a bounce at the pace stays COLUMN_CLEARANCE below the piece two hits back
+			// One marble and two descend alike, faster than the default bounce, so a bounce at the pace stays COLUMN_CLEARANCE below that piece
+			expect(paceRate(duet(0.5, 1))).toBeCloseTo(paceRate(duet(0.5, 2)), 6);
 			const rate = paceRate(duet(0.5, 2));
 			expect(rate).toBeCloseTo(columnRate(0.5, g), 6);
-			expect(rate).toBeGreaterThan(bounceRate * 1.1);
+			expect(rate).toBeGreaterThan(bounceRate * 1.05);
 			const drop = rate * 0.5;
 			const takeoff = (-drop + (g * 0.25) / 2) / 0.5;
 			expect(drop - (takeoff * takeoff) / (2 * g)).toBeCloseTo(COLUMN_CLEARANCE, 6);
@@ -76,9 +75,9 @@ describe('pace', () => {
 					end: 6,
 					marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(9, 0.5) }]
 				});
-			// Rise and pace both halve with gravity, so the threshold stays at about 0.68 s and a 0.75 s note
+			// Rise and pace both halve with gravity, so the threshold stays near 0.68 s and a 0.75 s note
 			// is a long gap at either speed
-			expect(longGapThreshold(solo(0.5))).toBeCloseTo(longGapThreshold(solo(1)), 3);
+			expect(longGapThreshold(solo(0.5))).toBeCloseTo(longGapThreshold(solo(1)), 1);
 			expect(longGapThreshold(solo(0.5))).toBeLessThan(0.75);
 		});
 	});

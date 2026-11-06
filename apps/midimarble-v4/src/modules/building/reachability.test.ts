@@ -57,7 +57,7 @@ describe('hitReach function', () => {
 
 	it('should keep notes after an Open note of the same marble Open while that note waits for its platform', () => {
 		// Prepare: a tapped project before any platform; the marble falls out of the run after Hit 1
-		const { project, result, hits } = tapped([1, 3, 4, 5, 6]);
+		const { project, result, hits } = tapped([1, 5, 6, 7, 8]);
 
 		// Act
 		const kinds = hits.map((hit) => hitReach(project, result, hit).kind);

@@ -3,7 +3,7 @@ import { resolvedPieceShapes, shapesGap } from './clearance';
 import { layoutOf } from './piece-layout';
 import { soundsHit } from './pieces';
 import { shapeDistance, type TPieceShape } from './shapes';
-import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
+import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
 
 // What's physically wrong with a run beyond its timing: pieces touching in the wall plane, a platform struck outside its
 // note, a marble rolling on a platform. They're Problems, with no taste in them: every number here says what breaks.
@@ -177,15 +177,21 @@ export function passThroughs(project: TProject, result: TSimulationResult): TPas
 	const boxes = standingPieces(result).filter((piece) => layoutOf(piece.type) === 'box');
 	const passes: TPassThrough[] = [];
 	for (const marble of result.marbles) {
-		const limit = marble.radius * (1 - PASS_DEPTH_RADII);
-		const shaped = boxes.map((piece) => ({ piece, shapes: visualShapes(piece, marble.radius), reach: (piece.params['length'] ?? 0) / 2 + 3 * marble.radius }));
-		for (const { piece, shapes, reach } of shaped) {
-			const { x, y } = piece.position;
-			const sample = marble.samples.find(({ time, position }) => time <= result.duration && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit));
+		for (const piece of boxes) {
+			const sample = passingSample(marble.samples, marble.radius, piece, -Infinity, result.duration);
 			if (sample != null) passes.push({ entityId: piece.pieceId, marbleId: marble.marbleId, time: sample.time, position: sample.position });
 		}
 	}
 	return passes.sort((a, b) => a.time - b.time);
+}
+
+/** The first sample between two times with the marble's center inside this box piece's skin, past a graze of its edge */
+export function passingSample(samples: readonly TMarbleSample[], radius: number, piece: TResolvedPiece, from: number, until: number): TMarbleSample | undefined {
+	const limit = radius * (1 - PASS_DEPTH_RADII);
+	const shapes = visualShapes(piece, radius);
+	const reach = (piece.params['length'] ?? 0) / 2 + 3 * radius;
+	const { x, y } = piece.position;
+	return samples.find(({ time, position }) => time >= from && time <= until && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit));
 }
 
 /**
@@ -205,6 +211,11 @@ const ROLL_RISE_RADII = 0.5;
 /** Least takeoff speed off a platform that reaches the height of a bounce in time, at this gravity */
 export function bounceTakeoff(marbleRadius: number, gravity: number): number {
 	return (BOUNCE_RISE_RADII * marbleRadius) / BOUNCE_RISE_WITHIN + (gravity * BOUNCE_RISE_WITHIN) / 2;
+}
+
+/** Least takeoff speed that still counts as a bounce, with a little to spare */
+export function leastBounceTakeoff(marbleRadius: number, gravity: number): number {
+	return (1.2 * ROLL_RISE_RADII * marbleRadius) / BOUNCE_RISE_WITHIN + (gravity * BOUNCE_RISE_WITHIN) / 2;
 }
 
 /** A platform its marble rolls along instead of bouncing off */

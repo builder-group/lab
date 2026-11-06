@@ -1,5 +1,5 @@
 import type { TPiece, TProject } from '@/modules/project';
-import { gravityOf, platformDefinition, createLinkedPiece, rollingHits } from '@/modules/simulation';
+import { bounceTakeoff, gravityOf, platformDefinition, createLinkedPiece, rollingHits } from '@/modules/simulation';
 import type { TSimulator, TMarbleSample, TSimulationResult } from '@/modules/simulation';
 
 // Zigzag and Staircase: decide the shape first, then solve each bar's tilt, and optionally its bounce, against the real
@@ -142,10 +142,10 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		const toward = nextId == null && shape.exitToFrame != null ? Math.sign(shape.exitToFrame - dot.x) || 1 : shape.kind === 'zigzag' ? -sideOf(index) : firstSide;
 		const targetX = nextId != null ? dotX(index + 1) : dot.x + toward * 0.05;
 
-		// The drop aimed for stays small enough for a real bounce: the rule asks a takeoff of about 0.37 m/s
+		// The drop aimed for stays small enough for a real bounce: the takeoff the rule asks, with a little to spare
 		const sideways = Math.abs(((nextId != null ? dotX(index + 1) : dot.x) - dot.x) / hop);
 		const guess = Math.atan2(sideways + Math.abs(incoming.x), Math.max(0.3, Math.abs(incoming.y) + 0.35));
-		const minUp = Math.max(0.12, ((shape.minTakeoff ?? 0.4) - sideways * Math.sin(guess)) / Math.cos(guess));
+		const minUp = Math.max(0.12, ((shape.minTakeoff ?? 1.1 * bounceTakeoff(radius, gravity)) - sideways * Math.sin(guess)) / Math.cos(guess));
 		const mostDrop = (gravity * hop * hop) / 2 - minUp * hop;
 		const above = shape.kind === 'zigzag' && index > 0 && nextId != null ? (heights[index - 1] as number) - dot.y : null;
 		const clearing = above != null ? clearingDrop(gravity, hop, Math.abs(span), length / 2 - shape.strike + radius, radius, above) : 0;
