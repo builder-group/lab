@@ -1,4 +1,4 @@
-import { DEFAULT_MARBLE_RADIUS, type TProject, type TRide, type TVec2, tieOf, freePosition } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TRide, type TVec2, tieOf, freePosition } from '@/modules/project';
 import { gravityOf } from './geometry';
 import { layoutFree, type TPieceLayout } from './piece-layout';
 import { getPieceDefinition, soundsHit, resolvePieceParams, resolvePiecePath, type TRailLayout } from './pieces';
@@ -7,7 +7,7 @@ import { shapesBounds } from './shapes';
 import { PHYSICS_HZ, type TPieceDefinition, type TResolvedPiece } from './types';
 
 export const STEP_EPSILON = 1e-7;
-const SIGNATURE_VERSION = 'sim@4';
+const SIGNATURE_VERSION = 'sim@5';
 
 /**
  * All a marble's run reads of a project. `film`, `format`, `songs` and `groups` aren't in it, so the compiler proves
@@ -94,6 +94,8 @@ export interface TPlanEvent {
 	leaves: { velocity: TVec2; spin: number } | null;
 	/** Where the piece waits instead of following the marble */
 	held: { dot: TVec2; velocity: TVec2 | null } | null;
+	/** Signature of all the piece gives the event, for the snapshot keys */
+	hash: string;
 }
 
 export function createPlan(project: TRunInput): TPlan {
@@ -133,28 +135,16 @@ export function createPlan(project: TRunInput): TPlan {
 			linkedHitTimes.set(piece.id, time);
 			const marbleIndex = marbles.findIndex((marble) => marble.marbleId === tie.marbleId);
 			if (time == null) continue;
+			const own = pieceEvent(piece, tie, definition, params, path);
 			// Anchored pieces and scenery follow the trajectory at their hit time plus their entry delay
-			const isAnchor = !soundsHit(piece.type, tie);
-			const eventTime = time + (isAnchor ? (params['entryDelay'] ?? 0) : 0);
+			const eventTime = time + (own.isAnchor ? (params['entryDelay'] ?? 0) : 0);
 			events.push({
-				pieceId: piece.id,
-				definition,
-				params,
-				path,
-				extraPaths: piece.path?.paths,
-				railLayout: piece.layout,
-				angle: piece.angle,
-				contactAt: tie.contactAt ?? 0.5,
+				...own,
 				time: eventTime,
 				hitTime: time,
 				hitOrder: hitOrder.get(`${tie.marbleId}/${tie.hitId}`) ?? 0,
 				step: Math.floor(eventTime * PHYSICS_HZ + STEP_EPSILON),
-				marbleIndex,
-				isAnchor,
-				offset: tie.kind === 'follows' ? (tie.offset ?? null) : null,
-				ride: piece.ride != null && hasRide(piece.type) && piece.ride.key === rideKey(piece) ? piece.ride : null,
-				held: tie.held ?? null,
-				leaves: tie.kind === 'plays' && tie.leaves != null && tie.leaves.angle === piece.angle && tie.leaves.bounce === params['bounce'] ? { velocity: tie.leaves.velocity, spin: tie.leaves.spin } : null
+				marbleIndex
 			});
 			continue;
 		}
@@ -195,7 +185,10 @@ export function createPlan(project: TRunInput): TPlan {
 
 	// Each key covers everything that determines the world up to the event: marbles, windmills, every
 	// earlier event and the step the event is processed at. Parkable static pieces are checked on resume.
-	let chain = signature(
+	// The chain runs on as hash state, so each event hashes only its own part
+	const chain = hashState();
+	hashInto(
+		chain,
 		JSON.stringify([
 			SIGNATURE_VERSION,
 			gravity,
@@ -214,26 +207,8 @@ export function createPlan(project: TRunInput): TPlan {
 	);
 	const eventKeys: string[] = [];
 	for (const event of events) {
-		eventKeys.push(signature(`${chain}|${event.step}`));
-		chain = signature(
-			`${chain}|${JSON.stringify([
-				event.pieceId,
-				event.definition.type,
-				event.params,
-				event.path,
-				event.extraPaths,
-				event.railLayout,
-				event.angle,
-				event.contactAt,
-				event.time,
-				event.marbleIndex,
-				event.isAnchor,
-				event.offset,
-				event.ride != null ? rideHash(event.ride) : null,
-				event.leaves,
-				event.held
-			])}`
-		);
+		eventKeys.push(hashKey(hashInto(chain.slice(), `|${event.step}`)));
+		hashInto(chain, `|${event.hash}|${event.time}|${event.marbleIndex}`);
 	}
 
 	return {
@@ -247,6 +222,51 @@ export function createPlan(project: TRunInput): TPlan {
 		eventKeys,
 		linkedHitTimes
 	};
+}
+
+/** What an event takes from its piece alone, with a signature of it; the hit's time and marble come from the marbles */
+type TPieceEvent = Omit<TPlanEvent, 'time' | 'hitTime' | 'hitOrder' | 'step' | 'marbleIndex'> & { hash: string };
+
+/**
+ * A piece's part of its event. Not kept by the piece's identity, though a settle plans a long song's pieces a hundred
+ * times with one or two changed: a test that turns a piece in place would then run its old angle, and nothing would say so.
+ */
+function pieceEvent(piece: TPiece, tie: NonNullable<ReturnType<typeof tieOf>>, definition: TPieceDefinition, params: Record<string, number>, path: TVec2[]): TPieceEvent {
+	const isAnchor = !soundsHit(piece.type, tie);
+	const ride = piece.ride != null && hasRide(piece.type) && piece.ride.key === rideKey(piece) ? piece.ride : null;
+	const event: Omit<TPieceEvent, 'hash'> = {
+		pieceId: piece.id,
+		definition,
+		params,
+		path,
+		extraPaths: piece.path?.paths,
+		railLayout: piece.layout,
+		angle: piece.angle,
+		contactAt: tie.contactAt ?? 0.5,
+		isAnchor,
+		offset: tie.kind === 'follows' ? (tie.offset ?? null) : null,
+		ride,
+		held: tie.held ?? null,
+		leaves: tie.kind === 'plays' && tie.leaves != null && tie.leaves.angle === piece.angle && tie.leaves.bounce === params['bounce'] ? { velocity: tie.leaves.velocity, spin: tie.leaves.spin } : null
+	};
+	const hash = signature(
+		JSON.stringify([
+			event.pieceId,
+			definition.type,
+			params,
+			path,
+			event.extraPaths,
+			event.railLayout,
+			event.angle,
+			event.contactAt,
+			isAnchor,
+			event.offset,
+			ride != null ? rideHash(ride) : null,
+			event.leaves,
+			event.held
+		])
+	);
+	return { ...event, hash };
 }
 
 export function lowPointOf(layout: TPieceLayout): number {
@@ -284,10 +304,17 @@ export function resolvedFromLayout(
 
 /** Two cyrb53 string hashes, with seeds 0 and 1, computed in one pass over the text */
 function signature(text: string): string {
-	let a1 = 0xdeadbeef;
-	let a2 = 0x41c6ce57;
-	let b1 = 0xdeadbeef ^ 1;
-	let b2 = 0x41c6ce57 ^ 1;
+	return hashKey(hashInto(hashState(), text));
+}
+
+/** The state of the two hashes before any text */
+function hashState(): number[] {
+	return [0xdeadbeef, 0x41c6ce57, 0xdeadbeef ^ 1, 0x41c6ce57 ^ 1];
+}
+
+/** Folds `text` into the hash state and returns it */
+function hashInto(state: number[], text: string): number[] {
+	let [a1 = 0, a2 = 0, b1 = 0, b2 = 0] = state;
 	for (let i = 0; i < text.length; i++) {
 		const code = text.charCodeAt(i);
 		a1 = Math.imul(a1 ^ code, 2654435761);
@@ -295,11 +322,20 @@ function signature(text: string): string {
 		b1 = Math.imul(b1 ^ code, 2654435761);
 		b2 = Math.imul(b2 ^ code, 1597334677);
 	}
-	return `${bowlHash53(a1, a2)}${bowlHash53(b1, b2)}`;
+	state[0] = a1;
+	state[1] = a2;
+	state[2] = b1;
+	state[3] = b2;
+	return state;
+}
+
+function hashKey(state: number[]): string {
+	return `${bowlHash53(state[0] ?? 0, state[1] ?? 0)}${bowlHash53(state[2] ?? 0, state[3] ?? 0)}`;
 }
 
 function bowlHash53(h1: number, h2: number): string {
 	h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
 	h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-	return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36).padStart(11, '0');
+	// Two whole numbers in base 10: a 53-bit number in base 36 took most of a long song's plan
+	return `${(2097151 & h2).toString().padStart(7, '0')}${(h1 >>> 0).toString().padStart(10, '0')}`;
 }

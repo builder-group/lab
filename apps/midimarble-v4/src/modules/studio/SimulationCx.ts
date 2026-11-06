@@ -1,7 +1,8 @@
 import { createComputed, createState } from 'feature-state';
-import { checkRun, pendingPreflight, strayCause, type TExportPreflight } from '@/modules/building';
+import { checkRun, createProblemsClient, isSameProblemInput, pendingPreflight, strayCause, type TExportPreflight, type TPreflightIssue, type TProblemsClient } from '@/modules/building';
 import { type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
 import { createSimulationClient, isSameRunInput, isSuperseded, marbleEdits, type TRunInput, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
+import type { TBlenderObject } from '@/modules/scene';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';
 
@@ -37,13 +38,45 @@ export class SimulationCx {
 
 	private createProblems() {
 		const { $history, film, assist, sources } = this.studio;
-		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building, sources.$missingRecordings] as const, ([history, result, isPreviewing, blenderObjects, building, missingRecordings]) => {
+		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building, sources.$missingRecordings, this.$runIssues] as const, ([history, result, isPreviewing, blenderObjects, building, missingRecordings, runIssues]) => {
 			const project = history?.present ?? null;
 			if (project == null || building != null) return pendingPreflight(project);
 			if (isPreviewing && this.heldProblems != null) return this.heldProblems;
-			this.heldProblems = result != null && result.revision === project.revision ? checkRun(project, result, blenderObjects, missingRecordings) : null;
+			this.heldProblems = result != null && result.revision === project.revision ? this.checkRun(project, result, blenderObjects, missingRecordings, runIssues) : null;
 			return this.heldProblems ?? pendingPreflight(project);
 		});
+	}
+
+	/** The run problems the problems worker found, for the run and project it was asked about */
+	private readonly $runIssues = createState<TRunIssues | null>(null);
+	private problemsClient: TProblemsClient | null = null;
+	/** What the problems worker is working on */
+	private asking: Pick<TRunIssues, 'marbles' | 'project'> | null = null;
+
+	/**
+	 * The problems of a run current for `project`: with the run's own problems from the worker, or pending while it is
+	 * asked. With no worker, in a script or a test, they are found here.
+	 */
+	private checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[], missingRecordings: readonly string[], runIssues: TRunIssues | null): TExportPreflight | null {
+		const client = this.problemsClient;
+		if (client == null) return checkRun(project, result, blenderObjects, missingRecordings);
+		if (runIssues != null && runIssues.marbles === result.marbles && isSameProblemInput(runIssues.project, project)) return checkRun(project, result, blenderObjects, missingRecordings, runIssues.issues);
+		const asking = this.asking;
+		if (asking != null && asking.marbles === result.marbles && isSameProblemInput(asking.project, project)) return null;
+		this.asking = { marbles: result.marbles, project };
+		client.check(project, result).then(
+			(issues) => {
+				if (this.asking?.project !== project) return;
+				this.asking = null;
+				this.$runIssues.set({ marbles: result.marbles, project, issues });
+			},
+			(error: unknown) => {
+				if (isSuperseded(error) || this.asking?.project !== project) return;
+				this.asking = null;
+				this.studio.notify(`The track couldn't be checked: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			}
+		);
+		return null;
 	}
 
 	/** Why the platform being dragged can't play its note where the pointer is, for its chip */
@@ -69,6 +102,7 @@ export class SimulationCx {
 
 	mount(): () => void {
 		this.client = createSimulationClient();
+		this.problemsClient = typeof Worker === 'undefined' ? null : createProblemsClient();
 		let projectId: string | null = null;
 		const unlisten = this.studio.$history.subscribe(({ value }) => {
 			if (value == null) {
@@ -98,6 +132,9 @@ export class SimulationCx {
 			this.cancelFrame = null;
 			this.client?.dispose();
 			this.client = null;
+			this.problemsClient?.dispose();
+			this.problemsClient = null;
+			this.asking = null;
 			this.wholeRun = null;
 		};
 	}
@@ -399,6 +436,13 @@ export class SimulationCx {
 const RECENT_RUNS = 4;
 /** No project has it, so a preview's run is never taken for the project's */
 const PREVIEW_REVISION = -1;
+
+/** Run problems with the run, by its marbles, and the project they were found for */
+interface TRunIssues {
+	marbles: TSimulationResult['marbles'];
+	project: TProject;
+	issues: TPreflightIssue[];
+}
 
 /** A run under the revision it also answers for, since the edits after it left its input alone */
 function atRevision(result: TSimulationResult, revision: number): TSimulationResult {

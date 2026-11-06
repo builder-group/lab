@@ -28,25 +28,18 @@ export function pendingPreflight(project: TProject | null): TExportPreflight {
  * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
  * pieces that touch, the loop and `missingRecordings`, the IDs of songs whose file doesn't load. Warnings are problems the film
  * will show; notes are worth a look. Neither blocks the export.
- * `SimulationCx.$problems` asks for the open project's, which everything on screen reads. Build Track, Fix and Patterns ask
- * about their trials, whose run is theirs by construction, so nothing here reads its revision.
+ * `SimulationCx.$problems` asks for the open project's, which everything on screen reads, with the run's own problems
+ * found in the problems worker (`known`, from `runIssues`), so no edit checks a whole song on the main thread. Build
+ * Track, Fix and Patterns ask about their trials, whose run is theirs by construction, so nothing here reads its revision.
  */
-export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[], missingRecordings: readonly string[] = NO_MISSING_RECORDINGS): TExportPreflight {
-	const memo = preflightMemo.get(result);
-	if (memo?.project === project && memo.blenderObjects === blenderObjects && memo.missingRecordings === missingRecordings) return memo.preflight;
+export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[], missingRecordings: readonly string[] = NO_MISSING_RECORDINGS, known?: readonly TPreflightIssue[]): TExportPreflight {
+	// Keyed by the run's marbles, which a result moved to another revision shares: an Undo back to a known run checks nothing
+	const memo = preflightMemo.get(result.marbles);
+	if (memo?.project === project && memo.blenderObjects === blenderObjects && memo.missingRecordings === missingRecordings && memo.known === known) return memo.preflight;
 
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
-		...hitIssues(project, result, names),
-		...sceneryIssues(project, result, names),
-		...bowlIssues(project, result, names),
-		...contactIssues(project, result, names),
-		...strikeIssues(project, result, names),
-		...rollIssues(project, result, names),
-		...touchingIssues(project, result, names),
-		...passIssues(project, result, names),
-		...fallIssues(project, result, names),
-		...framingIssues(project, result, names),
+		...(known ?? runIssues(project, result)),
 		...titleIssues(project),
 		...decorIssues(project, result, names, blenderObjects),
 		...songIssues(project),
@@ -63,12 +56,42 @@ export function checkRun(project: TProject, result: TSimulationResult, blenderOb
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
 	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
-	preflightMemo.set(result, { project, blenderObjects, missingRecordings, preflight });
+	preflightMemo.set(result.marbles, { project, blenderObjects, missingRecordings, known, preflight });
 	return preflight;
 }
 
 // Fix judges a trial before and after, and a trial's run is checked again by whoever lands it
-const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; missingRecordings: readonly string[]; preflight: TExportPreflight }>();
+const preflightMemo = new WeakMap<TSimulationResult['marbles'], { project: TProject; blenderObjects: readonly TBlenderObject[]; missingRecordings: readonly string[]; known: readonly TPreflightIssue[] | undefined; preflight: TExportPreflight }>();
+
+/**
+ * The problems the run alone decides: hits, scenery, Bowls, contacts, strikes, rolls, touching pieces, passes, falls
+ * and the camera's framing. On a long song they take a few hundred milliseconds, most of it the follow camera's bake,
+ * so the open project's are found in a worker and handed to `checkRun`, which adds what Blender and the recordings say.
+ */
+export function runIssues(project: TProject, result: TSimulationResult): TPreflightIssue[] {
+	const names = createNames(project);
+	return [
+		...hitIssues(project, result, names),
+		...sceneryIssues(project, result, names),
+		...bowlIssues(project, result, names),
+		...contactIssues(project, result, names),
+		...strikeIssues(project, result, names),
+		...rollIssues(project, result, names),
+		...touchingIssues(project, result, names),
+		...passIssues(project, result, names),
+		...fallIssues(project, result, names),
+		...framingIssues(project, result, names)
+	];
+}
+
+/**
+ * True when `runIssues` of the same run reads the same for both projects: the run's input, which carries the names
+ * of marbles and pieces, and what frames the camera. Commands copy only what they change, so an unchanged section
+ * keeps its identity, and a film edit elsewhere asks the worker nothing.
+ */
+export function isSameProblemInput(a: TProject, b: TProject): boolean {
+	return a.marbles === b.marbles && a.track.pieces === b.track.pieces && a.gravity === b.gravity && a.length === b.length && a.film.camera === b.film.camera && a.film.quality === b.film.quality && a.format === b.format;
+}
 
 const NO_MISSING_RECORDINGS: readonly string[] = [];
 

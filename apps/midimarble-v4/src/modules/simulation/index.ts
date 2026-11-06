@@ -15,6 +15,7 @@ export * from './piece-names';
 export * from './pieces';
 export * from './placement';
 export * from './request-queue';
+export * from './result-transfer';
 export * from './shapes';
 export * from './simulate';
 export * from './track-problems';

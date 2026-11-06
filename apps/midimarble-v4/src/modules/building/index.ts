@@ -7,6 +7,7 @@ export * from './export-preflight';
 export * from './fix-it';
 export * from './hit-status';
 export * from './move-song';
+export * from './problems-client';
 export * from './progress-estimate';
 export * from './reachability';
 export * from './patterns';

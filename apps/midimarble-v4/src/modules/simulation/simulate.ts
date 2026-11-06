@@ -91,7 +91,7 @@ function runSimulation(
 	cache: Map<string, TSnapshot>,
 	horizon?: number
 ): [TSimulationResult, Map<string, TSnapshot>] {
-	const startedAt = performance.now();
+	const startedAt = now();
 	const plan = createPlan(project);
 	const nextCache = new Map<string, TSnapshot>();
 
@@ -142,9 +142,12 @@ function runSimulation(
 	for (const world of worlds) world.free();
 
 	const result = buildResult(project, run, state);
-	result.stats = { computeMs: performance.now() - startedAt, reusedUntil, steps };
+	result.stats = { computeMs: now() - startedAt, reusedUntil, steps };
 	return [result, trimCache(nextCache)];
 }
+
+/** The real clock, whatever `advance` has put in its place */
+const now = performance.now.bind(performance);
 
 /**
  * True when the snapshot's world matches what a run from scratch would build: every parkable piece that was
@@ -284,7 +287,7 @@ interface TRunState {
 	touching: Map<string, number>;
 	/** Marble pairs Rapier reports in contact that have not touched yet, by `low|high` index */
 	meeting: Map<string, [number, number]>;
-	/** Per marble bounds of complete sample chunks, derived from samples and never snapshotted */
+	/** Per marble bounds of complete sample chunks, derived from samples; append-only, so a snapshot shares them like the samples */
 	chunkBounds: number[][];
 	/** Per marble the ride it is taking, null while physics moves it */
 	rides: (TActiveRide | null)[];
@@ -364,6 +367,8 @@ interface TSnapshot {
 	staticLowY: number;
 	rides: (TActiveRide | null)[];
 	leaving: (TLeaving | null)[];
+	/** The chunk bounds as they were, the live arrays: only their first `count / CHUNK` chunks belong to the snapshot */
+	chunkBounds: number[][];
 }
 
 function createInitialState(plan: TPlan): TRunState {
@@ -438,7 +443,8 @@ function takeSnapshot(worlds: RAPIER.World[], plan: TPlan, state: TRunState): TS
 		meeting: new Map(state.meeting),
 		staticLowY: plan.staticLowY,
 		rides: state.rides.slice(),
-		leaving: state.leaving.slice()
+		leaving: state.leaving.slice(),
+		chunkBounds: state.chunkBounds
 	};
 }
 
@@ -465,7 +471,8 @@ function restoreState(snapshot: TSnapshot): TRunState {
 		proxies: snapshot.proxies.map((proxies) => proxies.slice()),
 		touching: new Map(snapshot.touching),
 		meeting: new Map(snapshot.meeting),
-		chunkBounds: snapshot.marbles.map(() => []),
+		// Rebuilding them from every sample on each resume cost a long song's short runs more than their steps
+		chunkBounds: snapshot.marbles.map((marble, i) => (snapshot.chunkBounds[i] ?? []).slice(0, Math.floor(marble.count / CHUNK) * 4)),
 		rides: snapshot.rides.slice(),
 		leaving: snapshot.leaving.slice()
 	};
@@ -495,6 +502,24 @@ function advance(
 ): number {
 	const queues = worlds.map(() => new RAPIER.EventQueue(true));
 	let steps = 0;
+	// Rapier reads the clock about seventy times a step for counters it never shows, with its profiler off: a tenth of a
+	// run's time in Node. A still clock while stepping costs it nothing to read; `runSimulation` keeps the real one.
+	const clock = performance.now;
+	performance.now = stillClock;
+	try {
+		stepUntilEnd(worlds, queues, plan, state, cache, resumeIndex, () => steps++);
+	} finally {
+		performance.now = clock;
+	}
+	for (const queue of queues) queue.free();
+	return steps;
+}
+
+function stillClock(): number {
+	return 0;
+}
+
+function stepUntilEnd(worlds: RAPIER.World[], queues: RAPIER.EventQueue[], plan: TPlan, state: TRunState, cache: Map<string, TSnapshot>, resumeIndex: number, stepped: () => void): void {
 	for (;;) {
 		const hasReleased = releaseMarbles(worlds, plan, state);
 		for (;;) {
@@ -513,7 +538,7 @@ function advance(
 
 		for (let k = 0; k < worlds.length; k++) stepWorld(worlds[k], queues[k]);
 		state.step++;
-		steps++;
+		stepped();
 		followRides(worlds, plan, state);
 		sampleMarbles(worlds, plan, state);
 		sampleRotors(worlds, state);
@@ -524,8 +549,6 @@ function advance(
 		}
 		for (const key of [...state.meeting.keys()]) recordMarbleContact(plan, state, key);
 	}
-	for (const queue of queues) queue.free();
-	return steps;
 }
 
 /** `World.step` without its walk over every body and collider after the step, which only finds what soft-body tears split off */
@@ -1629,6 +1652,14 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 	const pieceById = new Map(pieces.map((piece) => [piece.pieceId, piece]));
 
 	const contacts = state.contacts.slice().sort((a, b) => a.time - b.time);
+	// A marble's contacts with each piece in time order, so a hit finds its first contact without a walk over every contact
+	const contactsByPair = new Map<string, TContact[]>();
+	for (const contact of contacts) {
+		const key = `${contact.marbleId}|${contact.otherId}`;
+		const list = contactsByPair.get(key);
+		if (list != null) list.push(contact);
+		else contactsByPair.set(key, [contact]);
+	}
 
 	const linkByHit = new Map<string, string>();
 	for (const piece of project.track.pieces) {
@@ -1676,12 +1707,7 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 				continue;
 			}
 			const from = hit.time - HIT_TOLERANCE - DT;
-			const contact = contacts.find(
-				(c) =>
-					c.time >= from &&
-					c.marbleId === marbleEntity.marbleId &&
-					c.otherId === piece.pieceId
-			);
+			const contact = contactsByPair.get(`${marbleEntity.marbleId}|${piece.pieceId}`)?.find((c) => c.time >= from);
 			if (contact != null) {
 				const error = contact.time - hit.time;
 				result.actualTime = contact.time;

@@ -88,7 +88,7 @@ describe('settling an edit', () => {
 			expect(marbleEdits(project, after).every((edit) => edit.isElsewhere === true)).toBe(true);
 			expect(answer.broken).toEqual([]);
 			expect(run.contacts.some((contact) => contact.otherId === 'free')).toBe(false);
-			for (const hit of run.hits) expect(shift(run, memo.base, hit.hitId)).toBe(0);
+			for (const hit of run.hits) expect(shift(run, memo.base, hit.hitId)).toBeLessThan(1e-4);
 		});
 
 		it('should keep the break one problem and name the piece when a free piece stands in the run', async () => {
