@@ -19,6 +19,8 @@ export function createAudioEngine(): TAudioEngine {
 	const auditionCache = new Map<string, AudioBuffer>();
 	let timeline: AudioBuffer | null = null;
 	let signature: string | null = null;
+	// How many recordings the timeline plays without: one that comes back makes it render again
+	let lacking = 0;
 	let source: AudioBufferSourceNode | null = null;
 	let startedAt = 0;
 	let startOffset = 0;
@@ -49,7 +51,9 @@ export function createAudioEngine(): TAudioEngine {
 
 	async function prepare(project: TProject, resolveSourceUrl: TResolveSourceUrl): Promise<void> {
 		const nextSignature = createAudioSignature(project, resolveSourceUrl);
-		if (nextSignature === signature && timeline != null) return;
+		if (nextSignature === signature && timeline != null && lacking === 0) return;
+		const nextLacking = (await missingRecordings(project, resolveSourceUrl)).length;
+		if (nextSignature === signature && timeline != null && nextLacking === lacking) return;
 		const audio = await renderProjectAudio(project, resolveSourceUrl, {
 			sampleRate: SAMPLE_RATE
 		});
@@ -60,6 +64,7 @@ export function createAudioEngine(): TAudioEngine {
 		const time = getTime();
 		timeline = buffer;
 		signature = nextSignature;
+		lacking = nextLacking;
 		if (wasPlaying) await play(time);
 	}
 
@@ -164,7 +169,7 @@ export async function renderProjectAudio(
 	options: { sampleRate?: number } = {}
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE } = options;
-	const audioSources = project.songs.filter((song) => song.kind === 'audio' && song.path != null);
+	const audioSources = recordingsOf(project);
 	const marbles = soundingMarbles(project);
 	const backing = backingVoices(project);
 	if (!audioSources.length && !backing.length && marbles.every((marble) => !marble.hits.length)) return silentAudio(project.length, sampleRate);
@@ -182,14 +187,23 @@ export async function renderProjectAudio(
 	return audio;
 }
 
+function recordingsOf(project: Pick<TProject, 'songs'>): TSong[] {
+	return project.songs.filter((song) => song.kind === 'audio' && song.path != null);
+}
+
+/** The recordings the soundtrack would play without, as their file doesn't load. One already in memory still plays */
+export async function missingRecordings(project: Pick<TProject, 'songs'>, resolveSourceUrl: TResolveSourceUrl): Promise<TSong[]> {
+	const recordings = recordingsOf(project);
+	const loaded = await Promise.all(recordings.map((song) => loadSource(resolveSourceUrl(song))));
+	return recordings.filter((_song, index) => loaded[index] == null);
+}
+
 // Stable key of everything `renderProjectAudio` reads
 export function createAudioSignature(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl
 ): string {
-	const audioSources = project.songs
-		.filter((song) => song.kind === 'audio' && song.path != null)
-		.map((song) => ({ url: resolveSourceUrl(song), offset: song.start }));
+	const audioSources = recordingsOf(project).map((song) => ({ url: resolveSourceUrl(song), offset: song.start }));
 	const marbles = soundingMarbles(project).filter((marble) => marble.hits.length > 0).map((marble) => ({
 		instrument: marble.sound,
 		hits: marble.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null])
@@ -215,17 +229,23 @@ export function loadInstrumentBank(): Promise<BasicSoundBank> {
 
 const sourceCache = new Map<string, Promise<TDecodedAudio | null>>();
 
+/** Null for a file that doesn't load or decode. Only what loaded is kept, so a file put back loads the next time it's asked for */
 function loadSource(url: string | null): Promise<TDecodedAudio | null> {
 	if (url == null) return Promise.resolve(null);
 	let decoded = sourceCache.get(url);
 	if (decoded == null) {
 		decoded = (async () => {
-			const response = await fetch(url);
-			if (!response.ok) return null;
-			return decodeAudioFile(await response.arrayBuffer());
+			try {
+				const response = await fetch(url);
+				return response.ok ? await decodeAudioFile(await response.arrayBuffer()) : null;
+			} catch {
+				return null;
+			}
 		})();
-		decoded.catch(() => sourceCache.delete(url));
 		sourceCache.set(url, decoded);
+		void decoded.then((audio) => {
+			if (audio == null) sourceCache.delete(url);
+		});
 	}
 	return decoded;
 }

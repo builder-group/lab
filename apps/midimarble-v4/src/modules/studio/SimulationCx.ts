@@ -36,12 +36,12 @@ export class SimulationCx {
 	}
 
 	private createProblems() {
-		const { $history, film, assist } = this.studio;
-		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building] as const, ([history, result, isPreviewing, blenderObjects, building]) => {
+		const { $history, film, assist, sources } = this.studio;
+		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building, sources.$missingRecordings] as const, ([history, result, isPreviewing, blenderObjects, building, missingRecordings]) => {
 			const project = history?.present ?? null;
 			if (project == null || building != null) return pendingPreflight(project);
 			if (isPreviewing && this.heldProblems != null) return this.heldProblems;
-			this.heldProblems = result != null && result.revision === project.revision ? checkRun(project, result, blenderObjects) : null;
+			this.heldProblems = result != null && result.revision === project.revision ? checkRun(project, result, blenderObjects, missingRecordings) : null;
 			return this.heldProblems ?? pendingPreflight(project);
 		});
 	}

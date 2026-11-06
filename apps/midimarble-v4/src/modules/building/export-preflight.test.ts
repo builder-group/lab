@@ -408,4 +408,51 @@ describe('problemSummary function', () => {
 		expect(preflight.issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.title)).toEqual(['Hit 2 of Melody is Out of Reach']);
 		expect(problemSummary(preflight).label).toBe('1 hit needs attention');
 	});
+	describe('a recording that is missing', () => {
+		let simulator: TSimulator;
+
+		beforeAll(async () => {
+			simulator = await createSimulator();
+		});
+
+		const withRecording = (): TProject => ({ ...loadFixture('zigzag'), songs: [{ id: 'song-take', kind: 'audio', path: 'audio/take.wav', name: 'take.wav', start: 0, backing: [] }] });
+
+		it('should be a problem naming the file', () => {
+			// Prepare
+			const project = withRecording();
+
+			// Act
+			const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS, ['song-take']);
+
+			// Assert
+			const issue = preflight.issues.find((item) => item.title.includes('take.wav'));
+			expect(issue?.severity).toBe('warning');
+			expect(problemSummary(preflight).problems).toContain(issue);
+		});
+
+		it('should say nothing while the file loads', () => {
+			// Prepare
+			const project = withRecording();
+
+			// Act
+			const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS, []);
+
+			// Assert
+			expect(preflight.issues.some((item) => item.title.includes('take.wav'))).toBe(false);
+		});
+
+		it('should not check again what it already checked with the same files', () => {
+			// Prepare
+			const project = withRecording();
+			const result = simulator.simulate(project);
+			const missing = ['song-take'];
+
+			// Act
+			const first = checkRun(project, result, NO_BLENDER_OBJECTS, missing);
+
+			// Assert
+			expect(checkRun(project, result, NO_BLENDER_OBJECTS, missing)).toBe(first);
+			expect(checkRun(project, result, NO_BLENDER_OBJECTS, [])).not.toBe(first);
+		});
+	});
 });

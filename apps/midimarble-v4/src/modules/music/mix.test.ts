@@ -147,6 +147,51 @@ describe('soundtrackProject function', () => {
 	});
 });
 
+/** Decodes any bytes to a second of a steady tone, as tests have no WebAudio */
+function stubDecoder(): void {
+	const samples = new Float32Array(48000).fill(0.5);
+	vi.stubGlobal('OfflineAudioContext', class {
+		decodeAudioData = async (): Promise<unknown> => ({ numberOfChannels: 1, length: samples.length, sampleRate: 48000, duration: 1, getChannelData: () => samples });
+	});
+}
+
+describe('a missing recording', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	const missing = (id: string): TProject => project([{ ...AUDIO, id, path: `audio/${id}.wav`, name: `${id}.wav` }], [], []);
+	const render = (song: TProject): ReturnType<typeof renderProjectAudio> => renderProjectAudio(song, resolve, { sampleRate: SAMPLE_RATE });
+
+	it('should play once the file is back, with no restart', async () => {
+		// Prepare
+		stubDecoder();
+		let isGone = true;
+		vi.stubGlobal('fetch', vi.fn(async () => (isGone ? new Response(null, { status: 404 }) : new Response(new Uint8Array(4)))));
+		const song = missing('comes-back');
+		const silent = await render(song);
+
+		// Act
+		isGone = false;
+		const restored = await render(song);
+
+		// Assert
+		expect(peak(silent.left, 0, 1)).toBe(0);
+		expect(peak(restored.left, 0, 1)).toBeGreaterThan(0.1);
+	});
+
+	it('should render without a file that fails to load or decode', async () => {
+		// Prepare
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Load failed'); }));
+
+		// Act
+		const audio = await render(missing('never-there'));
+
+		// Assert
+		expect(peak(audio.left, 0, 1)).toBe(0);
+	});
+});
+
 describe('renderProjectAudio function', () => {
 	beforeEach(() => {
 		const bank = readFileSync(new URL('../../../public/audio/marble-instruments.sf2', import.meta.url));

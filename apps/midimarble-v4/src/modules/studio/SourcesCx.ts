@@ -1,19 +1,25 @@
 import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
 import { moveSongCommands } from '@/modules/building';
-import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
+import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, missingRecordings, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
 import { createId, earliestSongStart, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
 // Imported music starts after this lead-in so the first marble has time to fall
 export const IMPORT_START = 1;
+// How often a missing recording is looked for again, so one put back counts without a restart
+export const RECORDING_RECHECK_MS = 2000;
 
 /** Owns MIDI and audio import and the derived analysis of audio sources: waveform peaks and onsets */
 export class SourcesCx {
 	readonly $midiImport = createState<TMidiImport | null>(null);
 	readonly $analysis = createState<Record<string, TSourceAnalysis>>({});
+	/** IDs of the open project's songs whose recording doesn't load, which `$problems` names */
+	readonly $missingRecordings = createState<readonly string[]>([]);
 	private readonly loading = new Set<string>();
+	private recordingCheck = 0;
+	private recordingTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(private readonly studio: StudioCx) {}
 
@@ -189,10 +195,27 @@ export class SourcesCx {
 		}
 	}
 
+	/** Finds which recordings don't load, and goes on looking while any is missing. One that comes back gets its waveform */
+	async checkRecordings(): Promise<void> {
+		const run = ++this.recordingCheck;
+		clearTimeout(this.recordingTimer);
+		const project = this.studio.project;
+		const missing = project != null ? (await missingRecordings(project, this.studio.resolveSourceUrl)).map((song) => song.id) : [];
+		if (run !== this.recordingCheck) return;
+		const before = this.$missingRecordings.get();
+		if (missing.length !== before.length || missing.some((id) => !before.includes(id))) this.$missingRecordings.set(missing);
+		for (const song of project?.songs ?? []) if (before.includes(song.id) && !missing.includes(song.id) && this.$analysis.get()[song.id] == null) void this.analyze(song);
+		if (missing.length > 0) this.recordingTimer = setTimeout(() => void this.checkRecordings(), RECORDING_RECHECK_MS);
+	}
+
+	/** Ends the looking when the window goes */
+	stopCheckingRecordings(): void {
+		this.recordingCheck++;
+		clearTimeout(this.recordingTimer);
+	}
+
 	private async analyze(source: TSong): Promise<TSourceAnalysis | null> {
-		const packagePath = this.studio.$path.get();
-		if (packagePath == null || source.path == null) return null;
-		const url = host.sourceUrl(packagePath, source.path);
+		const url = this.studio.resolveSourceUrl(source);
 		if (url == null) return null;
 		this.loading.add(source.id);
 		try {
