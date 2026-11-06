@@ -37,7 +37,9 @@ export const SSong = z.strictObject({
 	// Every note no marble plays, heard in the film without a piece
 	backing: z.array(SHit),
 	// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano
-	backingSound: z.number().int().min(0).max(127).optional()
+	backingSound: z.number().int().min(0).max(127).optional(),
+	// Backing's Level in dB, chosen by a person; absent is automatic, 10 dB under the melody
+	backingLevel: z.number().optional()
 });
 
 // Where and when a marble is released. `spin` is radians per second around the wall normal: Fix's release carries on a run
@@ -187,6 +189,8 @@ export const SMarble = z.strictObject({
 	labelColor: z.string(),
 	// General MIDI program used for MIDI playback and the rendered soundtrack
 	sound: z.number().int().min(0).max(127),
+	// Its Level in dB, chosen by a person; absent is automatic: as it is for the melody, 10 dB under it for the rest
+	level: z.number().optional(),
 	radius: z.number().positive(),
 	start: SMarbleStart,
 	skin: SSkin.optional(),
@@ -247,7 +251,9 @@ const SKeyLightPose = z.strictObject({
 	// The whole film's brightness in stops on top of the base theme, and how much what glows spills light. Here because a
 	// film has one Key Light
 	exposure: z.number().min(-3).max(3).optional(),
-	bloom: z.number().min(0).max(1).optional()
+	bloom: z.number().min(0).max(1).optional(),
+	// How much of the light falls in a pool that travels with the camera, instead of evenly on the whole wall; absent is none
+	pool: z.number().min(0).max(1).optional()
 });
 
 /** A light added with Add Light, a layer in Film; a sun like the Key Light */
@@ -354,6 +360,8 @@ export const SFilm = z.strictObject({
 	// The titles, in Layers order
 	titles: z.array(STitle),
 	quality: z.enum(['draft', 'final']),
+	// Timeline seconds of the film's first frame, set by a person; absent is automatic (`filmStartOf`)
+	start: z.number().nonnegative().optional(),
 	camera: z.strictObject({
 		// Follow Marbles: on, the app moves the camera; off, it's moved in Blender
 		auto: z.boolean(),

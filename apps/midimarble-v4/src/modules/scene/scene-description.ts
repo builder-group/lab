@@ -20,6 +20,8 @@ export interface TSceneDescription {
 	/** Render frame rate keyframes are written at */
 	fps: number;
 	duration: number;
+	/** Seconds of the film's first frame, on a whole frame; absent is 0. The film ends at `duration` as ever */
+	filmStart?: number;
 	frame: { width: number; height: number };
 	/**
 	 * Built-in theme the look starts from: `pegboard`, `brass` or `neon`; unknown themes fall back to `pegboard`. A
@@ -251,6 +253,8 @@ export interface TSceneKeyLight {
 	exposure?: number;
 	/** Glare over the render, 0 none; Flat Light skips it */
 	bloom?: number;
+	/** Share of the light in a pool that travels with the camera, 0 none; Flat Light has no lights, so it skips it */
+	pool?: number;
 }
 
 export interface TSceneLight {

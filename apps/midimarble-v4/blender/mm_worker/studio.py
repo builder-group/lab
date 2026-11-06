@@ -54,6 +54,14 @@ def ensure_studio(scene, theme):
     if camera is None and created:
         camera = create_camera(collection)
         scene.camera = camera
+    # The pool of light hangs from the camera; made once, deleted it stays gone
+    pool = studio_object('studio.pool')
+    made_pool = pool is None and camera is not None and not scene.get('mm_pool_made')
+    if made_pool:
+        pool = create_pool(collection, camera)
+        scene['mm_pool_made'] = True
+    if pool is not None and (switched or created or made_pool):
+        update_pool(pool, theme)
     if switched or created:
         themes.apply_render_look(scene, theme)
         scene['mm_theme'] = key
@@ -214,6 +222,47 @@ def update_rim(rim, theme):
     else:
         rim.data.energy = 0.0
     written(rim, rim_signature(rim))
+    return True
+
+
+def create_pool(collection, camera):
+    light = bpy.data.lights.new('MM pool', 'SPOT')
+    pool = bpy.data.objects.new('Pool of Light', light)
+    collection.objects.link(pool)
+    pool.parent = camera
+    tag(pool, 'studio.pool', 'studio.pool')
+    return pool
+
+
+def pool_signature(pool):
+    light = pool.data
+    return [round(light.energy, 4), round(light.spot_size, 5), round(light.spot_blend, 4), [round(value, 4) for value in light.color],
+            [round(value, 5) for value in (*pool.location, *pool.rotation_euler)], bool(pool.hide_render)]
+
+
+def update_pool(pool, theme):
+    """A soft spot that travels with the camera, so the wall falls off around whatever the frame shows. Workbench draws no
+    lights, so Draft has none of it. A theme without one hides it"""
+    if pool.type != 'LIGHT' or pool.data.type != 'SPOT' or not untouched(pool, pool_signature(pool)):
+        return False
+    settings = themes.pool_settings(theme)
+    pool.hide_render = pool.hide_viewport = settings is None
+    if settings is not None:
+        light = pool.data
+        light.energy = settings['energy']
+        light.color = settings['color']
+        light.spot_size = math.radians(settings['angle'])
+        light.spot_blend = 1.0
+        light.shadow_soft_size = settings['radius']
+        light.use_shadow = True
+        pool.location = settings['offset']
+        # Aimed back at the middle of the view, as the camera looks along its -Z at about this far
+        reach = settings['reach']
+        pool.rotation_mode = 'XYZ'
+        pool.rotation_euler = (math.atan2(settings['offset'][1], reach), -math.atan2(settings['offset'][0], reach), 0.0)
+    else:
+        pool.data.energy = 0.0
+    written(pool, pool_signature(pool))
     return True
 
 

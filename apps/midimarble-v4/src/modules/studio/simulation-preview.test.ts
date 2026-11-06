@@ -154,7 +154,7 @@ describe('SimulationCx previews', () => {
 			expect(cx.simulation.$problems.get().issues.map((item) => item.id)).toEqual([issue.id]);
 
 			// A film edit elsewhere keeps the run and its problems: nothing is asked again
-			const titled: TProject = { ...project, revision: project.revision + 1, film: { ...project.film, titles: [] } };
+			const titled: TProject = { ...project, revision: project.revision + 1, film: { ...project.film, wall: {} } };
 			cx.$history.set(pushHistory(cx.$history.get() as TProjectHistory, titled));
 			cx.simulation.$result.set({ ...result, revision: titled.revision });
 			expect(cx.simulation.$problems.get().state).toBe('checked');

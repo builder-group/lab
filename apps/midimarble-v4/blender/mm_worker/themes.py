@@ -5,6 +5,7 @@ an app material in Blender survives every apply. Studio objects (wall, sun, worl
 still hold what the app last wrote.
 """
 import math
+import re
 
 import bpy
 
@@ -87,6 +88,14 @@ WALL_KINDS = {'plain': 'plain', 'plaster': 'plaster', 'pegboard': 'pegboard', 'g
 MAX_SUN_ANGLE = 60.0
 _scene_look = {}
 
+# The Key Light's `pool` at full: a soft spot that hangs from the camera, up and to the right of the view, aimed back at
+# what the camera looks at about `reach` meters away, and how much of the sun and the world's fill it takes the place of
+POOL = {'energy': 16.0, 'angle': 75.0, 'radius': 0.15, 'offset': (0.12, 0.18, 0.0), 'reach': 0.55}
+POOL_SUN_SHARE = 0.7
+POOL_WORLD_SHARE = 0.55
+# What a full pool's film comes down in Flat Light, measured against its Fast frames
+POOL_FLAT_STOPS = 1.0
+
 
 def set_scene_look(wall_kind, key_light):
     """The valid `wallKind` and `keyLight` fields of a scene description for the apply that follows"""
@@ -94,7 +103,7 @@ def set_scene_look(wall_kind, key_light):
     look = {}
     if wall_kind in WALL_KINDS:
         look['wallKind'] = wall_kind
-    for field in ('strength', 'side', 'height', 'softness', 'exposure', 'bloom'):
+    for field in ('strength', 'side', 'height', 'softness', 'exposure', 'bloom', 'pool'):
         value = key_light.get(field) if isinstance(key_light, dict) else None
         if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
             look[field] = float(value)
@@ -131,6 +140,12 @@ def _with_scene_look(settings):
         settings['exposure'] = settings['exposure'] + _scene_look['exposure']
     if 'bloom' in _scene_look:
         settings['bloom'] = max(0.0, min(1.0, _scene_look['bloom']))
+    if _scene_look.get('pool', 0.0) > 0.0:
+        # What the pool adds comes off the even light, or the wall would just get brighter instead of falling off
+        share = min(1.0, _scene_look['pool'])
+        settings['pool'] = {**POOL, 'energy': POOL['energy'] * share}
+        settings['sun']['energy'] *= 1.0 - POOL_SUN_SHARE * share
+        settings['world']['strength'] *= 1.0 - POOL_WORLD_SHARE * share
     return settings
 
 
@@ -183,9 +198,12 @@ def flat_look(key):
     """(stops, sheen, wall sheen) Flat Light adds in the theme of `theme_key`: to the scene's exposure, for the light Eevee's
     sun and world put on a wall facing the camera, and to the color of a painted surface, for its satin reflections. A wall
     reflects the room whatever its color, which only shows on a dark wall or a dark channel, so it gets more. Measured per
-    theme against Fast frames; a project theme keeps its base's values."""
+    theme against Fast frames; a project theme keeps its base's values. Flat Light has no pool of light, so a film with one
+    comes down to about the middle of the wall it lights."""
     flat = THEMES.get(str(key).split(' ')[0], {}).get('flat', {})
-    return flat.get('exposure', 0.0), flat.get('sheen', 0.0), flat.get('wallSheen', 0.0)
+    pool = re.search(r'\bpool=([0-9.]+)', str(key))
+    stops = flat.get('exposure', 0.0) - (POOL_FLAT_STOPS * float(pool.group(1)) if pool else 0.0)
+    return stops, flat.get('sheen', 0.0), flat.get('wallSheen', 0.0)
 
 
 def flat_light(key, default):
@@ -513,42 +531,57 @@ def glass_marble_material(color):
     return _shared('MM · glass marble ' + color, build)
 
 
-CLEAR_MARBLE_FLECKS = 2.5
+# How strongly the clear marble's color core and gathered light shine. Emission, so it holds under any theme's exposure
+CLEAR_MARBLE_CORE = 3.6
+CLEAR_MARBLE_GATHER = 1.6
 
 
 def clear_marble_material(color):
-    """Brass's marble: solid colored glass that bends the wall behind it, with bright flecks inside, as the reference's
-    marble. Eevee refracts it through its ray tracing; Cycles through the glass itself."""
+    """Brass's marble, the film's hero: nearly clear glass that bends the wall behind it, so it stays as bright as the wall,
+    with a band of its color wound through the middle, light gathered low in the ball and a window on top. At about 7 % of
+    the frame the color and the highlights are what reads. Eevee refracts it through its ray tracing; Cycles through the glass
+    itself."""
     from . import skin_materials as paint
 
     def build(material):
         tree = material.node_tree
         nodes, links = tree.nodes, tree.links
         principled = _principled(material)
-        body = paint._hue(color, 0.6, 0.95)
         material.diffuse_color = (*paint._hue(color, 0.5, 0.8), 1.0)
-        _set(principled, 'Base Color', (*body, 1.0))
-        _set(principled, 'Roughness', 0.03)
-        _set(principled, 'IOR', 1.5)
+        _set(principled, 'Base Color', (*paint._hue(color, 1.0, 0.12), 1.0))
+        _set(principled, 'Roughness', 0.02)
+        _set(principled, 'IOR', 1.45)
         _set(principled, 'Transmission Weight', 1.0)
-        # Flecks: small bright grains caught in the glass, denser toward the middle of the ball
+        # The core: bands of the marble's color, only in the middle of the ball, where glass looks deepest
         coordinates = nodes.new('ShaderNodeTexCoord')
-        grains = nodes.new('ShaderNodeTexNoise')
-        grains.inputs['Scale'].default_value = 28.0
-        grains.inputs['Detail'].default_value = 3.0
-        grains.inputs['Roughness'].default_value = 0.7
-        links.new(coordinates.outputs['Generated'], grains.inputs['Vector'])
-        flecks = paint._range(tree, grains.outputs['Fac'], 0.66, 0.70)
+        bands = nodes.new('ShaderNodeTexNoise')
+        bands.inputs['Scale'].default_value = 3.2
+        bands.inputs['Detail'].default_value = 1.0
+        links.new(coordinates.outputs['Generated'], bands.inputs['Vector'])
         weight = nodes.new('ShaderNodeLayerWeight')
         weight.inputs['Blend'].default_value = 0.5
-        inside = paint._math(tree, 'SUBTRACT', 1.0, paint._range(tree, weight.outputs['Facing'], 0.55, 0.95))
-        glint = nodes.new('ShaderNodeEmission')
-        glint.inputs['Color'].default_value = (*paint._hue(color, 1.0, 0.25), 1.0)
-        links.new(paint._math(tree, 'MULTIPLY', paint._math(tree, 'MULTIPLY', flecks, inside), CLEAR_MARBLE_FLECKS), glint.inputs['Strength'])
-        add = nodes.new('ShaderNodeAddShader')
-        links.new(principled.outputs[0], add.inputs[0])
-        links.new(glint.outputs[0], add.inputs[1])
-        links.new(add.outputs[0], nodes['Material Output'].inputs['Surface'])
+        inside = paint._math(tree, 'SUBTRACT', 1.0, paint._range(tree, weight.outputs['Facing'], 0.25, 0.72))
+        core = nodes.new('ShaderNodeEmission')
+        core.inputs['Color'].default_value = (*paint._hue(color, 1.0, 1.0), 1.0)
+        links.new(paint._math(tree, 'MULTIPLY', paint._math(tree, 'MULTIPLY', paint._range(tree, bands.outputs['Fac'], 0.40, 0.56), inside), CLEAR_MARBLE_CORE), core.inputs['Strength'])
+        # Light gathered in the lower right of the ball, as the glass focuses the room
+        dot = nodes.new('ShaderNodeVectorMath')
+        dot.operation = 'DOT_PRODUCT'
+        links.new(paint._camera_normal(tree), dot.inputs[0])
+        dot.inputs[1].default_value = (0.42, -0.72, -0.55)
+        gather = nodes.new('ShaderNodeEmission')
+        gather.inputs['Color'].default_value = (*paint._hue(color, 1.0, 0.35), 1.0)
+        links.new(paint._math(tree, 'MULTIPLY', paint._range(tree, dot.outputs['Value'], 0.55, 0.98), CLEAR_MARBLE_GATHER), gather.inputs['Strength'])
+        # The painted studio's softbox and window on top, so it reads as glass whatever the room shows
+        studio = nodes.new('ShaderNodeEmission')
+        links.new(paint.painted_studio(tree, horizon=False), studio.inputs['Color'])
+        total = principled.outputs[0]
+        for light in (core, gather, studio):
+            add = nodes.new('ShaderNodeAddShader')
+            links.new(total, add.inputs[0])
+            links.new(light.outputs[0], add.inputs[1])
+            total = add.outputs[0]
+        links.new(total, nodes['Material Output'].inputs['Surface'])
         if hasattr(material, 'use_raytrace_refraction'):
             material.use_raytrace_refraction = True
         if hasattr(material, 'thickness_mode'):
@@ -1100,6 +1133,15 @@ def sun_settings(theme):
         'color': sun['color'],
         'rotation': tuple(sun_rotation(sun['direction'])),
     }
+
+
+def pool_settings(theme):
+    """The theme's pool of light, in the key light's color, or None for a theme without one"""
+    settings = theme_settings(theme)
+    pool = settings.get('pool')
+    if pool is None:
+        return None
+    return {**pool, 'color': settings['sun']['color']}
 
 
 def rim_settings(theme):

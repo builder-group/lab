@@ -10,7 +10,7 @@ import { inspectorTarget } from '@/modules/studio/inspector-target';
 import { addDecorCommands, assetDecorSource, builtInSource, decorBox, decorOverlaps, deleteDecorCommands, duplicateDecorCommands, madeInBlenderCommands, moveDecorClear, MOVE_CLEAR_MARGIN, overlapLabel, updateDecorCommands } from './decor';
 import { DECOR_ITEMS, isFrameEffect } from './decor-catalog';
 import { effectDefaults, flakeAt, snowFlakes } from './decor-effects';
-import { buildObstacleField, distanceToBox, type TWallBox } from './decor-clearance';
+import { buildObstacleField, distanceToBox, nearestRunPoint, type TWallBox } from './decor-clearance';
 import { SCATTER_MARGIN, scatterDecorCommands, scatterPlacements } from '@/modules/film';
 import { NO_BLENDER_OBJECTS, decorTips, checkRun } from '@/modules/building';
 import { pieceOutline } from './track-geometry';
@@ -225,6 +225,18 @@ describe('Decor', () => {
 				expect(clearanceToRuns(result, box)).toBeGreaterThanOrEqual(SCATTER_MARGIN);
 			}
 			expect(decorOverlaps(apply(project, scatterDecorCommands(project, result, track, options).commands), result, [])).toEqual([]);
+		}, 60_000);
+
+		it('should keep the middle of the frame clear as the run passes', () => {
+			const field = buildObstacleField(result);
+			const placements = scatterPlacements(project, result, track, options);
+			expect(placements.length).toBeGreaterThan(5);
+			for (const { position } of placements) {
+				const near = nearestRunPoint(field, position.x, position.y, 0.25);
+				const frame = Math.min(track.frameCount - 1, Math.round((near?.time ?? 0) * track.fps));
+				const [u] = projectToFrame(track, frame, position.x, position.y, 0);
+				expect(u <= 0.3 || u >= 0.7).toBe(true);
+			}
 		}, 60_000);
 
 		it('should keep every item clear of the pieces', () => {

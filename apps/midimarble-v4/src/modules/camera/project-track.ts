@@ -1,5 +1,5 @@
 import { buildSceneDescription } from '@/modules/scene';
-import type { TProject } from '@/modules/project';
+import { filmStartOf, type TProject } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { bakeFollowCamera, followCameraInput, type TCameraTrack } from './follow-camera';
 
@@ -30,7 +30,7 @@ export function cachedFollowCameraTrack(
 	result: TSimulationResult,
 	fps: number
 ): TCameraTrack | null {
-	const key = `${fps}:${JSON.stringify(project.film.camera)}:${project.format.width}x${project.format.height}:${result.duration}`;
+	const key = `${fps}:${filmStartOf(project)}:${JSON.stringify(project.film.camera)}:${project.format.width}x${project.format.height}:${result.duration}`;
 	let byKey = tracks.get(result.marbles);
 	if (byKey == null) {
 		byKey = new Map();

@@ -10,7 +10,7 @@ export interface TFilmLayer {
 	/** Its names in Edit > Undo. Null for titles, which are named with the marbles and pieces. */
 	words: { one: string; many: string } | null;
 	/** Its items, from a whole film or from the part of one an `updateFilm` names */
-	items: (film: Partial<TFilm>) => readonly { id: string; position?: unknown }[] | undefined;
+	items: (film: Partial<Omit<TFilm, 'start'>>) => readonly { id: string; position?: unknown }[] | undefined;
 	toKey: (id: string) => string;
 	/** The item a selection key names, or null. A title's ID is its key, so no key is recognizably a title's. */
 	parseKey: (key: string) => string | null;

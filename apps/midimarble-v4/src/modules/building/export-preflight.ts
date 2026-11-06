@@ -1,9 +1,9 @@
-import { cachedFollowCameraTrack, framingStretches, isInFrame, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
+import { cachedFollowCameraTrack, framingStretches, isInFrame, measureOpeningFrame, openingFrameNotes, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong, marbleSounds } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
+import { filmStartOf, formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 
@@ -80,17 +80,18 @@ export function runIssues(project: TProject, result: TSimulationResult): TPrefli
 		...touchingIssues(project, result, names),
 		...passIssues(project, result, names),
 		...fallIssues(project, result, names),
-		...framingIssues(project, result, names)
+		...framingIssues(project, result, names),
+		...openingIssues(project, result)
 	];
 }
 
 /**
  * True when `runIssues` of the same run reads the same for both projects: the run's input, which carries the names
- * of marbles and pieces, and what frames the camera. Commands copy only what they change, so an unchanged section
- * keeps its identity, and a film edit elsewhere asks the worker nothing.
+ * of marbles and pieces, what frames the camera, and the Decor and titles the opening frame looks at. Commands copy only
+ * what they change, so an unchanged section keeps its identity, and a film edit elsewhere asks the worker nothing.
  */
 export function isSameProblemInput(a: TProject, b: TProject): boolean {
-	return a.marbles === b.marbles && a.track.pieces === b.track.pieces && a.gravity === b.gravity && a.length === b.length && a.film.camera === b.film.camera && a.film.quality === b.film.quality && a.format === b.format;
+	return a.marbles === b.marbles && a.track.pieces === b.track.pieces && a.gravity === b.gravity && a.length === b.length && a.film.camera === b.film.camera && a.film.quality === b.film.quality && a.film.start === b.film.start && a.film.decor === b.film.decor && a.film.titles === b.film.titles && a.format === b.format;
 }
 
 const NO_MISSING_RECORDINGS: readonly string[] = [];
@@ -121,7 +122,7 @@ export type TProblemWorkspace = 'track' | 'film';
 
 /** Where a problem gets fixed: camera framing, titles and Decor in Film, everything about the run in Track */
 export function problemWorkspace(issue: TPreflightIssue): TProblemWorkspace {
-	return issue.kind === 'framing' || issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'track';
+	return issue.kind === 'framing' || issue.kind === 'opening' || issue.kind === 'title' || issue.kind === 'decor' ? 'film' : 'track';
 }
 
 /** Each workspace's open problems, for the dot on the other workspace's switch */
@@ -306,7 +307,7 @@ export interface TPreflightTarget {
 	workspace?: 'track' | 'film';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'passes' | 'fall' | 'framing' | 'title' | 'decor' | 'simulation' | 'song' | 'recording';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'passes' | 'fall' | 'framing' | 'opening' | 'title' | 'decor' | 'simulation' | 'song' | 'recording';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
@@ -696,6 +697,30 @@ function framingIssues(project: TProject, result: TSimulationResult, names: TNam
 	});
 }
 
+/**
+ * What the film's first frame falls short of, in one tip: only facts that can be measured on it, and a person may keep it
+ * as it is. A manual camera lives in Blender, which the app cannot see, so it has none.
+ */
+function openingIssues(project: TProject, result: TSimulationResult): TPreflightIssue[] {
+	if (!project.film.camera.auto) return [];
+	const track = cachedFollowCameraTrack(project, result, getRenderPreset(project.film.quality).fps);
+	const opening = track != null ? measureOpeningFrame(project, result, track) : null;
+	if (opening == null) return [];
+	const notes = openingFrameNotes(opening);
+	if (!notes.length) return [];
+	return [
+		{
+			id: 'opening',
+			kind: 'opening',
+			severity: 'info',
+			title: notes.length === 1 ? 'The first frame has one thing to look at' : `The first frame has ${notes.length} things to look at`,
+			detail: `${notes.join(' ')} Keep it if that's what you want.`,
+			time: opening.time,
+			target: cameraTarget(opening.time)
+		}
+	];
+}
+
 interface TFraming {
 	stretches: TFramingStretch[];
 	/** Per stretch, the marbles of the marbles in frame at its middle */
@@ -709,7 +734,7 @@ export function checkFraming(project: TProject, result: TSimulationResult): TFra
 	if (!project.film.camera.auto) return null;
 	// `renderFps`: the film's frame rate, which the Draft Preview's camera uses too
 	const { fps } = getRenderPreset(project.film.quality);
-	const key = `${fps}:${JSON.stringify(project.film.camera)}:${project.format.width}x${project.format.height}:${result.duration}`;
+	const key = `${fps}:${filmStartOf(project)}:${JSON.stringify(project.film.camera)}:${project.format.width}x${project.format.height}:${result.duration}`;
 	let byKey = framings.get(result.marbles);
 	if (byKey == null) {
 		byKey = new Map();

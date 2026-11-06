@@ -13,6 +13,7 @@ Use these with the person. One word per thing.
 | Hit | contact, collision | The moment a marble strikes its note |
 | Dot | ghost, marker | Where a marble is at a hit's time |
 | Sound | instrument, voice, Part | The General MIDI program a marble's notes play with: `marble.sound`, and `song.backingSound` for Backing |
+| Level | Volume, Gain | How loud a marble or Backing plays, in dB: `marble.level`, `song.backingLevel`. Absent is automatic: the marble whose notes sit highest as it is, the rest 10 dB under it with nothing under 150 Hz |
 | Backing | dropped, unassigned | Notes no marble plays; heard in the film |
 | Track Piece | object, prop, asset | One of any kind of thing the marbles run on, when the kind doesn't matter; after the first mention, piece |
 | Platform | bar, pad, peg | The piece that plays a note |

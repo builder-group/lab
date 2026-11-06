@@ -4,8 +4,9 @@ import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
+import { filmStartOf, formatTime } from '@/modules/project';
 import type { TRenderPreset } from '@/modules/scene';
-import { mutedSoundtrackNote } from '@/modules/music';
+import { FILM_LOUDNESS, FILM_PEAK, formatLoudness, mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
 import { estimateExport, filmSize, formatClock, formatEstimate, getRenderPreset, remainingExportSeconds, renderPresetOption, renderPresets, type TExportEstimate } from '@/modules/scene';
 import { ExportPreflight } from './ExportPreflight';
@@ -76,7 +77,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	// Issues never block an export; the default button only says that it goes ahead despite them
 	const exportLabel = preflight.warnings > 0 ? 'Export Anyway' : 'Export';
 
-	const duration = result?.duration ?? project.length;
+	const duration = (result?.duration ?? project.length) - filmStartOf(project);
 	const preset = getRenderPreset(settings.preset);
 	const size = filmSize(project.format, settings.preset);
 	const estimate = estimateExport({ duration, frame: project.format, preset: settings.preset, measured: measured[preset.engine], preview });
@@ -125,13 +126,17 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				</span>
 			</div>
 
-			<div className="mm-summary">
-				<div className="mm-tabular">
-					{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)}
-				</div>
-				<div className="flex items-baseline justify-between gap-3">
-					<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
-					{estimate.basis !== 'none' ? <span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span> : null}
+			<div className="flex items-stretch gap-3">
+				<OpeningFrame cx={cx} aspect={project.format.width / project.format.height} />
+				<div className="mm-summary min-w-0 flex-1">
+					<div className="mm-tabular">
+						{size.width} × {size.height} · {preset.fps} fps · {formatClock(duration)}
+					</div>
+					<div className="mm-tabular">{formatLoudness({ lufs: FILM_LOUDNESS, truePeak: FILM_PEAK })}</div>
+					<div className="flex items-baseline justify-between gap-3">
+						<span className="font-medium">{estimate.seconds != null ? formatEstimate(estimate.seconds) : 'Time unknown'}</span>
+						{estimate.basis !== 'none' ? <span className="text-[11px] text-[var(--text-secondary)]">{basisLabel(estimate.basis, settings.preset)}</span> : null}
+					</div>
 				</div>
 			</div>
 
@@ -147,6 +152,20 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 				</button>
 			</div>
 		</>
+	);
+};
+
+/** The frame a viewer sees first, small and beside the summary, so it's looked at before every export */
+const OpeningFrame: React.FC<{ cx: StudioCx; aspect: number }> = (props) => {
+	const { cx, aspect } = props;
+	const still = useFeatureState(cx.film.$openingFrame);
+	React.useEffect(() => {
+		void cx.film.renderOpeningFrame();
+	}, [cx]);
+	return (
+		<figure className="mm-opening-frame" style={{ aspectRatio: String(aspect) }} title={still != null ? `The film's first frame, at ${formatTime(still.time)}` : "The film's first frame"}>
+			{still != null ? <img src={still.url} alt="The film's first frame" /> : null}
+		</figure>
 	);
 };
 
@@ -194,7 +213,7 @@ const ExportDone: React.FC<{ cx: StudioCx; job: TExportJob }> = (props) => {
 			<video className="mm-film" src={convertFileSrc(result.path)} controls playsInline style={{ aspectRatio: `${result.width} / ${result.height}` }} />
 			<div className="mm-tabular text-[11px] text-[var(--text-secondary)]">
 				{result.width} × {result.height} · {result.fps} fps · {formatClock(result.duration)} · rendered in {formatClock(seconds)}
-				{result.hasAudio ? '' : ' · no song'}
+				{result.hasAudio ? ` · ${formatLoudness(result.loudness)}` : ' · no song'}
 			</div>
 			<div className="flex justify-end gap-2">
 				<button className="mm-button" onClick={() => void reveal()} type="button">

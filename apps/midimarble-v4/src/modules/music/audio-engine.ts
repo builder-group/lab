@@ -1,11 +1,15 @@
 import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
-import type { TMarble, TProject, TSong } from '@/modules/project';
+import { filmStartOf, type TMarble, type TProject, type TSong } from '@/modules/project';
+import { levelSignature, melodyMarbleId, renderMix } from './default-mix';
+import { normalizeLoudness, type TLoudness } from './loudness';
 import { backingVoices, mixAudioSource, renderMarbles, soundingMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
 import { createScrubber } from './scrub';
 import { decodeAudioFile } from './waveform';
 
 const SAMPLE_RATE = 48000;
 const BANK_URL = '/audio/marble-instruments.sf2';
+/** A phone's speaker reproduces little under this many Hz */
+const PHONE_SPEAKER_CUT = 300;
 
 /**
  * Seconds the soundtrack fades out over at the film end, so a note still ringing after `SONG_TAIL` is not cut off.
@@ -16,6 +20,10 @@ export function createAudioEngine(): TAudioEngine {
 	const context = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
 	const master = context.createGain();
 	master.connect(context.destination);
+	const phoneSpeaker = context.createBiquadFilter();
+	phoneSpeaker.type = 'highpass';
+	phoneSpeaker.frequency.value = PHONE_SPEAKER_CUT;
+	phoneSpeaker.connect(context.destination);
 	const auditionCache = new Map<string, AudioBuffer>();
 	let timeline: AudioBuffer | null = null;
 	let signature: string | null = null;
@@ -49,13 +57,14 @@ export function createAudioEngine(): TAudioEngine {
 		scrubber.end();
 	}
 
-	async function prepare(project: TProject, resolveSourceUrl: TResolveSourceUrl): Promise<void> {
-		const nextSignature = createAudioSignature(project, resolveSourceUrl);
+	async function prepare(project: TProject, resolveSourceUrl: TResolveSourceUrl, mixedAs?: TProject): Promise<void> {
+		const nextSignature = createAudioSignature(project, resolveSourceUrl, mixedAs);
 		if (nextSignature === signature && timeline != null && lacking === 0) return;
 		const nextLacking = (await missingRecordings(project, resolveSourceUrl)).length;
 		if (nextSignature === signature && timeline != null && nextLacking === lacking) return;
 		const audio = await renderProjectAudio(project, resolveSourceUrl, {
-			sampleRate: SAMPLE_RATE
+			sampleRate: SAMPLE_RATE,
+			mixedAs
 		});
 		const buffer = context.createBuffer(2, audio.left.length, audio.sampleRate);
 		buffer.copyToChannel(audio.left as Float32Array<ArrayBuffer>, 0);
@@ -93,13 +102,13 @@ export function createAudioEngine(): TAudioEngine {
 		stop,
 		getTime,
 		isPlaying: () => source != null,
-		async beginScrub(project, resolveSourceUrl) {
+		async beginScrub(project, resolveSourceUrl, mixedAs) {
 			endScrub();
 			const session = scrubSession;
 			scrubber.begin();
 			// Resumed before anything awaits, while this is still the press's gesture
 			const resumed = context.state === 'running' ? undefined : context.resume();
-			await Promise.all([resumed, prepare(project, resolveSourceUrl)]);
+			await Promise.all([resumed, prepare(project, resolveSourceUrl, mixedAs)]);
 			if (session === scrubSession) scrubber.setBuffer(timeline);
 		},
 		scrubTo: (time) => scrubber.move(time),
@@ -129,6 +138,10 @@ export function createAudioEngine(): TAudioEngine {
 		setVolume(volume) {
 			master.gain.setTargetAtTime(Math.max(0, volume), context.currentTime, 0.01);
 		},
+		setPhoneSpeaker(isOn) {
+			master.disconnect();
+			master.connect(isOn ? phoneSpeaker : context.destination);
+		},
 		dispose() {
 			endScrub();
 			stop();
@@ -140,20 +153,22 @@ export function createAudioEngine(): TAudioEngine {
 }
 
 export interface TAudioEngine {
-	// Renders the timeline `[0, project.end]` unless its audio inputs are unchanged
-	prepare: (project: TProject, resolveSourceUrl: TResolveSourceUrl) => Promise<void>;
+	// Renders the timeline `[0, project.end]` unless its audio inputs are unchanged; `mixedAs`: see `renderProjectAudio`
+	prepare: (project: TProject, resolveSourceUrl: TResolveSourceUrl, mixedAs?: TProject) => Promise<void>;
 	play: (from: number) => Promise<void>;
 	stop: () => void;
 	// Timeline seconds; while stopped, the time playback stopped at
 	getTime: () => number;
 	isPlaying: () => boolean;
 	// Starts a playhead drag: renders `project` if it changed, then plays snippets at the positions given to `scrubTo`
-	beginScrub: (project: TProject, resolveSourceUrl: TResolveSourceUrl) => Promise<void>;
+	beginScrub: (project: TProject, resolveSourceUrl: TResolveSourceUrl, mixedAs?: TProject) => Promise<void>;
 	scrubTo: (time: number) => void;
 	endScrub: () => void;
 	// Plays one note of the Song; a hit without a pitch has nothing to play
 	audition: (marble: TMarble, pitch: number) => Promise<void>;
 	setVolume: (volume: number) => void;
+	// Hears everything roughly as a phone's speaker plays it, under Hz it can't; nothing changes in the film
+	setPhoneSpeaker: (isOn: boolean) => void;
 	dispose: () => void;
 }
 
@@ -161,12 +176,14 @@ export type TResolveSourceUrl = (source: TSong) => string | null;
 
 /**
  * Every song at its start and every note that isn't in a recording: recordings play as they are, a marble's notes with
- * its Sound and each song's Backing with its own. A project with nothing of these renders as silence.
+ * its Sound and each song's Backing with its own, at the levels of `renderMix`. A project with nothing of these renders as
+ * silence. `project` is what's heard, with Mute and Solo applied; `mixedAs` is the whole project, which says who the melody
+ * is, so a part heard alone stays at its level in the mix.
  */
 export async function renderProjectAudio(
 	project: TProject,
 	resolveSourceUrl: TResolveSourceUrl,
-	options: { sampleRate?: number } = {}
+	options: { sampleRate?: number; bank?: BasicSoundBank; mixedAs?: TProject } = {}
 ): Promise<TStereoAudio> {
 	const { sampleRate = SAMPLE_RATE } = options;
 	const audioSources = recordingsOf(project);
@@ -174,7 +191,7 @@ export async function renderProjectAudio(
 	const backing = backingVoices(project);
 	if (!audioSources.length && !backing.length && marbles.every((marble) => !marble.hits.length)) return silentAudio(project.length, sampleRate);
 	const hasNotes = backing.length > 0 || marbles.some((marble) => marble.hits.length > 0);
-	const audio = hasNotes ? renderMarbles(marbles, { sampleRate, duration: project.length, bank: await loadInstrumentBank(), backing }) : silentAudio(project.length, sampleRate);
+	const audio = hasNotes ? renderMix(marbles, backing, melodyMarbleId(options.mixedAs ?? project), { sampleRate, duration: project.length, bank: options.bank ?? (await loadInstrumentBank()) }) : silentAudio(project.length, sampleRate);
 	const decodedSources = await Promise.all(
 		audioSources.map(async (source) => ({
 			source,
@@ -185,6 +202,22 @@ export async function renderProjectAudio(
 		if (decoded != null) mixAudioSource(audio, decoded, source.start);
 	fadeOut(audio, FILM_AUDIO_FADE);
 	return audio;
+}
+
+/**
+ * The film's sound as Export writes it, for every quality alike: what's heard of `project` (`heard`, with what is muted left
+ * out), from the film's first frame on, at the film's loudness.
+ */
+export async function renderFilmSoundtrack(
+	project: TProject,
+	resolveSourceUrl: TResolveSourceUrl,
+	options: { heard?: TProject; sampleRate?: number; bank?: BasicSoundBank } = {}
+): Promise<{ audio: TStereoAudio; loudness: TLoudness }> {
+	const { heard = project, sampleRate = SAMPLE_RATE, bank } = options;
+	const whole = await renderProjectAudio(heard, resolveSourceUrl, { sampleRate, bank, mixedAs: project });
+	const from = Math.min(whole.left.length, Math.round(filmStartOf(project) * sampleRate));
+	const audio = { sampleRate, left: whole.left.slice(from), right: whole.right.slice(from) };
+	return { audio, loudness: normalizeLoudness(audio) };
 }
 
 function recordingsOf(project: Pick<TProject, 'songs'>): TSong[] {
@@ -201,7 +234,8 @@ export async function missingRecordings(project: Pick<TProject, 'songs'>, resolv
 // Stable key of everything `renderProjectAudio` reads
 export function createAudioSignature(
 	project: TProject,
-	resolveSourceUrl: TResolveSourceUrl
+	resolveSourceUrl: TResolveSourceUrl,
+	mixedAs: TProject = project
 ): string {
 	const audioSources = recordingsOf(project).map((song) => ({ url: resolveSourceUrl(song), offset: song.start }));
 	const marbles = soundingMarbles(project).filter((marble) => marble.hits.length > 0).map((marble) => ({
@@ -209,7 +243,7 @@ export function createAudioSignature(
 		hits: marble.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null])
 	}));
 	const backing = backingVoices(project).map((voice) => ({ instrument: voice.instrument, hits: voice.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) }));
-	return JSON.stringify({ end: project.length, audioSources, marbles, backing });
+	return JSON.stringify({ end: project.length, audioSources, marbles, backing, levels: levelSignature(project, melodyMarbleId(mixedAs)) });
 }
 
 let bankPromise: Promise<BasicSoundBank> | null = null;

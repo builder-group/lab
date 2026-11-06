@@ -20,6 +20,8 @@ export interface TDecorItem {
 	opacity?: number;
 	/** Scatter Decor uses the item */
 	scatter: boolean;
+	/** A ball on the wall, which a viewer can take for a marble */
+	round?: boolean;
 	/** Belongs to the frame, not the wall: hangs from the film camera, so it has no place, size or path to overlap */
 	effect?: 'snowfall';
 }

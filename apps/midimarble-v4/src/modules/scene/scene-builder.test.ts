@@ -203,7 +203,7 @@ describe('buildSceneDescription', () => {
 			fps: 30,
 			duration: 2,
 			frame: { width: 9, height: 16 },
-			theme: 'pegboard'
+			theme: 'brass'
 		});
 		const marbleColor = project.marbles.find((marble) => marble.id === marbleId)?.labelColor;
 		expect(description.pieces[0]?.color).toBe(marbleColor);

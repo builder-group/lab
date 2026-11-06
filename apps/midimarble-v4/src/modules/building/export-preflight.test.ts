@@ -137,10 +137,21 @@ describe('checkRun function', () => {
 
 		const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
 
-		expect(preflight.issues).toEqual([]);
+		expect(preflight.issues.filter((issue) => issue.kind !== 'opening')).toEqual([]);
+		expect(preflight.warnings).toBe(0);
 		expect(preflight.onTimeCount).toBe(16);
 	}, 20_000);
 
+	it('should say what the first frame falls short of in one tip that opens the Camera there', () => {
+		const project = withSongFixture('zigzag');
+
+		const opening = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind === 'opening');
+
+		expect(opening).toHaveLength(1);
+		expect(opening[0]).toEqual(expect.objectContaining({ severity: 'info', target: expect.objectContaining({ workspace: 'film', time: 0 }) }));
+		expect(opening[0]?.detail).toContain('pieces are in the first frame');
+		expect(opening[0]?.detail).toContain("Keep it if that's what you want.");
+	}, 20_000);
 
 	it('should report blocked hits and drifting dots after a platform is turned', () => {
 		const project = withSongFixture('zigzag');
@@ -150,7 +161,7 @@ describe('checkRun function', () => {
 
 		const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
 
-		expect(preflight.summary).toMatch(/^\d+ hits? needs? attention( · \d+ other problems?)?$/);
+		expect(preflight.summary).toMatch(/^\d+ hits? needs? attention( · \d+ other problems?)?( · \d+ tips?)?$/);
 		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Hit \d+ of Marble 1 is Blocked$/) }));
 		// The camera follows a single marble, so it never leaves the frame
 		expect(preflight.issues.filter((issue) => issue.kind === 'framing')).toEqual([]);
@@ -162,7 +173,7 @@ describe('checkRun function', () => {
 		const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
 
 		expect(preflight.warnings).toBe(0);
-		expect(preflight.summary).toBe('16 of 16 hits on time');
+		expect(preflight.summary).toMatch(/^16 of 16 hits on time( · 1 tip)?$/);
 	});
 
 	it('should say it is checking while pending', () => {

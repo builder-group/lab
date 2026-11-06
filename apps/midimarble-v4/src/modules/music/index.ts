@@ -1,5 +1,7 @@
 export * from './audio-engine';
+export * from './default-mix';
 export * from './instruments';
+export * from './loudness';
 export * from './marble-commands';
 export * from './marble-proposal';
 export * from './midi';

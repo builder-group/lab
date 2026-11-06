@@ -5,10 +5,9 @@ import { blender, BlenderError, type TJobPoll, type TRenderFilmResult } from './
 import { renderFilm, SOUNDTRACK_PATH } from './render-film';
 
 vi.mock('@/modules/music', () => ({
-	renderProjectAudio: vi.fn(async () => ({
-		left: new Float32Array(4),
-		right: new Float32Array(4),
-		sampleRate: 48000
+	renderFilmSoundtrack: vi.fn(async () => ({
+		audio: { left: new Float32Array(4), right: new Float32Array(4), sampleRate: 48000 },
+		loudness: { lufs: -14, truePeak: -1 }
 	})),
 	encodeWav: vi.fn(() => new Uint8Array([1, 2, 3]))
 }));
@@ -73,7 +72,7 @@ describe('renderFilm function', () => {
 		});
 
 		expect(isOk).toBe(true);
-		expect(film).toEqual(result);
+		expect(film).toEqual({ ...result, loudness: { lufs: -14, truePeak: -1 } });
 		expect(write).toHaveBeenCalledWith('/tmp/Song.marble', SOUNDTRACK_PATH, new Uint8Array([1, 2, 3]));
 		expect(start).toHaveBeenCalledWith('/tmp/Song.marble', {
 			preset: 'draft',
@@ -101,7 +100,7 @@ describe('renderFilm function', () => {
 
 		expect(isOk).toBe(true);
 		expect(copy).toHaveBeenCalledWith('/tmp/Song.marble', 'renders/Song.mp4', '/Users/me/Movies/Song.mp4');
-		expect(film).toEqual({ ...result, path: '/Users/me/Movies/Song.mp4' });
+		expect(film).toEqual({ ...result, path: '/Users/me/Movies/Song.mp4', loudness: { lufs: -14, truePeak: -1 } });
 	});
 
 	it('should report a failed copy with the rendered path', async () => {

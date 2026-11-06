@@ -481,6 +481,11 @@ textarea {
 	border-left: 1px solid var(--separator);
 }
 
+.mm-before-film {
+	background: color-mix(in srgb, var(--text) 5%, transparent);
+	border-right: 1px solid var(--separator);
+}
+
 /* The ruler past the project end: the marbles' shade over its ticks and times, so the film visibly stops at the end bracket */
 .mm-ruler-past-end {
 	background:
@@ -1557,6 +1562,23 @@ button.mm-hit-summary:hover,
 	margin: 0 auto;
 	border-radius: 8px;
 	background: #000;
+}
+
+/* The film's first frame in the export sheet */
+.mm-opening-frame {
+	flex: none;
+	width: 72px;
+	margin: 0;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--separator);
+}
+
+.mm-opening-frame img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .mm-error-box {

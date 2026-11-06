@@ -72,11 +72,13 @@ export interface TRenderMarblesOptions {
 export interface TBackingVoice {
 	instrument: number;
 	hits: THit[];
+	/** The Level a person set, in dB; absent is automatic */
+	level?: number;
 }
 
 /** Each song's Backing for rendering, for the songs that have notes */
 export function backingVoices(project: Pick<TProject, 'songs'>): TBackingVoice[] {
-	return project.songs.flatMap((song) => (song.backing.length > 0 ? [{ instrument: song.backingSound ?? DEFAULT_BACKING_INSTRUMENT, hits: song.backing }] : []));
+	return project.songs.flatMap((song) => (song.backing.length > 0 ? [{ instrument: song.backingSound ?? DEFAULT_BACKING_INSTRUMENT, hits: song.backing, ...(song.backingLevel != null ? { level: song.backingLevel } : {}) }] : []));
 }
 
 /**

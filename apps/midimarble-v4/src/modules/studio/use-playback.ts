@@ -62,7 +62,7 @@ export function usePlayback(cx: StudioCx): void {
 		if (from !== cx.$playhead.get()) cx.$playhead.set(from);
 		void (async () => {
 			try {
-				await cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl);
+				await cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl, project);
 				if (!cx.$playing.get()) return;
 				await cx.audio.play(from);
 				if (cx.$playing.get()) startLoop();
@@ -82,7 +82,7 @@ export function usePlayback(cx: StudioCx): void {
 	// Edits while playing re-render the soundtrack; the engine keeps the current position
 	useListener(cx.$history, ({ value }) => {
 		if (!cx.$playing.get() || value == null) return;
-		void cx.audio.prepare(audibleProject(value.present, cx.$mix.get()), cx.resolveSourceUrl);
+		void cx.audio.prepare(audibleProject(value.present, cx.$mix.get()), cx.resolveSourceUrl, value.present);
 	});
 
 	// Warms the soundtrack once a project opens, while the window is idle, so the first Space starts at once
@@ -94,7 +94,7 @@ export function usePlayback(cx: StudioCx): void {
 			handle = window.setTimeout(() => {
 				const project = cx.project;
 				if (project == null || cx.$playing.get()) return;
-				void cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl).catch(() => undefined);
+				void cx.audio.prepare(audibleProject(project, cx.$mix.get()), cx.resolveSourceUrl, project).catch(() => undefined);
 			}, WARM_UP_DELAY_MS);
 		};
 		if (cx.project != null) schedule();

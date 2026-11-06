@@ -6,7 +6,7 @@ import { currentMix } from '@/modules/music';
 import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
-import { CAMERA_KEY, parseHitKey, parseShotKey, shownSongs, type TSong, toHitKey } from '@/modules/project';
+import { CAMERA_KEY, filmStartOf, parseHitKey, parseShotKey, shownSongs, type TSong, toHitKey } from '@/modules/project';
 import { songRowLabel } from '../song-layer';
 import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
@@ -338,8 +338,9 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 					>
 						<div className="mm-track-header sticky left-0 z-20 shrink-0 border-r border-[var(--separator)]" style={{ width: HEADER_WIDTH }} />
 					</div>
-					{/* Outside the project range is shaded, like the area past Blender's end frame */}
+					{/* Outside the film is shaded, like the area past Blender's end frame */}
 					<div className="mm-out-of-range pointer-events-none absolute top-0 bottom-0" style={{ left: TIME_ORIGIN + project.length * zoom, right: 0 }} />
+					<div className="mm-before-film pointer-events-none absolute top-0 bottom-0" style={{ left: TIME_ORIGIN, width: filmStartOf(project) * zoom }} />
 					<PlayheadLine cx={cx} zoom={zoom} scrollRef={scrollRef} />
 				</div>
 			</div>

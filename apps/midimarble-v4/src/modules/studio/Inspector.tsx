@@ -7,8 +7,8 @@ import { unreachableActions, GroupInspector, PatternRangeInspector, PatternTiles
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, selectionProblems, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
-import { DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, instruments, marbleSounds, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
+import { autoLevelLabel, DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, formatLevel, instruments, LEVEL_CHOICES, marbleSounds, melodyMarbleId, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
+import { BACKING_ID, filmStartOf, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
 import { SONG_LAYER_LABEL } from './song-layer';
@@ -169,6 +169,7 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarb
 							if (cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { sound } }])) auditionNote(cx, marble.id, firstPitch(marble.hits));
 						}}
 					/>
+					<LevelField id="marble-level" value={marble.level} autoLabel={autoLevelLabel(marble.id, melodyMarbleId(project))} onChange={(level) => cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { level } }])} />
 				</Panel>
 			) : null}
 			{!isFilm ? (
@@ -186,6 +187,23 @@ const SoundField: React.FC<{ id: string; value: number; onChange: (value: number
 	const { id, value, onChange } = props;
 	return <SelectField id={id} label="Sound" value={String(value)} options={instruments.map((item) => ({ value: String(item.program), label: item.name }))} onChange={(next) => onChange(Number(next))} />;
 };
+
+/** How loud a marble or Backing plays. Auto puts the marble whose notes sit highest on top; a chosen level wins */
+const LevelField: React.FC<{ id: string; value: number | undefined; autoLabel: string; onChange: (value: number | null) => void }> = (props) => {
+	const { id, value, autoLabel, onChange } = props;
+	const levels = value == null || (LEVEL_CHOICES as readonly number[]).includes(value) ? LEVEL_CHOICES : [...LEVEL_CHOICES, value];
+	return (
+		<SelectField
+			id={id}
+			label="Level"
+			value={value == null ? AUTO_LEVEL : String(value)}
+			options={[{ value: AUTO_LEVEL, label: autoLabel }, ...levels.map((level) => ({ value: String(level), label: formatLevel(level) }))]}
+			onChange={(next) => onChange(next === AUTO_LEVEL ? null : Number(next))}
+		/>
+	);
+};
+
+const AUTO_LEVEL = 'auto';
 
 /** The pitch of the earliest note, played when the Sound changes */
 function firstPitch(hits: readonly THit[]): number | undefined {
@@ -477,6 +495,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject; songId: string 
 							if (cx.execute([{ type: 'updateSong', songId: song.id, patch: { backingSound } }])) auditionNote(cx, BACKING_ID, firstPitch(backing), song.id);
 						}}
 					/>
+					<LevelField id="backing-level" value={song.backingLevel} autoLabel={autoLevelLabel(null, melodyMarbleId(project))} onChange={(backingLevel) => cx.execute([{ type: 'updateSong', songId: song.id, patch: { backingLevel } }])} />
 				</Panel>
 			) : null}
 		</>
@@ -503,6 +522,18 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 				<Panel id="scene.film" title="Film" accessory={<HelpTip text={`${THEME_HELP} Picking a theme keeps your changes on the layers. Packs… exports a look as a Pack. Format is the shape of the film: Portrait suits phones and Shorts; the camera frames the marbles for it.`} />}>
 					<ThemeRow cx={cx} project={project} />
 					<FormatField cx={cx} project={project} />
+					<TextField
+						id="film-start"
+						label="Starts"
+						name="Where the film starts on the timeline. Empty: just before the first sound"
+						value={project.film.start != null ? formatTime(project.film.start) : ''}
+						placeholder={`Auto · ${formatTime(filmStartOf({ ...project, film: { ...project.film, start: undefined } }))}`}
+						onCommit={(text) => {
+							const start = text.trim() === '' ? null : parseTime(text);
+							if (start == null && text.trim() !== '') return;
+							cx.execute([{ type: 'updateFilm', film: { start } }]);
+						}}
+					/>
 				</Panel>
 			) : (
 				<Panel id="scene.track" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>

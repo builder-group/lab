@@ -101,6 +101,7 @@ export class StudioCx {
 	readonly $showHitboxes = createState(false);
 	/** Dragging the playhead on the ruler plays the song where it is, like Logic's Scrub. Remembered on this Mac. */
 	readonly $audioScrubbing = createState(readText(AUDIO_SCRUBBING_KEY) !== 'off');
+	readonly $phoneSpeaker = createState(false);
 	readonly sources = new SourcesCx(this);
 	readonly hints = new HintsCx(this);
 	readonly simulation = new SimulationCx(this);
@@ -233,8 +234,18 @@ export class StudioCx {
 
 	/** Created on first use because WebKit only allows audio after a user gesture */
 	get audio(): TAudioEngine {
-		this.audioEngine ??= createAudioEngine();
+		if (this.audioEngine == null) {
+			this.audioEngine = createAudioEngine();
+			this.audioEngine.setPhoneSpeaker(this.$phoneSpeaker.get());
+		}
 		return this.audioEngine;
+	}
+
+	/** Phone Speaker: hear the song as a phone plays it. A preview only, never in the film or the project */
+	togglePhoneSpeaker(): void {
+		const isOn = !this.$phoneSpeaker.get();
+		this.$phoneSpeaker.set(isOn);
+		this.audioEngine?.setPhoneSpeaker(isOn);
 	}
 
 	resolveSourceUrl = (source: TSong): string | null => {
@@ -265,7 +276,7 @@ export class StudioCx {
 	beginAudioScrub(): void {
 		const project = this.project;
 		if (project == null || this.$playing.get() || !this.$audioScrubbing.get()) return;
-		this.audio.beginScrub(audibleProject(project, this.$mix.get()), this.resolveSourceUrl).catch((error: unknown) => {
+		this.audio.beginScrub(audibleProject(project, this.$mix.get()), this.resolveSourceUrl, project).catch((error: unknown) => {
 			this.notifyFailed('Playback stopped. Press Play to try again.', error);
 		});
 	}
