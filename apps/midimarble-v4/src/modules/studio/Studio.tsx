@@ -7,6 +7,7 @@ import { ConfirmAlert } from './ConfirmAlert';
 import { HintLayer } from './HintLayer';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
+import { LabelColorSuggestions } from './LabelColorInput';
 import { Notice } from './Notice';
 import { QuickHelp } from './QuickHelp';
 import { SaveChangesAlert } from './SaveChangesAlert';
@@ -31,6 +32,7 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 	return (
 		<div className="relative flex h-full flex-col">
 			<TitleBar cx={cx} />
+			<LabelColorSuggestions />
 			<div className="flex min-h-0 flex-1">
 				{panels.sidebar ? <Sidebar cx={cx} /> : null}
 				<div className="flex min-w-0 flex-1 flex-col">

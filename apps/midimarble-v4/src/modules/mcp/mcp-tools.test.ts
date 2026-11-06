@@ -372,15 +372,15 @@ describe('MCP tools', () => {
 		it('should clear a skin\'s field on a marble and a piece, and a start\'s velocity', async () => {
 			// Prepare
 			const { cx, marbleId, hitId } = studio();
-			const piece = { id: 'p', name: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 }, skin: { color: '#112233', assetId: 'platform:copper' } };
-			await execute(cx, { type: 'addPiece', piece }, { type: 'updateMarble', marbleId, patch: { skin: { color: '#112233' }, start: { velocity: { x: 0.1, y: 0 } } } });
+			const piece = { id: 'p', name: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 }, skin: { variant: 'a', assetId: 'platform:copper' } };
+			await execute(cx, { type: 'addPiece', piece }, { type: 'updateMarble', marbleId, patch: { skin: { variant: 'a' }, start: { velocity: { x: 0.1, y: 0 } } } });
 
 			// Act
-			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { skin: { color: null }, start: { velocity: null } } }, { type: 'updatePiece', pieceId: 'p', patch: { skin: { color: null } } });
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { skin: { variant: null }, start: { velocity: null } } }, { type: 'updatePiece', pieceId: 'p', patch: { skin: { variant: null } } });
 
 			// Assert
 			expect(reply.isError).toBe(false);
-			expect(marbleOf(cx).skin ?? {}).not.toHaveProperty('color');
+			expect(marbleOf(cx).skin ?? {}).not.toHaveProperty('variant');
 			expect(marbleOf(cx).start).not.toHaveProperty('velocity');
 			expect(cx.project?.track.pieces[0]?.skin).toEqual({ assetId: 'platform:copper' });
 		});
@@ -454,12 +454,12 @@ describe('MCP tools', () => {
 			const { cx } = studio();
 			const id = marbleOf(cx).id;
 			const radius = marbleOf(cx).radius;
-			const color = JSON.parse(textOf(await execute(cx, { type: 'updateMarble', marbleId: id, patch: { skin: { color: '#22ff66' } } }))) as { notices?: string[] };
-			expect(marbleOf(cx).skin?.color).toBe('#22ff66');
+			const color = JSON.parse(textOf(await execute(cx, { type: 'updateMarble', marbleId: id, patch: { labelColor: '#22ff66' } }))) as { notices?: string[] };
+			expect(marbleOf(cx).labelColor).toBe('#22ff66');
 			expect(marbleOf(cx).radius).toBe(radius);
 			expect(color.notices).toBeUndefined();
-			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; filmColor: string }[] };
-			expect(state.marbles[0]).toMatchObject({ radius, filmColor: '#22ff66' });
+			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { marbles: { radius: number; labelColor: string }[] };
+			expect(state.marbles[0]).toMatchObject({ radius, labelColor: '#22ff66' });
 			const bigger = JSON.parse(textOf(await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 0.0125 } }))) as { notices: string[] };
 			expect(bigger.notices[0]).toContain('radius changes the run');
 			expect((await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 1.2 } })).isError).toBe(true);

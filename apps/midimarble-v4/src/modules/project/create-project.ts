@@ -74,17 +74,6 @@ interface TCreateProjectOptions {
 
 export const marbleColors = ['#3478f6', '#ff9f0a', '#30d158', '#bf5af2', '#ff375f', '#64d2ff'];
 
-/**
- * The color a marble is in the film: its skin's own, otherwise the palette's by its place among the marbles. It never
- * reads the marble's `labelColor`, which is only for organizing.
- */
-export function marbleFilmColor(project: Pick<TProject, 'marbles'>, marbleId: string): string {
-	const own = project.marbles.find((marble) => marble.id === marbleId)?.skin?.color;
-	if (own != null) return own;
-	const index = Math.max(0, project.marbles.findIndex((marble) => marble.id === marbleId));
-	return marbleColors[index % marbleColors.length] ?? '#3478f6';
-}
-
 export function createMarble(index: number, position: { x: number; y: number }, id = createId('marble')): TMarble {
 	return {
 		id,

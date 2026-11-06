@@ -1,4 +1,4 @@
-import { marbleFilmColor, type TFilm, type TPiece, type TProject, type TThemeParts, tieOf } from '@/modules/project';
+import { type TFilm, type TPiece, type TProject, type TThemeParts, tieOf } from '@/modules/project';
 import { PLAIN_PIECE_COLOR } from './draft-look';
 import { pieceLabelColor } from './label-colors';
 import { baseThemeOf, defaultTitleColor, resolveElementLook, sceneThemeOverrides, sceneThemeParts } from './project-themes';
@@ -64,8 +64,7 @@ export function buildSceneDescription(
 			name: marble?.name ?? track.marbleId,
 			radius: track.radius,
 			pathDepth: pathDepth(result.pieces, track.radius),
-			// The skin None wears the label color, the only skin that does
-			color: resolveElementLook(project.film, 'marble', marble?.skin).skin === 'marble:none' ? (marble?.labelColor ?? marbleFilmColor(project, track.marbleId)) : marbleFilmColor(project, track.marbleId),
+			color: marble?.labelColor ?? DEFAULT_PIECE_COLOR,
 			...(marble?.skin != null ? { skin: marble.skin } : {}),
 			...(skinAssetPath(marble?.skin?.assetId) != null ? { assetPath: skinAssetPath(marble?.skin?.assetId) } : {}),
 			motionPath,
@@ -109,8 +108,7 @@ export function buildSceneDescription(
 			// The skin None wears the label color, the only skin that does
 			color:
 				piece != null && resolveElementLook(project.film, skinElement(item.type), piece.skin).skin.endsWith(':none') ? (pieceLabelColor(project, piece) ?? PLAIN_PIECE_COLOR)
-				: marbleId != null && project.marbles.some((marble) => marble.id === marbleId) ? marbleFilmColor(project, marbleId)
-				: DEFAULT_PIECE_COLOR,
+				: (project.marbles.find((marble) => marble.id === marbleId)?.labelColor ?? DEFAULT_PIECE_COLOR),
 			...notePitchOf(project, piece),
 			path: item.path?.map((point) => ({ x: point.x, y: point.y })) ?? null,
 			paths: item.paths?.map((wire) => wire.map((point) => ({ x: point.x, y: point.y }))) ?? null

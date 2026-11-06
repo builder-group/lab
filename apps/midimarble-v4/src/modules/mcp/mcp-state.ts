@@ -1,7 +1,7 @@
 import { PATTERN_KINDS, PATTERNS, problemSummary, type TExportPreflight } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TPiece, TProject } from '@/modules/project';
-import { DEFAULT_GRAVITY, shownSongs, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
+import { DEFAULT_GRAVITY, shownSongs, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { hasSong } from '@/modules/music';
 
@@ -72,7 +72,6 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				marbleId: marble.id,
 				name: marble.name,
 				labelColor: marble.labelColor,
-				filmColor: marbleFilmColor(project, marble.id),
 				radius: marble.radius,
 				skin: marble.skin?.assetId ?? resolveElementLook(film, 'marble', marble.skin).skin,
 				start: marble.start.position,
@@ -135,7 +134,7 @@ export function resolveSelection(project: TProject, result: TSimulationResult | 
 		if (marble != null) {
 			const { id: marbleId, radius } = marble;
 			const hits = result?.hits.filter((item) => item.marbleId === marbleId) ?? [];
-			return { kind: 'marble', key, id: marbleId, marbleId, name: marble.name, labelColor: marble.labelColor, filmColor: marbleFilmColor(project, marbleId), radius, hits: marble.hits.length, onTime: hits.filter((item) => item.status === 'onTime').length };
+			return { kind: 'marble', key, id: marbleId, marbleId, name: marble.name, labelColor: marble.labelColor, radius, hits: marble.hits.length, onTime: hits.filter((item) => item.status === 'onTime').length };
 		}
 		const title = project.film.titles.find((item) => item.id === key);
 		if (title != null) return { kind: 'title', key, id: title.id, text: title.text };

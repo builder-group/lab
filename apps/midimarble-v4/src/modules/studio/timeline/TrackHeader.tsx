@@ -2,7 +2,8 @@ import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findMarbleConflicts, marbleSounds } from '@/modules/music';
 import type { TMarble, TProject } from '@/modules/project';
-import { marbleLabelEntries, marbleMenu } from '../menus';
+import { LabelColorInput } from '../LabelColorInput';
+import { marbleMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
 import { MixToggles } from './MixToggles';
 import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
@@ -27,7 +28,9 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 			data-selected={isSelected}
 			onContextMenu={(event) => openContextMenu(event, marbleMenu(cx, marble))}
 		>
-			<button className="mm-track-chip cursor-pointer" style={{ background: marble.labelColor }} onClick={(event) => openContextMenu(event, marbleLabelEntries(cx, marble))} title="Color" aria-label={`Label Color of ${marble.name}`} type="button" />
+			<span className="mm-track-chip relative" style={{ background: marble.labelColor }}>
+				<LabelColorInput cx={cx} color={marble.labelColor} name={marble.name} commandsFor={(labelColor) => [{ type: 'updateMarble', marbleId: marble.id, patch: { labelColor } }]} />
+			</span>
 			<button
 				className="mm-track-title flex h-full min-w-0 flex-1 flex-col justify-center text-left leading-tight"
 				onClick={() => cx.$selection.set([marble.id])}

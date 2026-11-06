@@ -37,9 +37,6 @@
 				},
 				"time": 0.0559
 			},
-			"skin": {
-				"color": "#c8102e"
-			},
 			"hits": [
 				{
 					"id": "hit-1-1",
@@ -463,9 +460,6 @@
 					"y": 0.6
 				},
 				"time": 0.0559
-			},
-			"skin": {
-				"color": "#0c8a3a"
 			},
 			"hits": [
 				{
@@ -8061,7 +8055,7 @@
 					"skin": "rail:candy"
 				},
 				"marble": {
-					"skin": "marble:glass-green",
+					"skin": "marble:glass",
 					"colorSource": "marble"
 				}
 			},

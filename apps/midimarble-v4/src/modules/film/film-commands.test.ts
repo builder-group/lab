@@ -227,7 +227,6 @@ describe('a skin and the label color', () => {
 		const next = apply(project, builtInSkinCommands(project, target, 'marble:glass-green'));
 		const dressed = next.marbles.find((item) => item.id === marble?.id);
 		expect(dressed?.skin?.assetId).toBe('marble:glass-green');
-		expect(dressed?.skin?.color).toBe(marble?.skin?.color);
 		expect(next.marbles[0]?.labelColor).toBe(project.marbles[0]?.labelColor);
 	});
 });

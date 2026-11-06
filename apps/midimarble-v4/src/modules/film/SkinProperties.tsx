@@ -2,10 +2,10 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { Panel, ScrubField, SelectField } from '@/components';
 import type { TAssetProperty } from '@/modules/scene';
-import { marbleFilmColor, type TMarble, type TProject } from '@/modules/project';
+import type { TMarble, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { skinPropertyCommands, type TSkinPropertyPatch } from './film-commands';
-import { resolveElementLook, themeOriginLabel, catalogSkin, COLOR_SOURCE_LABELS, skinElementOf, ON_HIT_LABELS, sharedSkinProperties, type TSkinColorSource, type TSkinned } from '@/modules/scene';
+import { resolveElementLook, themeOriginLabel, catalogSkin, COLOR_SOURCE_LABELS, skinElementOf, ON_HIT_LABELS, sharedSkinProperties, type TSkinned } from '@/modules/scene';
 import { SkinPicker } from './SkinPickers';
 import { ColorWell } from './SceneLayerInspector';
 
@@ -49,9 +49,6 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; piece
 	// Showing the theme's skin, a value not set here comes from the theme: "From Brass"; on a skin of its own, it is that skin's
 	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.film);
 	// On a marble, Marble means a color of its own, set in the row below
-	const isMarbles = looks.length > 0 && looks.every(({ element }) => element === 'marble');
-	const colorSourceLabel = (colorSource: TSkinColorSource): string => (isMarbles && colorSource === 'marble' ? 'Custom' : COLOR_SOURCE_LABELS[colorSource]);
-	const hasOwnColor = isMarbles && looks.every(({ look }) => look.colorSource === 'marble');
 
 	return (
 		<>
@@ -60,21 +57,10 @@ export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; piece
 					id="skin-color"
 					label="Color"
 					value={valueOf('colorSource')}
-					options={options(valueOf('colorSource'), origin, shared.colorSources.map((colorSource) => ({ value: colorSource, label: colorSourceLabel(colorSource) })))}
+					options={options(valueOf('colorSource'), origin, shared.colorSources.map((colorSource) => ({ value: colorSource, label: COLOR_SOURCE_LABELS[colorSource] })))}
 					onChange={(value) => {
 						if (value !== MIXED) set({ colorSource: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colorSource']>) });
 					}}
-				/>
-			) : null}
-			{hasOwnColor ? (
-				<SkinColor
-					cx={cx}
-					id="skin-own-color"
-					label="Marble Color"
-					value={sameOf(pieces.map((piece) => piece.skin?.color))}
-					fallback={first != null && !('type' in first.piece) ? marbleFilmColor(project, first.piece.id) : '#ffffff'}
-					origin="Default"
-					patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { color })}
 				/>
 			) : null}
 			{shared.onHit.length > 0 ? (

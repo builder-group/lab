@@ -48,7 +48,7 @@ function skinValueCommand(piece: TSkinned, skin: TSkin): TProjectCommand {
 }
 
 /** The skin properties the inspector edits, with null removing an override so the theme's value shows again */
-export type TSkinPropertyPatch = { [K in 'colorSource' | 'color' | 'onHit' | 'glowColor' | 'variant']?: TSkin[K] | null } & { property?: { name: string; value: number | string | null } };
+export type TSkinPropertyPatch = { [K in 'colorSource' | 'onHit' | 'glowColor' | 'variant']?: TSkin[K] | null } & { property?: { name: string; value: number | string | null } };
 
 /**
  * Changes skin properties on the target pieces, as one edit.
@@ -76,15 +76,14 @@ export function resetToThemeCommands(project: TProject, skinnedIds: readonly str
 		.flatMap((piece): TProjectCommand[] => {
 			const skin = piece.skin;
 			if (skin == null) return [];
-			// A marble keeps its film color: it isn't the theme's to give back
-			return [skinCommand(piece, skin.color != null ? { color: skin.color } : null)];
+			return [skinCommand(piece, null)];
 		});
 }
 
 /** The pieces wearing something of their own over the theme */
 function handSkinnedIds(project: TProject): string[] {
 	return skinnedOf(project)
-		.filter((piece) => Object.keys(piece.skin ?? {}).some((name) => name !== 'color'))
+		.filter((piece) => Object.keys(piece.skin ?? {}).length > 0)
 		.map((piece) => piece.id);
 }
 

@@ -53,7 +53,7 @@ export function usedSkinIds(project: Pick<TProject, 'track' | 'marbles' | 'film'
 function themeSkinShown(film: Parameters<typeof appliedColors>[0], theme: TResolvedTheme, element: TSkinElement, piece: TSkinned | undefined): ReturnType<typeof catalogSkin> {
 	const part = theme.parts[element].skin;
 	if (part !== 'marble:contrast') return catalogSkin(part);
-	return catalogSkin(`marble:${draftMarble(theme.base, piece == null ? '#d0d4dc' : (piece.skin?.color ?? marbleColors[0] ?? '#d0d4dc'), appliedColors(film)).tone}`);
+	return catalogSkin(`marble:${draftMarble(theme.base, piece == null ? '#d0d4dc' : (piece.labelColor ?? marbleColors[0] ?? '#d0d4dc'), appliedColors(film)).tone}`);
 }
 
 /** A wall tile: `kind` null follows the theme. The walls have no rendered previews, so the tile draws its kind */

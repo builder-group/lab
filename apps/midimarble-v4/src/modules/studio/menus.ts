@@ -1,6 +1,6 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
-import { createId, marbleColors, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
+import { createId, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
 import { problemSummary } from '@/modules/building';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
@@ -37,39 +37,11 @@ export function problemMenu(cx: StudioCx): TMenuEntry[] {
 	]);
 }
 
-const LABEL_NAMES = ['Blue', 'Orange', 'Green', 'Purple', 'Pink', 'Cyan', 'Red'];
-/** What the list offers: every marble's color, and the red the examples' Melody wears, which new marbles don't start with */
-const LABEL_COLORS = [...marbleColors, '#c8102e'];
-
-/**
- * The choices of a layer's Label Color, opened from its icon or dot and from Label Color beside Rename: it organizes
- * Layers, the timeline and Track, like Blender's collection color tags and Logic's track colors; a film shows it only on the skin None.
- * `commandsFor(null)` takes the label away, where a layer can do without.
- */
-export function labelColorEntries(cx: StudioCx, current: string | undefined, commandsFor: (color: string | null) => TProjectCommand[], canClear = true): TMenuEntry[] {
-	return [
-		...(canClear ? [{ label: 'None', checked: current == null, onSelect: () => cx.execute(commandsFor(null)) }] : []),
-		...LABEL_COLORS.map((color, index) => ({ label: LABEL_NAMES[index] ?? color, swatch: color, checked: current === color, onSelect: () => cx.execute(commandsFor(color)) })),
-		// A color from a file or an agent, so the list always marks what the layer wears
-		...(current != null && !LABEL_COLORS.includes(current) ? [{ label: 'Current', swatch: current, checked: true, onSelect: () => undefined }] : [])
-	];
-}
-
-/** Label Color for a menu, beside Rename */
-export function labelColorItem(entries: TMenuEntry[]): TMenuEntry {
-	return { label: 'Label Color', onSelect: () => undefined, submenu: entries };
-}
-
-/** A marble always has a label color */
-export function marbleLabelEntries(cx: StudioCx, marble: TMarble): TMenuEntry[] {
-	return labelColorEntries(cx, marble.labelColor, (color) => (color != null ? [{ type: 'updateMarble', marbleId: marble.id, patch: { labelColor: color } }] : []), false);
-}
-
-/** The piece's or title's Label Color, and with it the rest of the selected pieces and titles when it is part of the selection, as one edit */
-export function layerLabelEntries(cx: StudioCx, piece: TPiece | TTitle): TMenuEntry[] {
+/** A piece's or title's color, and with it the rest of the selected pieces and titles when it is part of the selection, as one edit */
+export function layerLabelCommands(cx: StudioCx, layer: TPiece | TTitle, color: string | null): TProjectCommand[] {
 	const selection = cx.$selection.get();
-	const ids = selection.includes(piece.id) ? selection : [piece.id];
-	return labelColorEntries(cx, piece.labelColor, (color) => (cx.project != null ? labelColorCommands(cx.project, ids, color) : []));
+	const ids = selection.includes(layer.id) ? selection : [layer.id];
+	return cx.project != null ? labelColorCommands(cx.project, ids, color) : [];
 }
 
 function labelColorCommands(project: TProject, ids: readonly string[], color: string | null): TProjectCommand[] {
@@ -84,11 +56,16 @@ function labelColorCommands(project: TProject, ids: readonly string[], color: st
 	return [...commands, { type: 'updateFilm', film: { titles } }];
 }
 
-/** Label Color for the selected pieces' and titles' menu */
+/** The color is chosen on a layer's icon; its menu takes it away again */
+function clearLabelItem(cx: StudioCx, isSet: boolean, commands: () => TProjectCommand[]): TMenuEntry | null {
+	return isSet ? { label: 'Clear Label Color', onSelect: () => cx.execute(commands()) } : null;
+}
+
+/** Clear Label Color for the selected pieces' and titles' menu */
 function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	const selection = cx.$selection.get();
 	const first = cx.project?.track.pieces.find((piece) => selection.includes(piece.id)) ?? cx.project?.film.titles.find((title) => selection.includes(title.id));
-	return first != null ? labelColorItem(layerLabelEntries(cx, first)) : null;
+	return first != null ? clearLabelItem(cx, first.labelColor != null, () => layerLabelCommands(cx, first, null)) : null;
 }
 
 /** Right-click on a piece, on the canvas or in the sidebar */
@@ -130,29 +107,27 @@ function pieceLinkItems(cx: StudioCx): TMenuEntry[] {
 
 /** Right-click on a title, in Layers or Film's preview */
 export function titleMenu(cx: StudioCx, title: TTitle): TMenuEntry[] {
-	return [commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), labelColorItem(layerLabelEntries(cx, title)), 'separator', commandItem(cx, 'edit.delete')];
+	return tidyMenu([commandItem(cx, 'edit.copy'), commandItem(cx, 'edit.rename'), clearLabelItem(cx, title.labelColor != null, () => layerLabelCommands(cx, title, null)), 'separator', commandItem(cx, 'edit.delete')]);
 }
 
 /** The Label Color of the selected decorations */
-export function decorLabelEntries(cx: StudioCx, ids: readonly string[]): TMenuEntry[] {
-	const project = cx.project;
-	const current = project == null ? undefined : project.film.decor.find((item) => ids.includes(item.id))?.labelColor;
-	return labelColorEntries(cx, current, (color) => (project != null ? updateDecorCommands(project, ids, { labelColor: color ?? undefined }) : []));
+export function decorLabelCommands(cx: StudioCx, ids: readonly string[], color: string | null): TProjectCommand[] {
+	return cx.project != null ? updateDecorCommands(cx.project, ids, { labelColor: color ?? undefined }) : [];
 }
 
 /** Right-click on the selected decorations, in Layers or Film's preview */
 export function decorMenu(cx: StudioCx, overlaps: boolean): TMenuEntry[] {
 	const ids = selectedDecorIds(cx.$selection.get());
-	return [
+	return tidyMenu([
 		...(overlaps && ids.length === 1 ? [{ label: 'Move Clear', onSelect: () => moveDecorClearAction(cx, ids[0] as string) }, 'separator' as const] : []),
 		commandItem(cx, 'edit.copy'),
 		commandItem(cx, 'edit.duplicate'),
-		labelColorItem(decorLabelEntries(cx, ids)),
+		clearLabelItem(cx, cx.project?.film.decor.some((item) => ids.includes(item.id) && item.labelColor != null) === true, () => decorLabelCommands(cx, ids, null)),
 		'separator',
 		commandItem(cx, 'decor.scatter'),
 		'separator',
 		commandItem(cx, 'edit.delete')
-	];
+	]);
 }
 
 /** The menu of what a right-click found in Film's preview, which it has selected; null for empty space */
@@ -217,7 +192,6 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 				cx.renameSelection();
 			}
 		},
-		labelColorItem(marbleLabelEntries(cx, marble)),
 		cx.$workspace.get() === 'track' ? commandItem(cx, 'marble.add') : null,
 		{ label: 'Delete Marble', disabled: project.marbles.length <= 1, onSelect: () => deleteMarble(cx, marble) }
 	]);

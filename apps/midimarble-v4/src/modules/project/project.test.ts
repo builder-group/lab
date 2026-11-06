@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyProjectCommands, askedFilmLength, backingOf, type TProjectCommand } from './commands';
-import { createMarble, createProject, marbleFilmColor } from './create-project';
+import { createMarble, createProject } from './create-project';
 import { createHistory, pushHistory, redoHistory, undoHistory } from './history';
 import { parseProject, serializeProject } from './project-file';
 import { BACKING_ID, type TGroup, type TPiece, type TProject, type TSong, freePosition } from './schema';
@@ -195,7 +195,7 @@ describe('update commands', () => {
 	it('should merge the named fields and delete one with null', () => {
 		const marbleId = 'marble-1';
 		const project = apply(createProject({ id: 'p', title: 'T' }), [
-			{ type: 'addMarble', marble: { ...createMarble(1, { x: 0, y: 0 }, marbleId), skin: { color: '#112233' } } },
+			{ type: 'addMarble', marble: { ...createMarble(1, { x: 0, y: 0 }, marbleId), skin: { variant: 'a' } } },
 			{ type: 'addSong', song: { ...song('s'), tempo: { bpm: 120, beatsPerBar: 4 } } },
 			{ type: 'addPiece', piece: { ...piece('a'), labelColor: '#445566' } },
 			{ type: 'addGroup', group: { ...group('g', ['a']), marbleId } }
@@ -451,21 +451,3 @@ describe('older files', () => {
 	});
 });
 
-describe('label color and film color', () => {
-	it('should keep a marble\'s label color out of the film', () => {
-		const project = createProject({ id: 'p', title: 'T' });
-		const marble = project.marbles[0] as TProject['marbles'][number];
-		const film = marbleFilmColor(project, marble.id);
-		const [, , next] = applyProjectCommands(project, [{ type: 'addMarble', marble: { ...marble, labelColor: '#112233' } }]);
-		expect(next?.marbles[0]?.labelColor).toBe('#112233');
-		expect(marbleFilmColor(next as TProject, marble.id)).toBe(film);
-	});
-
-	it('should read a marble\'s film color from its skin', () => {
-		const project = createProject({ id: 'p', title: 'T' });
-		const marble = project.marbles[0] as TProject['marbles'][number];
-		const [, , next] = applyProjectCommands(project, [{ type: 'updateMarble', marbleId: marble.id, patch: { skin: { color: '#445566' } } }]);
-		expect(marbleFilmColor(next as TProject, marble.id)).toBe('#445566');
-		expect(next?.marbles[0]?.labelColor).toBe(marble.labelColor);
-	});
-});

@@ -98,7 +98,7 @@ const SPath = z.strictObject({
 
 /**
  * A skin's properties, the same names on every skin. Absent fields come from the theme (while the piece shows the
- * theme's skin), else from the skin. `colorSource`: `skin` its own, `marble` its marble's film color, `note` the note it plays. `onHit`
+ * theme's skin), else from the skin. `colorSource`: `skin` its own, `marble` its marble's color, `note` the note it plays. `onHit`
  * is the reaction, `glowColor` what a glow shines in, `variant` an id from the skin's variants.
  */
 const skinPropertyShape = {
@@ -116,11 +116,6 @@ const SSkin = z.strictObject({
 	// below
 	assetId: z.string().optional(),
 	...skinPropertyShape,
-	// A marble's own film color, what Color: Marble shows on it and on the pieces it plays. Never the marble's label color
-	color: z
-		.string()
-		.regex(/^#[0-9a-fA-F]{6}$/)
-		.optional(),
 	// Values of the extra properties a library skin's manifest declares, by their names
 	properties: z.record(z.string(), z.union([z.number(), z.string()])).optional()
 });
@@ -192,6 +187,7 @@ export const SMarble = z.strictObject({
 	id: SId,
 	name: z.string(),
 	// Organizes Layers and colors its pieces in Track; in the film only the skin None wears it
+	// Its one color: the icon, the timeline row, its run, and in the film what Color: Marble shows on it and on the pieces it plays
 	labelColor: z.string(),
 	// General MIDI program used for MIDI playback and the rendered soundtrack
 	sound: z.number().int().min(0).max(127),

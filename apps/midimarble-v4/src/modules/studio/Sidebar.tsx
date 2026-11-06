@@ -1,7 +1,7 @@
 import { useFeatureState } from 'feature-react/state';
 import { Anchor, AudioLines, Bookmark, Box, BrickWall, ChevronRight, Eye, EyeOff, Folder, Globe, Lightbulb, Lock, LockOpen, Music, Sparkles, Sun, TriangleAlert, Type, Video } from 'lucide-react';
 import React from 'react';
-import { HelpTip, openContextMenu, RenameField, type TMenuEntry } from '@/components';
+import { HelpTip, openContextMenu, RenameField } from '@/components';
 import { attachState, decorTips, pieceProblems, struckPieces, type TPreflightIssue, patternOfPiece } from '@/modules/building';
 import { PieceIcon, useRunPreflight } from '@/modules/canvas';
 import { badgeStatus, StatusIcon, type TBadgeStatus, groupSelection } from '@/modules/track';
@@ -11,7 +11,8 @@ import { isPatternGroup, type TPiece, type TProject, formatTime, SCENE_KEY, tieO
 import { soundsHit, type THitResult, type TResolvedPiece } from '@/modules/simulation';
 import { commandItem } from './commands';
 import { inspectorTarget } from './inspector-target';
-import { decorLabelEntries, decorMenu, layerLabelEntries, marbleLabelEntries, marbleMenu, pieceMenu, songMenu, titleMenu } from './menus';
+import { LabelColorInput } from './LabelColorInput';
+import { decorLabelCommands, decorMenu, layerLabelCommands, marbleMenu, pieceMenu, songMenu, titleMenu } from './menus';
 import { buildOutline, collapsedGroups, DECOR_KEY, groupsOfSelection, isFilmRow, isSelectableRow, type TOutlineRow } from './outline';
 import { AddLayerButton } from './add-layers';
 import type { StudioCx, TWorkspace } from './StudioCx';
@@ -353,7 +354,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 				if (canRename(row)) cx.$renaming.set(row.id);
 			}}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
-			onIconClick={row.kind === 'marble' || row.kind === 'title' || row.kind === 'decor' ? (event) => openContextMenu(event, rowLabelEntries(cx, row)) : undefined}
+			colorInput={rowColorInput(cx, row)}
 		/>
 	);
 });
@@ -444,24 +445,32 @@ const DecorRow = React.memo(function DecorRow(props: TRowProps & { cx: StudioCx;
 				if (canRename(row)) cx.$renaming.set(row.id);
 			}}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
-			onIconClick={row.kind === 'marble' || row.kind === 'title' || row.kind === 'decor' ? (event) => openContextMenu(event, rowLabelEntries(cx, row)) : undefined}
+			colorInput={rowColorInput(cx, row)}
 		/>
 	);
 });
 
-/** What clicking a row's icon or dot opens: its Label Color, on the layers that have one */
-function rowLabelEntries(cx: StudioCx, row: TOutlineRow): TMenuEntry[] {
+/** The color input over a row's icon or dot, on the layers that have a color */
+function rowColorInput(cx: StudioCx, row: TOutlineRow): React.ReactNode {
 	switch (row.kind) {
 		case 'marble':
-			return marbleLabelEntries(cx, row.marble);
+			return <LabelColorInput cx={cx} color={row.marble.labelColor} name={row.marble.name} commandsFor={(labelColor) => [{ type: 'updateMarble', marbleId: row.marble.id, patch: { labelColor } }]} />;
 		case 'title':
-			return layerLabelEntries(cx, row.title);
-		case 'decor': {
-			const selected = selectedDecorIds(cx.$selection.get());
-			return decorLabelEntries(cx, selected.includes(row.decor.id) ? selected : [row.decor.id]);
-		}
+			return <LabelColorInput cx={cx} color={row.title.labelColor} name={row.title.name ?? 'Title'} commandsFor={(color) => layerLabelCommands(cx, row.title, color)} />;
+		case 'decor':
+			return (
+				<LabelColorInput
+					cx={cx}
+					color={row.decor.labelColor}
+					name={row.decor.name ?? 'Decor'}
+					commandsFor={(color) => {
+						const selected = selectedDecorIds(cx.$selection.get());
+						return decorLabelCommands(cx, selected.includes(row.decor.id) ? selected : [row.decor.id], color);
+					}}
+				/>
+			);
 		default:
-			return [];
+			return null;
 	}
 }
 
@@ -534,7 +543,7 @@ const PieceRow = React.memo(function PieceRow(
 			onClick={(event) => actions.onClick(row, event)}
 			onDoubleClick={() => cx.$renaming.set(piece.id)}
 			onContextMenu={(event) => actions.onContextMenu(row, event)}
-			onIconClick={(event) => openContextMenu(event, layerLabelEntries(cx, piece))}
+			colorInput={<LabelColorInput cx={cx} color={piece.labelColor} name={name} commandsFor={(color) => layerLabelCommands(cx, piece, color)} />}
 		/>
 	);
 });
@@ -586,7 +595,7 @@ function useAgentTouchedRows(cx: StudioCx, treeRef: React.RefObject<HTMLDivEleme
 }
 
 const LayerRow: React.FC<TLayerRowProps> = (props) => {
-	const { id, depth, isSelected, isInSelection = false, joinsTop, joinsBottom, isDimmed = false, isOpen, onToggle, icon, onIconClick, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
+	const { id, depth, isSelected, isInSelection = false, joinsTop, joinsBottom, isDimmed = false, isOpen, onToggle, icon, colorInput, label, title, isRenaming, onRename, meta, actions, onClick, onDoubleClick, onContextMenu } = props;
 	return (
 		<div
 			role="treeitem"
@@ -624,21 +633,9 @@ const LayerRow: React.FC<TLayerRowProps> = (props) => {
 			) : (
 				<span className="mm-layer-disclosure" />
 			)}
-			<span
-				className="mm-layer-icon"
-				data-colorable={onIconClick != null}
-				title={onIconClick != null ? 'Color' : undefined}
-				onClick={
-					onIconClick != null
-						? (event) => {
-								event.stopPropagation();
-								onIconClick(event);
-							}
-						: undefined
-				}
-				onDoubleClick={onIconClick != null ? (event) => event.stopPropagation() : undefined}
-			>
+			<span className="mm-layer-icon" data-colorable={colorInput != null}>
 				{icon}
+				{colorInput}
 			</span>
 			{isRenaming ? <RenameField value={label} onDone={onRename} /> : <span className="mm-layer-name">{label}</span>}
 			{meta != null ? <span className="mm-layer-meta">{meta}</span> : null}
@@ -673,7 +670,8 @@ interface TLayerRowProps {
 	onDoubleClick: () => void;
 	onContextMenu: (event: React.MouseEvent) => void;
 	/** Clicking the icon or dot opens the layer's Label Color */
-	onIconClick?: ((event: React.MouseEvent) => void) | undefined;
+	/** The system color picker over the icon, on a layer that has a color */
+	colorInput?: React.ReactNode;
 }
 
 /** Compact time such as `0:03.2` for a row's secondary column */

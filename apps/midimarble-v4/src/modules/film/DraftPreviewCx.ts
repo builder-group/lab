@@ -3,7 +3,7 @@ import type { TSceneDescription, TScenePiece } from '@/modules/scene';
 import { createCameraPose, sampleCameraTrack, verticalFov, type TCameraPose, FilmCameraCache, type TFilmCamera } from '@/modules/camera';
 import { TrackRenderer, MARBLE_Z, type TRenderPiece, pickPiece, pieceScreenOutline, hitboxOutlines } from '@/modules/canvas';
 import { isPointInPolygon, marblePositionAt, pieceAngleAt, blenderObjectBox, decorBox, decorList, madeInBlenderLayer, decorExtent, decorItem, isFrameEffect, type TDecorItem, snowfallOf, snowFlakes, type TFlake, distanceToBox, type TWallBox, appliedColors, DEFAULT_THEME, defaultTitleColor, resolveElementLook, resolveTheme, wallKindOverride, draftGlows, draftMarble, draftPieceColors, draftSkinMarks, draftWall, previewScreenTitleLayout, titleOpacity, type TDraftColors, type TDraftMarble, type TScreenTitleLayout, pieceOutline, pieceKind } from '@/modules/scene';
-import { marbleFilmColor, type TVec2, toDecorKey, toMadeInBlenderKey, WALL_KEY, type TProject } from '@/modules/project';
+import { type TVec2, toDecorKey, toMadeInBlenderKey, WALL_KEY, type TProject } from '@/modules/project';
 import { shownDepth, type TResolvedPiece } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { imageToWall } from './image-to-wall';
@@ -318,9 +318,9 @@ export class DraftPreviewCx {
 			const motion = result?.marbles.find((item) => item.marbleId === marble.id);
 			const position = marblePositionAt(motion, playhead, marble.start.position);
 			const look = resolveElementLook(project.film, 'marble', marble.skin);
-			const draft = draftMarble(theme.base, look.skin === 'marble:none' ? marble.labelColor : marbleFilmColor(project, marble.id), appliedColors(project.film), look);
-			// Draft isn't the film: a marble no skin dresses shows its label color, so it reads as the same marble as in Track
-			const label = look.skin === 'marble:contrast' && marble.skin?.color == null ? marble.labelColor : undefined;
+			const draft = draftMarble(theme.base, marble.labelColor, appliedColors(project.film), look);
+			// Draft isn't the film: a marble no skin dresses shows its color, so it reads as the same marble as in Track
+			const label = look.skin === 'marble:contrast' ? marble.labelColor : undefined;
 			return [
 				{
 					marbleId: marble.id,
