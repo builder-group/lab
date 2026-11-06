@@ -271,6 +271,25 @@ export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' |
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 
+/**
+ * What knocked a marble off its run on the way to its hit at `time`, in words: "Melody hits Platform 132 at 0:03.30". A
+ * piece tied to nothing is no problem of its own, since marbles may strike it, so a hit it breaks has to name it. Before
+ * a marble's first hit it may be riding its start rail, so that has no such cause.
+ */
+export function strayCause(project: TProject, result: TSimulationResult, marbleId: string, time: number): string | null {
+	const before = result.hits.filter((hit) => hit.marbleId === marbleId && hit.targetTime < time - 1e-6).map((hit) => hit.targetTime);
+	if (!before.length) return null;
+	const since = Math.max(...before);
+	const contact = result.contacts.find((item) => {
+		if (item.kind !== 'piece' || item.marbleId !== marbleId || item.time < since || item.time > time) return false;
+		const piece = project.track.pieces.find((other) => other.id === item.otherId);
+		return piece != null && tieOf(piece) == null;
+	});
+	if (contact == null) return null;
+	const names = createNames(project);
+	return `${names.marble(marbleId)} hits ${names.piece(contact.otherId)} at ${formatTime(contact.time)}`;
+}
+
 
 // MARK: - Hits
 
@@ -280,6 +299,11 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 	const open: THitResult[] = [];
 
 	const numbers = new Map(project.marbles.flatMap((marble) => marble.hits.map((hit, index) => [toHitKey(marble.id, hit.id), index + 1] as const)));
+	// A hit's reason starts with the piece tied to nothing that knocked the marble off on the way to it
+	const because = (hit: THitResult, detail: string): string => {
+		const cause = strayCause(project, result, hit.marbleId, hit.targetTime);
+		return cause != null ? `${cause}. ${detail}` : detail;
+	};
 	for (const hit of result.hits) {
 		const marble = names.marble(hit.marbleId);
 		const key = toHitKey(hit.marbleId, hit.hitId);
@@ -296,13 +320,13 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 				severity: 'warning',
 				marbleId: hit.marbleId,
 				title: is('Blocked'),
-				detail: `${marble} already passes through this spot earlier in its run, so the platform is left out.`,
+				detail: because(hit, `${marble} already passes through this spot earlier in its run, so the platform is left out.`),
 				time: hit.targetTime,
 				target
 			});
 		} else if (hit.status === 'missed') {
 			const label = hit.reason === 'resting' && piece?.status !== 'unreached' ? 'Stopped' : 'Missed';
-			issues.push({ id, kind: 'hit', severity: 'warning', marbleId: hit.marbleId, title: is(label), detail: missDetail(hit, piece?.status), time: hit.targetTime, target });
+			issues.push({ id, kind: 'hit', severity: 'warning', marbleId: hit.marbleId, title: is(label), detail: because(hit, missDetail(hit, piece?.status)), time: hit.targetTime, target });
 		} else if (hit.status === 'drifting') {
 			const ms = Math.round((hit.error ?? 0) * 1000);
 			issues.push({

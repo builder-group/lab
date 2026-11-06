@@ -3,7 +3,7 @@ import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { attentionOf, checkRun, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, selectedPieceIds } from './step-loop';
@@ -677,7 +677,9 @@ export class AssistCx {
 		}
 		// Counts every hit the edit broke, the edited one included, so "later" would miscount
 		const words = broken.length === 1 ? '1 hit is' : `${broken.length} hits are`;
-		this.studio.notifyEdit(`${words} now Blocked, Missed or Stopped`, [action], { isUndoFirst: true });
+		const first = [...broken].sort((a, b) => a.targetTime - b.targetTime)[0];
+		const cause = first != null ? strayCause(project, result, first.marbleId, first.targetTime) : null;
+		this.studio.notifyEdit(`${cause != null ? `${cause}: ` : ''}${words} now Blocked, Missed or Stopped`, [action], { isUndoFirst: true });
 	}
 
 	private rememberGood(project: TProject, result: TSimulationResult): void {

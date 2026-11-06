@@ -1,5 +1,5 @@
 import { createComputed, createState } from 'feature-state';
-import { checkRun, pendingPreflight, type TExportPreflight } from '@/modules/building';
+import { checkRun, pendingPreflight, strayCause, type TExportPreflight } from '@/modules/building';
 import { type TPiece, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
 import { createSimulationClient, isSameRunInput, isSuperseded, marbleEdits, type TRunInput, type TSettleAnswer, type TSimulationClient, type TSimulationResult } from '@/modules/simulation';
 import { onNextFrame } from './next-frame';
@@ -304,7 +304,9 @@ export class SimulationCx {
 		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
 		const waiting = project.track.pieces.filter((piece) => tieOf(piece)?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === tieOf(piece)?.hitId)?.time ?? -1) > first.time).length;
 		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
-		this.studio.notifyEdit(`${marble?.name ?? 'The marble'} misses Hit ${number}. ${later}`, [], { isUndoFirst: true });
+		const cause = strayCause(project, result, first.marbleId, first.time);
+		const missed = cause != null ? `${cause} and misses Hit ${number}.` : `${marble?.name ?? 'The marble'} misses Hit ${number}.`;
+		this.studio.notifyEdit(`${missed} ${later}`, [], { isUndoFirst: true });
 	}
 
 	private schedule(): void {

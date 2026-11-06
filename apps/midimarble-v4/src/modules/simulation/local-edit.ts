@@ -35,6 +35,8 @@ export interface TMarbleEdit {
 	afterIndex: number;
 	/** The dragged platform's new dot: the platform before it aims there */
 	movedDot?: { hitId: string; dot: TVec2 } | null;
+	/** The edit is to something else on the wall, so this marble's rides only have to hold: a drag doesn't need to look past it */
+	isElsewhere?: boolean;
 }
 
 export interface TSettled {
@@ -445,6 +447,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 				absorbedBy.push(step.entityId);
 			}
 		}
+		if (edits.every((edit) => edit.isElsewhere === true)) return { project, absorbedBy, broken: [], strays: 0, result: base, runs, heldFrom: [], moveMiss: null };
 		// A look just past the change, so a drag too shows a break as one hit and no heap
 		const lastStep = Math.max(...edits.map((edit) => after.marbles.find((marble) => marble.id === edit.marbleId)?.hits[Math.min(edit.afterIndex + 3, (after.marbles.find((marble) => marble.id === edit.marbleId)?.hits.length ?? 1) - 1)]?.time ?? 0));
 		const end = Math.min(after.length, lastStep + QUICK_LOOK);
@@ -565,6 +568,7 @@ export function marbleEdits(before: TProject, after: TProject): TMarbleEdit[] {
 		}
 		if (last > -2 && marble.hits.slice(last + 1).some((hit) => linkedPlatform(after, marble.id, hit.id) != null)) edits.push({ marbleId: marble.id, afterIndex: last });
 		else if (hasOtherChange(before, after, marble.id)) edits.push({ marbleId: marble.id, afterIndex: marble.hits.length });
+		else if (isElsewhereChange(before, after, marble.id)) edits.push({ marbleId: marble.id, afterIndex: marble.hits.length, isElsewhere: true });
 	}
 	return edits;
 }
@@ -610,6 +614,32 @@ function hasOtherChange(before: TProject, after: TProject, marbleId: string): bo
 		};
 		return shapeOf(piece) !== shapeOf(old);
 	});
+}
+
+/**
+ * Whether an edit elsewhere on the wall can reach this marble's rails: a piece tied to nothing added, moved or taken away,
+ * or another marble's piece while this marble's rails aren't kept yet. A collider entering a marble's world, however far
+ * from it, changes the order Rapier solves the marble's contacts in, so a ride comes out about 1 mm/s different and the
+ * bounces after it grow that into broken hits seconds later. Kept rides come out the same, so such a piece changes nothing.
+ */
+function isElsewhereChange(before: TProject, after: TProject, marbleId: string): boolean {
+	const own = after.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId);
+	if (!own.length) return false;
+	const elsewhere = (project: TProject): TPiece[] => project.track.pieces.filter((piece) => tieOf(piece)?.marbleId !== marbleId);
+	const was = new Map(elsewhere(before).map((piece) => [piece.id, piece]));
+	const now = elsewhere(after);
+	const isChanged = (piece: TPiece, old: TPiece | undefined): boolean => old == null || wallShapeOf(piece) !== wallShapeOf(old);
+	const hasFreeChange = (piece: TPiece): boolean => tieOf(piece) == null && isChanged(piece, was.get(piece.id));
+	const gone = (piece: TPiece): boolean => !now.some((item) => item.id === piece.id);
+	if (now.some(hasFreeChange) || elsewhere(before).some((piece) => tieOf(piece) == null && gone(piece))) return true;
+	const hasOpenRide = own.some((piece) => hasRide(piece.type) && !soundsHit(piece.type, tieOf(piece)) && piece.ride?.key !== rideKey(piece));
+	return hasOpenRide && (now.some((piece) => isChanged(piece, was.get(piece.id))) || elsewhere(before).some(gone));
+}
+
+/** What a piece puts on the wall, whatever marble it's tied to */
+function wallShapeOf(piece: TPiece): string {
+	const { held: _held, leaves: _leaves, ...place } = { held: null, leaves: null, ...piece.place };
+	return JSON.stringify([piece.type, piece.layout, piece.params, piece.path, piece.angle, place]);
 }
 
 /** The pieces of `project` that differ from `from`, new ones too, in project order */
