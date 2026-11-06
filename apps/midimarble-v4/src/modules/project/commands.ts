@@ -154,6 +154,20 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 	}
 }
 
+const MIN_FILM_LENGTH = 0.5;
+// An hour, far past any short: much longer and one run of the song outgrows the memory
+const MAX_FILM_LENGTH = 3600;
+
+/** The longest a person or an agent can ask a film to be. A longer song brought it past the limit, and it may stay there */
+export function longestFilmLength(length: number): number {
+	return Math.max(MAX_FILM_LENGTH, length);
+}
+
+/** The length a film gets when typed or dragged to `asked` */
+export function askedFilmLength(asked: number, length: number): number {
+	return Math.min(longestFilmLength(length), Math.max(MIN_FILM_LENGTH, asked));
+}
+
 // Hit times are kept to a millionth of a second, so a song moved back and forth comes back to where it was
 const TIMES_PER_SECOND = 1e6;
 const TIME_EPSILON = 1 / TIMES_PER_SECOND;

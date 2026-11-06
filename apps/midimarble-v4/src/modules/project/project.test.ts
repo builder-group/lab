@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyProjectCommands, backingOf, type TProjectCommand } from './commands';
+import { applyProjectCommands, askedFilmLength, backingOf, type TProjectCommand } from './commands';
 import { createMarble, createProject, marbleFilmColor } from './create-project';
 import { createHistory, pushHistory, redoHistory, undoHistory } from './history';
 import { parseProject, serializeProject } from './project-file';
@@ -175,6 +175,19 @@ describe('commands', () => {
 		// Assert
 		expect(edited.track.pieces.map((item) => item.id)).toEqual(['c', 'd']);
 		expect(edited.track.groups).toEqual([group('mixed', ['d'])]);
+	});
+});
+
+describe('askedFilmLength function', () => {
+	it('should keep a length between half a second and an hour', () => {
+		expect(askedFilmLength(120, 32)).toBe(120);
+		expect(askedFilmLength(1e9, 32)).toBe(3600);
+		expect(askedFilmLength(0.1, 32)).toBe(0.5);
+	});
+
+	it('should keep what a long song set, and let it shorten', () => {
+		expect(askedFilmLength(1e9, 7200)).toBe(7200);
+		expect(askedFilmLength(7000, 7200)).toBe(7000);
 	});
 });
 

@@ -6,7 +6,7 @@ import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinC
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
-import { applyProjectCommands, BACKING_ID, backingOf, patched, PROJECT_COMMAND_EXAMPLES, SProjectCommand, type THit, type TMarble, type TPackOrigin, type TPackTheme, type TPiece, type TProject, type TProjectCommand, type TSkin, type TTitle, tieOf, toHitKey } from '@/modules/project';
+import { applyProjectCommands, BACKING_ID, backingOf, longestFilmLength, patched, PROJECT_COMMAND_EXAMPLES, SProjectCommand, type THit, type TMarble, type TPackOrigin, type TPackTheme, type TPiece, type TProject, type TProjectCommand, type TSkin, type TTitle, tieOf, toHitKey } from '@/modules/project';
 import { getPieceDefinition, PIECE_TYPES, RAIL_LAYOUTS, railLayoutInfo, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
@@ -215,8 +215,6 @@ function livePatternProblem(project: TProject, pieceId: string, next: TPiece | n
 
 const NOTHING_THERE = 'get_state lists them: marbles[].marbleId, layers.pieces[].id, layers.titles[].id.';
 const NO_SUCH_HIT = 'get_state.marbles[].hitList lists them.';
-// An hour, far past any short: much longer and one run of the song outgrows the worker's memory
-const MAX_FILM_LENGTH = 3600;
 
 /** Why a piece can't stand: a type there is no such thing as, or a tie to a marble or hit that isn't there */
 function pieceReferenceProblem(project: TProject, piece: Pick<TPiece, 'type' | 'place'>): string | null {
@@ -276,7 +274,8 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		}
 		case 'updateProject': {
 			const { length } = command.patch;
-			return length != null && length > MAX_FILM_LENGTH ? `A film's length is in seconds, up to ${MAX_FILM_LENGTH}; ${length} is past that.` : null;
+			const longest = longestFilmLength(project.length);
+			return length != null && length > longest ? `A film's length is in seconds, up to ${longest}; ${length} is past that.` : null;
 		}
 		case 'flattenPattern':
 			return project.track.groups.some((group) => group.id === command.groupId) === true ? null : `There is no Group ${command.groupId}. get_state lists them.`;

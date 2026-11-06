@@ -5,7 +5,7 @@ import { problemSummary } from '@/modules/building';
 import type { TProject } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { getCommand, type TCommandId } from '../commands';
-import { formatTime, parseTime } from '@/modules/project';
+import { askedFilmLength, formatTime, parseTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
 
@@ -161,7 +161,10 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 			return;
 		}
 		if (draft.field === 'playhead') cx.seek(Math.min(end, time));
-		else if (Math.abs(time - end) > 1e-6) cx.execute([{ type: 'updateProject', patch: { length: Math.max(MIN_FILM_LENGTH, time) } }]);
+		else {
+			const length = askedFilmLength(time, end);
+			if (Math.abs(length - end) > 1e-6) cx.execute([{ type: 'updateProject', patch: { length } }]);
+		}
 		setDraft(null);
 	}
 
@@ -213,8 +216,6 @@ const TimeReadout: React.FC<{ cx: StudioCx }> = (props) => {
 		</div>
 	);
 };
-
-const MIN_FILM_LENGTH = 0.5;
 
 /** Final Cut's timeline zoom: a slider between − and + glyphs, then Zoom to Fit */
 const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZoomToFit: () => void }> = (props) => {

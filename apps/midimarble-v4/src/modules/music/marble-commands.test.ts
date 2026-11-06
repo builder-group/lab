@@ -8,6 +8,14 @@ function note(time: number, pitch: number): TMidiNote {
 }
 
 describe('createImportCommands', () => {
+	it('should fit the film to a song longer than a person can type', () => {
+		const project = createProject({ id: 'long', title: 'Long' });
+		const commands = createImportCommands(project, { marbles: [[note(2 * 3600, 60)]] });
+		const [isOk, , imported] = applyProjectCommands(project, commands);
+		expect(isOk).toBe(true);
+		expect(imported?.length).toBeGreaterThan(2 * 3600);
+	});
+
 	it('releases each marble a short lead before its first note', () => {
 		const project = createProject({ id: 'import', title: 'Import' });
 		const commands = createImportCommands(project, { marbles: [[note(2, 60), note(2.5, 62)], [note(0.1, 48)]] });

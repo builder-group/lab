@@ -567,6 +567,22 @@ describe('MCP tools', () => {
 			}
 		});
 
+		it('should let an agent keep a length past the limit that a long song set, but go no further', async () => {
+			// Prepare
+			const { cx } = studio();
+			const longSong = 2 * 3600;
+			cx.execute([{ type: 'updateProject', patch: { length: longSong } }]);
+
+			// Act
+			const same = await execute(cx, { type: 'updateProject', patch: { length: longSong, title: 'Long' } });
+			const further = await execute(cx, { type: 'updateProject', patch: { length: longSong + 1 } });
+
+			// Assert
+			expect(same.isError).toBe(false);
+			expect(further.isError).toBe(true);
+			expect(cx.project?.length).toBe(longSong);
+		});
+
 		it('should still let an agent skin a piece tied to a hit that is gone', async () => {
 			// Prepare
 			const { cx, marbleId } = studio();
