@@ -3,7 +3,7 @@ import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { checkRun, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { attentionOf, checkRun, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, selectedPieceIds } from './step-loop';
@@ -549,7 +549,7 @@ export class AssistCx {
 				commit: (commands, isFirst, hit) => {
 					// Another edit since the last step stops the build rather than folding into it
 					if (this.studio.project !== expected) return false;
-					if (!this.studio.execute(commands, { amend: !isFirst, label: 'Build Track' })) return false;
+					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Track' })) return false;
 					expected = this.studio.project ?? expected;
 					if (hit != null && !this.studio.$playing.get()) {
 						this.studio.$playhead.set(hit.targetTime);
@@ -576,23 +576,29 @@ export class AssistCx {
 		if (this.studio.project === expected) {
 			const runs = builtRunCommands(project, this.studio.project, outcome.result.hits);
 			if (runs.length > 0) this.studio.execute(runs, { amend: true });
+			expected = this.studio.project ?? expected;
 		}
-		const present = this.studio.project;
-		const revision = present?.revision ?? outcome.project.revision;
-		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
-		this.lastFixRevision = revision;
-		const summary = problemSummary(checkRun(present ?? outcome.project, outcome.result, this.studio.film.$blenderObjects.get()));
+		// The build's last run is about the project it built, so what an edit since then broke still offers Fix
+		this.baseline = { projectId: project.id, revision: expected.revision, hits: outcome.result.hits };
+		this.lastFixRevision = expected.revision;
+		// An edit stopped it, so its last run isn't this project's: the report reads the run as it stands now
+		const standing = this.studio.project === expected ? null : await this.runAsItStands(deps);
+		if (this.studio.project?.id !== project.id) return null;
+		const present = standing?.project ?? this.studio.project;
+		const shownResult = standing?.result ?? outcome.result;
+		const summary = problemSummary(checkRun(present ?? outcome.project, shownResult, this.studio.film.$blenderObjects.get()));
 		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
 		await this.studio.lengthenForCatch();
 		if (this.studio.project?.id !== project.id) return null;
-		const built = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
+		const reported = standing != null ? { ...outcome, isStopped: true, attention: attentionOf(standing.project, standing.result) } : outcome;
+		const built = buildReport(project, reported, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
 		const end = this.studio.project?.length ?? project.length;
 		const report = end !== project.length ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {
-			const broken = brokenHits(outcome.result.hits).length;
+			const broken = brokenHits(shownResult.hits).length;
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [this.fixAction()] : [], { details: report.details });
 		} else this.studio.notify(report.message);
 		// A person's build ends with its result in view and the song from the top; a rebuild keeps the zoom, back at the
@@ -608,6 +614,13 @@ export class AssistCx {
 			}
 		}
 		return outcome;
+	}
+
+	/** The project once what's settling has landed, with its own run */
+	private async runAsItStands(deps: TBuildTrackDeps): Promise<{ project: TProject; result: TSimulationResult } | null> {
+		await this.studio.simulation.whenSettled();
+		const project = this.studio.project;
+		return project != null ? { project, result: await deps.simulate(project) } : null;
 	}
 
 	/** The hit Rebuild From Here starts at: the selected hit, or the one the selected piece belongs to */
@@ -745,7 +758,7 @@ export class AssistCx {
 			if (this.studio.project !== project) return;
 			const { rebuildFrom } = fix;
 			if (fix.commands != null) {
-				if (this.studio.execute(fix.commands)) this.studio.notifyEdit(fix.message);
+				if (this.studio.simulation.landWorkedOut(fix.commands, {})) this.studio.notifyEdit(fix.message);
 			} else if (rebuildFrom != null) {
 				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
 			} else this.studio.notify(fix.message);
@@ -821,7 +834,7 @@ export class AssistCx {
 			return;
 		}
 		const added = addedProblems(project, result, outcome.project, outcome.result, this.studio.film.$blenderObjects.get());
-		if (!this.studio.execute(commands)) return;
+		if (!this.studio.simulation.landWorkedOut(commands, {})) return;
 		const revision = this.studio.project?.revision ?? outcome.result.revision;
 		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
 		this.lastFixRevision = revision;

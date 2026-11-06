@@ -181,7 +181,7 @@ export class SimulationCx {
 	private settleLatestEdit(history: TProjectHistory): void {
 		if (this.isLanding) return;
 		const known = this.settled;
-		if (known == null || this.client == null || known.present.id !== history.present.id || history.isStep === true || this.studio.assist.isBuilding || this.studio.assist.isFixing === true) {
+		if (known == null || this.client == null || known.present.id !== history.present.id || history.isStep === true) {
 			this.settleRun++;
 			this.settled = history;
 			this.stopSettling();

@@ -220,6 +220,34 @@ describe('SimulationCx class', () => {
 			expect(asked).toHaveLength(1);
 		});
 
+		it('should settle a person\'s edit made while Build Track or Fix runs', async () => {
+			for (const running of ['isBuilding', 'isFixing']) {
+				// Prepare
+				const { cx, studio, asked, execute, flush } = await setup();
+				(studio.assist as unknown as Record<string, boolean>)[running] = true;
+
+				// Act
+				execute(moveHit(studio.project as TProject, 0.06));
+				await flush();
+
+				// Assert
+				expect(asked).toHaveLength(1);
+				expect(onTime(cx)).toBe(cx.$result.get()?.hits.length);
+			}
+		});
+
+		it('should not settle what lands already worked out, as Build Track and Fix do', async () => {
+			// Prepare
+			const { cx, studio, asked, flush } = await setup();
+
+			// Act
+			cx.landWorkedOut(moveHit(studio.project as TProject, 0.06), { amend: false });
+			await flush();
+
+			// Assert
+			expect(asked).toHaveLength(0);
+		});
+
 		it('should leave a redo alone and settle an edit made after an undo', async () => {
 			// Prepare
 			const { studio, asked, execute, flush } = await setup();
