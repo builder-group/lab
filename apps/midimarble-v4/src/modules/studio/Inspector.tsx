@@ -450,7 +450,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject; songId: string 
 						</span>
 					</ReadoutField>
 				) : null}
-				<ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="s" step={0.01} precision={2} onCommit={(value) => cx.sources.moveSong(song.id, value)} />
+				<ScrubField id="song-start" label="Start" name="Start" span={2} value={song.start} unit="" step={0.01} format={formatTime} parse={parseTime} onCommit={(value) => cx.sources.moveSong(song.id, value)} />
 				{tempo != null ? (
 					<>
 						<ReadoutField label="Tempo" name="Tempo">

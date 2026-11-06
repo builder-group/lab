@@ -102,8 +102,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 					value={settings.preset}
 					options={renderPresets.map((item) => ({ value: item.id, label: renderPresetOption(item) }))}
 					onChange={(value) => {
-						cx.filmExport.updateSettings({ preset: value as TRenderPreset });
-						// The project remembers the last choice, so the sheet opens on it next time
+						cx.filmExport.chooseQuality(value as TRenderPreset);
 						cx.execute([{ type: 'updateFilm', film: { quality: value as TRenderPreset } }]);
 					}}
 				/>

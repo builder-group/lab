@@ -34,9 +34,10 @@ export function libraryDecorSource(cx: StudioCx, asset: { id: string; scope: str
 }
 
 /** Places a library item at the playhead, copying a Pack's item into the project first */
-export async function placeLibraryDecor(cx: StudioCx, item: TLibraryItem, label: string): Promise<boolean> {
+/** Insert's tile: the item waits for a click on the wall, as Track's tiles do */
+export async function armLibraryDecor(cx: StudioCx, item: TLibraryItem, label: string): Promise<void> {
 	const id = await cx.library.inProject(item);
-	return id != null && placeDecor(cx, assetDecorSource(id, label, item.manifest?.fittedParams));
+	if (id != null) cx.film.$placing.set(assetDecorSource(id, label, item.manifest?.fittedParams));
 }
 
 /** Move Clear for a decoration, or a notice when no spot near it is free */

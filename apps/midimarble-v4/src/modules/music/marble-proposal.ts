@@ -41,6 +41,11 @@ export function proposeMarbles(notes: TMidiNote[], options: TProposeMarblesOptio
 	return { marbles, backing };
 }
 
+/** Whether how chords spread is a question for these tracks: one of them plays chords, or there are more than marbles */
+export function asksAboutChords(tracks: readonly { notes: readonly TMidiNote[] }[], maxMarbles = 4): boolean {
+	return tracks.length > maxMarbles || tracks.some((track) => groupChords([...track.notes]).some((chord) => chord.length > 1));
+}
+
 /**
  * Names the proposed marbles after the MIDI tracks most of their notes come from: "Melody", "Bass". Null where a track
  * has no name in the file or two marbles would share it, which keeps "Marble 1".

@@ -7,7 +7,7 @@ import type { THitResult } from '@/modules/simulation';
 import { addHit } from '../menus';
 import { TITLES_KEY } from '../outline';
 import { CAMERA_KEY, parseHitKey, parseShotKey, shownSongs, type TSong, toHitKey } from '@/modules/project';
-import { SONG_LAYER_LABEL } from '../song-layer';
+import { songRowLabel } from '../song-layer';
 import type { StudioCx } from '../StudioCx';
 import { songFitEnd } from '../world';
 import { CameraRow } from './CameraRow';
@@ -282,7 +282,7 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							project={project}
 							song={song}
 							tint={songTints.get(song.id) ?? songTint(0)}
-							name={SONG_LAYER_LABEL}
+							name={songRowLabel(project, song)}
 							analysis={analysis[song.id]}
 							zoom={zoom}
 							width={trackWidth}

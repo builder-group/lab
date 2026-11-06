@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { host, type THostPickedFile } from '@/environment';
 import { moveSongCommands } from '@/modules/building';
 import { computePeaks, createImportCommands, decodeAudioFile, detectOnsets, instruments, missingRecordings, mixToMono, parseMidiFile, marbleNamesFromTracks, proposeMarbles, type TMidiFile, type TMidiNote, type TProposeMarblesOptions } from '@/modules/music';
-import { createId, earliestSongStart, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
+import { createId, earliestSongStart, formatTime, shownSongs, type TProject, type TSong, toSongKey } from '@/modules/project';
 import { deleteSongCommands, deleteSongNotice, deleteSongQuestion } from './song-layer';
 import type { StudioCx } from './StudioCx';
 
@@ -104,7 +104,8 @@ export class SourcesCx {
 		this.studio.$fitFirstHits.set(true);
 		const marbles = `${preview.marbles.length} ${preview.marbles.length === 1 ? 'marble' : 'marbles'}`;
 		const backing = preview.backing.length;
-		this.studio.notify(backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`);
+		const lands = shownSongs(project).length > 0 && pending.replaces == null ? ` It starts at ${formatTime(preview.offset)}, at the playhead.` : '';
+		this.studio.notify(`${backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`}${lands}`);
 	}
 
 	// MARK: - Audio
@@ -139,7 +140,8 @@ export class SourcesCx {
 			{ type: 'addSong', song: source },
 			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
 		]);
-		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.`);
+		const lands = shownSongs(project).length > 0 && replaced == null ? ` It starts at ${formatTime(source.start)}, at the playhead.` : '';
+		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.${lands}`);
 	}
 
 	// MARK: - Song
