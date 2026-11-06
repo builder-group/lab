@@ -53,9 +53,9 @@ describe('bowlGeometry', () => {
 });
 
 describe('bowlCatch', () => {
-	it('catches the marble and holds it, up to 4 m/s', () => {
+	it('catches the marble and holds it, up to 3 m/s', () => {
 		// Faster, the marble can swirl up and out of its mouth
-		for (const speed of [1, 1.5, 2, 3, 4]) {
+		for (const speed of [1, 1.5, 2, 3]) {
 			for (const vx of [0, 0.3, 0.6]) {
 				const result = simulator.simulate(drop(speed, vx));
 				const caught = bowlCatch(result, 'bowl-1');

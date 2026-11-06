@@ -51,6 +51,15 @@ const ROTOR_GROUPS = 0x00040001;
 const PROXY_GROUPS = 0x00080001;
 // Marbles this close after a step touch, within Rapier's allowed penetration
 const MARBLE_SLOP = 0.001;
+// A wire's rolling stays calm only with these two: more solver work on each contact, and a contact solved afresh every
+// step rather than recycled from the last. Rapier has no setter for recycling, but it never recycles a pair with hooks.
+const SOLVER_ITERATIONS = 8;
+const WIRE_CAP_SEGMENTS = 4;
+const WIRE_HALF_DEPTH = 0.03;
+const NO_RECYCLING: RAPIER.PhysicsHooks = {
+	filterContactPair: () => RAPIER.SolverFlags.COMPUTE_IMPULSE,
+	filterIntersectionPair: () => true
+};
 
 /** What a run reads, and which project and revision its result answers for */
 export type TSimulationInput = TRunInput & Pick<TProject, 'id' | 'revision'>;
@@ -114,8 +123,7 @@ function runSimulation(
 	if (resumed != null) {
 		worlds = resumed.worlds.map((bytes) => {
 			const world = RAPIER.World.restoreSnapshot(bytes);
-			world.timestep = DT;
-			world.profilerEnabled = false;
+			setUpWorld(world);
 			return world;
 		});
 		state = restoreState(resumed);
@@ -129,8 +137,7 @@ function runSimulation(
 		resumeIndex = -1;
 		worlds = plan.marbles.map(() => {
 			const world = new RAPIER.World({ x: 0, y: plan.gravity, z: 0 });
-			world.timestep = DT;
-			world.profilerEnabled = false;
+			setUpWorld(world);
 			return world;
 		});
 		state = createInitialState(plan);
@@ -144,6 +151,12 @@ function runSimulation(
 	const result = buildResult(project, run, state);
 	result.stats = { computeMs: now() - startedAt, reusedUntil, steps };
 	return [result, trimCache(nextCache)];
+}
+
+function setUpWorld(world: RAPIER.World): void {
+	world.timestep = DT;
+	world.profilerEnabled = false;
+	world.integrationParameters.numSolverIterations = SOLVER_ITERATIONS;
 }
 
 /** The real clock, whatever `advance` has put in its place */
@@ -257,8 +270,8 @@ type TColliderInfo =
 	| { kind: 'marble'; marbleIndex: number }
 	/** Another marble's copy in a marble's world */
 	| { kind: 'proxy'; marbleIndex: number }
-	/** `shape` is in world coordinates for static pieces and relative to the hub for rotors */
-	| { kind: 'piece'; pieceId: string; shape: TPieceShape; rotorIndex: number };
+	/** `shapes` are what the collider stands for, in world coordinates for static pieces and relative to the hub for rotors */
+	| { kind: 'piece'; pieceId: string; shapes: TPieceShape[]; rotorIndex: number };
 
 interface TPlacement {
 	piece: TResolvedPiece;
@@ -553,7 +566,7 @@ function stepUntilEnd(worlds: RAPIER.World[], queues: RAPIER.EventQueue[], plan:
 
 /** `World.step` without its walk over every body and collider after the step, which only finds what soft-body tears split off */
 function stepWorld(world: RAPIER.World | undefined, queue: RAPIER.EventQueue | undefined): void {
-	world?.physicsPipeline.step(world.gravity, world.integrationParameters, world.islands, world.broadPhase, world.narrowPhase, world.bodies, world.colliders, world.softBodies, world.impulseJoints, world.multibodyJoints, world.ccdSolver, queue);
+	world?.physicsPipeline.step(world.gravity, world.integrationParameters, world.islands, world.broadPhase, world.narrowPhase, world.bodies, world.colliders, world.softBodies, world.impulseJoints, world.multibodyJoints, world.ccdSolver, queue, NO_RECYCLING);
 }
 
 /** Releases marbles due at the current step and returns whether any entered */
@@ -622,7 +635,8 @@ function marbleColliderDesc(radius: number): RAPIER.ColliderDesc {
 	return RAPIER.ColliderDesc.ball(radius)
 		.setDensity(GLASS_DENSITY)
 		.setRestitution(MARBLE_RESTITUTION)
-		.setFriction(MARBLE_FRICTION);
+		.setFriction(MARBLE_FRICTION)
+		.setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS);
 }
 
 /** Puts every marble on a ride where its ride says, after the step moved it; the last frame hands it back to physics */
@@ -818,8 +832,8 @@ function addPieceColliders(
 ): number[] {
 	const { definition, params } = piece;
 	const handles: number[] = [];
-	for (const shape of piece.shapes) {
-		const desc = staticColliderDesc(shape, params, definition);
+	for (const shapes of colliderGroups(piece.shapes)) {
+		const desc = staticColliderDesc(shapes, definition);
 		if (desc == null) continue;
 		const collider = world.createCollider(
 			desc
@@ -832,7 +846,7 @@ function addPieceColliders(
 		colliders.set(collider.handle, {
 			kind: 'piece',
 			pieceId: piece.pieceId,
-			shape,
+			shapes,
 			rotorIndex: -1
 		});
 		handles.push(collider.handle);
@@ -840,12 +854,26 @@ function addPieceColliders(
 	return handles;
 }
 
-function staticColliderDesc(
-	shape: TPieceShape,
-	params: Record<string, number>,
-	definition: TPieceDefinition
-): RAPIER.ColliderDesc | null {
-	switch (shape.kind) {
+/** A piece's shapes by the collider each becomes: a wire's joined capsules together, anything else alone */
+function colliderGroups(shapes: TPieceShape[]): TPieceShape[][] {
+	const groups: TPieceShape[][] = [];
+	for (const shape of shapes) {
+		const last = groups[groups.length - 1]?.at(-1);
+		if (shape.kind === 'capsule' && last?.kind === 'capsule' && isSameSpot(last.b, shape.a) && !isSameSpot(shape.a, shape.b)) groups[groups.length - 1]?.push(shape);
+		else groups.push([shape]);
+	}
+	return groups;
+}
+
+function isSameSpot(a: TVec2, b: TVec2): boolean {
+	return Math.hypot(a.x - b.x, a.y - b.y) < 1e-9;
+}
+
+function staticColliderDesc(shapes: TPieceShape[], definition: TPieceDefinition): RAPIER.ColliderDesc | null {
+	const [shape] = shapes;
+	switch (shape?.kind) {
+		case undefined:
+			return null;
 		case 'box': {
 			const { box } = shape;
 			return RAPIER.ColliderDesc.cuboid(box.halfLength, box.halfThickness, COLLIDER_DEPTH / 2)
@@ -853,21 +881,9 @@ function staticColliderDesc(
 				.setRotation(zRotation(box.angle));
 		}
 		case 'capsule': {
-			// Rapier capsules run along y; wires sit in the marble plane so contact normals stay in xy
-			const dx = shape.b.x - shape.a.x;
-			const dy = shape.b.y - shape.a.y;
-			const length = Math.hypot(dx, dy);
-			const desc =
-				length > 1e-9
-					? RAPIER.ColliderDesc.capsule(length / 2, shape.radius).setRotation(
-							zRotation(Math.atan2(dy, dx) - Math.PI / 2)
-						)
-					: RAPIER.ColliderDesc.ball(shape.radius);
-			return desc.setTranslation(
-				(shape.a.x + shape.b.x) / 2,
-				(shape.a.y + shape.b.y) / 2,
-				MARBLE_Z
-			);
+			if (isSameSpot(shape.a, shape.b)) return RAPIER.ColliderDesc.ball(shape.radius).setTranslation(shape.a.x, shape.a.y, MARBLE_Z);
+			const { vertices, indices } = wireSurface(wirePoints(shapes), shape.radius);
+			return RAPIER.ColliderDesc.trimesh(vertices, indices, RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES);
 		}
 		case 'ball':
 			return RAPIER.ColliderDesc.ball(shape.radius).setTranslation(
@@ -876,6 +892,53 @@ function staticColliderDesc(
 				MARBLE_Z
 			);
 	}
+}
+
+function wirePoints(capsules: TPieceShape[]): TVec2[] {
+	const points: TVec2[] = [];
+	for (const capsule of capsules) {
+		if (capsule.kind !== 'capsule') continue;
+		if (!points.length) points.push(capsule.a);
+		points.push(capsule.b);
+	}
+	return points;
+}
+
+/**
+ * One wire as one surface: a closed loop around its path at the wire's radius, with round ends, standing across the
+ * marble's plane. On a chain of capsules each next one is a new contact whose round end leans back at the marble, which
+ * turned a rail's rolling chaotic; the mesh knows its inner edges and rolls past them.
+ */
+function wireSurface(points: TVec2[], radius: number): { vertices: Float32Array; indices: Uint32Array } {
+	const count = points.length;
+	const side = (offset: number): TVec2[] =>
+		points.map((point, i) => {
+			const a = points[Math.max(0, i - 1)] ?? point;
+			const b = points[Math.min(count - 1, i + 1)] ?? point;
+			const length = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+			return { x: point.x - (offset * (b.y - a.y)) / length, y: point.y + (offset * (b.x - a.x)) / length };
+		});
+	const cap = (end: TVec2, inner: TVec2): TVec2[] => {
+		const length = Math.hypot(end.x - inner.x, end.y - inner.y) || 1;
+		const ux = (end.x - inner.x) / length;
+		const uy = (end.y - inner.y) / length;
+		return [1, 2, 3].map((i) => {
+			const t = (Math.PI * i) / WIRE_CAP_SEGMENTS;
+			return { x: end.x + radius * (ux * Math.sin(t) - uy * Math.cos(t)), y: end.y + radius * (uy * Math.sin(t) + ux * Math.cos(t)) };
+		});
+	};
+	const first = points[0] ?? { x: 0, y: 0 };
+	const last = points[count - 1] ?? first;
+	const loop = [...side(radius).reverse(), ...cap(first, points[1] ?? first), ...side(-radius), ...cap(last, points[count - 2] ?? last)];
+	const vertices = new Float32Array(loop.length * 6);
+	const indices = new Uint32Array(loop.length * 6);
+	loop.forEach((point, i) => {
+		vertices.set([point.x, point.y, MARBLE_Z - WIRE_HALF_DEPTH, point.x, point.y, MARBLE_Z + WIRE_HALF_DEPTH], i * 6);
+		const a = 2 * i;
+		const b = 2 * ((i + 1) % loop.length);
+		indices.set([a, b, a + 1, a + 1, b, b + 1], i * 6);
+	});
+	return { vertices, indices };
 }
 
 /**
@@ -934,7 +997,7 @@ function addRotorBody(
 		colliders.set(collider.handle, {
 			kind: 'piece',
 			pieceId: piece.pieceId,
-			shape,
+			shapes: [shape],
 			rotorIndex: piece.rotorIndex
 		});
 		handles.push(collider.handle);
@@ -1442,20 +1505,34 @@ function recordContact(
 		state,
 		pair.marbleIndex,
 		pair.piece.pieceId,
-		worldShape(state, pair.piece),
+		worldShapes(state, pair.piece),
 		state.rotors[pair.piece.rotorIndex] ?? null
 	);
 }
 
-/** World shape of a piece collider; rotor parts use the pose at the start of the step */
-function worldShape(
+/** World shapes of a piece collider; rotor parts use the pose at the start of the step */
+function worldShapes(
 	state: TRunState,
 	info: Extract<TColliderInfo, { kind: 'piece' }>
-): TPieceShape {
+): TPieceShape[] {
 	const rotor = state.rotors[info.rotorIndex];
-	if (rotor == null) return info.shape;
+	if (rotor == null) return info.shapes;
 	const angle = rotor.motion[rotor.motion.length - 2]?.angle ?? rotor.motion[0]?.angle ?? 0;
-	return transformShape(info.shape, rotor.hub, angle);
+	return info.shapes.map((shape) => transformShape(shape, rotor.hub, angle));
+}
+
+/** The shape nearest a point, and its distance */
+function nearestShape(shapes: TPieceShape[], x: number, y: number): { shape: TPieceShape | null; distance: number } {
+	let shape: TPieceShape | null = null;
+	let distance = Infinity;
+	for (const candidate of shapes) {
+		const d = shapeDistance(candidate, x, y);
+		if (d < distance) {
+			distance = d;
+			shape = candidate;
+		}
+	}
+	return { shape, distance };
 }
 
 /** The state at the start of the step that produced the event, or null if the marble has no such state */
@@ -1474,7 +1551,7 @@ function recordPieceContact(
 	state: TRunState,
 	marbleIndex: number,
 	pieceId: string,
-	shape: TPieceShape,
+	shapes: TPieceShape[],
 	rotor: TRotorRun | null
 ): void {
 	const marble = plan.marbles[marbleIndex];
@@ -1489,7 +1566,7 @@ function recordPieceContact(
 	if (pre != null) {
 		const gap = (tau: number): number => {
 			const { position } = ballistic(pre.position, pre.velocity, tau, plan.gravity);
-			return shapeDistance(shape, position.x, position.y) - marble.radius;
+			return nearestShape(shapes, position.x, position.y).distance - marble.radius;
 		};
 		const tau = findFirstRoot(gap, 3 * DT);
 		if (tau != null) {
@@ -1499,7 +1576,8 @@ function recordPieceContact(
 			velocity = flight.velocity;
 		}
 	}
-	const position = shapeClosestPoint(shape, center.x, center.y);
+	const near = nearestShape(shapes, center.x, center.y).shape;
+	const position = near != null ? shapeClosestPoint(near, center.x, center.y) : center;
 	state.contacts.push({
 		time,
 		marbleId: marble.marbleId,

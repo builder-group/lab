@@ -188,7 +188,7 @@ describe('fixTrack function', () => {
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
 		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
-		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted} hits? · .*moved the release · ${summary.label}`));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted === 1 ? 'the hit' : `${counted} hits`} · .*moved the release · ${summary.label}`));
 	}, 60_000);
 
 	it('should keep the release and recover a run after notes in its middle become Backing', async () => {
