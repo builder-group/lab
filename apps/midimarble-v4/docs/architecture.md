@@ -122,6 +122,20 @@ A new `layout` kind is more work. Add it to `TPieceLayoutKind` in `simulation/ty
 5. **Editing:** the status and fields in `track/PieceInspector.tsx`, its parameters in `track/piece-panels.ts`, its grip and handles in `track/TrackCanvas.tsx`, and whether it turns in `TrackCx`.
 6. **Blender:** `layout` in `assets.py`, and the checks there and in `skins.py` and `contacts.py` that name a kind.
 
+### Add a film layer
+
+A new list under `film` that shows as a layer takes these steps. `studio/film-layer-registry.test.ts` names the parts of steps 2 to 4, 6 and 8 a layer lacks, once `LAYER_PARTS` there has its kind.
+
+1. **Schema:** add the list to `film` in `project/schema.ts`, with commands that change it through `updateFilm`.
+2. **Table:** add it to `FILM_LAYERS` in `project/film-layers.ts`, with its key helpers in `project/selection.ts`. Edit > Undo's names, an agent's presence marks, Rename and the keys a selection may hold read it.
+3. **Layers:** add its rows to `buildOutline` and `isFilmRow` in `studio/outline.ts`, and draw them in `studio/Sidebar.tsx`.
+4. **Inspector:** add its target to `selectedTarget` in `studio/inspector-target.ts`, which falls to the Scene for a key it doesn't know, to `FILM_ONLY_TARGETS` when Track has no such layer, and its case to `studio/Inspector.tsx`.
+5. **Commands:** add what it does to `studio/commands.ts` and its right-click menu to `studio/menus.ts`. ⌘C goes through `studio/clipboard.ts`, for titles and Decor; Lights have none.
+6. **Agents:** say it in `projectState` and `resolveSelection` in `mcp/mcp-state.ts`.
+7. **Draft Preview:** draw it in `film/DraftPreviewCx.ts` and `film/DraftPreview.tsx`, when it shows there.
+8. **Blender:** add it to the scene description in `scene/scene-builder.ts`, and a module in `blender/mm_worker/` that `scene.py` calls with it.
+9. **Words:** add its name to `docs/words.md` and `src-tauri/src/modules/mcp/guides/words.md`.
+
 ## Simulation
 
 Every marble has a Rapier world of its own, holding only what that marble could reach before the next parking check: nearby pieces of any marble, windmills, and the other marbles as proxies. Any enabled collider, even one that meets nothing, reshapes Rapier's broad-phase tree, and the tree's shape sets the order in which a marble's simultaneous contacts are solved, such as two rail wires; that order changes the result in the last bits and a tightly tuned run cascades from there. With one shared world a windmill 5 m from every marble broke 83 of Jingle Bells' 115 hits, and a 0.002 rad turn of a bass platform broke 36 melody hits. Separate worlds and parking keep a piece no marble comes near, and every edit on another marble that does not come near a marble, from changing its run at all. The simulation module exposes pure operations over a project document:
