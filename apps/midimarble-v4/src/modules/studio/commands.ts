@@ -1026,7 +1026,7 @@ export function deleteMarble(cx: StudioCx, marble: TMarble): boolean {
 		cx.notify(`${marble.name} stays: a project keeps at least one marble.`);
 		return true;
 	}
-	if (!cx.execute([{ type: 'removeMarble', marbleId: marble.id }])) return false;
+	if (!cx.execute([{ type: 'removeMarble', marbleId: marble.id }], { label: 'Delete Marble' })) return false;
 	cx.$selection.set([]);
 	cx.notifyEdit(`Deleted ${marble.name}`);
 	return true;

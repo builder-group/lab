@@ -413,7 +413,7 @@ input.mm-insp-name {
 	-webkit-appearance: none;
 }
 
-/* A value always shows five characters whole; a narrow field drops its unit first (see ScrubField) */
+/* A value always shows whole; a narrow field drops its unit first (see ScrubField) */
 .mm-ifield > input[aria-invalid='true'] {
 	color: var(--bad);
 }

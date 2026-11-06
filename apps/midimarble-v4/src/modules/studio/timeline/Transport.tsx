@@ -81,8 +81,8 @@ const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 	}
 	if (!summary.problems.length) {
 		return (
-			<span className="mm-hit-summary" data-tone={summary.tone} role="status" data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
-				{summary.label}
+			<span className="mm-hit-summary" data-tone={summary.tone} role="status" title={summary.label} data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
+				<span className="min-w-0 truncate">{summary.label}</span>
 			</span>
 		);
 	}

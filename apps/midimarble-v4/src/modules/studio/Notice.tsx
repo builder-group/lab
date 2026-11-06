@@ -80,6 +80,8 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 							<button
 								className="mm-notice-action"
 								aria-expanded={isOpen}
+								// A click leaves no focus ring behind
+								onMouseDown={(event) => event.preventDefault()}
 								onClick={() => {
 									setOpenDetails(isOpen ? null : notice.id);
 									// Open, it stays until it's closed: it takes longer to read than a passing notice lasts
@@ -117,7 +119,7 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 				)}
 			</div>
 			{isOpen && notice.details != null ? (
-				<p className="max-h-40 overflow-y-auto px-4 pb-2.5 text-[12px] leading-[1.45] text-[var(--text-secondary)] select-text" style={{ maxWidth: 640 }}>
+				<p className="max-h-40 overflow-y-auto px-4 pb-2.5 text-[12px] leading-[1.45] whitespace-pre-line text-[var(--text-secondary)] select-text" style={{ maxWidth: 640 }}>
 					{notice.details}
 				</p>
 			) : null}

@@ -14,7 +14,13 @@ export const HintLayer: React.FC<THintLayerProps> = (props) => {
 	const open = useFeatureState(cx.hints.$open);
 	const isQuickHelpOn = useFeatureState(cx.$quickHelp);
 	const notice = useFeatureState(cx.$notice);
-	const isActive = open != null && !isQuickHelpOn && notice == null;
+	// A sheet, an alert or the palette asks for the window's attention, and a hint waits for it to go
+	const isClosing = useFeatureState(cx.$closePrompt) != null;
+	const isConfirming = useFeatureState(cx.$confirmPrompt) != null;
+	const isExporting = useFeatureState(cx.filmExport.$isSheetOpen);
+	const isImporting = useFeatureState(cx.sources.$midiImport) != null;
+	const isSearching = useFeatureState(cx.$paletteOpen);
+	const isActive = open != null && !isQuickHelpOn && notice == null && !isClosing && !isConfirming && !isExporting && !isImporting && !isSearching;
 	const anchor = useAnchorRects(isActive ? 'data-hint-anchor' : null, open ?? undefined)[0];
 
 	React.useEffect(() => {
@@ -46,10 +52,11 @@ const HintPopover: React.FC<{ id: THintId; anchor: TAnchorRect; onDismiss: () =>
 		style = { left: anchor.right + 10, top: anchor.top + anchor.height / 2, transform: 'translateY(-50%)' };
 		caret = {};
 	} else {
-		// Kept inside the window; the caret still points at the anchor
-		const left = Math.min(Math.max(centerX - width / 2, 8), window.innerWidth - width - 8);
+		// Kept inside the window and clear of the sidebar and the tools, which it would cover; the caret still points at the anchor when it's over it
+		const clear = (document.querySelector('.mm-tool-rail')?.getBoundingClientRect().right ?? 0) + 8;
+		const left = Math.min(Math.max(centerX - width / 2, clear, 8), window.innerWidth - width - 8);
 		style = side === 'above' ? { left, top: anchor.top - 12, transform: 'translateY(-100%)' } : { left, top: anchor.bottom + 10 };
-		caret = { left: centerX - left };
+		caret = centerX > left + 8 ? { left: centerX - left } : { display: 'none' };
 	}
 
 	return (

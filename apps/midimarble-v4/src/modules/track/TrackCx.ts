@@ -2067,6 +2067,8 @@ export class TrackCx {
 		const selection = this.studio.$selection.get();
 		const ids = selectedPieceIds(project, selection);
 		const marbles = project.marbles.filter((marble) => selection.includes(marble.id)).map((marble) => marble.id);
+		// A marble alone is Delete Marble's, in either tab, which says so with its Undo
+		if (!ids.length && marbles.length === 1 && selection.length === 1) return false;
 		const removable = marbles.slice(0, Math.max(0, project.marbles.length - 1));
 		const commands = [
 			...(ids.length ? [{ type: 'removePieces' as const, pieceIds: ids }] : []),

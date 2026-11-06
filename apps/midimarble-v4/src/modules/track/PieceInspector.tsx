@@ -529,8 +529,8 @@ function displayUnit(name: string, unit: string, isInteger: boolean): { unit: st
 	if (isInteger) return { unit: '', factor: 1, step: 0.05, precision: 0 };
 	switch (unit) {
 		case 'm':
-			// Wires and walls are millimeters; lengths are centimeters
-			return name === 'radius' || name === 'gap' || name === 'bore' || name.endsWith('Thickness') || name === 'thickness'
+			// A piece's Shape reads in one unit, centimeters; only the wires' fine sizes are millimeters
+			return name === 'radius' || name === 'gap' || name === 'bore'
 				? { unit: 'mm', factor: 1000, step: 0.05, precision: 1 }
 				: { unit: 'cm', factor: 100, step: 0.1, precision: 1 };
 		case 's':

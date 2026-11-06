@@ -1110,6 +1110,6 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const rebuilt = from != null ? `Rebuilt after Hit ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
-	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join(' ');
+	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join('\n');
 	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, bowls: outcome.bowls, attention };
 }
