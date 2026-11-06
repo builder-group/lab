@@ -20,7 +20,7 @@ export async function renderFilm(
 	project: TProject,
 	options: TRenderFilmHelperOptions
 ): Promise<TResult<TExportedFilm, BlenderError>> {
-	const audio = await renderProjectAudio(options.soundtrack ?? project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE });
+	const audio = await renderProjectAudio(options.soundtrack ?? project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE, mixedAs: project });
 	const loudness = normalizeLoudness(audio);
 	const wav = encodeWav(audio.left, audio.right, audio.sampleRate);
 	const [isWrittenOk, writtenErr] = await blender.writePackageFile(packagePath, SOUNDTRACK_PATH, wav);

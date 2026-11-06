@@ -37,7 +37,9 @@ export const SSong = z.strictObject({
 	// Every note no marble plays, heard in the film without a piece
 	backing: z.array(SHit),
 	// General MIDI program of Backing: the song's first MIDI program when the bank has it; absent means piano
-	backingSound: z.number().int().min(0).max(127).optional()
+	backingSound: z.number().int().min(0).max(127).optional(),
+	// Backing's Level in dB, chosen by a person; absent is automatic, 10 dB under the melody
+	backingLevel: z.number().optional()
 });
 
 // Where and when a marble is released. `spin` is radians per second around the wall normal: Fix's release carries on a run
@@ -187,6 +189,8 @@ export const SMarble = z.strictObject({
 	labelColor: z.string(),
 	// General MIDI program used for MIDI playback and the rendered soundtrack
 	sound: z.number().int().min(0).max(127),
+	// Its Level in dB, chosen by a person; absent is automatic: as it is for the melody, 10 dB under it for the rest
+	level: z.number().optional(),
 	radius: z.number().positive(),
 	start: SMarbleStart,
 	skin: SSkin.optional(),
