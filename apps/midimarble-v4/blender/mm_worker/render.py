@@ -45,6 +45,8 @@ PRESETS = {
 JOB_ID = re.compile(r'[A-Za-z0-9_-]{1,100}')
 JOB_FOLDER = 'renders/.jobs'
 CANCEL_GRACE_SECONDS = 5.0
+# At 192k FFmpeg's AAC overshoots a loud soundtrack's true peak by about 0.8 dB; from 256k by about 0.1 dB
+AUDIO_BITRATE = '256k'
 FFMPEG_CANDIDATES = ('/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg')
 RENDER_JOB_SCRIPT = Path(__file__).resolve().parents[1] / 'render_job.py'
 # Screen titles (caption, song name, end card) are drawn onto the encoded film, where depth of field cannot blur them, like the
@@ -577,7 +579,7 @@ def encode(job, job_dir, frames_dir, output):
         return 'blender'
     command = [ffmpeg, '-y', '-loglevel', 'error', '-framerate', str(job['fps']), '-i', str(frames_dir / ('%05d.' + frame_extension(job)))]
     if job.get('audio'):
-        command += ['-i', job['audio'], '-map', '0:v:0', '-map', '1:a:0', '-c:a', 'aac', '-b:a', '192k']
+        command += ['-i', job['audio'], '-map', '0:v:0', '-map', '1:a:0', '-c:a', 'aac', '-b:a', AUDIO_BITRATE]
     filters = screen_title_filters(job, job_dir)
     if filters:
         command += ['-vf', ','.join(filters)]
@@ -633,7 +635,7 @@ def encode_with_blender(job, frames_dir, output):
     scene.render.ffmpeg.codec = 'H264'
     scene.render.ffmpeg.constant_rate_factor = 'HIGH'
     scene.render.ffmpeg.audio_codec = 'AAC' if job.get('audio') else 'NONE'
-    scene.render.ffmpeg.audio_bitrate = 192
+    scene.render.ffmpeg.audio_bitrate = int(AUDIO_BITRATE[:-1])
     scene.render.ffmpeg.audio_mixrate = 48000
     scene.render.use_sequencer = True
     scene.view_settings.view_transform = 'Standard'

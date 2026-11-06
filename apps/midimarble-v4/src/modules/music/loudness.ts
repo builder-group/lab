@@ -4,7 +4,7 @@ import type { TStereoAudio } from './synthesize';
 export const FILM_LOUDNESS = -14;
 /** The film's highest true peak, in dB: AAC encoding overshoots a little, so the sound keeps this much room */
 export const FILM_PEAK = -1;
-/** Limits a little under `FILM_PEAK`, so the encoded film still measures it */
+/** Limits a little under `FILM_PEAK`, as the film's AAC at 256k overshoots by about 0.1 dB: the encoded film still measures it */
 const LIMIT_MARGIN = 0.2;
 /** The most the limiter takes off a peak, in dB; a sound needing more stays quieter than the target rather than audibly squashed */
 const MOST_LIMITING = 6;

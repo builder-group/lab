@@ -5,6 +5,7 @@ an app material in Blender survives every apply. Studio objects (wall, sun, worl
 still hold what the app last wrote.
 """
 import math
+import re
 
 import bpy
 
@@ -92,6 +93,8 @@ _scene_look = {}
 POOL = {'energy': 16.0, 'angle': 75.0, 'radius': 0.15, 'offset': (0.12, 0.18, 0.0), 'reach': 0.55}
 POOL_SUN_SHARE = 0.7
 POOL_WORLD_SHARE = 0.55
+# What a full pool's film comes down in Flat Light, measured against its Fast frames
+POOL_FLAT_STOPS = 1.0
 
 
 def set_scene_look(wall_kind, key_light):
@@ -195,9 +198,12 @@ def flat_look(key):
     """(stops, sheen, wall sheen) Flat Light adds in the theme of `theme_key`: to the scene's exposure, for the light Eevee's
     sun and world put on a wall facing the camera, and to the color of a painted surface, for its satin reflections. A wall
     reflects the room whatever its color, which only shows on a dark wall or a dark channel, so it gets more. Measured per
-    theme against Fast frames; a project theme keeps its base's values."""
+    theme against Fast frames; a project theme keeps its base's values. Flat Light has no pool of light, so a film with one
+    comes down to about the middle of the wall it lights."""
     flat = THEMES.get(str(key).split(' ')[0], {}).get('flat', {})
-    return flat.get('exposure', 0.0), flat.get('sheen', 0.0), flat.get('wallSheen', 0.0)
+    pool = re.search(r'\bpool=([0-9.]+)', str(key))
+    stops = flat.get('exposure', 0.0) - (POOL_FLAT_STOPS * float(pool.group(1)) if pool else 0.0)
+    return stops, flat.get('sheen', 0.0), flat.get('wallSheen', 0.0)
 
 
 def flat_light(key, default):
