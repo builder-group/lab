@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildSceneDescription } from './scene-builder';
 import { applyProjectCommands, createProject, type TProject } from '@/modules/project';
 import { addWallTextCommands } from '@/modules/film';
-import { defaultTitleColor, themeCommands, themeTitleColor, titleColorOnWall } from './project-themes';
+import { defaultTitleColor, themeCommands, titleColorOnWall } from './project-themes';
 import { songDisplayName, titleClips, titleSpan, withTitleTime } from './titles';
 
 const TEXT = { text: 'Fin', font: 'Bfont Regular', size: 0.03, color: '#1d1d1f' };
@@ -76,12 +76,6 @@ describe('title color', () => {
 	it('should read on the wall: dark on a light wall, white on a dark one', () => {
 		expect(titleColorOnWall('#f7f5f0')).toBe(DARK);
 		expect(titleColorOnWall('#141a2a')).toBe(WHITE);
-	});
-
-	it("should keep the built-in themes' title colors", () => {
-		expect(themeTitleColor('pegboard')).toBe(WHITE);
-		expect(themeTitleColor('brass')).toBe(WHITE);
-		expect(themeTitleColor('neon')).toBe(WHITE);
 	});
 
 	it('should follow the wall the project shows: its own color, then its theme', () => {

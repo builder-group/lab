@@ -5,9 +5,12 @@ import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, passThroughs, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
 import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
-import { hitSummary } from './hit-status';
 import { newlyBroken } from './bowl-assist';
 import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fixWorseWords, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixCount, type TFixDeps } from './fix-it';
+
+function hitsNeedingAttention(result: TSimulationResult): THitResult[] {
+	return result.hits.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked');
+}
 
 function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
 	return {
@@ -180,7 +183,7 @@ describe('fixTrack function', () => {
 
 		// Assert
 		expect(outcome.releases).toEqual([marbleId]);
-		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
 		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
@@ -198,7 +201,7 @@ describe('fixTrack function', () => {
 
 		// Assert: the release stays, since the marble's first notes still play
 		expect(outcome.releases).toEqual([]);
-		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
 		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
 		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed .* · placed \\d+ platforms? again.* · ${summary.label}`));
 	}, 60_000);

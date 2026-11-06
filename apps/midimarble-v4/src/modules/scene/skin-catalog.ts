@@ -108,10 +108,6 @@ export function catalogSkin(id: string): TCatalogSkin | null {
 	return SKINS_BY_ID.get(id) ?? null;
 }
 
-export function builtInSkinLabel(id: string): string | null {
-	return catalogSkin(id)?.label ?? null;
-}
-
 /** The skin a built-in theme or a project theme's base dresses an element with */
 export function themeDefaultSkin(base: string, element: TSkinElement): string {
 	const themes = catalog.themes as Record<string, Record<TSkinElement, string>>;

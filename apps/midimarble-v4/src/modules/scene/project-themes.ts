@@ -172,11 +172,6 @@ export function titleColorOnWall(wall: string): string {
 	return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) > LIGHT_WALL_LUMINANCE ? '#1f3a5f' : '#ffffff';
 }
 
-/** The color titles start with in a base theme */
-export function themeTitleColor(base: string): string {
-	return titleColorOnWall(themeDefaultColor(base, 'wallColor') ?? '#ffffff');
-}
-
 /** What a title reads in when its own color is unset, and the color a new one starts with: it stands apart from the wall the project shows */
 export function defaultTitleColor(film: Pick<TFilm, 'theme' | 'wall'>): string {
 	const wall = film.wall.kind === 'none' ? noneWallColor(film.wall.labelColor) : film.wall.color;

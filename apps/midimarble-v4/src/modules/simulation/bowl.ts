@@ -32,10 +32,6 @@ export function bowlOfMarble(project: TProject, marbleId: string): TPiece | unde
 	return project.track.pieces.find((piece) => piece.type === BOWL_TYPE && tieOf(piece)?.marbleId === marbleId);
 }
 
-export function isBowl(piece: TPiece | undefined): boolean {
-	return piece?.type === BOWL_TYPE;
-}
-
 /**
  * Whether the marble of the Bowl's marble lands in it and stays: after its first contact the marble keeps within
  * `CATCH_MARGIN` of the wire until the run ends

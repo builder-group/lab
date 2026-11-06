@@ -295,31 +295,6 @@ export function encodeWav(left: Float32Array, right: Float32Array, sampleRate: n
 	return bytes;
 }
 
-// 16-bit PCM mono WAV, half the size of stereo for a recording that has no stereo image
-export function encodeMonoWav(samples: Float32Array, sampleRate: number): Uint8Array {
-	const dataSize = samples.length * 2;
-	const bytes = new Uint8Array(44 + dataSize);
-	const view = new DataView(bytes.buffer);
-	const writeText = (offset: number, text: string): void => {
-		for (let index = 0; index < text.length; index++) view.setUint8(offset + index, text.charCodeAt(index));
-	};
-	writeText(0, 'RIFF');
-	view.setUint32(4, 36 + dataSize, true);
-	writeText(8, 'WAVE');
-	writeText(12, 'fmt ');
-	view.setUint32(16, 16, true);
-	view.setUint16(20, 1, true);
-	view.setUint16(22, 1, true);
-	view.setUint32(24, sampleRate, true);
-	view.setUint32(28, sampleRate * 2, true);
-	view.setUint16(32, 2, true);
-	view.setUint16(34, 16, true);
-	writeText(36, 'data');
-	view.setUint32(40, dataSize, true);
-	for (let index = 0; index < samples.length; index++) view.setInt16(44 + index * 2, toInt16(samples[index] ?? 0), true);
-	return bytes;
-}
-
 function toInt16(sample: number): number {
 	const clamped = Math.max(-1, Math.min(1, sample));
 	return Math.round(clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff);

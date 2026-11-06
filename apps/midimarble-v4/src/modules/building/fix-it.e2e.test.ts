@@ -3,9 +3,12 @@ import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight
 import { assignNotesCommands } from './assign-notes';
 import { applyProjectCommands, BACKING_ID, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type TSimulationResult } from '@/modules/simulation';
-import { hitSummary } from './hit-status';
+import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { addedProblems, brokenHits, fixMessage, fixTrack, type TFixDeps } from './fix-it';
+
+function hitsNeedingAttention(result: TSimulationResult): THitResult[] {
+	return result.hits.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked');
+}
 
 describe('fixTrack function on Jingle Bells', () => {
 	let simulate: (project: TProject) => TSimulationResult;
@@ -61,7 +64,7 @@ describe('fixTrack function on Jingle Bells', () => {
 		const outcome = await fixTrack(edited, broken, { ...deps(), onProgress: (done, total) => progress.push({ done, total }) }, before.hits);
 
 		// Assert
-		expect(hitSummary(outcome.result.hits).problems).toEqual([]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
 		const counted = brokenHits(broken.hits).length;
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);

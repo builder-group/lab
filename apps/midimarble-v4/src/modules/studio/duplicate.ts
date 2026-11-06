@@ -20,15 +20,6 @@ const SIDE_MARGIN = 0.03;
 const SIDE_STEP = 0.05;
 const SIDE_TRIES = 40;
 
-/**
- * Duplicate (⌘D) for pieces: each copy is a free piece with the next default name, `offset` from where the original
- * is now. A note has one platform, so a copy never plays the note or follows the marble of its original. Pieces
- * without a pose in this run are skipped. One edit for the whole selection.
- */
-export function duplicatePieces(project: TProject, result: TSimulationResult | null, entityIds: string[], offset: TVec2 = DUPLICATE_OFFSET): TDuplicate {
-	return copiesOf(project, freePieces(project, result, entityIds), offset);
-}
-
 /** The pieces as free pieces where they are now, which ⌘C keeps; a tied piece without a pose in this run is left out */
 export function freePieces(project: TProject, result: TSimulationResult | null, entityIds: string[]): TPiece[] {
 	return entityIds.flatMap((entityId) => {
@@ -38,6 +29,7 @@ export function freePieces(project: TProject, result: TSimulationResult | null, 
 	});
 }
 
+/** Each copy is a free piece with the next default name, `offset` from where the original is now. A note has one platform, so a copy never plays the note or follows the marble of its original. */
 function copiesOf(project: TProject, resolvedPieces: readonly TPiece[], offset: TVec2): TDuplicate {
 	const commands: TProjectCommand[] = [];
 	const copies: TPiece[] = [];
