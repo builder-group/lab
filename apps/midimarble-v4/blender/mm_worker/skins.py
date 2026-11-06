@@ -841,6 +841,61 @@ def polished_spec(frame, length, thickness):
     return None
 
 
+SHEET_LIP = math.radians(14)
+
+
+def sheet_bar_spec(frame, length, thickness):
+    """The plain metal bar, Gold, Copper, Silver and Dark: a thin sheet whose end toward the camera bends down over a
+    chrome bumper, on a dark chassis with a wheel at each corner, as the reference's pieces. The sheet's top is the
+    collider's contact surface and nothing rises past it."""
+    chrome = themes.chrome_material()
+    metal = frame.metal(themes.bar_material(frame.style))
+    # Chassis parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
+    k = frame.marble_radius / 0.008
+    standoff = post_standoff(frame, k, 0.0025 * k)
+    bar_depth = max(frame.depth - standoff, 0.001)
+    back = frame.wall_y - standoff
+    front = back - bar_depth
+    top = thickness / 2
+    sheet = max(thickness * 0.5, 0.0015)
+    sheet_z = top - sheet / 2
+    lip = min(bar_depth * 0.14, 0.012 * k)
+    bar = MeshBuilder()
+    bar.box((length, bar_depth - lip, sheet), (0.0, (back + front + lip) / 2, sheet_z), bevel=sheet * 0.35, segments=2)
+    # The lip bends down over the bumper, hinged on the sheet's top front edge, so nothing rises past the contact surface
+    hinge_y = lip / 2 * math.cos(SHEET_LIP) - sheet / 2 * math.sin(SHEET_LIP)
+    hinge_z = lip / 2 * math.sin(SHEET_LIP) + sheet / 2 * math.cos(SHEET_LIP)
+    bar.box((length, lip, sheet), (0.0, front + lip - hinge_y, top - hinge_z), bevel=sheet * 0.35, segments=2, tilt=SHEET_LIP)
+    # Rolled edges along the long sides: thin bright lines in the film, flush with the top
+    rail = min(length * 0.08, sheet * 0.6)
+    for side in (-1, 1):
+        bar.cylinder(rail * 0.5, bar_depth - lip, (side * (length - rail) / 2, (back + front + lip) / 2, top - rail * 0.5), axis='Y', material=1, segments=12)
+    underside = top - sheet
+    chassis = MeshBuilder()
+    body_height = max(thickness * 0.55, 0.003 * k)
+    body_width = length * 0.7
+    body_depth = bar_depth * 0.82
+    body_y = front + lip * 0.6 + body_depth / 2
+    chassis.box((body_width, body_depth, body_height), (0.0, body_y, underside - body_height / 2), bevel=body_height * 0.2, segments=2)
+    # Wheels at the corners stand a little outside the sheet, so the piece reads as a cart from above
+    wheel = min(thickness * 0.5, bar_depth * 0.1)
+    tread = min(0.0022 * k, length * 0.12)
+    for x in (-(body_width + tread) / 2, (body_width + tread) / 2):
+        for y in (front + lip + wheel * 1.3, back - wheel * 1.4):
+            chassis.cylinder(wheel, tread, (x, y, underside - body_height + wheel * 0.3), axis='X', material=0, segments=20, bevel=tread * 0.3)
+            chassis.cylinder(wheel * 0.45, tread * 1.3, (x, y, underside - body_height + wheel * 0.3), axis='X', material=1, segments=14)
+    # A chrome bumper across the front, just under the lip
+    chassis.cylinder(min(sheet * 0.9, 0.002 * k), length * 0.9, (0.0, front + lip * 0.45, underside - sheet * 0.5), axis='X', material=1, segments=16)
+    # The post to the wall and the wall cleat it stands on, dark like the chassis so they stay quiet in the film
+    block = min(standoff, 0.0025 * k) + 0.002 * k
+    chassis.box((min(length * 0.5, 0.012 * k), block, 0.003 * k), (0.0, frame.wall_y - block / 2, underside - body_height / 2), bevel=0.0004 * k)
+    add_post(chassis, frame, back, underside - body_height / 2, k, 0)
+    return {
+        'root': chassis.to_mesh('MM chassis', [polished_material('black'), chrome]),
+        'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [metal, chrome]), 'reactive': True}],
+    }
+
+
 def platform_spec(frame, piece):
     params = frame.params
     length = params.get('length', 0.06)
@@ -853,36 +908,7 @@ def platform_spec(frame, piece):
     if frame.style == 'gift':
         return gift_spec(frame, length, thickness)
     if frame.style in BAR_FINISHES:
-        chrome = themes.chrome_material()
-        metal = frame.metal(themes.bar_material(frame.style))
-        # Bracket parts scale with the kit, measured against the 16 mm marble of the Marble Race Kit
-        k = frame.marble_radius / 0.008
-        standoff = post_standoff(frame, k, 0.0025 * k)
-        bar_depth = max(frame.depth - standoff, 0.001)
-        bar_y = frame.wall_y - standoff - bar_depth / 2
-        # The top face is the collider's contact surface; the bar reaches a little below the collider so it reads
-        # as a solid ingot like the reference
-        bar_thickness = thickness * 1.15
-        bar_z = thickness / 2 - bar_thickness / 2
-        bar = MeshBuilder()
-        bar.box((length, bar_depth, bar_thickness), (0.0, bar_y, bar_z), bevel=bar_thickness * 0.22, segments=3)
-        cap = 0.003 * k
-        cap_size = (cap, bar_depth, bar_thickness * 1.15) if length >= bar_depth else (length, cap, bar_thickness * 1.15)
-        for side in (-1, 1):
-            # End caps on the plate's short ends, flush with the contact surface and reaching a little further down
-            at = (side * (length / 2 - cap / 2), bar_y) if length >= bar_depth else (0.0, bar_y + side * (bar_depth - cap) / 2)
-            bar.box(cap_size, (at[0], at[1], bar_z - bar_thickness * 0.075), bevel=0.0007 * k, material=1)
-        bracket = MeshBuilder()
-        underside = bar_z - bar_thickness / 2
-        # A small block on the wall under the plate's far end, and four feet near its corners
-        block = min(standoff, 0.0025 * k) + 0.002 * k
-        bracket.box((min(length * 0.5, 0.012 * k), block, 0.003 * k), (0.0, frame.wall_y - block / 2, underside - 0.0015 * k), bevel=0.0004 * k)
-        add_post(bracket, frame, frame.wall_y - standoff, underside - 0.0015 * k, k, 0)
-        add_feet(bracket, length, bar_y + bar_depth / 2, bar_y - bar_depth / 2, underside, k)
-        return {
-            'root': bracket.to_mesh('MM bracket', [chrome]),
-            'parts': [{'role': 'bar', 'mesh': bar.to_mesh('MM bar', [metal, chrome]), 'reactive': True}],
-        }
+        return sheet_bar_spec(frame, length, thickness)
     if frame.style == 'neon':
         return neon_platform_spec(frame, length, thickness)
     wood = themes.wood_material()
@@ -1317,7 +1343,7 @@ def marble_mesh(marble, context):
         if theme == 'neon' and tone['tone'] == 'pearl':
             material = themes.neon_marble_material(color)
         elif theme == 'brass':
-            material = themes.glass_marble_material(tone['body'])
+            material = themes.clear_marble_material(color)
         else:
             material = themes.glossy_marble_material(tone['body'])
     builder = MeshBuilder()

@@ -20,14 +20,17 @@ class MeshBuilder:
                 face.material_index = material_index
                 face.smooth = smooth
 
-    def box(self, size, center=(0.0, 0.0, 0.0), bevel=0.0, material=0, segments=3):
+    def box(self, size, center=(0.0, 0.0, 0.0), bevel=0.0, material=0, segments=3, tilt=0.0):
+        """A box, turned `tilt` radians about its own x axis before it is placed, so a plate's end can bend"""
         before = set(self.bm.faces)
         result = bmesh.ops.create_cube(self.bm, size=1.0)
         verts = result['verts']
+        turn = Matrix.Rotation(tilt, 3, 'X') if tilt else None
         for vertex in verts:
-            vertex.co.x = vertex.co.x * size[0] + center[0]
-            vertex.co.y = vertex.co.y * size[1] + center[1]
-            vertex.co.z = vertex.co.z * size[2] + center[2]
+            scaled = Vector((vertex.co.x * size[0], vertex.co.y * size[1], vertex.co.z * size[2]))
+            if turn is not None:
+                scaled = turn @ scaled
+            vertex.co = scaled + Vector(center)
         if bevel > 0:
             edges = list({edge for vertex in verts for edge in vertex.link_edges})
             bmesh.ops.bevel(self.bm, geom=edges + list(verts), offset=min(bevel, min(size) * 0.45), segments=segments,

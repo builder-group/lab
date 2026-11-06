@@ -26,7 +26,9 @@ Source: `~/Downloads/Legendary-Meme-Songs-SnapYT.App.mp4` from [@virtual3dworld_
 
 **Camera.** Close through a wide lens, about 30 mm and 20 marble diameters away, tilted about 31° from the wall normal. Bars fan out from a point about a frame width from the center, with an angle spread of 22° in the frame. Travels continuously, marble slightly above the frame's center, and hardly rolls, about 0.4° per second. No hard moves.
 
-**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the left with soft sideways shadows, dark metal with thin bright edges, a clear marble. Measured on the film: wall L* 57, a 6, b -10, 6 L* across the frame; gold L* 41, chroma 33; 1 % of piece area over L* 80; marble L* 33, chroma 42. Brass's defaults aim at these.
+**Look.** Pale lavender-gray wall with subtle texture, one soft sun from the upper right, mostly frontal, so each piece throws a short soft shadow to its lower left; dark metal with thin bright edges, a clear marble. Measured on the film: wall L* 57, a 6, b -10, 6 L* across the frame; gold L* 41, chroma 33; 1 % of piece area over L* 80; marble L* 33, chroma 42. Brass's defaults aim at these.
+
+**Pieces.** A gold piece is a thin plate, curled up at the end toward the camera, riding a dark chassis with a wheel at each corner and a chrome bumper; the second skin of a section is a chrome device with a ball housing and hazard ribs. Brass's plain bars (Gold, Copper, Silver, Dark) are built this way, as a sheet on a chassis (`sheet_bar_spec`); its marble is solid colored glass that refracts the wall, with bright flecks inside (`clear_marble_material`). Measured with the study's segmentation on four matching frames of Reference 20, reference first: wall L* 58 and 59, gold L* 37 and 36, gold chroma 29 and 31, piece area over L* 80 1.7 % and 0 %, wall beside pieces −4 and −5 L*. What still differs is the skin set: the reference mixes two skins per section, one per column, and changes the set every 6 to 14 s, while a default track wears one skin.
 
 ## Second reference: pitch-colored tubes
 
