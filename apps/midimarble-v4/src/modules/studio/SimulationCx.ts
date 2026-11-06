@@ -15,7 +15,7 @@ const PREVIEW_PAUSE_MS = 150;
  * Keeps a simulation result for the open project. Every history change re-simulates once per animation
  * frame in the worker, on a timer when frames have stopped because the window is covered. Live drags send a temporary project through `preview` without touching history,
  * so the trajectory follows the pointer and the drag commits one history entry on release. While a preview keeps
- * moving only the stretch it changes is simulated; a pause or the release runs it whole, so far-off hits catch up then.
+ * moving only the stretch it changes is simulated, which later hops kept make whole; a pause or the release runs it whole in any case.
  */
 export class SimulationCx {
 	readonly $result = createState<TSimulationResult | null>(null);
@@ -87,8 +87,6 @@ export class SimulationCx {
 	private preview: TProject | null = null;
 	private previewMove: { marbleId: string; hitId: string; dot: TVec2 } | null = null;
 	private isMoving = false;
-	/** The pointer has paused, so the preview asks what the drop will do: every way, not the first */
-	private isPaused = false;
 	private pauseTimer: ReturnType<typeof setTimeout> | null = null;
 	private cancelFrame: (() => void) | null = null;
 	private sent = 0;
@@ -153,7 +151,6 @@ export class SimulationCx {
 		this.previewMove = move;
 		// The first preview runs whole, so a hover's what-if counts every hit it breaks; only the next ones are moving
 		this.isMoving = this.preview != null;
-		this.isPaused = false;
 		this.preview = project;
 		this.$previewing.set(true);
 		this.schedule();
@@ -163,7 +160,6 @@ export class SimulationCx {
 			: setTimeout(() => {
 					this.pauseTimer = null;
 					this.isMoving = false;
-					this.isPaused = true;
 					this.schedule();
 				}, PREVIEW_PAUSE_MS);
 	}
@@ -179,7 +175,6 @@ export class SimulationCx {
 		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
 		this.pauseTimer = null;
 		this.isMoving = false;
-		this.isPaused = false;
 		this.preview = null;
 		this.previewMove = null;
 		if (this.$moveLimit.get() != null) this.$moveLimit.set(null);

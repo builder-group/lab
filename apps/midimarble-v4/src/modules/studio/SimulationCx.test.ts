@@ -132,6 +132,20 @@ describe('SimulationCx class', () => {
 			expect(cx.$result.get()?.hits.every((hit) => hit.status === 'onTime')).toBe(true);
 		});
 
+		it('should say plainly when a bar the person did not touch changed', async () => {
+			// Prepare
+			const { cx, studio, execute, flush } = await setup();
+			const project = studio.project as TProject;
+
+			// Act
+			execute(turn(project, 'piece-1-5', 0.05));
+			await flush();
+
+			// Assert
+			expect(cx.$result.get()?.hits.every((hit) => hit.status === 'onTime')).toBe(true);
+			expect(studio.$notice.get()?.message).toMatch(/changed too, so the notes after (it|them) stay on time/);
+		});
+
 		it('should leave an undo alone', async () => {
 			// Prepare
 			const { cx, studio, asked, execute, flush } = await setup();

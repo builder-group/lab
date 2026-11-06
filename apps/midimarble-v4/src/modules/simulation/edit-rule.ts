@@ -1,4 +1,4 @@
-import { type THandOver, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
+import { type THandOver, type TMarble, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { ballistic, gravityOf } from './geometry';
 import { frameBand } from './placement';
 import { getPieceDefinition, soundsHit } from './pieces';
@@ -99,7 +99,8 @@ export function answerEdit(simulator: TSimulator, request: TEditRequest): TEditA
 	const base = simulator.walk(before);
 	const chains = before.marbles.flatMap((marble, index) => {
 		const now = after.marbles.find((item) => item.id === marble.id);
-		if (now == null) return [];
+		// The same run later keeps its own hand-overs, as moving a song left them
+		if (now == null || isWholeRunMoved(marble, now)) return [];
 		const handOvers = chainOf(before, base, index);
 		const chain: TChain = { marbleId: marble.id, index: after.marbles.indexOf(now), handOvers, original: handOvers, waitsFrom: null, stored: storedBars(before, base, index, marble.id) };
 		return [chain];
@@ -134,6 +135,12 @@ export function answerEdit(simulator: TSimulator, request: TEditRequest): TEditA
 		if (offset != null) answer.shifts.push({ marbleId: chain.marbleId, distance: Math.hypot(offset.x, offset.y) });
 	}
 	return answer;
+}
+
+function isWholeRunMoved(before: TMarble, after: TMarble): boolean {
+	const delta = after.start.time - before.start.time;
+	if (delta === 0 || before.hits.length !== after.hits.length) return false;
+	return after.hits.every((hit, index) => before.hits[index]?.id === hit.id && Math.abs(hit.time - (before.hits[index]?.time ?? 0) - delta) < 1e-5);
 }
 
 /** What a marble's run went through. Past where it waits, what it would go through: the stored hand-overs that wait for it */
