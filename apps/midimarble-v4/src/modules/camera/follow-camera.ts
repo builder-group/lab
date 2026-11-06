@@ -83,7 +83,7 @@ export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null
 	if (input.camera == null || input.camera.mode === 'manual') return null;
 	const fps = input.fps;
 	const settings = settingsFrom(input.camera, input.opening ?? null);
-	const marbles = input.marbles;
+	const marbles = framedMarbles(input.marbles);
 	const frameEnd = Math.max(1, Math.ceil(input.duration * fps - 1e-6));
 	const count = frameEnd + 1;
 	const times = new Float64Array(count);
@@ -399,6 +399,12 @@ function renderAspect(frame: { width: number; height: number }): number {
 
 function hasMotion(marble: TFollowMarble): boolean {
 	return marble.motion.time.length > 0;
+}
+
+/** `framed_marbles` in `camera.py`: a marble with no hits only falls down the wall, so the camera leaves it out while another marble plays */
+function framedMarbles(marbles: TFollowMarble[]): TFollowMarble[] {
+	const playing = marbles.filter((marble) => (marble.hitTimes?.length ?? 0) > 0);
+	return playing.length > 0 ? playing : marbles;
 }
 
 /** `in_flight` in `camera.py`: from the first sample to the last, or to `activeUntil` once the marble has finished */
