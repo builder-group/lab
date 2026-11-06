@@ -11,6 +11,8 @@ import type { StudioCx } from '@/modules/studio';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from '@/modules/scene';
+import { selectedPlainGroup } from './group-commands';
+import { PlainGroupTiles, plainGroupNotes } from './PatternInspector';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
@@ -21,6 +23,7 @@ import { timingStatus, type TTimingStatus } from './timing-status';
 export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
+	const selection = useFeatureState(cx.$selection);
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
 	const preflight = useRunPreflight(cx);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
@@ -58,8 +61,11 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const contactEdit = (percent: number): TPieceEdit => ({ contactAt: percent / 100 });
 	const positionEdit = (axis: 'x' | 'y', centimeters: number): TPieceEdit => ({ position: { [axis]: centimeters / 100 } });
 
-	const title = isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label}s` : `${pieces.length} Pieces`;
-	const subtitle = isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
+	// A plain Group selected as a whole reads by its name, with its tiles below
+	const group = selectedPlainGroup(project, selection);
+	const groupNotes = group != null ? plainGroupNotes(project, group) : null;
+	const title = group?.name ?? (isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label}s` : `${pieces.length} Pieces`);
+	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} hits` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = free ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
 	const look = isSingle ? looks.get(first.id) : undefined;
@@ -80,6 +86,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					status == null || link == null ? null : ((status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link)) || (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? <FixButton cx={cx} entityId={first.id} /> : null
 				}
 			/>
+			{group != null ? <PlainGroupTiles cx={cx} project={project} group={group} /> : null}
 			<Panel id="piece.position" title="Position">
 				{isSingle && position != null ? (
 					<>

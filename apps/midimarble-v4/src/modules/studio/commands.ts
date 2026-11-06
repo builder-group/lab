@@ -1,7 +1,7 @@
 import { hasPieceProblem, marblesWithoutBowl, canMakeBacking } from '@/modules/building';
 import { onNextFrame } from './next-frame';
 import { fitsSong, lastHitTime } from '@/modules/music';
-import { followKey, toolKeys, tunnelPathKey, type TTrackTool, removeSelectedHits, canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected, selectedPieceIds, armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu, handNotes } from '@/modules/track';
+import { followKey, toolKeys, tunnelPathKey, type TTrackTool, removeSelectedHits, patternPhrase, canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected, selectedPieceIds, armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu, handNotes } from '@/modules/track';
 import { $rollHasFocus } from './timeline/timeline-state';
 import type { TMenuItem } from '@/components';
 import { newProjectTitle } from '@/environment';
@@ -16,7 +16,7 @@ import { addSuggestedHits, suggestedHits, suggestedHitsLabel } from './suggested
 import { pasteFilmCommands } from './clipboard';
 import { duplicateClear, freePieces, pasteClear, type TClearDuplicate } from './duplicate';
 import { hasSongLayer, targetSong } from './song-layer';
-import type { StudioCx, TWorkspace } from './StudioCx';
+import { focusedMarble, type StudioCx, type TWorkspace } from './StudioCx';
 
 // Every studio command in one list. The command palette lists them all; context menus and the
 // keyboard handlers run the same actions, so each command reads the same everywhere with its shortcut.
@@ -529,6 +529,18 @@ export const commands: readonly TCommand[] = [
 	{ id: 'build.stop', title: 'Stop Building Track', section: 'Track', keywords: 'cancel build track', isEnabled: (cx) => cx.assist.isBuilding, run: (cx) => cx.assist.stopBuild() },
 	{ id: 'build.repeat', title: 'Repeat Last Platform', section: 'Track', shortcut: 'R', keywords: 'copy same tilt assist', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.step('repeat') },
 	{ id: 'build.mirror', title: 'Mirror Last Platform', section: 'Track', shortcut: 'M', keywords: 'zigzag flip tilt assist', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.step('mirror') },
+	{
+		id: 'pattern.choose',
+		workspace: 'track',
+		title: 'Pattern…',
+		section: 'Track',
+		keywords: 'zigzag staircase long rail shape generate modifier array',
+		isEnabled: (cx) => trackCx(cx) != null && patternHit(cx) != null,
+		run: (cx) => {
+			const hit = patternHit(cx);
+			if (hit != null) choosePattern(cx, hit.marbleId, hit.hitId);
+		}
+	},
 	{ id: 'build.continue', title: 'Continue Pattern', section: 'Track', shortcut: '⇥', keywords: 'accept ghosts suggestions repeat tab assist', isEnabled: (cx) => trackCx(cx) != null && cx.assist.hasGhosts, run: (cx) => cx.assist.acceptGhosts() },
 	{
 		id: 'build.fix',
@@ -817,6 +829,7 @@ export type TCommandId =
 	| 'view.trackCamera'
 	| 'build.next'
 	| 'build.track'
+	| 'pattern.choose'
 	| 'build.rebuildFrom'
 	| 'build.stop'
 	| 'build.repeat'
@@ -933,6 +946,30 @@ function selectedTitleIds(cx: StudioCx): string[] {
 	return cx.project?.film.titles.filter((title) => selection.includes(title.id)).map((title) => title.id) ?? [];
 }
 
+/** Selects the phrase around a hit, so the inspector shows the Pattern tiles for it */
+export function choosePattern(cx: StudioCx, marbleId: string, hitId: string): void {
+	const project = cx.project;
+	if (project == null) return;
+	cx.$selection.set(patternPhrase(project, marbleId, hitId, cx.$selection.get()));
+	cx.$panels.set({ ...cx.$panels.get(), inspector: true });
+	cx.$reveal.set({ ids: [toHitKey(marbleId, hitId)], isZoomKept: true });
+}
+
+/** The hit Pattern… starts from: the one selected, the one a selected piece plays, or the focused marble's first at or after the playhead */
+function patternHit(cx: StudioCx): { marbleId: string; hitId: string } | null {
+	const project = cx.project;
+	if (project == null) return null;
+	const selection = cx.$selection.get();
+	const selected = selection.flatMap((key) => parseHitKey(key) ?? [])[0];
+	if (selected != null) return selected;
+	const tie = tieOf(project.track.pieces.find((piece) => selection.includes(piece.id)));
+	if (tie != null) return { marbleId: tie.marbleId, hitId: tie.hitId };
+	const marble = focusedMarble(project, selection);
+	const playhead = cx.$playhead.get();
+	const hit = [...(marble?.hits ?? [])].sort((a, b) => a.time - b.time).find((item) => item.time >= playhead - 1e-6) ?? marble?.hits[0];
+	return marble != null && hit != null ? { marbleId: marble.id, hitId: hit.id } : null;
+}
+
 /** One piece selected that plays on time and has no problem: Fix has nothing to do for it */
 function isOnlyOnTimePiece(cx: StudioCx): boolean {
 	const project = cx.project;
@@ -970,7 +1007,29 @@ export function deleteSelectedHits(cx: StudioCx): boolean {
 		if (applied) cx.$selection.set([]);
 		return applied;
 	}
+	const marble = selectedMarbleOnly(cx);
+	if (marble != null) return deleteMarble(cx, marble);
 	return removeSelectedHits(cx, cx.$selection.get(), $rollHasFocus.get());
+}
+
+/** The marble that alone is selected: ⌫ then acts on it */
+function selectedMarbleOnly(cx: StudioCx): TMarble | null {
+	const [only, ...others] = cx.$selection.get();
+	return others.length === 0 ? (cx.project?.marbles.find((marble) => marble.id === only) ?? null) : null;
+}
+
+/** Delete Marble, on ⌫ and in its menu: one Undo step. A project keeps one marble, which ⌫ says rather than doing nothing */
+export function deleteMarble(cx: StudioCx, marble: TMarble): boolean {
+	const project = cx.project;
+	if (project == null) return false;
+	if (project.marbles.length <= 1) {
+		cx.notify(`${marble.name} stays: a project keeps at least one marble.`);
+		return true;
+	}
+	if (!cx.execute([{ type: 'removeMarble', marbleId: marble.id }])) return false;
+	cx.$selection.set([]);
+	cx.notifyEdit(`Deleted ${marble.name}`);
+	return true;
 }
 
 /** Selects a layer of Film by name */

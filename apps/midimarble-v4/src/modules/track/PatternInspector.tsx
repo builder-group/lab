@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Folder, Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
-import { isPatternGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf } from '@/modules/project';
+import { isPatternGroup, type TGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf } from '@/modules/project';
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, PATTERNS, patternKinds, patternOfKind, patternSpan, type TPatternGlyph, type TPatternKind, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
@@ -31,6 +31,27 @@ export const PatternRangeInspector: React.FC<{ cx: StudioCx; project: TProject; 
 		</>
 	);
 };
+
+/** A plain Group's tiles: it has no Pattern yet, and choosing one fits its hits, as selecting them does */
+export const PlainGroupTiles: React.FC<{ cx: StudioCx; project: TProject; group: TGroup }> = (props) => {
+	const { cx, project, group } = props;
+	const workspace = useFeatureState(cx.$workspace);
+	const span = plainGroupNotes(project, group);
+	if (workspace !== 'track' || span == null) return null;
+	const target: TPatternTarget = { marbleId: span.marbleId, from: span.from, to: span.to };
+	return <TilesPanel cx={cx} targets={[target]} kinds={patternKinds('notes')} verdictKey={verdictKey(target)} />;
+};
+
+/** What a plain Group plays, when that's a run of a marble's notes: a Pattern can then take its place */
+export function plainGroupNotes(project: TProject, group: TGroup): { marbleId: string; from: number; to: number; count: number } | null {
+	const ties = project.track.pieces.filter((piece) => group.pieceIds.includes(piece.id)).flatMap((piece) => tieOf(piece) ?? []);
+	const marbleId = ties[0]?.marbleId;
+	const marble = project.marbles.find((item) => item.id === marbleId);
+	if (marble == null || marbleId == null || ties.some((tie) => tie.marbleId !== marbleId)) return null;
+	const hitIds = new Set(ties.map((tie) => tie.hitId));
+	const times = marble.hits.filter((hit) => hitIds.has(hit.id)).map((hit) => hit.time);
+	return times.length > 1 ? { marbleId, from: Math.min(...times), to: Math.max(...times), count: times.length } : null;
+}
 
 /** A Group: its tiles with Width and Bounce, like Blender's Adjust Last Operation. Using them fits it again */
 export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId: string }> = (props) => {
@@ -151,9 +172,12 @@ async function applyAll(trackCx: TrackCx, targets: TPatternTarget[], kind: TPatt
 const PatternVerdict: React.FC<{ trackCx: TrackCx; verdictKey: string; problems: TPatternProblem[] }> = (props) => {
 	const { trackCx, verdictKey: key, problems } = props;
 	const verdict = useFeatureState(trackCx.studio.patterns.$verdict);
+	const notice = useFeatureState(trackCx.studio.$notice);
 	const current = verdict?.key === key ? verdict : null;
 	if (current?.isChecking === true) return <p className="mm-pattern-note">Checking the whole song…</p>;
 	if (current?.refusal != null) {
+		// A click that was refused says so in the notice, with what fits instead
+		if (notice?.message.startsWith(current.refusal.words) === true) return null;
 		const words = [current.refusal.words, ...current.offers.map((offer) => offer.words)].join(' ');
 		return (
 			<p className="mm-pattern-problems" title={words}>

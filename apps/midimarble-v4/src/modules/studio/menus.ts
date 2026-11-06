@@ -4,7 +4,7 @@ import { createId, marbleColors, type TPiece, type TMarble, type TSong, type TPr
 import { problemSummary } from '@/modules/building';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
-import { commandItem, getCommand, isCommandEnabled, type TCommandId } from './commands';
+import { choosePattern, commandItem, deleteMarble, getCommand, isCommandEnabled, type TCommandId } from './commands';
 import { suggestedHitChoices } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
 
@@ -190,6 +190,7 @@ export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntr
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
+		{ label: 'Pattern…', disabled: cx.$trackCx.get() == null, onSelect: () => choosePattern(cx, marble.id, hitId) },
 		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ marbleId: marble.id, hitId }) },
 		'separator',
 		...playedByMenu(cx, moving),
@@ -218,7 +219,7 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 		},
 		labelColorItem(marbleLabelEntries(cx, marble)),
 		cx.$workspace.get() === 'track' ? commandItem(cx, 'marble.add') : null,
-		{ label: 'Delete Marble', disabled: project.marbles.length <= 1, onSelect: () => cx.execute([{ type: 'removeMarble', marbleId: marble.id }]) }
+		{ label: 'Delete Marble', disabled: project.marbles.length <= 1, onSelect: () => deleteMarble(cx, marble) }
 	]);
 }
 
