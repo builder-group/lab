@@ -1,8 +1,8 @@
 import { createState } from 'feature-state';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { amendHistory, applyProjectCommands, createHistory, pushHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { amendHistory, applyProjectCommands, createHistory, pushHistory, redoHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, createSimulator, type TSettleBase, type TSettleRequest, type TSimulationResult } from '@/modules/simulation';
+import { answerSettle, answerWorkerRequest, createSimulator, createWorkerMemory, type TSettleBase, type TSettleRequest, type TSimulationResult, type TWorkerMessage } from '@/modules/simulation';
 import { SimulationCx } from './SimulationCx';
 import type { StudioCx } from './StudioCx';
 
@@ -19,7 +19,37 @@ vi.mock('./next-frame', () => ({
 	}
 }));
 
-async function setup(): Promise<{ cx: SimulationCx; studio: StudioCx; simulated: TProject[]; asked: TSettleRequest[]; execute: (commands: TProjectCommand[]) => void; flush: () => Promise<void> }> {
+/** Runs the real client's messages through the real answers, only when the gate opens, one worker per instance */
+function workerStub(): { Worker: unknown; hold: () => () => void; simulated: TProject[] } {
+	let gate: Promise<void> = Promise.resolve();
+	const simulated: TProject[] = [];
+	class FakeWorker {
+		private readonly simulator = createSimulator();
+		private readonly memory = createWorkerMemory();
+		private listener: ((event: { data: unknown }) => void) | null = null;
+		addEventListener(type: string, listener: (event: { data: unknown }) => void): void {
+			if (type === 'message') this.listener = listener;
+		}
+		postMessage(request: TWorkerMessage & { id: number }): void {
+			if (request.kind === 'simulate') simulated.push(request.project);
+			void gate.then(async () => {
+				const value = answerWorkerRequest(await this.simulator, request, this.memory);
+				this.listener?.({ data: { id: request.id, ok: true, value } });
+			});
+		}
+		terminate(): void {
+			this.listener = null;
+		}
+	}
+	const hold = (): (() => void) => {
+		let open: () => void = () => undefined;
+		gate = new Promise((resolve) => (open = resolve));
+		return open;
+	};
+	return { Worker: FakeWorker, hold, simulated };
+}
+
+async function setup(makeClient?: () => unknown): Promise<{ cx: SimulationCx; studio: StudioCx; simulated: TProject[]; asked: TSettleRequest[]; execute: (commands: TProjectCommand[]) => void; flush: () => Promise<void> }> {
 	const simulator = await createSimulator();
 	const settleSimulator = await createSimulator();
 	const simulated: TProject[] = [];
@@ -38,6 +68,7 @@ async function setup(): Promise<{ cx: SimulationCx; studio: StudioCx; simulated:
 		},
 		dispose: () => undefined
 	};
+	if (makeClient != null) client.current = makeClient();
 	const $history = createState<TProjectHistory | null>(createHistory(loadFixture('zigzag')));
 	const apply = (commands: TProjectCommand[], isAmend: boolean): boolean => {
 		const history = $history.get();
@@ -150,6 +181,70 @@ describe('SimulationCx class', () => {
 		});
 	});
 
+	describe('an edit after another that left the pieces alone', () => {
+		const moveHit = (project: TProject, by: number): TProjectCommand[] => {
+			const hit = project.marbles[0]?.hits[5];
+			if (hit == null) throw new Error('Missing hit');
+			return [{ type: 'upsertHits', marbleId: 'marble-1', hits: [{ ...hit, time: hit.time + by }] }];
+		};
+		const onTime = (cx: SimulationCx): number => cx.$result.get()?.hits.filter((hit) => hit.status === 'onTime').length ?? 0;
+
+		it('should settle a moved hit after a title edit, like the same move alone', async () => {
+			// Prepare
+			const { cx, studio, asked, execute, flush } = await setup();
+			execute([{ type: 'updateProject', patch: { title: 'Another title' } }]);
+			await flush();
+
+			// Act
+			execute(moveHit(studio.project as TProject, 0.06));
+			await flush();
+
+			// Assert
+			expect(asked).toHaveLength(1);
+			expect(onTime(cx)).toBe(cx.$result.get()?.hits.length);
+		});
+
+		it('should settle a moved release after a title edit', async () => {
+			// Prepare
+			const { studio, asked, execute, flush } = await setup();
+			execute([{ type: 'updateProject', patch: { title: 'Another title' } }]);
+			await flush();
+			const marble = (studio.project as TProject).marbles[0];
+			if (marble == null) throw new Error('Missing marble');
+
+			// Act
+			execute([{ type: 'updateMarble', marbleId: marble.id, patch: { start: { ...marble.start, position: { x: marble.start.position.x + 0.002, y: marble.start.position.y } } } }]);
+			await flush();
+
+			// Assert
+			expect(asked).toHaveLength(1);
+		});
+
+		it('should leave a redo alone and settle an edit made after an undo', async () => {
+			// Prepare
+			const { studio, asked, execute, flush } = await setup();
+			const $history = (studio as unknown as { $history: { get: () => TProjectHistory; set: (value: TProjectHistory) => void } }).$history;
+			execute(moveHit(studio.project as TProject, 0.06));
+			await flush();
+			asked.length = 0;
+
+			// Act
+			$history.set(undoHistory($history.get()));
+			await flush();
+			$history.set(redoHistory($history.get()));
+			await flush();
+			const afterSteps = asked.length;
+			$history.set(undoHistory($history.get()));
+			await flush();
+			execute(moveHit(studio.project as TProject, 0.04));
+			await flush();
+
+			// Assert
+			expect(afterSteps).toBe(0);
+			expect(asked).toHaveLength(1);
+		});
+	});
+
 	describe('a film edit', () => {
 		const film = (project: TProject, distance: number): TProjectCommand[] => [{ type: 'updateFilm', film: { camera: { ...project.film.camera, distance } } }];
 
@@ -207,6 +302,31 @@ describe('SimulationCx class', () => {
 			expect(cx.$computing.get()).toBe(false);
 		});
 
+		it('should be current after an Undo back to a recent run while another run is still on its way', async () => {
+			// Prepare
+			const { cx, studio, execute, flush } = await setup();
+			const $history = (studio as unknown as { $history: { get: () => TProjectHistory; set: (value: TProjectHistory) => void } }).$history;
+			const working = client.current as { simulate: (project: TProject) => Promise<TSimulationResult> };
+			const simulate = working.simulate;
+			const waiting: (() => void)[] = [];
+			working.simulate = (project) => new Promise((resolve, reject) => waiting.push(() => void simulate(project).then(resolve, reject)));
+			execute([{ type: 'updateProject', patch: { gravity: ((studio.project as TProject).gravity ?? 1) * 0.999 } }]);
+			for (let i = 0; i < 10 && !cx.$computing.get(); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+			expect(cx.$computing.get()).toBe(true);
+
+			// Act
+			$history.set(undoHistory($history.get()));
+			await flush();
+			execute(film(studio.project as TProject, 3));
+			await flush();
+			for (const land of waiting.splice(0)) land();
+			await flush();
+
+			// Assert
+			expect(cx.$computing.get()).toBe(false);
+			expect(cx.isCurrent).toBe(true);
+		});
+
 		it('should run again after a failed run, even with the same input', async () => {
 			// Prepare
 			const { cx, studio, simulated, execute, flush } = await setup();
@@ -228,7 +348,64 @@ describe('SimulationCx class', () => {
 		});
 	});
 
+	describe('a paused preview while an edit waits for its settle', () => {
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		it('should not take the edit\'s place, so the present runs when the preview ends', async () => {
+			// Prepare
+			const workers = workerStub();
+			vi.stubGlobal('Worker', workers.Worker);
+			const { createSimulationClient } = await vi.importActual<typeof import('@/modules/simulation/index')>('@/modules/simulation');
+			const { cx, studio, execute, flush } = await setup(createSimulationClient);
+			const open = workers.hold();
+			const present = (): TProject => studio.project as TProject;
+			const moved = (by: number): TProject => {
+				const [isOk, , next] = applyProjectCommands(present(), turn(present(), 'piece-1-12', by));
+				if (!isOk) throw new Error('Could not turn');
+				return next;
+			};
+
+			// Act
+			execute(turn(present(), 'piece-1-5', 0.02));
+			execute(turn(present(), 'piece-1-9', 0.02));
+			cx.startPreview(moved(0.01));
+			await flush();
+			cx.startPreview(moved(0.02));
+			await new Promise((resolve) => setTimeout(resolve, 200));
+			cx.endPreview();
+			open();
+			await vi.waitFor(() => expect(cx.isSettling).toBe(false), { timeout: 5000 });
+			await flush();
+
+			// Assert
+			expect(cx.isCurrent).toBe(true);
+			expect(workers.simulated.at(-1)?.track.pieces).toEqual(present().track.pieces);
+		}, 15000);
+	});
+
 	describe('a preview', () => {
+		it('should never read as the current run, whatever revision it carries', async () => {
+			// Prepare
+			const { cx, studio, flush } = await setup();
+			const project = studio.project as TProject;
+			const [isOk, , moved] = applyProjectCommands(project, turn(project, 'piece-1-5', 0.02));
+			if (!isOk) throw new Error('Could not turn');
+			expect(cx.isCurrent).toBe(true);
+
+			// Act
+			cx.startPreview({ ...moved, revision: project.revision });
+			await flush();
+
+			// Assert
+			expect(cx.$result.get()?.hits).toBeDefined();
+			expect(cx.isCurrent).toBe(false);
+			cx.endPreview();
+			await flush();
+			expect(cx.isCurrent).toBe(true);
+		});
+
 		it('should show what the edit will do, with the next platforms taking it up', async () => {
 			// Prepare
 			const { cx, studio, simulated, flush } = await setup();

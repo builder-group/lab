@@ -6,7 +6,7 @@ import type { TReadyPackTheme } from './project-commands';
 import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
 import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey, type TSong } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -443,20 +443,36 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	}, {}, () => reply);
 }
 
+/** A song command that names a file the project doesn't have, in words; null when every file is there */
+async function missingSongFile(cx: StudioCx, commands: readonly { type: string }[]): Promise<string | null> {
+	for (const command of commands) {
+		const song = command.type === 'addSong' ? (command as { song?: Partial<TSong> }).song : command.type === 'updateSong' ? (command as { patch?: Partial<TSong> }).patch : null;
+		if (typeof song?.path !== 'string') continue;
+		const url = cx.resolveSourceUrl({ path: song.path } as TSong);
+		const [isReadOk] = url != null ? await host.readFile(url) : [false];
+		if (!isReadOk) return `There is no file ${song.path} in this project. The add_song tool brings a file in.`;
+	}
+	return null;
+}
+
 async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
 	const { commands, label } = z.object({ commands: z.array(z.looseObject({ type: z.string() })).min(1), label: z.string().optional() }).parse(args);
 	if (commands.some((command) => command.type === 'applyPattern')) {
 		if (commands.length > 1) return fail(cx, 'applyPattern takes its own project.execute call, since it fits against the real run.');
 		return runApplyPattern(cx, commands[0], label);
 	}
-	const project = cx.project;
-	if (project == null) return noProject(cx);
+	if (cx.project == null) return noProject(cx);
 	const stopEpoch = cx.mcp.presence.stopEpoch;
 	await settled(cx);
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
+	const noFile = await missingSongFile(cx, commands);
+	if (noFile != null) return fail(cx, noFile);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
 	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()) });
+	// Read after the waits, so an edit a person made meanwhile stays
+	const project = cx.project;
+	if (project == null) return noProject(cx);
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.film.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {

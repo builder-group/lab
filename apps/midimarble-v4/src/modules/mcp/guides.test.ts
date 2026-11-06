@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { TOOL_NAMES } from './mcp-tools';
-import { AGENT_COMMAND_EXAMPLES } from './project-commands';
+import { AGENT_COMMAND_EXAMPLES, commandProblem } from './project-commands';
 
 const MCP_FOLDER = new URL('../../../src-tauri/src/modules/mcp/', import.meta.url);
 
@@ -15,6 +15,12 @@ describe('MCP guides', () => {
 		const text = guides();
 		const missing = Object.keys(AGENT_COMMAND_EXAMPLES).filter((type) => !text.includes(`type: '${type}'`));
 		expect(missing).toEqual([]);
+	});
+
+	it('should show an updateFilm that fits', () => {
+		// The example has no placeholders, so it reads as the command it shows
+		const example = JSON.parse(AGENT_COMMAND_EXAMPLES.updateFilm.replace(/(\w+):/g, '"$1":').replace(/'/g, '"')) as { type: string };
+		expect(commandProblem(example)).toBeNull();
 	});
 
 	it('should have every tool Rust offers answered by the app, and the other way round', () => {

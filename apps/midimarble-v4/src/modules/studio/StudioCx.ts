@@ -182,6 +182,13 @@ export class StudioCx {
 		const unmountMcp = this.mcp.mount();
 		const stopHeight = this.$timelineHeight.listen(({ value }) => writeNumber(TIMELINE_HEIGHT_KEY, value));
 		const stopNotices = this.$history.listen(() => this.retireFixNotice());
+		// A song added, replaced or brought back by Undo may have no file
+		let checkedSongs = this.project?.songs;
+		const stopRecordings = this.$history.listen(({ value }) => {
+			if (value?.present.songs === checkedSongs) return;
+			checkedSongs = value?.present.songs;
+			void this.sources.checkRecordings();
+		});
 		// Tapping along belongs to the playback T started, so stopping playback finishes the tap session
 		const stopTapSessionListener = this.$playing.listen(({ value }) => {
 			if (value) return;
@@ -194,6 +201,8 @@ export class StudioCx {
 			unmountMcp();
 			stopHeight();
 			stopNotices();
+			stopRecordings();
+			this.sources.stopCheckingRecordings();
 			stopTapSessionListener();
 			void this.film.close();
 			clearTimeout(this.noticeTimer);
@@ -665,6 +674,7 @@ export class StudioCx {
 		this.$trackView.set('2d');
 		this.sources.$analysis.set({});
 		this.sources.ensureAnalysis(project);
+		void this.sources.checkRecordings();
 		void this.refreshRecent();
 	}
 
@@ -1014,7 +1024,7 @@ export class StudioCx {
 		const history = this.$history.get();
 		const opened = this.openedProject;
 		if (history == null || opened == null) return;
-		const next = pushHistory(history, { ...opened, title: history.present.title, revision: history.present.revision + 1 });
+		const next = { ...pushHistory(history, { ...opened, title: history.present.title, revision: history.present.revision + 1 }), isStep: true };
 		this.stepLabels.set(next.groups.present, 'Revert to Opened');
 		this.stepHistory(history, next);
 	}

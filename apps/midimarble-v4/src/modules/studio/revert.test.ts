@@ -34,6 +34,8 @@ describe('Revert to Opened', () => {
 		await reverted;
 		expect(cx.project?.length).toBe(before);
 		expect(cx.undoLabel).toBe('Revert to Opened');
+		// Nothing settles it, so it stays exactly how the project opened
+		expect(cx.$history.get()?.isStep).toBe(true);
 
 		cx.undo();
 		expect(cx.project?.length).toBe(42);

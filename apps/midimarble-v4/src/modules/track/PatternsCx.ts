@@ -2,7 +2,7 @@ import { createState } from 'feature-state';
 import { createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternLockWords, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type THitVerdict, type TPatternAsk, type TPatternClient, type TPatternKind, type TPatternOffer, type TPatternRefusal } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
-import type { TGroup, TPatternGroup, TProject } from '@/modules/project';
+import type { TGroup, TPatternGroup, TProject, TProjectHistory } from '@/modules/project';
 import { parseHitKey, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 
@@ -71,7 +71,7 @@ export class PatternsCx {
 	/** The newest answer from resting on a tile, which a click on it applies without asking again */
 	private answered: { key: string; project: TProject; answer: TPatternAnswer } | null = null;
 	/** The run on its way, which an edit ends; `isReplaced` when a newer click takes its place, which says nothing */
-	private run: { key: string; isReplaced: boolean } | null = null;
+	private run: { key: string | null; isReplaced: boolean } | null = null;
 
 	constructor(readonly studio: StudioCx) {}
 
@@ -83,8 +83,8 @@ export class PatternsCx {
 				if (this.$preview.get() != null && this.$preview.get()?.revision !== value?.present.revision) this.$preview.set(null);
 				// What a resting pointer asked was about the project as it was
 				if (this.run == null) this.endAsking();
-				// A new Undo step or an Undo is an edit; the song's length and a settled run amend the step they follow
-				if (this.run != null && value != null && stepKey(value) !== this.run.key) this.client?.cancel();
+				// Another project, a new Undo step or an Undo is an edit; the song's length and a settled run amend the step they follow
+				if (this.run != null && stepKey(value) !== this.run.key) this.client?.cancel();
 			}),
 			this.studio.$selection.listen(() => {
 				if (this.$verdict.get() != null) this.$verdict.set(null);
@@ -258,8 +258,7 @@ export class PatternsCx {
 		const project = this.studio.project;
 		if (project == null) return null;
 		if (this.run != null) this.run.isReplaced = true;
-		const history = this.studio.$history.get();
-		const run = { key: history != null ? stepKey(history) : '', isReplaced: false };
+		const run = { key: stepKey(this.studio.$history.get()), isReplaced: false };
 		this.run = run;
 		this.$isRunning.set(true);
 		const label = patternLabel(change.kind);
@@ -270,6 +269,8 @@ export class PatternsCx {
 				this.studio.updateNotice(noticeId, { message: `Fitting ${progress.name}${steps}`, progress: progress.fraction });
 			}, isChecked);
 			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
+			// A cancel can't reach an answer already on its way
+			if (stepKey(this.studio.$history.get()) !== run.key) throw new PatternCanceledError();
 			return answer;
 		} catch (error) {
 			this.studio.updateNotice(noticeId, { progress: undefined, actions: [] });
@@ -348,8 +349,9 @@ function madeWords(target: TPatternTarget, span: { from: number; to: number } | 
 	return span != null && (target.from !== span.from || target.to !== span.to) ? `${name}: new range` : `Fitted ${name} again`;
 }
 
-function stepKey(history: { past: readonly unknown[]; future: readonly unknown[] }): string {
-	return `${history.past.length}:${history.future.length}`;
+/** The open project and its Undo step: an edit, an Undo or another project changes it, an amend doesn't */
+function stepKey(history: TProjectHistory | null): string | null {
+	return history != null ? `${history.present.id}:${history.groups.present}` : null;
 }
 
 function previewKey(change: TPatternAsk): string {

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMarble, createProject, type THit, type TProject, type TSong, backingOf } from '@/modules/project';
 import { createAudioSignature, renderProjectAudio } from './audio-engine';
+import { soundingMarbles } from './synthesize';
 import { audibleProject, currentMix, EMPTY_MIX, hasSong, isAudible, isHitAudible, marbleSounds, mutedSoundtrackNote, soundtrackProject } from './mix';
 
 const SAMPLE_RATE = 22050;
@@ -79,6 +80,19 @@ describe('audibleProject function', () => {
 		expect(backingOf(muted)).toEqual([]);
 	});
 
+	it('should not give a soloed marble\'s hits in a recording its Sound', () => {
+		// Prepare
+		const tied = project([AUDIO], [{ ...note('a', 0.2), songId: AUDIO.id }, note('b', 1.2)], []);
+
+		// Act
+		const solo = audibleProject(tied, { muted: [], solo: ['melody'] });
+
+		// Assert
+		expect(soundingMarbles(tied)[0]?.hits.map((hit) => hit.id)).toEqual(['b']);
+		expect(soundingMarbles(solo)[0]?.hits.map((hit) => hit.id)).toEqual(['b']);
+		expect(solo.songs).toEqual([]);
+	});
+
 	it('should hear only what a soloed song plays', () => {
 		const tied = project([MIDI], [tie(note('a', 0.5)), note('own', 0.8)], [], [note('c', 1.5)]);
 
@@ -144,6 +158,51 @@ describe('soundtrackProject function', () => {
 		expect(mutedSoundtrackNote(song, { muted: ['melody'], solo: [] })).toBe("Melody is muted and left out of the film's sound.");
 		expect(mutedSoundtrackNote(song, { muted: ['melody', 'bass'], solo: [] })).toBe("Melody and Bass are muted and left out of the film's sound.");
 		expect(mutedSoundtrackNote(project([AUDIO], [], []), { muted: ['audio'], solo: [] })).toBe("Song.wav is muted and left out of the film's sound.");
+	});
+});
+
+/** Decodes any bytes to a second of a steady tone, as tests have no WebAudio */
+function stubDecoder(): void {
+	const samples = new Float32Array(48000).fill(0.5);
+	vi.stubGlobal('OfflineAudioContext', class {
+		decodeAudioData = async (): Promise<unknown> => ({ numberOfChannels: 1, length: samples.length, sampleRate: 48000, duration: 1, getChannelData: () => samples });
+	});
+}
+
+describe('a missing recording', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	const missing = (id: string): TProject => project([{ ...AUDIO, id, path: `audio/${id}.wav`, name: `${id}.wav` }], [], []);
+	const render = (song: TProject): ReturnType<typeof renderProjectAudio> => renderProjectAudio(song, resolve, { sampleRate: SAMPLE_RATE });
+
+	it('should play once the file is back, with no restart', async () => {
+		// Prepare
+		stubDecoder();
+		let isGone = true;
+		vi.stubGlobal('fetch', vi.fn(async () => (isGone ? new Response(null, { status: 404 }) : new Response(new Uint8Array(4)))));
+		const song = missing('comes-back');
+		const silent = await render(song);
+
+		// Act
+		isGone = false;
+		const restored = await render(song);
+
+		// Assert
+		expect(peak(silent.left, 0, 1)).toBe(0);
+		expect(peak(restored.left, 0, 1)).toBeGreaterThan(0.1);
+	});
+
+	it('should render without a file that fails to load or decode', async () => {
+		// Prepare
+		vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Load failed'); }));
+
+		// Act
+		const audio = await render(missing('never-there'));
+
+		// Assert
+		expect(peak(audio.left, 0, 1)).toBe(0);
 	});
 });
 

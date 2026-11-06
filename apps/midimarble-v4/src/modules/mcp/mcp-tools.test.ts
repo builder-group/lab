@@ -266,6 +266,8 @@ describe('MCP tools', () => {
 
 	it('should show the project under the names of its fields in get_state', async () => {
 		const { cx, marbleId } = studio();
+		vi.spyOn(host, 'sourceUrl').mockReturnValueOnce('asset://audio/song.wav');
+		vi.spyOn(host, 'readFile').mockResolvedValueOnce(Ok(new ArrayBuffer(4)));
 		await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'addSong', song: { id: 'song-1', name: 'Song.wav', kind: 'audio', path: 'audio/song.wav', start: 1, backing: [] } }] } });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.project.format).toEqual({ width: 9, height: 16 });
@@ -348,6 +350,55 @@ describe('MCP tools', () => {
 		});
 	});
 
+	describe('null in a nested field', () => {
+		it('should clear a camera, wall, Key Light and theme field, back to the theme\'s', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+			await execute(cx, { type: 'updateFilm', film: { camera: { turn: 1.2, focusMarbleId: marbleId }, wall: { color: '#112233' }, lights: { key: { exposure: 1, bloom: 0.2 } }, theme: { glowColor: '#00ff88' } } });
+
+			// Act
+			const reply = await execute(cx, { type: 'updateFilm', film: { camera: { turn: null, focusMarbleId: null }, wall: { color: null }, lights: { key: { exposure: null } }, theme: { glowColor: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			const film = cx.project?.film;
+			expect(film?.camera).not.toHaveProperty('turn');
+			expect(film?.camera).not.toHaveProperty('focusMarbleId');
+			expect(film?.wall).not.toHaveProperty('color');
+			expect(film?.lights.key).not.toHaveProperty('exposure');
+			expect(film?.lights.key).toMatchObject({ bloom: 0.2 });
+			expect(film?.theme).not.toHaveProperty('glowColor');
+		});
+
+		it('should clear a skin\'s field on a marble and a piece, and a start\'s velocity', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			const piece = { id: 'p', name: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 }, skin: { color: '#112233', assetId: 'platform:copper' } };
+			await execute(cx, { type: 'addPiece', piece }, { type: 'updateMarble', marbleId, patch: { skin: { color: '#112233' }, start: { velocity: { x: 0.1, y: 0 } } } });
+
+			// Act
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { skin: { color: null }, start: { velocity: null } } }, { type: 'updatePiece', pieceId: 'p', patch: { skin: { color: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(marbleOf(cx).skin ?? {}).not.toHaveProperty('color');
+			expect(marbleOf(cx).start).not.toHaveProperty('velocity');
+			expect(cx.project?.track.pieces[0]?.skin).toEqual({ assetId: 'platform:copper' });
+		});
+
+		it('should refuse null on a field that must have a value', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+
+			// Act
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { start: { position: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(true);
+			expect(textOf(reply)).toContain('position');
+		});
+	});
+
 	describe('updateFilm', () => {
 		it('should refuse an unknown theme and name the ones there are', async () => {
 			const { cx } = studio();
@@ -415,6 +466,22 @@ describe('MCP tools', () => {
 			expect((await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 1.2 } })).isError).toBe(true);
 		});
 
+		it('should keep what a person edits while the call waits for the run', async () => {
+			// Prepare
+			const { cx } = studio();
+			const camera = cx.project?.film.camera;
+			if (camera == null) throw new Error('Missing camera');
+
+			// Act
+			const replying = execute(cx, { type: 'updateFilm', film: { camera: { distance: 0.6 } } });
+			await vi.advanceTimersByTimeAsync(100);
+			cx.execute([{ type: 'updateFilm', film: { camera: { ...camera, tilt: 0.9 } } }]);
+			await replying;
+
+			// Assert
+			expect(cx.project?.film.camera).toMatchObject({ distance: 0.6, tilt: 0.9 });
+		});
+
 		it('should refuse ids that are not there and fonts a title can not use', async () => {
 			const { cx } = studio();
 			expect(textOf(await execute(cx, { type: 'removePieces', pieceIds: ['nobody'] }))).toContain('There is nothing called nobody');
@@ -423,6 +490,94 @@ describe('MCP tools', () => {
 			await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Hello' } });
 			const titles = cx.project?.film.titles.map((title) => ({ ...title, font: 'Georgia' }));
 			expect(textOf(await execute(cx, { type: 'updateFilm', film: { titles } }))).toContain("isn't a font");
+		});
+	});
+
+	describe('references', () => {
+		const platform = (id: string, marbleId: string, hitId: string): TPiece => ({ id, name: id, type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 } });
+		const other = { ...createMarble(1, { x: 0.3, y: 0 }, 'other'), hits: [] };
+
+		it('should take a platform along when assignHits gives its hit to another marble', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addMarble', marble: other }, { type: 'addPiece', piece: platform('tied', marbleId, hitId) });
+
+			// Act
+			const reply = await execute(cx, { type: 'assignHits', hitIds: [hitId], marbleId: 'other' });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(cx.project?.track.pieces[0]?.place).toMatchObject({ marbleId: 'other', hitId });
+		});
+
+		it('should remove the platform when assignHits gives its hit to Backing', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addPiece', piece: platform('tied', marbleId, hitId) });
+
+			// Act
+			await execute(cx, { type: 'assignHits', hitIds: [hitId], marbleId: 'backing' });
+
+			// Assert
+			expect(cx.project?.track.pieces).toEqual([]);
+		});
+
+		it('should remove the platform with its hit on removeHits', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addPiece', piece: platform('tied', marbleId, hitId) });
+
+			// Act
+			const reply = await execute(cx, { type: 'removeHits', marbleId, hitIds: [hitId] });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(marbleOf(cx).hits).toEqual([]);
+			expect(cx.project?.track.pieces).toEqual([]);
+		});
+
+		it('should refuse what names a marble, hit, piece, song or file that is not there, naming it', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addPiece', piece: platform('kept', marbleId, hitId) });
+			const refusals: [unknown, string][] = [
+				[{ type: 'addPiece', piece: platform('a', 'ghost-marble', hitId) }, 'ghost-marble'],
+				[{ type: 'addPiece', piece: platform('b', marbleId, 'ghost-hit') }, 'ghost-hit'],
+				[{ type: 'addPiece', piece: { ...platform('c', marbleId, hitId), type: 'nonsense' } }, 'nonsense'],
+				[{ type: 'updatePiece', pieceId: 'kept', patch: { place: { kind: 'plays', marbleId: 'ghost-marble', hitId, contactAt: 0.5 } } }, 'ghost-marble'],
+				[{ type: 'updatePiece', pieceId: 'kept', patch: { place: { kind: 'plays', marbleId, hitId: 'ghost-hit', contactAt: 0.5 } } }, 'ghost-hit'],
+				[{ type: 'updatePiece', pieceId: 'kept', patch: { type: 'nonsense' } }, 'nonsense'],
+				[{ type: 'addGroup', group: { id: 'g', name: 'G', marbleId: 'ghost-marble', pieceIds: ['kept'] } }, 'ghost-marble'],
+				[{ type: 'addGroup', group: { id: 'g', name: 'G', pieceIds: ['ghost-piece'] } }, 'ghost-piece'],
+				[{ type: 'upsertHits', marbleId, hits: [{ id: 'new', time: 2, songId: 'ghost-song' }] }, 'ghost-song'],
+				[{ type: 'assignHits', hitIds: ['ghost-hit'], marbleId }, 'ghost-hit'],
+				[{ type: 'addSong', song: { id: 's', name: 'S', kind: 'audio', path: 'audio/ghost.wav', start: 0, backing: [] } }, 'audio/ghost.wav'],
+				[{ type: 'updateProject', patch: { length: 1e9 } }, '1000000000']
+			];
+			const before = cx.project;
+
+			// Act
+			for (const [command, named] of refusals) {
+				const reply = await execute(cx, command);
+
+				// Assert
+				expect(reply.isError).toBe(true);
+				expect(textOf(reply)).toContain(named);
+				expect(cx.project).toBe(before);
+			}
+		});
+
+		it('should still let an agent skin a piece tied to a hit that is gone', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+			const stray = platform('stray', marbleId, 'gone');
+			cx.execute([{ type: 'addPiece', piece: stray }]);
+
+			// Act
+			const reply = await execute(cx, { type: 'updatePiece', pieceId: 'stray', patch: { name: 'Renamed' } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
 		});
 	});
 

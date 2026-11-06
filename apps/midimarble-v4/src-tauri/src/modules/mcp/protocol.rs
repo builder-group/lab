@@ -260,12 +260,12 @@ pub fn tool_definitions() -> Vec<Value> {
             "Adds a .blend with its manifest to the project as a skin or decor, after checking the manifest. See the assets guide.",
             json!({
                 "path": { "type": "string", "description": "A folder with asset.blend and manifest.json, or a .blend file with manifest.json beside it" },
-                "role": { "type": "string", "enum": ["skin", "decor"] },
-                "name": { "type": "string" },
+                "role": { "type": "string", "enum": ["skin", "decor"], "description": "Taken from the manifest when left out" },
+                "name": { "type": "string", "description": "Taken from the manifest's label when left out" },
                 "pieceType": { "type": "string", "description": "The kind of track piece a skin fits, such as platform" },
                 "pack": { "type": "string", "description": "Name of a new or existing Pack in this project to add it to" }
             }),
-            &["path", "role", "name"],
+            &["path"],
         ),
     ];
 }
@@ -353,6 +353,19 @@ mod tests {
                 "add_asset"
             ]
         );
+    }
+
+    #[test]
+    fn add_asset_needs_only_a_path_as_the_manifest_can_give_the_rest() {
+        let mut server = McpServer::new(StubBridge::default());
+        let reply = answer(&mut server, r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#);
+        let add_asset = reply["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|tool| tool["name"] == "add_asset")
+            .unwrap();
+        assert_eq!(add_asset["inputSchema"]["required"], json!(["path"]));
     }
 
     #[test]

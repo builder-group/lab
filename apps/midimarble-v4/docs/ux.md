@@ -103,6 +103,7 @@ Sound depends on the source:
 - **Mute and Solo live on a marble's row and a song's row**, as view state for the session: each opened project starts with everything on, they are not saved and have no Undo. A marble's take out or isolate the notes it plays. A song's cover everything it plays: its recording, its Backing and the marbles' hits tied to it. They change what plays while editing at once. **What is muted is also left out of the film's soundtrack**, and the export sheet says so in a quiet line ("Bass is muted and left out of the film's sound."); solo is for listening and never shapes the film.
 - **Timing is shown, not heard.** As a marble lands a hit during playback its dot in the timeline swells and flashes in its status color (green On Time, amber early or late, red Missed, Blocked or Stopped), and a ring in that color flashes on the wall where it lands. A hit's tooltip names its offset ("On Time (+3 ms)", "12 ms Late"). Flashes never re-render the rows, so they stay cheap at normal playback.
 - An imported recording already contains the music. Hits only mark when the marble should strike, and no extra sound is added.
+- **A recording whose file is gone is a Problem.** "take.wav is missing" says the film would play without it. The app looks for the file again every 2 s while it's gone, and once it's back the Problem goes and the recording plays, with no restart. A recording already loaded plays on from memory.
 
 ### Pegboard view
 

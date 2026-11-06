@@ -152,6 +152,30 @@ describe('commands', () => {
 		expect(edited?.marbles).toEqual([]);
 		expect(edited?.track.pieces).toEqual([]);
 	});
+
+	it('should take a marble\'s tied pieces with it and drop them from Groups', () => {
+		// Prepare
+		const plays = (id: string, marbleId: string): TPiece => ({ ...piece(id), place: { kind: 'plays', marbleId, hitId: 'h1', contactAt: 0.5 } });
+		const follows = (id: string, marbleId: string): TPiece => ({ ...piece(id), type: 'bowl', place: { kind: 'follows', marbleId, hitId: 'h1' } });
+		const hits = [{ id: 'h1', time: 1 }];
+		const project = apply(createProject({ id: 'p', title: 'T' }), [
+			{ type: 'addMarble', marble: { ...createMarble(1, { x: 0, y: 0 }, 'gone'), hits } },
+			{ type: 'addMarble', marble: { ...createMarble(2, { x: 0, y: 0 }, 'kept'), hits: [{ id: 'h2', time: 1 }] } },
+			{ type: 'addPiece', piece: plays('a', 'gone') },
+			{ type: 'addPiece', piece: follows('b', 'gone') },
+			{ type: 'addPiece', piece: plays('c', 'kept') },
+			{ type: 'addPiece', piece: piece('d') },
+			{ type: 'addGroup', group: group('mixed', ['a', 'd']) },
+			{ type: 'addGroup', group: group('only', ['b']) }
+		]);
+
+		// Act
+		const edited = apply(project, [{ type: 'removeMarble', marbleId: 'gone' }]);
+
+		// Assert
+		expect(edited.track.pieces.map((item) => item.id)).toEqual(['c', 'd']);
+		expect(edited.track.groups).toEqual([group('mixed', ['d'])]);
+	});
 });
 
 describe('update commands', () => {
