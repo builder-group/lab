@@ -6,7 +6,7 @@ Where the build stands today. Update this page in place; it stays about a page. 
 
 The app is trimmed and waiting for the owner's test against a to-do list.
 
-- **Compose:** Marbles, Song, hits and Backing; Platform, one Rail with Layouts (Drawn, Curve, C, Chain, Switchback), Tunnel, Windmill, Bowl. Next, Build Track, Rebuild From Here and one Fix. Edits stay local (`simulation/local-edit.ts`). Problems are physics only.
+- **Compose:** Marbles, Song, hits and Backing; Platform, one Rail with Layouts (Drawn, Curve, C, Chain, Switchback), Tunnel, Windmill, Bowl. Next, Build Track, Rebuild From Here and one Fix. A run is hops, each from a stored hand-over; edits stay local (`simulation/edit-rule.ts`). Problems are physics only.
 - **Patterns:** Zigzag, Staircase and Long Rail, checked before they're applied with a ghost and a verdict per hit, Groups and Flatten.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final, each at −14 LUFS with its true peak at −1 dB. A film opens 0.2 s before its first sound by default, and the sheet shows that first frame. The melody plays 10 dB over the other parts by default.
@@ -46,7 +46,8 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
 - No Problem for a missing asset: only Blender knows, and only while open
 - `assists.test.ts` "holds the marble across a long gap" runs about 360 simulations per search and takes 10 to 30 s depending on the machine's load, against its 20 s limit
-- A tilt on a 204 s, 776 piece song settles in about 1.4 s in Node (from 10 s), and the problems no longer stall the main thread; the whole run from the change to the end, about 0.5 s from the middle and 0.9 s from the start, is the floor. That song has a knife-edge touch at 107 s that flips with a few microns, so rides don't hold it and most edits before it end in a named break there.
+- The 204 s, 776 piece perf song doesn't run clean on one surface: 580 of 690 hits with its capsule-era rides and exits kept. Hop edits there take about 0.3 s at the median in Node, and a release can take seconds
+- Jingle Bells keeps capsule-era rides on its Switchbacks and exits on its bars, and one touching pair (Platforms 86 and 87) Fix can't part. Build Track's results and Patterns land without going through the edit rule's chain; wiring them on is next
 - Flat Light reads paler than Fast on the Christmas look. Draft Preview draws no lights, shadows or metal.
 - Skin: Cat's-Eye reads weakly when the platform behind has its hue
 

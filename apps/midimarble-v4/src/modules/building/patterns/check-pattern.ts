@@ -1,7 +1,7 @@
 import { checkRun, NO_BLENDER_OBJECTS, problemSummary, type TProblemSummary } from '../export-preflight';
 import type { TMarble, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { parseHitKey, tieOf } from '@/modules/project';
-import { answerSettle, changedPieces, frameBand, soundsHit } from '@/modules/simulation';
+import { answerSettle, changedPieces, editCommands, frameBand, soundsHit, withEditAnswer } from '@/modules/simulation';
 import type { TSimulator, TSimulationResult } from '@/modules/simulation';
 import type { THitVerdict, TPatternCourse, TPatternLeaving } from './contract';
 import { BAR_LENGTH, COLUMN_PROBLEM, sampleAt } from './fit-bars';
@@ -309,10 +309,10 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	const after = outcome.project;
 	// The next platforms take up the change, as a local edit does; the track after them stays where it was
 	const { answer } = answerSettle(sim, { before, after }, null);
-	const settled = answer.pieces.length > 0 ? { ...after, track: { ...after.track, pieces: after.track.pieces.map((piece) => answer.pieces.find((item) => item.id === piece.id) ?? piece) } } : after;
+	const settled = withEditAnswer(after, answer);
 	const settledResult = sim.simulate(settled);
 	const settledRun = standing(settled, settledResult);
-	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...answer.pieces.map((piece) => ({ type: 'addPiece' as const, piece }))], movedAfter: changedPlaces(before, settled, sim, settledResult) };
+	if (!answer.heldFrom.length && isKept(was, settledRun)) return { refusal: null, commands: [...outcome.commands, ...editCommands(answer)], movedAfter: changedPlaces(before, settled, sim, settledResult) };
 	// Or everything after it moves with the marble, staying on time, which is said
 	const freeResult = sim.simulate(after);
 	const freeRun = standing(after, freeResult);

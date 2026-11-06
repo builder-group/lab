@@ -3,7 +3,7 @@ import { checkPattern } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { createHistory, type TProject, type TProjectHistory } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, createSimulator, type TSettleRequest } from '@/modules/simulation';
+import { answerSettle, createSimulator, type TEditRequest } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { PatternsCx } from './PatternsCx';
 
@@ -32,7 +32,7 @@ describe('a Pattern asked for while an edit settles', () => {
 		const settleGate = new Promise<void>((resolve) => (openSettle = resolve));
 		client.current = {
 			simulate: async (project: TProject) => sim.simulate(project),
-			settle: async (request: TSettleRequest) => {
+			settle: async (request: TEditRequest) => {
 				await settleGate;
 				return answerSettle(sim, request, null).answer;
 			},

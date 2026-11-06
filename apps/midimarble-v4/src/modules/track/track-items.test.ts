@@ -359,17 +359,14 @@ describe('dragging a platform that plays a note', () => {
 		const resolved = before.pieces.find((piece) => piece.pieceId === 'piece-1-5');
 		if (piece == null || resolved == null) throw new Error('missing piece');
 
-		// Waiting where it was, the run keeps it exactly there and the marble passes
-		const link = tieOf(piece);
-		if (link == null) throw new Error('missing link');
-		const waiting = { ...piece, place: { ...link, held: { dot: { x: resolved.position.x, y: resolved.position.y - 0.1 }, velocity: { x: 0, y: -1 }, leaves: null } } };
+		// Turned away, it no longer plays
+		const waiting = { ...piece, angle: piece.angle + 0.8 };
 		const lowerProject = withCommands(project, [{ type: 'addPiece', piece: waiting }]);
 
 		// Placed again, it follows its note once more
 		const commands = replaceCommands(lowerProject, piece);
 		expect(commands.length).toBeGreaterThan(0);
 		const back = withCommands(lowerProject, commands);
-		expect(tieOf(back.track.pieces.find((item) => item.id === 'piece-1-5'))?.held).toBeUndefined();
 		expect(simulate(back).hits.every((item) => item.status === 'onTime')).toBe(true);
 	});
 

@@ -51,14 +51,6 @@ const SMarbleStart = z.strictObject({
 	spin: z.number().optional()
 });
 
-// Where a piece waits while an edit it could not take up keeps the marble from it: it stays where the marble was at its
-// moment before that edit, and how the marble left it then is kept, so a fix can bring the marble back
-const SHeld = z.strictObject({
-	dot: SVec2,
-	velocity: SVec2.nullable(),
-	leaves: z.strictObject({ velocity: SVec2, spin: z.number() }).nullable()
-});
-
 const SContactAt = z.number().min(0).max(1);
 
 const SFree = z.strictObject({ kind: z.literal('free'), position: SVec2 });
@@ -70,7 +62,6 @@ const SPlays = z.strictObject({
 	hitId: SId,
 	// Where along the contact surface the marble lands, from 0 to 1
 	contactAt: SContactAt,
-	held: SHeld.optional(),
 	// How the marble leaves this platform, kept so everything after it stays as it was: the velocity and spin a few physics
 	// steps after the hit. It counts only for this angle and bounce, while the bounce comes out near it.
 	leaves: z.strictObject({ velocity: SVec2, spin: z.number(), angle: z.number(), bounce: z.number() }).optional()
@@ -84,8 +75,7 @@ const SFollows = z.strictObject({
 	// Where the marble enters along the piece; absent is its middle
 	contactAt: SContactAt.optional(),
 	// Pose origin relative to the marble at that moment; without it the piece is placed touching the marble
-	offset: SVec2.optional(),
-	held: SHeld.optional()
+	offset: SVec2.optional()
 });
 
 export const SPlace = z.discriminatedUnion('kind', [SFree, SPlays, SFollows]);
@@ -181,6 +171,22 @@ const SRide = z.strictObject({
 	frames: z.array(z.number())
 });
 
+/**
+ * Where a marble is at a note, from which the hop after it runs again to the bit: in the coordinates of the world it ran in,
+ * with `origin` where that world's zero stands on the wall, so a hop shifted along the song keeps its run. An edit leaves a
+ * seam a run from the release can't give, so these are kept with the track, as Blender keeps a bake. Samples aren't: each hop
+ * runs again from its hand-over on load.
+ */
+const SHandOver = z.strictObject({
+	step: z.number().int(),
+	position: SVec2,
+	origin: SVec2,
+	velocity: SVec2,
+	rotation: z.tuple([z.number(), z.number()]),
+	spin: z.number(),
+	rotors: z.array(z.strictObject({ pieceId: SId, rotation: z.tuple([z.number(), z.number()]), spin: z.number() })).optional()
+});
+
 // One marble: a name and color that organize it, what it sounds like, its body, where it starts, and the hits it plays
 export const SMarble = z.strictObject({
 	id: SId,
@@ -194,7 +200,10 @@ export const SMarble = z.strictObject({
 	radius: z.number().positive(),
 	start: SMarbleStart,
 	skin: SSkin.optional(),
-	hits: z.array(SHit)
+	hits: z.array(SHit),
+	handOvers: z.array(SHandOver).optional(),
+	// The hit from which this marble flies free and the pieces wait where its hand-overs have them
+	waitsFrom: SId.optional()
 });
 
 export const SPiece = z.strictObject({
@@ -443,6 +452,7 @@ export type TPlace = z.infer<typeof SPlace>;
 export type TPlays = z.infer<typeof SPlays>;
 export type TFollows = z.infer<typeof SFollows>;
 export type TRide = z.infer<typeof SRide>;
+export type THandOver = z.infer<typeof SHandOver>;
 export type TTitle = z.infer<typeof STitle>;
 export type TFilm = z.infer<typeof SFilm>;
 export type TFilmTheme = z.infer<typeof SFilmTheme>;

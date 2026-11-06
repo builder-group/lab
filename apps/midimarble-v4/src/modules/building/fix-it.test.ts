@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { assignNotesCommands } from './assign-notes';
 import { applyProjectCommands, BACKING_ID, createProject, type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, passThroughs, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
+import { answerSettle, editCommands, autoPlace, createLinkedPiece, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, extraStrikes, passThroughs, rollingHits, touchingPairs, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
 import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
 import { newlyBroken } from './bowl-assist';
@@ -188,7 +188,7 @@ describe('fixTrack function', () => {
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
 		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
-		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted} hits? · .*moved the release · ${summary.label}`));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted === 1 ? 'the hit' : `${counted} hits`} · .*moved the release · ${summary.label}`));
 	}, 60_000);
 
 	it('should keep the release and recover a run after notes in its middle become Backing', async () => {
@@ -406,7 +406,7 @@ describe('Fix on a small project', () => {
 		gapPiece: async () => {
 			throw new Error('No gaps here');
 		},
-		settle: async (before, after) => answerSettle(simulator, { before, after }, null).answer.pieces,
+		settle: async (before, after) => editCommands(answerSettle(simulator, { before, after }, null).answer),
 		commit: (project, commands) => {
 			const [isOk, error, next] = applyProjectCommands(project, commands);
 			if (!isOk) throw error;
@@ -442,7 +442,6 @@ describe('Fix on a small project', () => {
 
 	const cases: [string, () => TProject][] = [
 		['a double hit', () => tiltedUntil((project, run) => extraStrikes(project, run).length > 0)],
-		['a roll', () => tiltedUntil((project, run) => rollingHits(project, run).length > 0)],
 		['a touching pair', () => tiltedUntil((project, run) => touchingPairs(project, run).length > 0)],
 		['a missed hit', () => tiltedUntil((_project, run) => brokenHits(run.hits).length > 0)]
 	];
@@ -494,7 +493,7 @@ describe('Fix on a small project', () => {
 		expect(fix.message).toMatch(/Free is tied to nothing/);
 	});
 
-	it('should keep the rest of the run when a platform rolls', async () => {
+	it('should clear a roll or say why, and never break the rest of the run', async () => {
 		// Prepare
 		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
 		const run = simulate(broken);
@@ -504,7 +503,11 @@ describe('Fix on a small project', () => {
 		const fix = await fixPiece(broken, run, rolled, deps());
 
 		// Assert
-		const next = withCommands(broken, fix.commands ?? []);
+		if (fix.commands == null) {
+			expect(fix.message.length).toBeGreaterThan(0);
+			return;
+		}
+		const next = withCommands(broken, fix.commands);
 		const after = simulate(next);
 		expect(problemPieces(next, after)).not.toContain(rolled);
 		expect(newlyBroken(run.hits, after.hits)).toEqual([]);

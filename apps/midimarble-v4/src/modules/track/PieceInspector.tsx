@@ -570,8 +570,7 @@ function applyPieceEdit(project: TProject, pieces: TPiece[], edit: TPieceEdit): 
 		const patch: { angle?: number; place?: TPlace; params?: Record<string, number> } = {};
 		const link = tieOf(piece);
 		if (link != null && (edit.contactAt != null || edit.angle != null)) {
-			const { held: _held, ...kept } = link;
-			patch.place = edit.contactAt != null ? { ...kept, contactAt: edit.contactAt } : kept;
+			if (edit.contactAt != null) patch.place = { ...link, contactAt: edit.contactAt };
 			if (edit.angle != null) patch.angle = edit.angle;
 		} else if (piece.place.kind === 'free' && (edit.angle != null || edit.position != null)) {
 			if (edit.position != null) patch.place = { kind: 'free', position: { ...piece.place.position, ...edit.position } };

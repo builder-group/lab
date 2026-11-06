@@ -4,7 +4,7 @@ import { createStaircaseProject } from './fixture-projects';
 import { resolvePieceParams } from './pieces';
 import { createLinkedPiece } from './placement';
 import { projectOnPath } from './shapes';
-import { createSimulator, type TSimulator } from './simulate';
+import { createSimulator, handOversOf, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TSimulationResult } from './types';
 import { loadFixture } from '@/modules/project/test-helpers';
 
@@ -136,13 +136,12 @@ describe('simulate', () => {
 		}
 		expect(after.hits.every((hit) => hit.status === 'onTime')).toBe(true);
 
-		// The fifth platform waits at its current dot
-		const waiting = structuredClone(project);
+		// From the fifth note on the marble flies free and the pieces wait where the hand-overs have them
+		const walk = simulator.walk(project);
 		const fifth = before.pieces.find((piece) => piece.pieceId === 'piece-1-5');
 		const fifthHit = before.hits.find((hit) => hit.pieceId === 'piece-1-5');
-		const link = tieOf(waiting.track.pieces.find((piece) => piece.id === 'piece-1-5'));
-		if (fifth == null || fifthHit?.dot == null || link == null) throw new Error('Missing fifth platform');
-		link.held = { dot: fifthHit.dot, velocity: fifthHit.velocity, leaves: null };
+		if (fifth == null || fifthHit == null) throw new Error('Missing fifth platform');
+		const waiting: TProject = { ...structuredClone(project), marbles: project.marbles.map((marble, index) => ({ ...marble, handOvers: handOversOf(walk, index), waitsFrom: fifthHit.hitId })) };
 		const waitingResult = simulator.simulate(waiting);
 		const waitingPiece = waitingResult.pieces.find((piece) => piece.pieceId === 'piece-1-5');
 		expect(waitingPiece?.status).toBe('held');

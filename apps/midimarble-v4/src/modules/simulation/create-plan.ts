@@ -7,7 +7,6 @@ import { shapesBounds } from './shapes';
 import { PHYSICS_HZ, type TPieceDefinition, type TResolvedPiece } from './types';
 
 export const STEP_EPSILON = 1e-7;
-const SIGNATURE_VERSION = 'sim@5';
 
 /**
  * All a marble's run reads of a project. `film`, `format`, `songs` and `groups` aren't in it, so the compiler proves
@@ -34,8 +33,6 @@ export interface TPlan {
 	staticLowY: number;
 	/** Hit-linked pieces in global hit time order */
 	events: TPlanEvent[];
-	/** Signature of the state just before each event is processed */
-	eventKeys: string[];
 	/** Linked piece piece ID to its hit time, null when the hit does not exist */
 	linkedHitTimes: Map<string, number | null>;
 }
@@ -56,11 +53,7 @@ export interface TStaticPiece {
 	params: Record<string, number>;
 	layout: TPieceLayout;
 	resolved: TResolvedPiece;
-	/**
-	 * Signature of a parkable piece, empty for windmills. Parkable pieces enter the world only when a marble
-	 * comes near, so they stay out of the event chain, and a run resumes past an edit to one of them as long
-	 * as no marble came near its old or new pose before the snapshot.
-	 */
+	/** Signature of the piece, empty for windmills: a kept hop near it compares this */
 	key: string;
 }
 
@@ -92,9 +85,7 @@ export interface TPlanEvent {
 	ride: TRide | null;
 	/** How the marble leaves this platform while it comes out near that */
 	leaves: { velocity: TVec2; spin: number } | null;
-	/** Where the piece waits instead of following the marble */
-	held: { dot: TVec2; velocity: TVec2 | null } | null;
-	/** Signature of all the piece gives the event, for the snapshot keys */
+	/** Signature of all the piece gives the event, what a kept hop compares */
 	hash: string;
 }
 
@@ -183,34 +174,6 @@ export function createPlan(project: TRunInput): TPlan {
 			);
 	}
 
-	// Each key covers everything that determines the world up to the event: marbles, windmills, every
-	// earlier event and the step the event is processed at. Parkable static pieces are checked on resume.
-	// The chain runs on as hash state, so each event hashes only its own part
-	const chain = hashState();
-	hashInto(
-		chain,
-		JSON.stringify([
-			SIGNATURE_VERSION,
-			gravity,
-			startStep,
-			marbles,
-			staticPieces
-				.filter((piece) => piece.key === '')
-				.map((piece) => [
-					piece.pieceId,
-					piece.definition.type,
-					piece.params,
-					piece.layout.shapes,
-					piece.layout.rotor
-				])
-		])
-	);
-	const eventKeys: string[] = [];
-	for (const event of events) {
-		eventKeys.push(hashKey(hashInto(chain.slice(), `|${event.step}`)));
-		hashInto(chain, `|${event.hash}|${event.time}|${event.marbleIndex}`);
-	}
-
 	return {
 		gravity,
 		startStep,
@@ -219,7 +182,6 @@ export function createPlan(project: TRunInput): TPlan {
 		staticPieces,
 		staticLowY,
 		events,
-		eventKeys,
 		linkedHitTimes
 	};
 }
@@ -246,7 +208,6 @@ function pieceEvent(piece: TPiece, tie: NonNullable<ReturnType<typeof tieOf>>, d
 		isAnchor,
 		offset: tie.kind === 'follows' ? (tie.offset ?? null) : null,
 		ride,
-		held: tie.held ?? null,
 		leaves: tie.kind === 'plays' && tie.leaves != null && tie.leaves.angle === piece.angle && tie.leaves.bounce === params['bounce'] ? { velocity: tie.leaves.velocity, spin: tie.leaves.spin } : null
 	};
 	const hash = signature(
@@ -262,8 +223,7 @@ function pieceEvent(piece: TPiece, tie: NonNullable<ReturnType<typeof tieOf>>, d
 			isAnchor,
 			event.offset,
 			ride != null ? rideHash(ride) : null,
-			event.leaves,
-			event.held
+			event.leaves
 		])
 	);
 	return { ...event, hash };

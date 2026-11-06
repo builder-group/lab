@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createPerfProject } from './fixture-projects';
-import { answerSettle, type TSettleBase } from './local-edit';
+import { answerEdit, withEditAnswer } from './edit-rule';
 import { createSimulator, type TSimulator } from './simulate';
 import type { TSimulationResult } from './types';
 
 const DEGREE = Math.PI / 180;
 
-// A simulator resumes from its snapshots and a settle runs its ways a stretch at a time, so after many edits the
-// simulator's run must still be, bit for bit, what a fresh simulator finds
+// A simulator keeps its hops and an edit runs a few of them over, so after many edits the simulator's run must still be, bit
+// for bit, what a fresh simulator finds from the hand-overs: what opening the saved project does
 
 function turned(project: TProject, id: string, by: number): TProject {
 	return {
@@ -17,11 +17,6 @@ function turned(project: TProject, id: string, by: number): TProject {
 		revision: project.revision + 1,
 		track: { ...project.track, pieces: project.track.pieces.map((piece) => (piece.id === id && tieOf(piece) != null ? { ...piece, angle: piece.angle + by } : piece)) }
 	};
-}
-
-function withPieces(project: TProject, pieces: TProject['track']['pieces']): TProject {
-	const changed = new Map(pieces.map((piece) => [piece.id, piece]));
-	return { ...project, revision: project.revision + 1, track: { ...project.track, pieces: project.track.pieces.map((piece) => changed.get(piece.id) ?? piece) } };
 }
 
 /** The same run, sample for sample, hit for hit and contact for contact */
@@ -60,15 +55,12 @@ function expectPrefix(short: TSimulationResult, whole: TSimulationResult, what: 
 }
 
 async function checkEdits(simulator: TSimulator, project: TProject, edits: { id: string; by: number }[], what: string): Promise<void> {
-	let memo: TSettleBase | null = null;
 	let present = project;
 	simulator.simulate(present);
 	for (const [index, edit] of edits.entries()) {
 		const after = turned(present, edit.id, edit.by * DEGREE);
-		// The settle's own runs: short solves, stretches and whole runs, all on the one simulator
-		const settled = answerSettle(simulator, { before: present, after }, memo);
-		memo = settled.memo;
-		const landed = withPieces(after, settled.answer.pieces);
+		// The edit's own runs, all on the one simulator
+		const landed = { ...withEditAnswer(after, answerEdit(simulator, { before: present, after })), revision: after.revision + 1 };
 		const label = `${what}, edit ${index + 1} (${edit.id} by ${edit.by}°)`;
 
 		// A run stopped early, then the whole, resumed from it

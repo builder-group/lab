@@ -141,6 +141,8 @@ export interface TExtraStrike {
 
 /** A marble that stays on a platform is reported again by every step it re-touches; these count as one strike */
 const SAME_STRIKE = HIT_TOLERANCE + 0.01;
+/** Slower than this is Rapier's early report of a contact that never comes */
+const NO_TOUCH_SPEED = 0.02;
 
 /**
  * Platforms a marble strikes outside their note: a second bounce, a roll along the top, or a graze on the way to an
@@ -160,7 +162,7 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 		const note = hit.actualTime;
 		const isLast = project.marbles.find((marble) => marble.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
 		const extra = result.contacts.filter((contact) => {
-			if (contact.marbleId !== marbleId || contact.otherId !== pieceId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE) return false;
+			if (contact.marbleId !== marbleId || contact.otherId !== pieceId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE || (contact.speed ?? 1) < NO_TOUCH_SPEED) return false;
 			// After the marble's last note it may come to rest; only another real bounce still shows
 			return !isLast || contact.time < note || (contact.speed ?? Infinity) >= IMPACT_SPEED;
 		});

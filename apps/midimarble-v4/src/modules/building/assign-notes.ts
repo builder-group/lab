@@ -85,10 +85,9 @@ function currentPose(project: TProject, result: TSimulationResult | null, piece:
 	return freePose(piece, resolved, radius);
 }
 
-// Without a pose from the run: where it waits, otherwise beside its marble's release
+// Without a pose from the run: beside its marble's release
 function fallbackPosition(project: TProject, piece: TPiece): TVec2 {
 	const link = tieOf(piece);
-	if (link?.held != null) return { ...link.held.dot };
 	const release = project.marbles.find((item) => item.id === link?.marbleId)?.start.position;
 	return release != null ? { x: release.x, y: release.y - 0.2 } : { x: 0, y: 0 };
 }

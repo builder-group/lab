@@ -2,7 +2,7 @@ import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project
 import type { TResult } from 'tuple-result';
 import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withPieces, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
 import { createRailForGap, createChainForGap, createSwitchbackForGap, createTunnelForGap, prepareGapSearch, type TGapEvaluation, type TGapPieceCheck, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
-import { answerSettle, reconnect, type TSettleAnswer, type TSettleBase, type TSettleRequest } from './local-edit';
+import { answerEdit, reconnect, type TEditAnswer, type TEditRequest } from './edit-rule';
 import type { TSimulator } from './simulate';
 import type { TResolvedPiece, TSimulationResult } from './types';
 
@@ -40,7 +40,7 @@ export type TWorkerRequest =
 			proposal: TGapPieceProposal;
 	  }
 	| { kind: 'continue'; project: TProject; marbleId: string; maxCount?: number; canTurn?: boolean }
-	| ({ kind: 'settle' } & TSettleRequest)
+	| ({ kind: 'settle' } & TEditRequest)
 	| { kind: 'reconnect'; project: TProject }
 	| {
 			kind: 'gapPiece';
@@ -116,8 +116,8 @@ export interface TWorkerAnswers {
 	gapAnswer: TGapAnswer;
 	continue: TContinueAnswer | null;
 	gapPiece: TGapAnswer;
-	settle: TSettleAnswer;
-	reconnect: { pieces: TPiece[] } | null;
+	settle: TEditAnswer;
+	reconnect: Pick<TEditAnswer, 'pieces' | 'marbles'> | null;
 }
 
 interface TPreparedSearch {
@@ -128,12 +128,10 @@ interface TPreparedSearch {
 /** What a worker keeps between requests: the search it prepared last */
 export interface TWorkerMemory {
 	search: { key: string; request: TSearchRequest; prepared: TResult<TPreparedSearch, Error> } | null;
-	/** The run before the edit being settled, since a drag asks at every move */
-	settle: TSettleBase | null;
 }
 
 export function createWorkerMemory(): TWorkerMemory {
-	return { search: null, settle: null };
+	return { search: null };
 }
 
 /** Answers one request. Throws with a readable message when an assist finds nothing. */
@@ -151,11 +149,7 @@ export function answerWorkerRequest(
 		return gapAnswer(simulate, prepared.request, request.proposal, startedAt);
 	}
 	if (request.kind === 'simulate') return simulator.simulate(request.project, request.horizon);
-	if (request.kind === 'settle') {
-		const { answer, memo } = answerSettle(simulator, request, memory.settle);
-		memory.settle = memo;
-		return answer;
-	}
+	if (request.kind === 'settle') return answerEdit(simulator, request);
 	if (request.kind === 'reconnect') return reconnect(simulator, request.project);
 	const result = simulate(request.project);
 	switch (request.kind) {

@@ -160,8 +160,8 @@ describe('AssistCx class', () => {
 			let answer: (value: TAutoPlaceAnswer) => void = () => undefined;
 			const { cx, assist, open, project: first } = studio({ autoPlace: () => new Promise((resolve) => (answer = resolve)) });
 			const piece = createLinkedPiece('platform', 'marble', 'hit2', 0.2, { id: 'waiting' });
-			const marble = { ...createMarble(0, { x: 0, y: 0.6 }, 'marble'), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }] };
-			const held = { ...first, marbles: [marble], track: { ...first.track, pieces: [{ ...piece, place: { ...piece.place, held: { dot: { x: 0, y: 0 }, velocity: null, leaves: null } } }] } } as TProject;
+			const marble = { ...createMarble(0, { x: 0, y: 0.6 }, 'marble'), hits: [{ id: 'hit1', time: 1, pitch: 60 }, { id: 'hit2', time: 2, pitch: 62 }], waitsFrom: 'hit2' };
+			const held = { ...first, marbles: [marble], track: { ...first.track, pieces: [piece] } } as TProject;
 			cx.$history.set(createHistory(held));
 			cx.simulation.$result.set({ revision: held.revision, duration: held.length, marbles: [], pieces: [], contacts: [], hits: [HIT], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult);
 			const fixing = assist.fix();
