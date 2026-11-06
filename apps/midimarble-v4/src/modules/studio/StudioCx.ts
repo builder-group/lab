@@ -1014,7 +1014,7 @@ export class StudioCx {
 		const history = this.$history.get();
 		const opened = this.openedProject;
 		if (history == null || opened == null) return;
-		const next = pushHistory(history, { ...opened, title: history.present.title, revision: history.present.revision + 1 });
+		const next = { ...pushHistory(history, { ...opened, title: history.present.title, revision: history.present.revision + 1 }), isStep: true };
 		this.stepLabels.set(next.groups.present, 'Revert to Opened');
 		this.stepHistory(history, next);
 	}

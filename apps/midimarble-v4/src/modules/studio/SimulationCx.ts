@@ -167,7 +167,6 @@ export class SimulationCx {
 
 	/** The history whose present has settled: what the next edit is compared with */
 	private settled: TProjectHistory | null = null;
-	private seenHistory: TProjectHistory | null = null;
 	private settleRun = 0;
 	private isLanding = false;
 	/** True from an edit until the platforms taking up its change have landed; its own run waits until then */
@@ -182,10 +181,7 @@ export class SimulationCx {
 	private settleLatestEdit(history: TProjectHistory): void {
 		if (this.isLanding) return;
 		const known = this.settled;
-		const seen = this.seenHistory;
-		this.seenHistory = history;
-		const isStep = seen != null && (seen.past.at(-1)?.track.pieces === history.present.track.pieces || seen.future[0]?.track.pieces === history.present.track.pieces);
-		if (known == null || this.client == null || known.present.id !== history.present.id || isStep || this.studio.assist.isBuilding || this.studio.assist.isFixing === true) {
+		if (known == null || this.client == null || known.present.id !== history.present.id || history.isStep === true || this.studio.assist.isBuilding || this.studio.assist.isFixing === true) {
 			this.settleRun++;
 			this.settled = history;
 			this.stopSettling();
@@ -227,9 +223,7 @@ export class SimulationCx {
 		} finally {
 			this.isLanding = false;
 		}
-		const history = this.studio.$history.get();
-		this.settled = history;
-		this.seenHistory = history;
+		this.settled = this.studio.$history.get();
 		this.stopSettling();
 		return isDone;
 	}

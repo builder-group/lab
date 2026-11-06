@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { amendHistory, applyProjectCommands, createHistory, pushHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
+import { amendHistory, applyProjectCommands, createHistory, pushHistory, redoHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerSettle, createSimulator, type TSettleBase, type TSettleRequest, type TSimulationResult } from '@/modules/simulation';
 import { SimulationCx } from './SimulationCx';
@@ -147,6 +147,70 @@ describe('SimulationCx class', () => {
 			expect(cx.isCurrent).toBe(true);
 			expect(cx.$computing.get()).toBe(false);
 			expect(cx.$result.get()?.hits).toBe(before?.hits);
+		});
+	});
+
+	describe('an edit after another that left the pieces alone', () => {
+		const moveHit = (project: TProject, by: number): TProjectCommand[] => {
+			const hit = project.marbles[0]?.hits[5];
+			if (hit == null) throw new Error('Missing hit');
+			return [{ type: 'upsertHits', marbleId: 'marble-1', hits: [{ ...hit, time: hit.time + by }] }];
+		};
+		const onTime = (cx: SimulationCx): number => cx.$result.get()?.hits.filter((hit) => hit.status === 'onTime').length ?? 0;
+
+		it('should settle a moved hit after a title edit, like the same move alone', async () => {
+			// Prepare
+			const { cx, studio, asked, execute, flush } = await setup();
+			execute([{ type: 'updateProject', patch: { title: 'Another title' } }]);
+			await flush();
+
+			// Act
+			execute(moveHit(studio.project as TProject, 0.06));
+			await flush();
+
+			// Assert
+			expect(asked).toHaveLength(1);
+			expect(onTime(cx)).toBe(cx.$result.get()?.hits.length);
+		});
+
+		it('should settle a moved release after a title edit', async () => {
+			// Prepare
+			const { studio, asked, execute, flush } = await setup();
+			execute([{ type: 'updateProject', patch: { title: 'Another title' } }]);
+			await flush();
+			const marble = (studio.project as TProject).marbles[0];
+			if (marble == null) throw new Error('Missing marble');
+
+			// Act
+			execute([{ type: 'updateMarble', marbleId: marble.id, patch: { start: { ...marble.start, position: { x: marble.start.position.x + 0.002, y: marble.start.position.y } } } }]);
+			await flush();
+
+			// Assert
+			expect(asked).toHaveLength(1);
+		});
+
+		it('should leave a redo alone and settle an edit made after an undo', async () => {
+			// Prepare
+			const { studio, asked, execute, flush } = await setup();
+			const $history = (studio as unknown as { $history: { get: () => TProjectHistory; set: (value: TProjectHistory) => void } }).$history;
+			execute(moveHit(studio.project as TProject, 0.06));
+			await flush();
+			asked.length = 0;
+
+			// Act
+			$history.set(undoHistory($history.get()));
+			await flush();
+			$history.set(redoHistory($history.get()));
+			await flush();
+			const afterSteps = asked.length;
+			$history.set(undoHistory($history.get()));
+			await flush();
+			execute(moveHit(studio.project as TProject, 0.04));
+			await flush();
+
+			// Assert
+			expect(afterSteps).toBe(0);
+			expect(asked).toHaveLength(1);
 		});
 	});
 

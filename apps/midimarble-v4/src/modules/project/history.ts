@@ -11,6 +11,8 @@ export interface TProjectHistory {
 	present: TProject;
 	future: TProject[];
 	groups: THistoryGroups;
+	/** True when the present came back by Undo, Redo or Revert rather than an edit, so nothing should settle it */
+	isStep?: boolean;
 }
 
 export interface THistoryGroups {
@@ -42,7 +44,7 @@ export function pushHistory(history: TProjectHistory, next: TProject, group?: nu
 
 /** Replaces the present with `next` within the same undo step; a redo after it no longer applies */
 export function amendHistory(history: TProjectHistory, next: TProject): TProjectHistory {
-	return { ...history, present: next, future: [], groups: { ...history.groups, future: [] } };
+	return { ...history, present: next, future: [], groups: { ...history.groups, future: [] }, isStep: false };
 }
 
 /** Undo and redo still increase the revision so asynchronous work can detect the change */
@@ -54,7 +56,8 @@ export function undoHistory(history: TProjectHistory): TProjectHistory {
 		past: history.past.slice(0, -1),
 		present: { ...previous, revision: history.present.revision + 1 },
 		future: [history.present, ...history.future],
-		groups: { past: groups.past.slice(0, -1), present: groups.past[groups.past.length - 1] ?? 0, future: [groups.present, ...groups.future] }
+		groups: { past: groups.past.slice(0, -1), present: groups.past[groups.past.length - 1] ?? 0, future: [groups.present, ...groups.future] },
+		isStep: true
 	};
 }
 
@@ -66,6 +69,7 @@ export function redoHistory(history: TProjectHistory): TProjectHistory {
 		past: [...history.past, history.present],
 		present: { ...next, revision: history.present.revision + 1 },
 		future: history.future.slice(1),
-		groups: { past: [...groups.past, groups.present], present: groups.future[0] ?? 0, future: groups.future.slice(1) }
+		groups: { past: [...groups.past, groups.present], present: groups.future[0] ?? 0, future: groups.future.slice(1) },
+		isStep: true
 	};
 }
