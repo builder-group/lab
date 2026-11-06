@@ -32,7 +32,8 @@ export function pendingPreflight(project: TProject | null): TExportPreflight {
  * about their trials, whose run is theirs by construction, so nothing here reads its revision.
  */
 export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[], missingRecordings: readonly string[] = NO_MISSING_RECORDINGS): TExportPreflight {
-	const memo = preflightMemo.get(result);
+	// Keyed by the run's marbles, which a result moved to another revision shares: an Undo back to a known run checks nothing
+	const memo = preflightMemo.get(result.marbles);
 	if (memo?.project === project && memo.blenderObjects === blenderObjects && memo.missingRecordings === missingRecordings) return memo.preflight;
 
 	const names = createNames(project);
@@ -63,12 +64,12 @@ export function checkRun(project: TProject, result: TSimulationResult, blenderOb
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
 	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
-	preflightMemo.set(result, { project, blenderObjects, missingRecordings, preflight });
+	preflightMemo.set(result.marbles, { project, blenderObjects, missingRecordings, preflight });
 	return preflight;
 }
 
 // Fix judges a trial before and after, and a trial's run is checked again by whoever lands it
-const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; missingRecordings: readonly string[]; preflight: TExportPreflight }>();
+const preflightMemo = new WeakMap<TSimulationResult['marbles'], { project: TProject; blenderObjects: readonly TBlenderObject[]; missingRecordings: readonly string[]; preflight: TExportPreflight }>();
 
 const NO_MISSING_RECORDINGS: readonly string[] = [];
 

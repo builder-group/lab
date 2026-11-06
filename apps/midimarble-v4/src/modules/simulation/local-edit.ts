@@ -377,6 +377,17 @@ function strayContacts(base: TSimulationResult, result: TSimulationResult): numb
 
 /** How far later pieces may stay moved before a break holds them where they were */
 const HOLD_SHIFT = 0.03;
+/**
+ * Seconds a judge runs on at a time. Past a break every later platform lands on the resting marble and stays in
+ * contact, so each step costs more than the last: on a 204 s song a run broken at its middle took 1.5 to 2 s against 0.4
+ * s whole. A judge therefore runs a stretch at a time and stops once a break has carried the run away.
+ */
+const JUDGE_STRETCH = 5;
+const JUDGE_STRETCH_MAX = 20;
+/** Seconds past a break a judge still looks, to see whether it carries the later hits away or stays one miss */
+const JUDGE_LOOK = 2.5;
+/** A hit this close to a stretch's end hasn't had its tolerance yet, so it is judged by the next stretch */
+const JUDGE_MARGIN = 0.05;
 /** Runs after which no further way is tried; a count, not a clock, so the answer stays the same on any machine */
 const MAX_RUNS = 150;
 /** Seconds a drag's settle looks past the platforms that take up the change */
@@ -388,7 +399,34 @@ const MISS_WEIGHT = 10000;
 /** A moved dot nearer than this to where it was asked is where it was asked */
 const MISS_MARGIN = 0.001;
 
-type TJudged = Pick<TSettled, 'broken' | 'strays' | 'result' | 'moveMiss'> & { shift: number };
+type TJudged = Pick<TSettled, 'broken' | 'strays' | 'result' | 'moveMiss'> & {
+	shift: number;
+	/** Hits a break costs: those seen broken, or when the run stopped as a break carried it away, every hit from the first on */
+	cost: number;
+	/** The run went to the end, or as far as a break that carried it away: nothing past it is unknown */
+	isWhole: boolean;
+};
+
+/** Whether a marble's break carried its later hits away: more than one broke, or a later hit landed far from where it was */
+function carriesAway(base: TSimulationResult, result: TSimulationResult, marbleId: string, broken: THitResult[]): boolean {
+	const first = broken.filter((hit) => hit.marbleId === marbleId).sort((a, b) => a.targetTime - b.targetTime)[0];
+	if (first == null) return false;
+	if (broken.filter((hit) => hit.marbleId === marbleId).length > 1) return true;
+	return result.hits.some((hit) => {
+		const was = base.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
+		return hit.marbleId === marbleId && hit.targetTime > first.targetTime && hit.dot != null && was?.dot != null && Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y) > HOLD_SHIFT;
+	});
+}
+
+/** Every hit from a marble's first break on: what a run carried away by the break would show broken */
+function hitsFromBreak(project: TProject, broken: THitResult[]): number {
+	let count = 0;
+	for (const marble of project.marbles) {
+		const first = broken.filter((hit) => hit.marbleId === marble.id).sort((a, b) => a.targetTime - b.targetTime)[0];
+		if (first != null) count += marble.hits.filter((hit) => hit.time >= first.targetTime - 1e-6).length;
+	}
+	return count;
+}
 
 /** How far the hits after the platforms that took up the change stay from where they were */
 function laterShift(base: TSimulationResult, result: TSimulationResult, edits: TMarbleEdit[], absorbedBy: string[]): number {
@@ -423,7 +461,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 	};
 	// A broken hit counts most, then a new strike, and how far the rest of the run stays moved: 10 cm weighs a broken hit
 	// A move asked for a spot: 1 cm short of it weighs a broken hit, so the drop lands first and a break can be fixed after
-	const score = (settled: Pick<TJudged, 'broken' | 'strays' | 'shift' | 'moveMiss'>): number => settled.broken.length * 100 + settled.strays * 10 + settled.shift * 1000 + (settled.moveMiss ?? 0) * MISS_WEIGHT;
+	const score = (settled: Pick<TJudged, 'cost' | 'strays' | 'shift' | 'moveMiss'>): number => settled.cost * 100 + settled.strays * 10 + settled.shift * 1000 + (settled.moveMiss ?? 0) * MISS_WEIGHT;
 	const movedEdit = edits.find((edit) => edit.movedDot != null);
 	const missOf = (result: TSimulationResult): number | null => {
 		const moved = movedEdit?.movedDot;
@@ -431,10 +469,42 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 		const dot = result.hits.find((hit) => hit.marbleId === movedEdit?.marbleId && hit.hitId === moved.hitId)?.dot;
 		return dot != null ? Math.hypot(dot.x - moved.dot.x, dot.y - moved.dot.y) : Number.POSITIVE_INFINITY;
 	};
-	const judge = (project: TProject, absorbedBy: string[]): TJudged => {
-		count();
-		const result = simulator.simulate(project);
-		return { result, broken: brokenSince(base, result), strays: strayContacts(base, result), shift: laterShift(base, result, edits, absorbedBy), moveMiss: missOf(result) };
+	const hitTime = (edit: TMarbleEdit, index: number): number => {
+		const hits = after.marbles.find((marble) => marble.id === edit.marbleId)?.hits ?? [];
+		return hits[Math.max(0, Math.min(index, hits.length - 1))]?.time ?? 0;
+	};
+	// Where the edits start to change the run: a judge runs from there a stretch at a time
+	const from = Math.min(...edits.map((edit) => hitTime(edit, edit.afterIndex)));
+	// A look just past the change: a drag's judge ends there, and a way is judged there before the whole run confirms it
+	const lookEnd = (absorbedUntil: number): number => Math.min(after.length, Math.max(absorbedUntil, ...edits.map((edit) => hitTime(edit, edit.afterIndex + 3))) + QUICK_LOOK);
+	/**
+	 * Runs a way to `until`, or whole, a stretch at a time. A break that carries the later hits away ends the run as soon
+	 * as that shows, since the rest is a heap and holding from the break is what comes next.
+	 */
+	const judge = (project: TProject, absorbedBy: string[], until = after.length): TJudged => {
+		const runTo = (end: number): [TSimulationResult, THitResult[]] => {
+			count();
+			const result = simulator.simulate(end < after.length ? { ...project, length: end } : project);
+			return [result, brokenSince(base, result).filter((hit) => hit.targetTime < end - JUDGE_MARGIN)];
+		};
+		let stretch = JUDGE_STRETCH;
+		let end = Math.min(until, from + stretch);
+		let [result, broken] = runTo(end);
+		let isCarried = false;
+		for (;;) {
+			const first = Math.min(...broken.map((hit) => hit.targetTime));
+			if (end >= first + JUDGE_LOOK && after.marbles.some((marble) => carriesAway(base, result, marble.id, broken))) {
+				isCarried = true;
+				break;
+			}
+			// Past the look, a break is one miss: a whole judge goes on, since the run is sound again
+			if (end >= until || (end >= first + JUDGE_LOOK && until < after.length)) break;
+			// Stretches grow while nothing breaks: each run has a fixed cost, and a late break is rare
+			if (!broken.length) stretch = Math.min(JUDGE_STRETCH_MAX, stretch * 2);
+			end = Math.min(until, end + stretch);
+			[result, broken] = runTo(end);
+		}
+		return { result, broken, cost: isCarried ? hitsFromBreak(after, broken) : broken.length, strays: strayContacts(base, result), shift: laterShift(base, result, edits, absorbedBy), moveMiss: missOf(result), isWhole: isCarried || end >= after.length };
 	};
 	if (options.isQuick === true) {
 		let project = after;
@@ -446,8 +516,7 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 			}
 		}
 		// A look just past the change, so a drag too shows a break as one hit and no heap
-		const lastStep = Math.max(...edits.map((edit) => after.marbles.find((marble) => marble.id === edit.marbleId)?.hits[Math.min(edit.afterIndex + 3, (after.marbles.find((marble) => marble.id === edit.marbleId)?.hits.length ?? 1) - 1)]?.time ?? 0));
-		const end = Math.min(after.length, lastStep + QUICK_LOOK);
+		const end = lookEnd(0);
 		const near = simulator.simulate({ ...project, length: end });
 		const broken = brokenSince(base, near).filter((hit) => hit.targetTime < end - 0.05);
 		const held = broken.length > 0 ? holdBreaks(project, after, base, near, broken) : null;
@@ -455,20 +524,31 @@ export function settleEdit(simulator: TSimulator, base: TSimulationResult, after
 	}
 	const unsettled = { project: after, absorbedBy: [] as string[], ...judge(after, []) };
 	let best: typeof unsettled | null = null;
+	const isGood = (judged: TJudged, index: number): boolean => score(judged) < GOOD_ENOUGH || (index >= 2 && judged.broken.length === 0 && judged.strays === 0 && judged.shift < GOOD_ENOUGH_SHIFT);
 	for (const [index, variant] of VARIANTS.entries()) {
 		if (runs > MAX_RUNS) break;
 		let project = after;
 		const absorbedBy: string[] = [];
+		let absorbedUntil = 0;
 		for (const edit of edits) {
 			for (const step of planSteps(after, base, edit, variant) ?? []) {
 				project = solveStep(simulator, project, edit.marbleId, step, count);
 				absorbedBy.push(step.entityId);
+				absorbedUntil = Math.max(absorbedUntil, step.time);
 			}
 		}
-		const judged = judge(project, absorbedBy);
+		// Judged just past the change first; only a way good enough there runs whole, as a whole run of a long song costs more than the rest of the search
+		const look = lookEnd(absorbedUntil);
+		let judged = judge(project, absorbedBy, look);
+		if (!judged.isWhole && isGood(judged, index)) judged = judge(project, absorbedBy);
 		if (best == null || score(judged) < score(best)) best = { ...judged, project, absorbedBy };
-		if (score(best) < GOOD_ENOUGH || (index >= 2 && best.broken.length === 0 && best.strays === 0 && best.shift < GOOD_ENOUGH_SHIFT)) break;
+		if (best.isWhole && isGood(best, index)) break;
+		// A way good past the change that breaks far later met a knife edge in the track, which the next ways, the same run
+		// to within a millimeter there, meet too: the break is held and named rather than searched for luck a whole run at a time
+		if (judged.isWhole && judged.broken.length > 0 && judged.broken.every((hit) => hit.targetTime > look)) break;
 	}
+	// The way that won on its look alone is confirmed whole, so what it breaks later is held and named like any other
+	if (best != null && !best.isWhole) best = { ...best, ...judge(best.project, best.absorbedBy) };
 	// A drag asked for the move, so standing still is no better way of doing it, whatever got nearer sticks
 	const isNearer = best != null && (best.moveMiss ?? 0) < (unsettled.moveMiss ?? 0) - MISS_MARGIN;
 	const chosen = best != null && (movedEdit != null ? isNearer : score(best) <= score(unsettled)) ? best : unsettled;
@@ -490,13 +570,7 @@ function holdBreaks(project: TProject, unsolved: TProject, base: TSimulationResu
 	const from: THitResult[] = [];
 	for (const marble of project.marbles) {
 		const first = broken.filter((hit) => hit.marbleId === marble.id).sort((a, b) => a.targetTime - b.targetTime)[0];
-		if (first == null) continue;
-		const count = broken.filter((hit) => hit.marbleId === marble.id).length;
-		const isCarried = result.hits.some((hit) => {
-			const was = base.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
-			return hit.marbleId === marble.id && hit.targetTime > first.targetTime && hit.dot != null && was?.dot != null && Math.hypot(hit.dot.x - was.dot.x, hit.dot.y - was.dot.y) > HOLD_SHIFT;
-		});
-		if (count <= 1 && !isCarried) continue;
+		if (first == null || !carriesAway(base, result, marble.id, broken)) continue;
 		// What came after the break keeps its values: it waits, it takes up nothing
 		const later = new Set(marble.hits.filter((hit) => hit.time >= first.targetTime - 1e-6).map((hit) => hit.id));
 		next = {
@@ -662,16 +736,21 @@ export interface TMoveOutcome {
 export interface TSettleBase {
 	before: TProject;
 	ridden: TProject;
+	/** The run of `before`: what the person had, which every way is judged against */
 	base: TSimulationResult;
 	/** The time from which its rides are kept */
 	fromTime: number;
 }
 
+/**
+ * The run to come back on is the one before the edit, not the one its rides give: a ride plays its piece back within
+ * microns, which a knife-edge touch later can turn into a break. Judged against the ridden run, that break would read as
+ * nothing new and land unheld; judged against the run the person had, it is held and named.
+ */
 export function settleBase(simulator: TSimulator, before: TProject, known: TSettleBase | null, fromTime = -Infinity): TSettleBase {
 	if (known != null && known.fromTime === fromTime && (known.before === before || (known.before.id === before.id && known.before.revision === before.revision))) return known;
-	const first = simulator.simulate(before);
-	const ridden = withRides(before, first, fromTime);
-	return { before, ridden, base: ridden === before ? first : simulator.simulate(ridden), fromTime };
+	const base = simulator.simulate(before);
+	return { before, ridden: withRides(before, base, fromTime), base, fromTime };
 }
 
 /** The earliest time an edit reaches: the first hit whose pieces differ, on any marble. A moved dot starts at the platform before it */
