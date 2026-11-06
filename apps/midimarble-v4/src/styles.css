@@ -2019,11 +2019,6 @@ button.mm-layer-disclosure:hover {
 }
 
 /* The eye and lock's slot at the row's right edge is always reserved, so the eye keeps one column down the list and hover moves and hides nothing */
-/* A hovered row's actions take the time's place, so the name keeps its room */
-.mm-layer:hover .mm-layer-meta {
-	display: none;
-}
-
 .mm-layer-actions {
 	display: inline-flex;
 	align-items: center;
@@ -2489,6 +2484,14 @@ button.mm-layer-disclosure:hover {
 	padding: 0 10px;
 	border-bottom: 1px solid var(--separator);
 	background: var(--band);
+	container: transport / inline-size;
+}
+
+/* A narrow timeline keeps the summary readable: the slider goes first, as pinch and Zoom to Fit still zoom */
+@container transport (max-width: 760px) {
+	.mm-zoom-range {
+		display: none;
+	}
 }
 
 /* Plain glyph buttons like Logic's control bar; Play has no circle and only fills while playing */

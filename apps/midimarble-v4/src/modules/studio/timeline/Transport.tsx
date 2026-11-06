@@ -227,6 +227,7 @@ const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZo
 	const position = zoomToSlider(zoom);
 	return (
 		<div className="flex items-center gap-1" role="group" aria-label="Timeline zoom">
+			<span className="mm-zoom-range flex items-center gap-1">
 			<button className="mm-icon-button !h-6 !w-6" onClick={() => onZoom(zoom / 1.5)} title="Zoom Out (⌘ Scroll)" aria-label="Zoom Out" type="button">
 				<Minus size={13} strokeWidth={1.75} />
 			</button>
@@ -245,6 +246,7 @@ const ZoomControl: React.FC<{ zoom: number; onZoom: (zoom: number) => void; onZo
 				<Plus size={13} strokeWidth={1.75} />
 			</button>
 			<span className="mx-1 h-4 w-px bg-[var(--separator)]" />
+			</span>
 			<button className="mm-icon-button !h-6 !w-6" onClick={onZoomToFit} title="Zoom to Fit" aria-label="Zoom to Fit" type="button">
 				<MoveHorizontal size={15} strokeWidth={1.75} />
 			</button>

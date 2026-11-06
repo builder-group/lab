@@ -515,7 +515,8 @@ const PieceRow = React.memo(function PieceRow(
 							<Anchor size={11} strokeWidth={1.8} aria-hidden />
 						</span>
 					) : null}
-					{isLinked && hitTime != null ? <span>{formatShortTime(hitTime)}</span> : null}
+					{/* A problem's badge takes the time's place, so the name keeps its room */}
+					{isLinked && hitTime != null && !isProblem ? <span>{formatShortTime(hitTime)}</span> : null}
 				</>
 			}
 			actions={

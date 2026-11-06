@@ -129,17 +129,19 @@
 	color: var(--text-secondary);
 }
 
+/* Keeps room for a name: a pill that leaves less goes on a line of its own, and a name never breaks */
 .mm-insp-titles {
 	display: flex;
-	flex: 1 1 0;
+	flex: 1 1 90px;
 	flex-direction: column;
 	min-width: 0;
 }
 
-/* The status pill beside the title */
+/* The status pill beside the title, or under it when it's long */
 .mm-insp-status {
 	display: flex;
 	flex-shrink: 0;
+	margin-left: auto;
 }
 
 /* The Fix-it takes a row of its own under the title and the pill, so the title keeps its width */
