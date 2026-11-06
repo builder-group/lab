@@ -44,6 +44,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - No Problem for a missing asset: only Blender knows, and only while open
 - `blender:design` stops at its last step: `export-marble-skin-scenes.ts` imports `film-commands`, which reaches `inspector.css`, so the script can't run under tsx. Its Blender checks pass when the script runs with CSS stubbed.
 - `assists.test.ts` "holds the marble across a long gap" runs about 360 simulations per search and takes 10 to 30 s depending on the machine's load, against its 20 s limit
+- A tilt on a 204 s, 776 piece song settles in about 1.4 s in Node (from 10 s), and the problems no longer stall the main thread; the whole run from the change to the end, about 0.5 s from the middle and 0.9 s from the start, is the floor. That song has a knife-edge touch at 107 s that flips with a few microns, so rides don't hold it and most edits before it end in a named break there.
 - Flat Light reads paler than Fast on the Christmas look. Draft Preview draws no lights, shadows or metal.
 - Skin: Cat's-Eye reads weakly when the platform behind has its hue
 

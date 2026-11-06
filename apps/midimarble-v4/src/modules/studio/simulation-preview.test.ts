@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHistory, createProject, type TProject } from '@/modules/project';
+import type { TPreflightIssue } from '@/modules/building';
+import { createHistory, createProject, pushHistory, type TProject, type TProjectHistory } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from './StudioCx';
 
@@ -8,6 +9,19 @@ const simulate = vi.fn<(project: TProject, horizon?: number) => Promise<never>>(
 vi.mock('@/modules/simulation', async (original) => ({
 	...(await original<typeof import('@/modules/simulation/index')>()),
 	createSimulationClient: () => ({ simulate, dispose: () => undefined })
+}));
+
+/** A problems worker that answers when told, with the issues it was given */
+const problems = vi.hoisted(() => ({
+	asked: [] as { project: TProject; answer: (issues: TPreflightIssue[]) => void }[]
+}));
+
+vi.mock('@/modules/building', async (original) => ({
+	...(await original<typeof import('@/modules/building/index')>()),
+	createProblemsClient: () => ({
+		check: (project: TProject) => new Promise<TPreflightIssue[]>((resolve) => problems.asked.push({ project, answer: resolve })),
+		dispose: () => undefined
+	})
 }));
 
 describe('SimulationCx previews', () => {
@@ -112,6 +126,50 @@ describe('SimulationCx previews', () => {
 			expect(cx.simulation.$problems.get().state).toBe('pending');
 			cx.assist.$building.set(null);
 			expect(cx.simulation.$problems.get().state).toBe('checked');
+			unmount();
+		});
+
+		it('asks the problems worker for the run, pending until it answers, and again only for what changes them', async () => {
+			// Prepare: a worker exists, so the run's problems come from the problems worker
+			vi.stubGlobal('Worker', function Worker() {
+				return undefined;
+			});
+			problems.asked.length = 0;
+			const { cx, project, unmount } = opened();
+			const result = run(project);
+			const answered = async (): Promise<void> => {
+				for (let i = 0; i < 3; i++) await Promise.resolve();
+			};
+			const issue: TPreflightIssue = { id: 'hit:marble-1:hit-1', kind: 'hit', severity: 'warning', title: 'Hit 1 of Melody is Missed', target: null };
+
+			// Act
+			cx.simulation.$result.set(result);
+
+			// Assert: pending while the worker works, checked with its answer
+			expect(cx.simulation.$problems.get().state).toBe('pending');
+			expect(problems.asked).toHaveLength(1);
+			problems.asked[0]?.answer([issue]);
+			await answered();
+			expect(cx.simulation.$problems.get().state).toBe('checked');
+			expect(cx.simulation.$problems.get().issues.map((item) => item.id)).toEqual([issue.id]);
+
+			// A film edit elsewhere keeps the run and its problems: nothing is asked again
+			const titled: TProject = { ...project, revision: project.revision + 1, film: { ...project.film, titles: [] } };
+			cx.$history.set(pushHistory(cx.$history.get() as TProjectHistory, titled));
+			cx.simulation.$result.set({ ...result, revision: titled.revision });
+			expect(cx.simulation.$problems.get().state).toBe('checked');
+			expect(problems.asked).toHaveLength(1);
+
+			// A camera edit frames the run anew, so the worker is asked again
+			const framed: TProject = { ...titled, revision: titled.revision + 1, film: { ...titled.film, camera: { ...titled.film.camera } } };
+			cx.$history.set(pushHistory(cx.$history.get() as TProjectHistory, framed));
+			cx.simulation.$result.set({ ...result, revision: framed.revision });
+			expect(cx.simulation.$problems.get().state).toBe('pending');
+			expect(problems.asked).toHaveLength(2);
+			problems.asked[1]?.answer([]);
+			await answered();
+			expect(cx.simulation.$problems.get().state).toBe('checked');
+			expect(cx.simulation.$problems.get().issues).toEqual([]);
 			unmount();
 		});
 	});
