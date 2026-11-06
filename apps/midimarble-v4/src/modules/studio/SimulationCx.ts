@@ -356,6 +356,8 @@ export class SimulationCx {
 		if (known != null) {
 			this.accepted = id;
 			this.$result.set(atRevision(known.result, this.shownRevision(project)));
+			// What shows needs no run, so a film edit can stamp it, even with an older run still on its way
+			this.$computing.set(false);
 		} else this.$computing.set(true);
 		client.simulate(project, horizon).then(
 			(answer) => {

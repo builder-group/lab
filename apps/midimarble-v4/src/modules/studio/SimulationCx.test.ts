@@ -302,6 +302,31 @@ describe('SimulationCx class', () => {
 			expect(cx.$computing.get()).toBe(false);
 		});
 
+		it('should be current after an Undo back to a recent run while another run is still on its way', async () => {
+			// Prepare
+			const { cx, studio, execute, flush } = await setup();
+			const $history = (studio as unknown as { $history: { get: () => TProjectHistory; set: (value: TProjectHistory) => void } }).$history;
+			const working = client.current as { simulate: (project: TProject) => Promise<TSimulationResult> };
+			const simulate = working.simulate;
+			const waiting: (() => void)[] = [];
+			working.simulate = (project) => new Promise((resolve, reject) => waiting.push(() => void simulate(project).then(resolve, reject)));
+			execute([{ type: 'updateProject', patch: { gravity: ((studio.project as TProject).gravity ?? 1) * 0.999 } }]);
+			for (let i = 0; i < 10 && !cx.$computing.get(); i++) await new Promise((resolve) => setTimeout(resolve, 5));
+			expect(cx.$computing.get()).toBe(true);
+
+			// Act
+			$history.set(undoHistory($history.get()));
+			await flush();
+			execute(film(studio.project as TProject, 3));
+			await flush();
+			for (const land of waiting.splice(0)) land();
+			await flush();
+
+			// Assert
+			expect(cx.$computing.get()).toBe(false);
+			expect(cx.isCurrent).toBe(true);
+		});
+
 		it('should run again after a failed run, even with the same input', async () => {
 			// Prepare
 			const { cx, studio, simulated, execute, flush } = await setup();
