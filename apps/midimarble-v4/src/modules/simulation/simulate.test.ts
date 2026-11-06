@@ -419,4 +419,18 @@ describe('simulate', () => {
 		expect(Math.abs((hit?.dot?.y ?? 0) - (0.5 - 0.5 * 9.81 * 0.09))).toBeLessThan(0.003);
 		expect(hit?.velocity?.y).toBeCloseTo(-9.81 * 0.3, 4);
 	});
+
+	it('should leave out a piece tied to a hit that is gone', () => {
+		// Prepare
+		const project = createBareProject(0.6);
+		const marbleId = addMarble(project, 0, { position: { x: 0, y: 0.5 }, time: 0 });
+		const kept = addLinkedHit(project, marbleId, 0.3, 0);
+		project.track.pieces.push({ id: 'left-behind', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId: 'gone', hitId: 'gone', contactAt: 0.5 } });
+
+		// Act
+		const result = simulator.simulate(project);
+
+		// Assert
+		expect(result.pieces.map((piece) => piece.pieceId)).toEqual([kept]);
+	});
 });

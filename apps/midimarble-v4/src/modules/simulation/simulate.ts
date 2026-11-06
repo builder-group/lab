@@ -1609,7 +1609,9 @@ function buildResult(project: TSimulationInput, plan: TPlan, state: TRunState): 
 			pieces.push(rotor != null ? { ...resolved, motion: rotorMotion(plan, rotor) } : resolved);
 			continue;
 		}
-		// Linked pieces that were never processed: missing hit, hit after the end or before the start
+		// A piece tied to a hit that is gone has no place in the run or the film
+		if (tieOf(piece) != null && plan.linkedHitTimes.get(piece.id) == null) continue;
+		// Linked pieces that were never processed: hit after the end or before the start
 		const marble = plan.marbles.find((m) => m.marbleId === tieOf(piece)?.marbleId);
 		pieces.push({
 			pieceId: piece.id,
