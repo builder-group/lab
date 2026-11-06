@@ -1,5 +1,5 @@
 import { patched, type TFollows, type TMarble, type TPiece, type TPlays, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { BOWL_TYPE, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { BOWL_TYPE, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, passThroughs, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
 import { bowlFix, hitKeyOf, isBroken, newlyBroken } from './bowl-assist';
 import type { TBlenderObject } from '@/modules/scene';
 import { NO_BLENDER_OBJECTS, checkRun, type TPreflightIssue, type TProblemSummary } from './export-preflight';
@@ -241,14 +241,18 @@ export async function fixPiece(
 	const link = tieOf(piece);
 	const type = piece?.type;
 	const name = pieceName(project, entityId);
+	if (piece != null && link == null && hasPieceProblem(project, result, entityId)) return { commands: null, message: `${name} is tied to nothing, so Fix leaves it where it is. Drag it clear of what it touches.` };
 	if (piece == null || link == null || type == null) return { commands: null, message: `${name} has nothing to fix` };
 	const hitters = strayHitters(project, result, entityId);
 	const check = (commands: TProjectCommand[]): Promise<TFixTrial> => tryOnRun(project, result, entityId, commands, deps);
 
 	// A Bowl is placed again on its marble's fall, wherever it went wrong
 	if (type === BOWL_TYPE) return bowlFix(project, result, entityId, deps);
-	// Struck twice, rolled on or touching: another tilt, unless something more serious about the piece comes first
-	if (!hitters.length && result.pieces.find((piece) => piece.pieceId === entityId)?.status !== 'blocked' && problemPieces(project, result).includes(entityId)) return fixProblemPiece(project, result, entityId, check, deps);
+	// Struck twice, rolled on, touching or passed through: another tilt, unless something more serious about the piece comes first
+	if (!hitters.length && result.pieces.find((piece) => piece.pieceId === entityId)?.status !== 'blocked') {
+		const toFix = problemPieces(project, result).includes(entityId) ? entityId : touchingPairs(project, result).find((pair) => pair.a === entityId)?.b;
+		if (toFix != null) return fixProblemPiece(project, result, toFix, check, deps);
+	}
 	if (!soundsHit(type, link)) return sceneryFix(project, result, entityId, deps);
 
 	// A platform another marble hits: that marble's platform before the hit tilts so it passes clear
@@ -316,8 +320,13 @@ function marbleName(project: TProject, marbleId: string): string {
 
 /** Pieces a marble strikes twice or rolls on, and the later piece of each pair that touches, in time order */
 export function problemPieces(project: TProject, result: TSimulationResult): string[] {
-	const items = [...extraStrikes(project, result).map((strike) => ({ id: strike.entityId, time: strike.time })), ...rollingHits(project, result).map((roll) => ({ id: roll.entityId, time: roll.time })), ...touchingPairs(project, result).map((pair) => ({ id: pair.b, time: pair.time }))];
+	const items = [...extraStrikes(project, result).map((strike) => ({ id: strike.entityId, time: strike.time })), ...rollingHits(project, result).map((roll) => ({ id: roll.entityId, time: roll.time })), ...touchingPairs(project, result).map((pair) => ({ id: pair.b, time: pair.time })), ...passThroughs(project, result).map((pass) => ({ id: pass.entityId, time: pass.time }))];
 	return [...new Set(items.sort((a, b) => a.time - b.time).map((item) => item.id))];
+}
+
+/** Whether a piece has a problem of its own in the list, either side of a touching pair */
+export function hasPieceProblem(project: TProject, result: TSimulationResult, entityId: string): boolean {
+	return problemPieces(project, result).includes(entityId) || touchingPairs(project, result).some((pair) => pair.a === entityId);
 }
 
 /**

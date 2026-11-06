@@ -1,4 +1,4 @@
-import { problemPieces, marblesWithoutBowl, canMakeBacking } from '@/modules/building';
+import { hasPieceProblem, marblesWithoutBowl, canMakeBacking } from '@/modules/building';
 import { onNextFrame } from './next-frame';
 import { fitsSong, lastHitTime } from '@/modules/music';
 import { followKey, toolKeys, tunnelPathKey, type TTrackTool, removeSelectedHits, canGroup, canUngroup, groupSelected, selectedPattern, ungroupSelected, selectedPieceIds, armPlayNote, canFollow, canPlayNote, detachSelection, hasTiedSelection, openFollowMenu, handNotes } from '@/modules/track';
@@ -481,7 +481,7 @@ export const commands: readonly TCommand[] = [
 
 	// MARK: - Playback
 	{ id: 'play.toggle', title: 'Play', section: 'Playback', shortcut: 'Space', keywords: 'pause stop', isEnabled: hasProject, run: (cx) => cx.$playing.set(!cx.$playing.get()) },
-	{ id: 'play.start', title: 'Go to Beginning', section: 'Playback', shortcut: '↩', keywords: 'rewind start', isEnabled: hasProject, run: (cx) => cx.$playhead.set(0) },
+	{ id: 'play.start', title: 'Go to Beginning', section: 'Playback', shortcut: '↩', keywords: 'rewind start', isEnabled: hasProject, run: (cx) => cx.seek(0) },
 	{ id: 'play.previousHit', title: 'Previous Hit', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
 	{ id: 'play.nextHit', title: 'Next Hit', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
 	{ id: 'play.repeat', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownRepeatRange(cx.$repeatRange.get(), cx.project?.id, cx.project?.length ?? 0)?.isOn === true, run: (cx) => cx.toggleRepeatRange() },
@@ -940,7 +940,7 @@ function isOnlyOnTimePiece(cx: StudioCx): boolean {
 	const [only, ...others] = cx.$selection.get();
 	if (project == null || result == null || only == null || others.length > 0 || result.revision !== project.revision) return false;
 	const hit = result.hits.find((item) => item.pieceId === only);
-	return hit?.status === 'onTime' && !problemPieces(project, result).includes(only);
+	return hit?.status === 'onTime' && !hasPieceProblem(project, result, only);
 }
 
 export function deleteSelectedHits(cx: StudioCx): boolean {
