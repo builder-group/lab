@@ -81,7 +81,7 @@ describe('fixTrack function on Jingle Bells', () => {
 
 		// Assert
 		expect(brokenHits(outcome.result.hits).length).toBeLessThan(brokenHits(broken.hits).length);
-		expect(outcome.project.track.pieces.some((piece) => piece.id === 'bowl-lane-1')).toBe(true);
+		expect(outcome.project.track.pieces.some((piece) => piece.id === 'bowl-marble-1')).toBe(true);
 		expect(messageOf(edited, broken, outcome)).toMatch(/Turn them by hand or undo the edit/);
 	}, 120_000);
 });

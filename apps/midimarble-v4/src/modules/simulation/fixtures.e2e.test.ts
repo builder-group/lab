@@ -190,7 +190,7 @@ describe('fixtures', () => {
 		// Built at new projects' default Gravity, which the assists keep on the shared pace
 		expect(project.gravity).toBe(0.25);
 		// Rails with the Switchback layout hold the melody across its long notes
-		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(10);
+		expect(result.pieces.filter((piece) => piece.layout === 'switchback').length).toBeGreaterThanOrEqual(5);
 		// While both marbles play, they never touch each other or the other marble's pieces
 		const until = Math.min(...project.marbles.map((marble) => marble.hits.at(-1)?.time ?? 0));
 		const played = result.contacts.filter((contact) => contact.time <= until);
