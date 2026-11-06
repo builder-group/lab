@@ -39,7 +39,7 @@ export const Transport: React.FC<TTransportProps> = (props) => {
 				</div>
 				<TimeReadout cx={cx} />
 			</div>
-			<div className="flex flex-1 items-center justify-end">
+			<div className="mm-transport-end flex flex-1 items-center justify-end">
 				<ZoomControl zoom={zoom} onZoom={onZoom} onZoomToFit={onZoomToFit} />
 			</div>
 		</div>

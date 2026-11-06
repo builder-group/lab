@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
-import { alignNotes, marbleNamesFromTracks, MIN_HIT_GAP, proposeMarbles } from './marble-proposal';
+import { alignNotes, marbleNamesFromTracks, MIN_HIT_GAP, proposeMarbles, asksAboutChords } from './marble-proposal';
 import { parseMidiFile, type TMidiNote } from './midi';
 
 function note(time: number, pitch: number): TMidiNote {
@@ -108,5 +108,16 @@ describe('marbleNamesFromTracks', () => {
 		const tracks = midi?.tracks ?? [];
 		const { marbles } = proposeMarbles(tracks.flatMap((track) => track.notes));
 		expect(marbleNamesFromTracks(marbles, tracks)).toEqual(['Melody', 'Bass']);
+	});
+});
+
+describe('asksAboutChords function', () => {
+	it('should not ask about single-note parts, even when they sound together', () => {
+		expect(asksAboutChords([{ notes: [note(1, 60), note(2, 62)] }, { notes: [note(1, 40), note(2, 42)] }])).toBe(false);
+	});
+
+	it('should ask when a part plays chords, or there are more parts than marbles', () => {
+		expect(asksAboutChords([{ notes: [note(1, 60), note(1, 64)] }])).toBe(true);
+		expect(asksAboutChords(Array.from({ length: 5 }, () => ({ notes: [note(1, 60)] })))).toBe(true);
 	});
 });

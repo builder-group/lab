@@ -65,10 +65,11 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 				if (!isOpen) cx.holdNotice(false);
 			}}
 		>
-			<div className="flex items-center gap-3 py-1.5 pr-1.5 pl-4" style={{ minHeight: 36 }}>
+			<div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 py-1.5 pr-1.5 pl-4" style={{ minHeight: 36 }}>
 				<span
 					ref={textRef}
-					className="min-w-0 overflow-hidden"
+					// Over a narrow canvas its actions take the next line, so the words keep their room
+					className="min-w-[120px] flex-1 overflow-hidden"
 					// Two lines at most; the rest sits behind Details
 					style={{ color: notice.tone === 'error' ? 'var(--bad)' : undefined, ...(isOpen ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }) }}
 				>

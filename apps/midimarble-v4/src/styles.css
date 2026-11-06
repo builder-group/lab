@@ -2486,6 +2486,10 @@ button.mm-layer-disclosure:hover {
 	.mm-zoom-range {
 		display: none;
 	}
+
+	.mm-transport-end {
+		flex: none;
+	}
 }
 
 /* Plain glyph buttons like Logic's control bar; Play has no circle and only fills while playing */
