@@ -1,5 +1,5 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { answerWorkerRequest, changedPieces, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, passThroughs, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { answerWorkerRequest, changedPieces, isPathPieceType, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, passThroughs, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';
@@ -927,14 +927,10 @@ export function withoutPiecesAfter(project: TProject, from: { marbleId: string; 
 		if (tie == null) return false;
 		const key = `${tie.marbleId}/${tie.hitId}`;
 		if (piece.type === BOWL_TYPE) return (timeOf.get(key) ?? Infinity) > time - 1e-9 || (nextOf.get(key) ?? Infinity) > time;
-		if (isGapPiece(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
+		if (isPathPieceType(piece.type)) return (nextOf.get(key) ?? Infinity) > time + 1e-9;
 		return isMusicalPiece(piece.type) && (timeOf.get(key) ?? Infinity) > time + 1e-9;
 	};
 	return { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => !isRebuilt(piece)) } };
-}
-
-function isGapPiece(type: string): boolean {
-	return type === 'rail' || type === 'tunnel';
 }
 
 /** `built` with each new platform in the skin of the piece that played its note in `was` */

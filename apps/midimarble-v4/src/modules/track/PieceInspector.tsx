@@ -3,9 +3,9 @@ import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import type { TPiece, TPlace, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { bowlCatch, getPieceDefinition, isMusicalPiece, RAIL_LAYOUTS, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { bowlCatch, getPieceDefinition, isMusicalPiece, isPathPieceType, PIECE_TYPES, RAIL_LAYOUTS, type TPathPieceType, railLayoutInfo, resolvePiecePath, soundsHit, unanchorPiece, unlinkPiece, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { formatTime, freePosition, noteName, toHitKey, tieOf } from '@/modules/project';
-import { pieceProblems, struckPieces, type TPreflightIssue, attachState, isPathPieceType, pathPieceTypes, withPathType, withRailLayout, type TPathPieceType } from '@/modules/building';
+import { pieceProblems, struckPieces, type TPreflightIssue, attachState, withPathType, withRailLayout } from '@/modules/building';
 import { useRunPreflight, PieceIcon } from '@/modules/canvas';
 import type { StudioCx } from '@/modules/studio';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
@@ -15,6 +15,8 @@ import { selectedPlainGroup } from './group-commands';
 import { PlainGroupTiles, plainGroupNotes } from './PatternInspector';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
+
+const pathPieceTypes = PIECE_TYPES.filter(isPathPieceType);
 
 /**
  * Inspector for selected pieces like Figma UI3: a header with the tie and the timing pill, then Position, Shape, the

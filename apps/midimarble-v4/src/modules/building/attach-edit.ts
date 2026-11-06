@@ -1,5 +1,5 @@
 import { createId, DEFAULT_MARBLE_RADIUS, freePosition, type TPiece, type TPathNode, type TProject, type TVec2, tieOf } from '@/modules/project';
-import { anchorHit, frameBand, nextPieceName, freePose, getPieceDefinition, hitPlace, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, resolvePiecePath, shapeDistance, soundsHit, transformShape, type TLayoutInput, type TPieceLayout, type TPieceShape, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { anchorHit, frameBand, nextPieceName, freePose, getPieceDefinition, hitPlace, isPathPieceType, type TPathPieceType, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, resolvePiecePath, shapeDistance, soundsHit, transformShape, type TLayoutInput, type TPieceLayout, type TPieceShape, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { sampleNodes } from './bezier';
 
 // Pure edits behind the open canvas: an element is free, anchored to a moment on a marble's trajectory or,
@@ -126,15 +126,6 @@ export function createFreePiece(type: string, pose: TPose, pieces: TPiece[], pat
 		place: { kind: 'free', position: { ...pose.position } },
 		...(path != null ? { path } : {})
 	};
-}
-
-/** Piece types a drawn path can be: the path tool draws a rail and the inspector switches it to a tunnel */
-export const pathPieceTypes = ['rail', 'tunnel'] as const;
-
-export type TPathPieceType = (typeof pathPieceTypes)[number];
-
-export function isPathPieceType(type: string | undefined): type is TPathPieceType {
-	return type === 'rail' || type === 'tunnel';
 }
 
 /**

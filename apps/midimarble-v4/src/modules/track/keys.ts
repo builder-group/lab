@@ -1,4 +1,4 @@
-import { PIECE_TYPES, pieceDefinitions, type TPieceType } from '@/modules/simulation';
+import { isPathPieceType, PIECE_TYPES, pieceDefinitions, type TPathPieceType, type TPieceType } from '@/modules/simulation';
 
 // Track keyboard map. Tools use single letters like Figma and Paper (V, H, O, P, B, W), U draws a tunnel with
 // the path tool, ⇧I opens the Insert library like Figma's assets, the build assists
@@ -33,7 +33,7 @@ export interface TKeyContext {
 export type TTrackTool = 'select' | 'hand' | 'marble' | 'path' | Exclude<TPieceType, TPathType>;
 
 /** Piece the path tool draws; the inspector switches a drawn path between both */
-export type TPathType = 'rail' | 'tunnel';
+export type TPathType = TPathPieceType;
 
 export type TTrackKeyAction =
 	| { type: 'zoom'; factor: number }
@@ -56,7 +56,7 @@ export type TTrackKeyAction =
 	| { type: 'view3d' };
 
 /** The piece types placed with a click or drag, each by its own tool; the path tool draws the others */
-const placedPieceTypes = PIECE_TYPES.filter((type): type is Exclude<TPieceType, TPathType> => type !== 'rail' && type !== 'tunnel');
+const placedPieceTypes = PIECE_TYPES.filter((type): type is Exclude<TPieceType, TPathType> => !isPathPieceType(type));
 
 /** The key a piece's tile names */
 function pieceKey(type: TPieceType): { code: string; key: string } {

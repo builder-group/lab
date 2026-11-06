@@ -1,5 +1,5 @@
 import { patched, type TFollows, type TMarble, type TPiece, type TPlays, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { BOWL_TYPE, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, passThroughs, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { BOWL_TYPE, isPathPieceType, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, passThroughs, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
 import { bowlFix, hitKeyOf, isBroken, newlyBroken } from './bowl-assist';
 import type { TBlenderObject } from '@/modules/scene';
 import { NO_BLENDER_OBJECTS, checkRun, type TPreflightIssue, type TProblemSummary } from './export-preflight';
@@ -726,7 +726,7 @@ function reportProblem(fixing: TFixing, progress: TFixProgress, problem: THitRes
 
 /** A new rail or tunnel for `gap` in place of `bridge`, for the run in `base` without it */
 async function bridgeCommands(deps: Pick<TFixDeps, 'gapPiece'> & { isCanceled: () => boolean }, base: TProject, gap: TLongGap, bridge: TPiece): Promise<TProjectCommand[] | null> {
-	if (!isGapPieceType(bridge.type)) return null;
+	if (!isPathPieceType(bridge.type)) return null;
 	const bridgeType = gapPieceTypeOf(bridge);
 	// Like Next, a straight rail where no Switchback fits any more, and a Switchback where no straight rail does
 	const types: TGapPieceType[] = bridgeType === 'switchback' ? ['switchback', 'rail'] : bridgeType === 'chain' ? ['chain', 'switchback'] : bridgeType === 'rail' ? ['rail', 'switchback'] : [bridgeType];
@@ -1091,10 +1091,6 @@ export function withCommands(project: TProject, commands: TProjectCommand[]): TP
 function firstBrokenTime(result: TSimulationResult): number {
 	const times = [...brokenHits(result.hits).map((hit) => hit.targetTime), ...result.pieces.filter((piece) => piece.status === 'blocked').map((piece) => piece.entryTime ?? piece.hitTime ?? 0)];
 	return times.length ? Math.min(...times) : 0;
-}
-
-function isGapPieceType(type: string | undefined): type is TGapPieceType {
-	return type === 'rail' || type === 'tunnel';
 }
 
 function round4(value: number): number {
