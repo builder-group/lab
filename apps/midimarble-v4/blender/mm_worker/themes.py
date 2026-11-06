@@ -26,12 +26,14 @@ THEMES = {
     },
     'brass': {
         'wall': {'kind': 'plaster', 'color': (0.385, 0.34, 0.50)},
-        # A wide, low sun from the side and a stronger fill keep the shadows soft, light and sideways like the reference
-        'sun': {'energy': 5.2, 'angle': 30.0, 'color': (1.0, 0.95, 0.88), 'direction': (0.82, 0.40, -0.22)},
+        # A wide sun from the upper right, mostly into the wall, and a stronger fill: short soft shadows to the lower
+        # left of each piece like the reference's, not long streaks from the posts
+        'sun': {'energy': 3.0, 'angle': 40.0, 'color': (1.0, 0.95, 0.88), 'direction': (-0.40, 0.80, -0.45)},
         'world': {'color': (0.53, 0.50, 0.62), 'strength': 1.0, 'studio': True},
         'look': 'AgX - Medium High Contrast',
         'exposure': -1.25,
-        'flat': {'exposure': 0.62, 'sheen': 0.025, 'wallSheen': 0.0},
+        # Flat Light's shadows fall short and to the lower left, as the sun's do
+        'flat': {'exposure': 0.62, 'sheen': 0.025, 'wallSheen': 0.0, 'light': (0.35, 0.45, 0.82)},
         'fstop': 32.0,
         'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
     },
@@ -184,6 +186,12 @@ def flat_look(key):
     theme against Fast frames; a project theme keeps its base's values."""
     flat = THEMES.get(str(key).split(' ')[0], {}).get('flat', {})
     return flat.get('exposure', 0.0), flat.get('sheen', 0.0), flat.get('wallSheen', 0.0)
+
+
+def flat_light(key, default):
+    """Flat Light's light direction in the theme of `theme_key`, in view space: where its sun throws a piece's shadow, so
+    Draft and Final agree on which side the shadows fall. `default` serves a theme without its own."""
+    return THEMES.get(str(key).split(' ')[0], {}).get('flat', {}).get('light', default)
 
 
 # Materials
@@ -503,6 +511,49 @@ def glass_marble_material(color):
         links.new(total.outputs[0], output.inputs['Surface'])
         paint._blended(material)
     return _shared('MM · glass marble ' + color, build)
+
+
+CLEAR_MARBLE_FLECKS = 2.5
+
+
+def clear_marble_material(color):
+    """Brass's marble: solid colored glass that bends the wall behind it, with bright flecks inside, as the reference's
+    marble. Eevee refracts it through its ray tracing; Cycles through the glass itself."""
+    from . import skin_materials as paint
+
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        body = paint._hue(color, 0.6, 0.95)
+        material.diffuse_color = (*paint._hue(color, 0.5, 0.8), 1.0)
+        _set(principled, 'Base Color', (*body, 1.0))
+        _set(principled, 'Roughness', 0.03)
+        _set(principled, 'IOR', 1.5)
+        _set(principled, 'Transmission Weight', 1.0)
+        # Flecks: small bright grains caught in the glass, denser toward the middle of the ball
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        grains = nodes.new('ShaderNodeTexNoise')
+        grains.inputs['Scale'].default_value = 28.0
+        grains.inputs['Detail'].default_value = 3.0
+        grains.inputs['Roughness'].default_value = 0.7
+        links.new(coordinates.outputs['Generated'], grains.inputs['Vector'])
+        flecks = paint._range(tree, grains.outputs['Fac'], 0.66, 0.70)
+        weight = nodes.new('ShaderNodeLayerWeight')
+        weight.inputs['Blend'].default_value = 0.5
+        inside = paint._math(tree, 'SUBTRACT', 1.0, paint._range(tree, weight.outputs['Facing'], 0.55, 0.95))
+        glint = nodes.new('ShaderNodeEmission')
+        glint.inputs['Color'].default_value = (*paint._hue(color, 1.0, 0.25), 1.0)
+        links.new(paint._math(tree, 'MULTIPLY', paint._math(tree, 'MULTIPLY', flecks, inside), CLEAR_MARBLE_FLECKS), glint.inputs['Strength'])
+        add = nodes.new('ShaderNodeAddShader')
+        links.new(principled.outputs[0], add.inputs[0])
+        links.new(glint.outputs[0], add.inputs[1])
+        links.new(add.outputs[0], nodes['Material Output'].inputs['Surface'])
+        if hasattr(material, 'use_raytrace_refraction'):
+            material.use_raytrace_refraction = True
+        if hasattr(material, 'thickness_mode'):
+            material.thickness_mode = 'SPHERE'
+    return _shared('MM · clear marble ' + color, build)
 
 
 def glossy_marble_material(color):

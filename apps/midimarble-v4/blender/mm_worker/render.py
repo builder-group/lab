@@ -297,8 +297,8 @@ def workbench_settings(scene, samples):
         (shading, 'show_specular_highlight', False),
         (shading, 'show_shadows', True),
         (shading, 'shadow_intensity', 0.4),
-        # Each piece drops a short shadow down and to the right onto the wall behind it
-        (scene.display, 'light_direction', DRAFT_LIGHT),
+        # Each piece drops a short shadow onto the wall behind it, to the side the theme's sun throws it
+        (scene.display, 'light_direction', themes.flat_light(scene.get('mm_theme'), DRAFT_LIGHT)),
         (shading, 'show_cavity', True),
         (shading, 'cavity_type', 'SCREEN'),
         (shading, 'curvature_ridge_factor', 1.0),
