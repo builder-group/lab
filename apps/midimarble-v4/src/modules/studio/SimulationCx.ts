@@ -231,7 +231,15 @@ export class SimulationCx {
 	private stopSettling(): void {
 		if (!this.isSettling) return;
 		this.isSettling = false;
+		for (const resolve of this.settleWaiters.splice(0)) resolve();
 		this.schedule();
+	}
+
+	private settleWaiters: (() => void)[] = [];
+
+	/** Resolves once no edit is waiting for its settle, for work that has to start from what it lands */
+	async whenSettled(): Promise<void> {
+		while (this.isSettling) await new Promise<void>((resolve) => this.settleWaiters.push(resolve));
 	}
 
 	/**

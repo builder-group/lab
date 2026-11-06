@@ -93,6 +93,24 @@ describe('PatternsCx class', () => {
 			expect(cx.project?.track.groups).toEqual([]);
 		});
 
+		it('should not start a fit stopped while it waited for a settle', async () => {
+			// Prepare
+			const { cx, patterns } = fitStudio(project('a', 'marble-a'));
+			let endSettle: () => void = () => undefined;
+			cx.simulation.isSettling = true;
+			vi.spyOn(cx.simulation, 'whenSettled').mockImplementation(() => new Promise((resolve) => (endSettle = resolve)));
+			const fitting = patterns.apply(target, 'zigzag');
+
+			// Act
+			patterns.stop();
+			endSettle();
+			const answer = await fitting;
+
+			// Assert
+			expect(answer).toBeNull();
+			expect(cx.project?.track.groups).toEqual([]);
+		});
+
 		it('should go on through what amends the step, such as a longer song', async () => {
 			// Prepare
 			const { cx, patterns, cancel, land } = fitStudio(project('a', 'marble-a'));
