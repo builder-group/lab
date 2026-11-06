@@ -5,12 +5,10 @@ import { blender, BlenderError, type TJobPoll, type TRenderFilmResult } from './
 import { renderFilm, SOUNDTRACK_PATH } from './render-film';
 
 vi.mock('@/modules/music', () => ({
-	renderProjectAudio: vi.fn(async () => ({
-		left: new Float32Array(4),
-		right: new Float32Array(4),
-		sampleRate: 48000
+	renderFilmSoundtrack: vi.fn(async () => ({
+		audio: { left: new Float32Array(4), right: new Float32Array(4), sampleRate: 48000 },
+		loudness: { lufs: -14, truePeak: -1 }
 	})),
-	normalizeLoudness: vi.fn(() => ({ lufs: -14, truePeak: -1 })),
 	encodeWav: vi.fn(() => new Uint8Array([1, 2, 3]))
 }));
 

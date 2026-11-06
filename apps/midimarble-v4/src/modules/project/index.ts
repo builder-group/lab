@@ -1,6 +1,7 @@
 export * from './commands';
 export * from './create-project';
 export * from './film-layers';
+export * from './film-start';
 export * from './format';
 export * from './history';
 export * from './parse-time';

@@ -481,6 +481,11 @@ textarea {
 	border-left: 1px solid var(--separator);
 }
 
+.mm-before-film {
+	background: color-mix(in srgb, var(--text) 5%, transparent);
+	border-right: 1px solid var(--separator);
+}
+
 /* The ruler past the project end: the marbles' shade over its ticks and times, so the film visibly stops at the end bracket */
 .mm-ruler-past-end {
 	background:

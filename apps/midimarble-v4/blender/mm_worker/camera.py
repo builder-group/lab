@@ -89,7 +89,7 @@ LEAD_HOLD = 1.5
 LEAD_EASE = 2.5
 # A shot at this fraction of the rig distance or closer frames only the leading marble
 PUSH_FOCUS = 0.7
-# The opening frames the release points and up to OPENING_PIECES of the first struck pieces (those within LEAD_AHEAD
+# The opening frames the marbles on the film's first frame and up to OPENING_PIECES of the first struck pieces (those within LEAD_AHEAD
 # seconds of the first hit), centered in the image in OPENING_STEPS steps, and eases into the follow over OPENING_EASE
 # seconds after the first hit, so the film opens on the track rather than on marbles over an empty wall
 OPENING_PIECES = 3
@@ -483,7 +483,7 @@ def group_framing(marbles, motions, times, settings, fps, heading, aim=None):
 
 
 def opening_frame(marbles, motions, times, sample, settings, fps, axes):
-    """Until the first hit the camera frames the box around the release points and the first struck pieces, centered in the image, and eases into the follow over OPENING_EASE seconds after
+    """Until the first hit the camera frames the box around the marbles on the film's first frame and the first struck pieces, centered in the image, and eases into the follow over OPENING_EASE seconds after
     it. Returns the box center (n, 2), the distance the box needs and the opening's weight per frame, which eases to 0
     where the box needs more than its limit; or None without opening pieces"""
     pieces = settings.get('opening')
@@ -495,11 +495,12 @@ def opening_frame(marbles, motions, times, sample, settings, fps, axes):
     limit = max(settings['distance'], min(settings['distance'] * OPENING_ZOOM, diameter / (OPENING_MARBLE_SHARE * (SENSOR / settings['lens']) * ASPECT_GUESS)))
     reach = SENSOR / 2 / settings['lens'] * GROUP_KEEP_Y
     reach_x = SENSOR / 2 / settings['lens'] * GROUP_KEEP_X * ASPECT_GUESS
-    # The film shows a marble at its release point until it drops, and it falls inside this box: the box holds still
+    # The film opens with a marble where it is on its first frame, and it falls inside this box: the box holds still
     # until the first hit, so the smoothed target doesn't drift off it. After that it takes in the marbles as they go on
     released = [marble for marble in marbles if motions.get(marble['id']) is not None and len(motions[marble['id']]) and motions[marble['id']][0, 0] <= first + 1e-9]
-    still_x = [piece[1] for piece in pieces] + [float(motions[marble['id']][0, 1]) for marble in released]
-    still_y = [piece[2] for piece in pieces] + [float(motions[marble['id']][0, 2]) for marble in released]
+    opens = settings.get('filmStart', 0.0)
+    still_x = [piece[1] for piece in pieces] + [float(np.interp(opens, motions[marble['id']][:, 0], motions[marble['id']][:, 1])) for marble in released]
+    still_y = [piece[2] for piece in pieces] + [float(np.interp(opens, motions[marble['id']][:, 0], motions[marble['id']][:, 2])) for marble in released]
     points = [marble_point(marble, motions, sample) for marble in released]
     right, image_up, toward = axes
     point = np.zeros((count, 2))
@@ -678,8 +679,9 @@ def follow_target(framing, settings, fps, times):
 
 
 def bake(scene, camera, settings, marbles, motions, fps):
-    """Writes the follow keyframes; returns the number of frames baked or 0 when there is no motion"""
-    frames = np.arange(scene.frame_start, scene.frame_end + 1, dtype=np.float64)
+    """Writes the follow keyframes over the whole timeline, also before a film's first frame, so the preview can look
+    there; returns the number of frames baked or 0 when there is no motion"""
+    frames = np.arange(0, scene.frame_end + 1, dtype=np.float64)
     times = frames / fps
     marbles = framed_marbles(marbles)
     # The group's size in frame depends on where the camera looks from and at: a first pass with the camera straight

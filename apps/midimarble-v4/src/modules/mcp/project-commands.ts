@@ -330,7 +330,7 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 	}
 }
 
-function filmProblem(project: TProject, items: readonly TLibraryItem[], film: Partial<TProject['film']>): string | null {
+function filmProblem(project: TProject, items: readonly TLibraryItem[], film: Partial<Omit<TProject['film'], 'start'>>): string | null {
 	if (film.theme != null) {
 		if (!isBuiltInTheme(film.theme.base)) return `A theme's base is pegboard, brass or neon, not ${film.theme.base}.`;
 		for (const [element, part] of Object.entries(film.theme.parts ?? {})) {

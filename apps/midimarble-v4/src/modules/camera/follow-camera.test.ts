@@ -194,6 +194,33 @@ describe('follow camera', () => {
 		expect(worst).toBeLessThan(0.45);
 	});
 
+	it('opens on the marble where it is on the film\'s first frame, not where it was released', () => {
+		// A long fall to the first piece: from its release the marble is too far above it to frame both closely
+		const time = Float64Array.from({ length: 481 }, (_, index) => index / 240);
+		const x = time.map(() => 0);
+		const y = time.map((value) => 1.2 - 0.5 * 2.45 * value ** 2);
+		const firstHit = 1.2;
+		const input: TFollowCameraInput = {
+			fps: 30,
+			duration: 2,
+			frame: { width: 1080, height: 1920 },
+			camera: { mode: 'rig', distance: 0.48, pitch: 0.54, lead: 0.15, smoothing: 0.6, shots: [] },
+			opening: [{ time: firstHit, x: 0.03, y: 1.2 - 0.5 * 2.45 * firstHit ** 2 }],
+			marbles: [{ id: 'marble', radius: 0.012, motion: { time, x, y }, hitTimes: [firstHit] }]
+		};
+		const start = firstHit - 0.2;
+		const track = required(bakeFollowCamera({ ...input, filmStart: start }));
+		const frame = pyRound(start * 30);
+		const index = pyRound(start * 240);
+		const [, v] = project(track, frame, at(x, index), at(y, index));
+		const piece = input.opening?.[0];
+		const [, pieceV] = project(track, frame, piece?.x ?? 0, piece?.y ?? 0);
+		expect(v).toBeLessThan(0.95);
+		expect(pieceV).toBeGreaterThan(0.05);
+		// The camera stands no further than it would without any opening, against a release more than a meter above
+		expect(track.position[frame * 3 + 1] ?? 0).toBeGreaterThan(-0.6);
+	});
+
 	it('frames marbles that need more room, and stands at a Wide shot\'s distance', () => {
 		const fall = (x: number): TFollowMarble['motion'] => {
 			const time = Float64Array.from({ length: 101 }, (_, index) => index / 10);

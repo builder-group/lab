@@ -82,7 +82,7 @@ export const CAMERA_CLIP_END = 100.0;
 export function bakeFollowCamera(input: TFollowCameraInput): TCameraTrack | null {
 	if (input.camera == null || input.camera.mode === 'manual') return null;
 	const fps = input.fps;
-	const settings = settingsFrom(input.camera, input.opening ?? null);
+	const settings = { ...settingsFrom(input.camera, input.opening ?? null), filmStart: input.filmStart ?? 0 };
 	const marbles = framedMarbles(input.marbles);
 	const frameEnd = Math.max(1, Math.ceil(input.duration * fps - 1e-6));
 	const count = frameEnd + 1;
@@ -215,6 +215,7 @@ export function followCameraInput(
 		frame: description.frame,
 		camera: description.camera ?? null,
 		opening: openingPieces(description.pieces),
+		filmStart: description.filmStart ?? 0,
 		marbles: description.marbles.map((marble) => ({
 			id: marble.id,
 			radius: marble.radius,
@@ -232,8 +233,10 @@ export interface TFollowCameraInput {
 	duration: number;
 	frame: { width: number; height: number };
 	camera: TSceneCamera | null;
-	/** First struck pieces, `openingPieces`; the opening frames them with the release points */
+	/** First struck pieces, `openingPieces`; the opening frames them with where the marbles are on the film's first frame */
 	opening?: TOpeningPiece[] | null;
+	/** Seconds of the film's first frame; absent is 0 */
+	filmStart?: number;
 	marbles: TFollowMarble[];
 }
 
@@ -313,6 +316,7 @@ interface TSettings {
 	bowl: [number, number] | null;
 	descent: { time: Float64Array; y: Float64Array } | null;
 	opening: TOpeningPiece[] | null;
+	filmStart: number;
 }
 
 interface TFraming {
@@ -370,7 +374,8 @@ function settingsFrom(
 						y: Float64Array.from(descent, (point) => point[1])
 					}
 				: null,
-		opening: opening != null && opening.length > 0 ? opening : null
+		opening: opening != null && opening.length > 0 ? opening : null,
+		filmStart: 0
 	};
 }
 
@@ -780,7 +785,7 @@ function groupFraming(
 }
 
 /**
- * `opening_frame`: until the first hit the camera frames the box around the release points and the first struck
+ * `opening_frame`: until the first hit the camera frames the box around the marbles on the film's first frame and the first struck
  * pieces, so the film opens on the track rather than on marbles over an empty wall, and eases into the follow over
  * OPENING_EASE seconds after it. Returns the box center, the distance the box needs and the weight of the opening per
  * frame; the weight eases to 0 where the box needs more than its limit.
@@ -801,11 +806,12 @@ function openingFrame(
 	const limit = Math.max(settings.distance, Math.min(settings.distance * OPENING_ZOOM, diameter / (OPENING_MARBLE_SHARE * (CAMERA_SENSOR / settings.lens) * ASPECT_GUESS)));
 	const reach = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_Y;
 	const reachX = (CAMERA_SENSOR / 2 / settings.lens) * GROUP_KEEP_X * ASPECT_GUESS;
-	// The film shows a marble at its release point until it drops, and it falls inside this box: the box holds still
+	// The film opens with a marble where it is on its first frame, and it falls inside this box: the box holds still
 	// until the first hit, so the smoothed target doesn't drift off it. After that it takes in the marbles as they go on
 	const released = marbles.filter((marble) => hasMotion(marble) && (marble.motion.time[0] ?? 0) <= first + 1e-9);
-	const stillX = [...pieces.map((piece) => piece.x), ...released.map((marble) => marble.motion.x[0] ?? 0)];
-	const stillY = [...pieces.map((piece) => piece.y), ...released.map((marble) => marble.motion.y[0] ?? 0)];
+	const opens = Float64Array.of(settings.filmStart);
+	const stillX = [...pieces.map((piece) => piece.x), ...released.map((marble) => interp(opens, marble.motion.time, marble.motion.x)[0] ?? 0)];
+	const stillY = [...pieces.map((piece) => piece.y), ...released.map((marble) => interp(opens, marble.motion.time, marble.motion.y)[0] ?? 0)];
 	const points = released.map((marble) => marblePoint(marble, sample));
 	const pointX = new Float64Array(count);
 	const pointY = new Float64Array(count);

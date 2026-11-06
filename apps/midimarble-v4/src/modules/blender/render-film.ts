@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { encodeWav, normalizeLoudness, renderProjectAudio, type TLoudness, type TResolveSourceUrl } from '@/modules/music';
+import { encodeWav, renderFilmSoundtrack, type TLoudness, type TResolveSourceUrl } from '@/modules/music';
 import type { TProject } from '@/modules/project';
 import { blender, BlenderError, type TJobProgress, type TRenderFilmOptions, type TRenderFilmResult, type TRenderFilmStarted } from './blender-client';
 
@@ -8,9 +8,9 @@ const SOUNDTRACK_SAMPLE_RATE = 48000;
 const POLL_INTERVAL_MS = 250;
 
 /**
- * Renders the film of the scene as it is in Blender: writes the project's soundtrack into the package at the film's
- * loudness, for every quality alike, starts `render_film` in a separate Blender process and follows its progress until the
- * MP4 is written. Aborting the signal cancels the render. Apply the scene before calling this.
+ * Renders the film of the scene as it is in Blender: writes the film's soundtrack into the package, starts `render_film`
+ * in a separate Blender process and follows its progress until the MP4 is written. Aborting the signal cancels the render.
+ * Apply the scene before calling this.
  *
  * The worker writes films only inside the package. With `destinationPath`, the finished film is copied there from
  * `outputPath` and the result's `path` is the destination; the package copy stays in `renders/`.
@@ -20,8 +20,7 @@ export async function renderFilm(
 	project: TProject,
 	options: TRenderFilmHelperOptions
 ): Promise<TResult<TExportedFilm, BlenderError>> {
-	const audio = await renderProjectAudio(options.soundtrack ?? project, options.resolveSourceUrl, { sampleRate: SOUNDTRACK_SAMPLE_RATE, mixedAs: project });
-	const loudness = normalizeLoudness(audio);
+	const { audio, loudness } = await renderFilmSoundtrack(project, options.resolveSourceUrl, { heard: options.soundtrack, sampleRate: SOUNDTRACK_SAMPLE_RATE });
 	const wav = encodeWav(audio.left, audio.right, audio.sampleRate);
 	const [isWrittenOk, writtenErr] = await blender.writePackageFile(packagePath, SOUNDTRACK_PATH, wav);
 	if (!isWrittenOk) return Err(writtenErr);

@@ -4,6 +4,7 @@ import { CircleAlert, CircleCheck, Film, Monitor } from 'lucide-react';
 import React from 'react';
 import { HelpTip, Select } from '@/components';
 import { host } from '@/environment';
+import { filmStartOf } from '@/modules/project';
 import type { TRenderPreset } from '@/modules/scene';
 import { FILM_LOUDNESS, FILM_PEAK, formatLoudness, mutedSoundtrackNote } from '@/modules/music';
 import type { StudioCx } from '@/modules/studio';
@@ -76,7 +77,7 @@ const ExportSettings: React.FC<{ cx: StudioCx }> = (props) => {
 	// Issues never block an export; the default button only says that it goes ahead despite them
 	const exportLabel = preflight.warnings > 0 ? 'Export Anyway' : 'Export';
 
-	const duration = result?.duration ?? project.length;
+	const duration = (result?.duration ?? project.length) - filmStartOf(project);
 	const preset = getRenderPreset(settings.preset);
 	const size = filmSize(project.format, settings.preset);
 	const estimate = estimateExport({ duration, frame: project.format, preset: settings.preset, measured: measured[preset.engine], preview });

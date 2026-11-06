@@ -32,7 +32,7 @@ const SRemovePieces = z.strictObject({ type: z.literal('removePieces'), pieceIds
 const SAddGroup = z.strictObject({ type: z.literal('addGroup'), group: SGroup });
 const SUpdateGroup = z.strictObject({ type: z.literal('updateGroup'), groupId: z.string(), patch: patchOf(SGroup) });
 const SRemoveGroups = z.strictObject({ type: z.literal('removeGroups'), groupIds: z.array(z.string()) });
-const SUpdateFilm = z.strictObject({ type: z.literal('updateFilm'), film: SFilm.partial() });
+const SUpdateFilm = z.strictObject({ type: z.literal('updateFilm'), film: SFilm.partial().extend({ start: SFilm.shape.start.nullable() }) });
 
 export const SProjectCommand = z.discriminatedUnion('type', [SUpdateProject, SAddSong, SUpdateSong, SMoveSong, SRemoveSong, SAddMarble, SUpdateMarble, SRemoveMarble, SUpsertHits, SRemoveHits, SAssignHits, SAddPiece, SUpdatePiece, SRemovePieces, SAddGroup, SUpdateGroup, SRemoveGroups, SUpdateFilm]);
 
@@ -146,7 +146,8 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok({ ...project, track: { ...project.track, groups: project.track.groups.filter((group) => !removed.has(group.id)) } });
 		}
 		case 'updateFilm': {
-			const film = { ...project.film, ...definedOf(command.film) };
+			// A null `start` goes back to the automatic start
+			const film = patched(project.film, command.film);
 			// The follow camera reads shot markers in time order
 			const sorted = command.film.camera != null ? { camera: { ...film.camera, shots: [...film.camera.shots].sort((a, b) => a.time - b.time) } } : {};
 			return Ok({ ...project, film: { ...film, ...sorted } });

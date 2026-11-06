@@ -40,7 +40,7 @@ def main():
     pose = curves(camera, ('location', 'rotation_euler'))
     lens = curves(camera.data, ('dof.focus_distance',))
     frames = []
-    for frame in range(scene.frame_start, scene.frame_end + 1):
+    for frame in range(0, scene.frame_end + 1):
         location = [pose[('location', axis)].evaluate(frame) for axis in range(3)]
         euler = Euler([pose[('rotation_euler', axis)].evaluate(frame) for axis in range(3)], 'XYZ')
         matrix = euler.to_matrix()
