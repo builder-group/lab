@@ -623,6 +623,8 @@ export class StudioCx {
 	 * action is chosen; a newer question cancels an open one.
 	 */
 	async confirm(prompt: TConfirmPrompt): Promise<boolean> {
+		// No one answers the alert for an agent, whose step is one Undo away, so its call goes ahead
+		if (this.isInAgentStep) return true;
 		this.answerConfirmPrompt?.(false);
 		const isConfirmed = await new Promise<boolean>((resolve) => {
 			this.answerConfirmPrompt = resolve;

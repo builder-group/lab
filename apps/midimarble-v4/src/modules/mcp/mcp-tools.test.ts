@@ -369,7 +369,24 @@ describe('MCP tools', () => {
 			expect(film?.theme).not.toHaveProperty('glowColor');
 		});
 
-		it('should clear a skin\'s field on a marble and a piece, and a start\'s velocity', async () => {
+		it('should say what file.open needs, not the parser\'s report', async () => {
+		const { cx } = studio();
+		const reply = await runTool(cx, 'run_command', { id: 'file.open', args: {} });
+		expect(textOf(reply)).toContain('Open Project… needs args.path');
+		expect(textOf(reply)).not.toContain('invalid_type');
+	});
+
+	it('should not leave a question for no one: an agent\'s Revert goes ahead, as one more Undo step', async () => {
+			const { cx } = studio();
+			let answer: boolean | null = null;
+			await cx.runAgentStep('Revert', async () => {
+				answer = await cx.confirm({ question: 'Revert?', detail: '', action: 'Revert' });
+			});
+			expect(answer).toBe(true);
+			expect(cx.$confirmPrompt.get()).toBeNull();
+		});
+
+	it('should clear a skin\'s field on a marble and a piece, and a start\'s velocity', async () => {
 			// Prepare
 			const { cx, marbleId, hitId } = studio();
 			const piece = { id: 'p', name: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 }, skin: { variant: 'a', assetId: 'platform:copper' } };

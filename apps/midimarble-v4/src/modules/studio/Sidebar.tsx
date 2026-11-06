@@ -343,7 +343,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 				) : undefined
 			}
 			actions={
-				row.kind === 'marble' || row.kind === 'wall' || row.kind === 'light' || row.kind === 'title' ? (
+				row.kind === 'marble' || row.kind === 'wall' || row.kind === 'title' ? (
 					<RowToggle label={isHidden ? 'Show' : 'Hide'} isOn={isHidden} onClick={() => cx.toggleHidden(row.id)}>
 						{isHidden ? <EyeOff size={12} strokeWidth={1.8} /> : <Eye size={12} strokeWidth={1.8} />}
 					</RowToggle>

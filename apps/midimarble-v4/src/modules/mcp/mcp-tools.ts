@@ -155,7 +155,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			command.title,
 			async () => {
 				applySelection(cx, commandArgs);
-				if (special != null) return special(cx, commandArgs);
+				if (special != null) return await runWithArgs(command, special, cx, commandArgs);
 				if (command.id === 'build.track') {
 					if (from == null && !canRun(cx, command)) throw new Error(buildRefusal(cx));
 					return startBuild(cx, command, from ?? undefined, gapPreference(commandArgs));
@@ -266,6 +266,17 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		return text(cx, { id: item.id, how: role === 'skin' ? `project.execute with { type: 'applySkin', assetId: '${item.id}', pieceType: '${pieceType ?? ''}' }` : `project.execute with { type: 'placeDecor', source: 'assets/${item.id}/asset.blend', at: { x, y } } or scatterDecor` });
 	}
 };
+
+/** A command's own reading of its arguments, whose failure names what the command needs rather than the parser's report */
+async function runWithArgs(command: { id: TCommandId; title: string }, special: NonNullable<(typeof ARGUMENT_COMMANDS)[TCommandId]>, cx: StudioCx, args: Record<string, unknown>): Promise<void> {
+	try {
+		await special(cx, args);
+	} catch (error) {
+		if (!(error instanceof z.ZodError)) throw error;
+		const needs = PANEL_COMMANDS[command.id];
+		throw new Error(needs != null ? `${command.title} needs ${needs}.` : `${command.title} can't use these arguments: ${error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join('; ')}`);
+	}
+}
 
 /** What Rust's `tools/list` offers and forwards here */
 export const TOOL_NAMES = Object.keys(TOOLS);
