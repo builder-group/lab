@@ -893,7 +893,7 @@ function withReleaseShift(project: TProject, shift: number, bareMarbles: Set<str
 	};
 }
 
-function attentionOf(project: TProject, result: TSimulationResult): TBuildAttention[] {
+export function attentionOf(project: TProject, result: TSimulationResult): TBuildAttention[] {
 	return result.hits
 		.filter((hit) => hit.status !== 'onTime' && hit.status !== 'drifting')
 		.sort((a, b) => a.targetTime - b.targetTime)

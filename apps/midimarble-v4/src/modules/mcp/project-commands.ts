@@ -1,13 +1,13 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { createFreePiece, flattenCommands, moveSongCommands, patternLockWords, patternOfPiece } from '@/modules/building';
-import { pieceForHit } from '@/modules/track';
-import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, projectThemes, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
+import { assignNotesCommands, createFreePiece, flattenCommands, moveSongCommands, patternLockWords, patternOfPiece } from '@/modules/building';
+import { deleteHitCommands, pieceForHit } from '@/modules/track';
+import { addDecorCommands, assetDecorSource, builtInSource, type TBlenderObject, decorItem, packThemeCommands, isBuiltInTheme, themeCommands, catalogSkin, catalogSkins, elementLabel, skinElementOf, SKIN_ELEMENTS, skinElement, type TSkinElement } from '@/modules/scene';
 import { DEFAULT_SCATTER_DENSITY, scatterDecorCommands, readScatterChoice, skinCommands } from '@/modules/film';
 import { filmCamera } from '@/modules/camera';
 import type { TLibraryItem } from '@/modules/scene';
 import { z } from 'zod';
-import { applyProjectCommands, patched, PROJECT_COMMAND_EXAMPLES, SProjectCommand, type TMarble, type TPiece, type TProject, type TProjectCommand, type TProjectTheme, type TSkin, type TTitle } from '@/modules/project';
-import { getPieceDefinition, RAIL_LAYOUTS, railLayoutInfo, type TSimulationResult } from '@/modules/simulation';
+import { applyProjectCommands, BACKING_ID, backingOf, longestFilmLength, patched, PROJECT_COMMAND_EXAMPLES, SProjectCommand, type THit, type TMarble, type TPackOrigin, type TPackTheme, type TPiece, type TProject, type TProjectCommand, type TSkin, type TTitle, tieOf, toHitKey } from '@/modules/project';
+import { getPieceDefinition, PIECE_TYPES, RAIL_LAYOUTS, railLayoutInfo, type TSimulationResult } from '@/modules/simulation';
 
 // `project.execute` takes the project's own commands plus a few that say what an agent means, so it needs not know a
 // piece's every field. Each expands here into project commands, against the project as the earlier ones left it.
@@ -38,10 +38,12 @@ const SApplySkin = z.strictObject({ type: z.literal('applySkin'), assetId: z.str
 const SPlaceDecor = z.strictObject({ type: z.literal('placeDecor'), source: z.string(), at: SVec });
 /** Scatter Decor: fills the free wall the camera sees and replaces what it placed before */
 const SScatterDecor = z.strictObject({ type: z.literal('scatterDecor'), sources: z.array(z.string()).optional(), density: z.number().optional(), seed: z.number().optional() });
+/** Wears a theme by its ID: a built-in one or an added Pack's, as the Theme picker does */
+const SApplyTheme = z.strictObject({ type: z.literal('applyTheme'), theme: z.string() });
 /** Flatten a live Pattern: its pieces stay as they are, to edit one by one, and the Pattern is gone */
 const SFlattenPattern = z.strictObject({ type: z.literal('flattenPattern'), groupId: z.string() });
 
-const SAgentCommand = z.discriminatedUnion('type', [...SProjectCommand.options, SPlacePiece, SApplySkin, SPlaceDecor, SScatterDecor, SFlattenPattern]);
+const SAgentCommand = z.discriminatedUnion('type', [...SProjectCommand.options, SPlacePiece, SApplySkin, SApplyTheme, SPlaceDecor, SScatterDecor, SFlattenPattern]);
 
 export type TAgentCommand = z.infer<typeof SAgentCommand>;
 
@@ -50,10 +52,17 @@ export const AGENT_COMMAND_EXAMPLES: Record<TAgentCommand['type'], string> = {
 	...PROJECT_COMMAND_EXAMPLES,
 	placePiece: "{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId }, angle }",
 	applySkin: "{ type: 'applySkin', assetId, pieceType }",
+	applyTheme: "{ type: 'applyTheme', theme: 'brass' }",
 	placeDecor: "{ type: 'placeDecor', source: 'decor:snowfall', at: { x, y } }",
 	scatterDecor: "{ type: 'scatterDecor', sources: [], density: 0.2 }",
 	flattenPattern: "{ type: 'flattenPattern', groupId: 'group-h1' }"
 };
+
+/** An added Pack's theme with its items in the project, ready to wear */
+export interface TReadyPackTheme {
+	theme: TPackTheme;
+	origin: TPackOrigin;
+}
 
 export interface TExpandedCommands {
 	commands: TProjectCommand[];
@@ -69,13 +78,12 @@ export interface TExpandedCommands {
 
 /** What `updateFilm` takes, field by field: an error shows the field that went wrong, not the same line every time */
 const FILM_EXAMPLES: Record<string, string> = {
-	theme: "{ type: 'updateFilm', film: { theme: 'brass' } }, with pegboard, brass, neon or an id from get_state.themes",
+	theme: "To wear a theme use { type: 'applyTheme', theme: 'brass' }. updateFilm's theme changes the one worn: { type: 'updateFilm', film: { theme: { base: 'brass', parts: { platform: { skin: 'platform:copper' } }, glowColor: '#00ff88' } } }",
 	wall: "{ type: 'updateFilm', film: { wall: { color: '#f6e3b8', backgroundColor: '#fff2d2', kind: 'plain' } } }, with kind plain, plaster, pegboard, grid or none, the plain Pegboard wall in wall.labelColor, the color it has in Track",
 	lights: "{ type: 'updateFilm', film: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
-	camera: "{ type: 'updateFilm', film: { camera: { distance: 0.48, tilt: 0.54, turn: 1.57, sway: 0, auto: true } } }; name only what changes. A shot looks like { id, time, kind: 'wide', distance: 1.1 }, with kind wide, follow, pushIn or closeUp",
+	camera: "{ type: 'updateFilm', film: { camera: { distance: 0.48, tilt: 0.54, turn: 1.57, sway: 0, auto: true } } }; name only what changes. A shot looks like { id, time, distance: 1.1, hold: 2 }",
 	quality: "{ type: 'updateFilm', film: { quality: 'final' } }, with draft or final",
-	decor: 'Decor is easier with placeDecor and scatterDecor',
-	themes: "A stored theme looks like { id, name, base: 'brass', overrides: { wallColor } }"
+	decor: 'Decor is easier with placeDecor and scatterDecor'
 };
 
 function filmExample(issues: readonly { path: PropertyKey[] }[]): string {
@@ -105,18 +113,19 @@ export function commandProblem(command: { type: string }): string | null {
 
 /**
  * What an agent means by a part of a value: `updateFilm` changes only the named fields of the camera, wall and lights, and an
- * update only those of a skin or a marble's start, so nothing has to be read back first or guessed.
+ * update only those of a skin or a marble's start, so nothing has to be read back first or guessed. `null` clears a field.
  */
 function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCommand {
 	if (command.type === 'updateFilm') {
 		const { film } = project;
 		const patch = command.film as Record<string, unknown>;
 		const merged = { ...patch };
-		if (isObject(patch['camera'])) merged['camera'] = { ...film.camera, ...patch['camera'] };
-		if (isObject(patch['wall'])) merged['wall'] = { ...film.wall, ...patch['wall'] };
+		if (isObject(patch['theme'])) merged['theme'] = withoutNulls({ ...film.theme, ...patch['theme'] });
+		if (isObject(patch['camera'])) merged['camera'] = withoutNulls({ ...film.camera, ...patch['camera'] });
+		if (isObject(patch['wall'])) merged['wall'] = withoutNulls({ ...film.wall, ...patch['wall'] });
 		if (isObject(patch['lights'])) {
 			const key = patch['lights']['key'];
-			merged['lights'] = { ...film.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...film.lights.key, ...key } } : {}) };
+			merged['lights'] = withoutNulls({ ...film.lights, ...patch['lights'], ...(isObject(key) ? { key: { ...film.lights.key, ...key } } : {}) });
 		}
 		return { ...command, film: merged } as TAgentCommand;
 	}
@@ -128,14 +137,19 @@ function withCurrentValues(project: TProject, command: TAgentCommand): TAgentCom
 		const current = project.marbles.find((item) => item.id === command.marbleId);
 		const next = withCurrentSkin(command, current?.skin);
 		const start = (next.patch as Record<string, unknown>)['start'];
-		return isObject(start) && current != null ? ({ ...next, patch: { ...next.patch, start: { ...current.start, ...start } } } as TAgentCommand) : next;
+		return isObject(start) && current != null ? ({ ...next, patch: { ...next.patch, start: withoutNulls({ ...current.start, ...start }) } } as TAgentCommand) : next;
 	}
 	return command;
 }
 
 function withCurrentSkin<GCommand extends { patch: object }>(command: GCommand, current: TSkin | undefined): GCommand {
 	const skin = (command.patch as Record<string, unknown>)['skin'];
-	return isObject(skin) ? { ...command, patch: { ...command.patch, skin: { ...current, ...skin } } } : command;
+	return isObject(skin) ? { ...command, patch: { ...command.patch, skin: withoutNulls({ ...current, ...skin }) } } : command;
+}
+
+/** A merged value without the fields named `null`, at any depth of its objects, so its schema judges what's left */
+function withoutNulls(value: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(value).flatMap(([name, field]) => (field === null ? [] : [[name, isObject(field) ? withoutNulls(field) : field]])));
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -200,20 +214,50 @@ function livePatternProblem(project: TProject, pieceId: string, next: TPiece | n
 }
 
 const NOTHING_THERE = 'get_state lists them: marbles[].marbleId, layers.pieces[].id, layers.titles[].id.';
+const NO_SUCH_HIT = 'get_state.marbles[].hitList lists them.';
+
+/** Why a piece can't stand: a type there is no such thing as, or a tie to a marble or hit that isn't there */
+function pieceReferenceProblem(project: TProject, piece: Pick<TPiece, 'type' | 'place'>): string | null {
+	if (getPieceDefinition(piece.type) == null) return `There is no piece type ${piece.type}. Types are ${PIECE_TYPES.join(', ')}.`;
+	const tie = tieOf(piece);
+	if (tie == null) return null;
+	const marble = project.marbles.find((item) => item.id === tie.marbleId);
+	if (marble == null) return `There is no marble ${tie.marbleId}. get_state.marbles[].marbleId lists them.`;
+	return marble.hits.some((hit) => hit.id === tie.hitId) ? null : `There is no hit ${tie.hitId} on ${marble.name}. ${NO_SUCH_HIT}`;
+}
+
+/** Why a Group's marble or pieces can't be named: the ones given that aren't there */
+function groupReferenceProblem(project: TProject, group: { marbleId?: string | null; pieceIds?: string[] | null }): string | null {
+	if (group.marbleId != null && !project.marbles.some((marble) => marble.id === group.marbleId)) return `There is no marble ${group.marbleId}. get_state.marbles[].marbleId lists them.`;
+	const missing = group.pieceIds?.find((id) => !project.track.pieces.some((piece) => piece.id === id));
+	return missing != null ? `There is nothing called ${missing}. ${NOTHING_THERE}` : null;
+}
+
+/** Why hits can't be tied: a song that isn't there */
+function hitsReferenceProblem(project: TProject, hits: readonly THit[] | null | undefined): string | null {
+	const missing = hits?.find((hit) => hit.songId != null && !project.songs.some((song) => song.id === hit.songId));
+	return missing != null ? `There is no song ${missing.songId}. get_state.song.songs lists them.` : null;
+}
 
 /** Why a command that fits its shape still can't run on this project: an id or value it names isn't there */
-function valueProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], command: TAgentCommand): string | null {
-	const missingMarble = (marbleId: string): string | null => (marbleId === 'backing' || project.marbles.some((marble) => marble.id === marbleId) ? null : `There is no marble ${marbleId}. get_state.marbles[].marbleId lists them.`);
+function valueProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TReadyPackTheme[], command: TAgentCommand): string | null {
+	const missingMarble = (marbleId: string): string | null => (marbleId === BACKING_ID || project.marbles.some((marble) => marble.id === marbleId) ? null : `There is no marble ${marbleId}. get_state.marbles[].marbleId lists them.`);
 	const missingPiece = (pieceId: string): string | null => (project.track.pieces.some((piece) => piece.id === pieceId) ? null : `There is nothing called ${pieceId}. ${NOTHING_THERE}`);
 	switch (command.type) {
 		case 'updatePiece': {
 			const piece = project.track.pieces.find((item) => item.id === command.pieceId);
 			if (piece == null) return missingPiece(command.pieceId);
 			const next = patched(piece, command.patch);
-			return livePatternProblem(project, piece.id, next) ?? pieceProblem(items, next);
+			// Only what this edit names: a piece a file left tied to nothing can still be renamed
+			const reference = command.patch.place != null || command.patch.type != null ? pieceReferenceProblem(project, next) : null;
+			return reference ?? livePatternProblem(project, piece.id, next) ?? pieceProblem(items, next);
 		}
 		case 'addPiece':
-			return livePatternProblem(project, command.piece.id, command.piece) ?? pieceProblem(items, command.piece);
+			return pieceReferenceProblem(project, command.piece) ?? livePatternProblem(project, command.piece.id, command.piece) ?? pieceProblem(items, command.piece);
+		case 'addGroup':
+			return groupReferenceProblem(project, command.group);
+		case 'updateGroup':
+			return project.track.groups.some((group) => group.id === command.groupId) ? groupReferenceProblem(project, command.patch) : `There is no Group ${command.groupId}. get_state lists them.`;
 		case 'removePieces': {
 			const missing = command.pieceIds.map(missingPiece).find((problem) => problem != null);
 			if (missing != null) return missing;
@@ -222,11 +266,16 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 			return partOf != null ? livePatternProblem(project, partOf, null) : null;
 		}
 		case 'addMarble':
-			return marbleProblem(items, command.marble);
+			return marbleProblem(items, command.marble) ?? hitsReferenceProblem(project, command.marble.hits);
 		case 'updateMarble': {
 			const marble = project.marbles.find((item) => item.id === command.marbleId);
 			if (marble == null) return missingMarble(command.marbleId);
-			return marbleProblem(items, patched(marble, command.patch));
+			return marbleProblem(items, patched(marble, command.patch)) ?? hitsReferenceProblem(project, command.patch.hits);
+		}
+		case 'updateProject': {
+			const { length } = command.patch;
+			const longest = longestFilmLength(project.length);
+			return length != null && length > longest ? `A film's length is in seconds, up to ${longest}; ${length} is past that.` : null;
 		}
 		case 'flattenPattern':
 			return project.track.groups.some((group) => group.id === command.groupId) === true ? null : `There is no Group ${command.groupId}. get_state lists them.`;
@@ -235,18 +284,27 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		case 'removeSong':
 			return project.songs.some((song) => song.id === command.songId) ? null : `There is no song ${command.songId}. get_state.song.songs lists them.`;
 		case 'removeMarble':
-		case 'upsertHits':
-		case 'assignHits':
 			return missingMarble(command.marbleId);
+		case 'upsertHits':
+			return missingMarble(command.marbleId) ?? hitsReferenceProblem(project, command.hits);
+		case 'assignHits': {
+			const known = new Set([...project.marbles.flatMap((marble) => marble.hits), ...backingOf(project)].map((hit) => hit.id));
+			const missing = command.hitIds.find((id) => !known.has(id));
+			return missingMarble(command.marbleId) ?? (missing != null ? `There is no hit ${missing}. ${NO_SUCH_HIT}` : null);
+		}
 		case 'removeHits': {
 			const marble = missingMarble(command.marbleId);
 			if (marble != null) return marble;
 			const owner = project.marbles.find((item) => item.id === command.marbleId);
 			const missing = owner == null ? undefined : command.hitIds.find((id) => !owner.hits.some((hit) => hit.id === id));
-			return missing != null ? `There is no hit ${missing} on that marble. get_state.marbles[].hitList lists them.` : null;
+			return missing != null ? `There is no hit ${missing} on that marble. ${NO_SUCH_HIT}` : null;
 		}
 		case 'updateFilm':
-			return filmProblem(project, items, packThemes, command.film);
+			return filmProblem(project, items, command.film);
+		case 'applyTheme': {
+			if (isBuiltInTheme(command.theme) || packThemes.some((item) => item.theme.id === command.theme)) return null;
+			return `There is no theme ${command.theme}. Themes are ${['pegboard', 'brass', 'neon', ...packThemes.map((item) => item.theme.id)].join(', ')}.`;
+		}
 		case 'applySkin': {
 			if (command.pieceType != null && command.pieceType !== 'marble' && getPieceDefinition(command.pieceType) == null) return `There is no piece type ${command.pieceType}. Use one from ${SKIN_ELEMENTS.join(', ')}.`;
 			const skinned = [...project.marbles, ...project.track.pieces];
@@ -269,15 +327,10 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 	}
 }
 
-function filmProblem(project: TProject, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], film: Partial<TProject['film']>): string | null {
-	const themes = film.themes ?? project.film.themes;
-	if (film.theme != null && !isBuiltInTheme(film.theme) && !themes.some((theme) => theme.id === film.theme) && !packThemes.some((theme) => theme.id === film.theme)) {
-		const known = ['pegboard', 'brass', 'neon', ...themes.map((theme) => theme.id), ...packThemes.map((theme) => theme.id)];
-		return `There is no theme ${film.theme}. Themes are ${known.join(', ')}.`;
-	}
-	for (const theme of film.themes ?? []) {
-		if (!isBuiltInTheme(theme.base)) return `${theme.name}'s base is pegboard, brass or neon, not ${theme.base}.`;
-		for (const [element, part] of Object.entries(theme.parts ?? {})) {
+function filmProblem(project: TProject, items: readonly TLibraryItem[], film: Partial<TProject['film']>): string | null {
+	if (film.theme != null) {
+		if (!isBuiltInTheme(film.theme.base)) return `A theme's base is pegboard, brass or neon, not ${film.theme.base}.`;
+		for (const [element, part] of Object.entries(film.theme.parts ?? {})) {
 			const problem = part.skin != null ? skinProblem(part.skin, element as TSkinElement, items) : null;
 			if (problem != null) return problem;
 		}
@@ -291,7 +344,7 @@ function filmProblem(project: TProject, items: readonly TLibraryItem[], packThem
 	return null;
 }
 
-export function expandCommands(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], input: readonly TAgentCommand[], packThemes: readonly TProjectTheme[] = [], blenderObjects: readonly TBlenderObject[] = []): TResult<TExpandedCommands, Error> {
+export function expandCommands(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], input: readonly TAgentCommand[], packThemes: readonly TReadyPackTheme[] = [], blenderObjects: readonly TBlenderObject[] = []): TResult<TExpandedCommands, Error> {
 	const commands: TProjectCommand[] = [];
 	const createdIds: string[] = [];
 	const notices: string[] = [];
@@ -317,10 +370,16 @@ function changesRadius(project: TProject, command: TAgentCommand): boolean {
 	return project.marbles.find((marble) => marble.id === command.marbleId)?.radius !== command.patch.radius;
 }
 
-function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TProjectTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; piece?: TPiece }, Error> {
+function expandOne(project: TProject, result: TSimulationResult | null, items: readonly TLibraryItem[], packThemes: readonly TReadyPackTheme[], blenderObjects: readonly TBlenderObject[], command: TAgentCommand): TResult<{ commands: TProjectCommand[]; piece?: TPiece }, Error> {
 	switch (command.type) {
 		case 'moveSong':
 			return Ok({ commands: moveSongCommands(project, result, command.songId, command.start) });
+		// A platform goes with its hit, as when a person hands a hit over or deletes it
+		case 'assignHits':
+			return Ok({ commands: assignNotesCommands(project, result, command.hitIds, command.marbleId) });
+		case 'removeHits':
+			if (command.marbleId === BACKING_ID) return Ok({ commands: [command] });
+			return Ok({ commands: deleteHitCommands(project, result, command.hitIds.map((id) => toHitKey(command.marbleId, id))) });
 		case 'flattenPattern': {
 			const group = project.track.groups.find((item) => item.id === command.groupId);
 			return group != null ? Ok({ commands: flattenCommands(group) }) : Err(new Error(`There is no Group ${command.groupId}. get_state lists them.`));
@@ -335,13 +394,9 @@ function expandOne(project: TProject, result: TSimulationResult | null, items: r
 			const commands = skinCommands(project, target, command.assetId);
 			return commands.length > 0 ? Ok({ commands }) : Err(new Error(`Nothing is a ${command.pieceType ?? 'target'} in this project yet, so ${command.assetId} has nothing to dress.`));
 		}
-		case 'updateFilm': {
-			const theme = packThemes.find((item) => item.id === command.film.theme);
-			if (theme == null || projectThemes(project.film).some((item) => item.id === theme.id)) return Ok({ commands: [command] });
-			// A Pack's theme joins the project when it is applied, as the Theme picker does it
-			const { theme: _theme, ...rest } = command.film;
-			const added = packThemeCommands(project, theme);
-			return Ok({ commands: Object.keys(rest).length > 0 ? [{ type: 'updateFilm', film: rest }, ...added] : added });
+		case 'applyTheme': {
+			const ready = packThemes.find((item) => item.theme.id === command.theme);
+			return Ok({ commands: ready != null ? packThemeCommands(project, ready.theme, ready.origin) : themeCommands(project, command.theme) });
 		}
 		case 'placeDecor': {
 			const source = decorSource(items, command.source);
@@ -408,6 +463,8 @@ function summaryOf(input: readonly TAgentCommand[]): string | null {
 			return `Place ${getPieceDefinition(first.pieceType)?.label ?? 'Piece'}${count}`;
 		case 'applySkin':
 			return `Apply Skin${count}`;
+		case 'applyTheme':
+			return 'Change Theme';
 		case 'placeDecor':
 			return `Place Decor${count}`;
 		case 'scatterDecor':

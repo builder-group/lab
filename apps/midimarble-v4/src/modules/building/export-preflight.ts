@@ -3,7 +3,7 @@ import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong, marbleSounds } from '@/modules/music';
 import type { TProject, TVec2 } from '@/modules/project';
 import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, CAMERA_KEY, toHitKey, tieOf } from '@/modules/project';
+import { formatTime, CAMERA_KEY, toHitKey, toSongKey, tieOf } from '@/modules/project';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 
@@ -26,13 +26,14 @@ export function pendingPreflight(project: TProject | null): TExportPreflight {
 /**
  * The problems of `project` given its run, like Xcode's issue navigator: hits that miss or drift, hits no platform can reach yet,
  * Blocked scenery, marbles the camera leaves out of frame while they play, stray contacts, platforms struck twice or rolled on,
- * pieces that touch and the loop. Warnings are problems the film will show; notes are worth a look. Neither blocks the export.
+ * pieces that touch, the loop and `missingRecordings`, the IDs of songs whose file doesn't load. Warnings are problems the film
+ * will show; notes are worth a look. Neither blocks the export.
  * `SimulationCx.$problems` asks for the open project's, which everything on screen reads. Build Track, Fix and Patterns ask
  * about their trials, whose run is theirs by construction, so nothing here reads its revision.
  */
-export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[]): TExportPreflight {
+export function checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[], missingRecordings: readonly string[] = NO_MISSING_RECORDINGS): TExportPreflight {
 	const memo = preflightMemo.get(result);
-	if (memo?.project === project && memo.blenderObjects === blenderObjects) return memo.preflight;
+	if (memo?.project === project && memo.blenderObjects === blenderObjects && memo.missingRecordings === missingRecordings) return memo.preflight;
 
 	const names = createNames(project);
 	const issues: TPreflightIssue[] = withoutBehindBreak(project, result, [
@@ -48,7 +49,8 @@ export function checkRun(project: TProject, result: TSimulationResult, blenderOb
 		...framingIssues(project, result, names),
 		...titleIssues(project),
 		...decorIssues(project, result, names, blenderObjects),
-		...songIssues(project)
+		...songIssues(project),
+		...recordingIssues(project, missingRecordings)
 	]);
 	issues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity] || (a.time ?? Infinity) - (b.time ?? Infinity));
 
@@ -61,12 +63,14 @@ export function checkRun(project: TProject, result: TSimulationResult, blenderOb
 	const tips = notes > 0 ? `${notes} ${notes === 1 ? 'tip' : 'tips'}` : '';
 	const summary = problemSummary(checked);
 	const preflight = { ...checked, summary: [summary.label, summary.needsSong ? ADD_SONG_LABEL : '', tips].filter(Boolean).join(' · ') };
-	preflightMemo.set(result, { project, blenderObjects, preflight });
+	preflightMemo.set(result, { project, blenderObjects, missingRecordings, preflight });
 	return preflight;
 }
 
 // Fix judges a trial before and after, and a trial's run is checked again by whoever lands it
-const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; preflight: TExportPreflight }>();
+const preflightMemo = new WeakMap<TSimulationResult, { project: TProject; blenderObjects: readonly TBlenderObject[]; missingRecordings: readonly string[]; preflight: TExportPreflight }>();
+
+const NO_MISSING_RECORDINGS: readonly string[] = [];
 
 export const ADD_SONG_LABEL = 'Add a Song';
 
@@ -74,6 +78,20 @@ export const ADD_SONG_LABEL = 'Add a Song';
 function songIssues(project: TProject): TPreflightIssue[] {
 	if (hasSong(project) || countHits(project) === 0 || project.marbles.some((marble) => marbleSounds(project, marble))) return [];
 	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has hits but no song, so the film has no sound.', target: null }];
+}
+
+/** A song file that doesn't load: the film would play without it, so it comes up before the export */
+function recordingIssues(project: TProject, missingRecordings: readonly string[]): TPreflightIssue[] {
+	return project.songs
+		.filter((song) => missingRecordings.includes(song.id))
+		.map((song) => ({
+			id: `recording:${song.id}`,
+			kind: 'recording' as const,
+			severity: 'warning' as const,
+			title: `${song.name} is missing`,
+			detail: 'The film would play without this recording. Put the file back, or choose Replace Song… on its row.',
+			target: { ids: [toSongKey(song.id)] }
+		}));
 }
 
 export type TProblemWorkspace = 'track' | 'film';
@@ -249,7 +267,7 @@ export interface TPreflightTarget {
 	workspace?: 'track' | 'film';
 }
 
-export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'passes' | 'fall' | 'framing' | 'title' | 'decor' | 'simulation' | 'song';
+export type TPreflightKind = 'hit' | 'open' | 'scenery' | 'contact' | 'strike' | 'roll' | 'touching' | 'passes' | 'fall' | 'framing' | 'title' | 'decor' | 'simulation' | 'song' | 'recording';
 
 const severityOrder: Record<TPreflightSeverity, number> = { warning: 0, info: 1 };
 

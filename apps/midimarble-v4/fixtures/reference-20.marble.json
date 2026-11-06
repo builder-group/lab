@@ -1334,8 +1334,9 @@
 		"groups": []
 	},
 	"film": {
-		"theme": "brass",
-		"themes": [],
+		"theme": {
+			"base": "brass"
+		},
 		"wall": {},
 		"lights": {
 			"added": []

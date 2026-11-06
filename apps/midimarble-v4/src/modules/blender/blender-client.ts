@@ -91,12 +91,11 @@ export const blender = {
 
 	/**
 	 * Writes the motion files and the description into the package, then applies them in Blender.
-	 * `regenerateCamera` rebuilds a follow camera the user took over in Blender; ask the user first.
 	 */
 	async applyScene(
 		packagePath: string,
 		build: TSceneBuild,
-		options: { relink?: string[]; regenerateCamera?: boolean } = {}
+		options: { relink?: string[] } = {}
 	): Promise<TResult<TApplySceneResult, BlenderError>> {
 		for (const file of build.motionFiles) {
 			const [isWrittenOk, writtenErr] = await this.writePackageFile(packagePath, file.path, file.bytes);
@@ -110,8 +109,7 @@ export const blender = {
 			'apply_scene',
 			{
 				descriptionPath: SCENE_DESCRIPTION_PATH,
-				relink: options.relink ?? [],
-				regenerateCamera: options.regenerateCamera ?? false
+				relink: options.relink ?? []
 			},
 			{ timeoutMs: 120_000 }
 		);
@@ -283,8 +281,8 @@ export interface TApplySceneResult {
 	themed: boolean;
 	theme: string;
 	/**
-	 * `baked` follow rig, `framed` static front camera, `takenOver` when the user edited the camera in Blender
-	 * (ask before applying with `regenerateCamera`), `manual` for the manual camera mode, `missing` without a camera
+	 * `baked` follow rig, `framed` static front camera, `takenOver` when the user edited the baked camera in Blender,
+	 * which turns Follow Marbles off, `manual` while it is off, `missing` without a camera
 	 */
 	camera: 'baked' | 'framed' | 'takenOver' | 'manual' | 'missing';
 	cameraFramed: boolean;

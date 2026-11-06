@@ -29,7 +29,7 @@ The camera stands close through a wide lens, turned to the side, and travels wit
    come to rest with it.
 
 Everything is baked as keyframes on the studio camera (location, rotation, focus distance), so the camera works in
-plain Blender. A camera the user edited is taken over and never regenerated unless the app asks.
+plain Blender. A camera the user edited is left alone: the app turns Follow Marbles off, and turning it on bakes again.
 """
 import math
 
@@ -126,7 +126,6 @@ def settings_from(description_camera, theme_settings):
         try:
             shots.append({
                 'time': float(shot['time']),
-                'kind': str(shot.get('kind', 'follow')),
                 'distance': max(0.05, float(shot.get('distance', camera.get('distance', 0.6)))),
                 'length': shot_length(shot.get('length')),
             })
@@ -781,7 +780,7 @@ def write_shot_markers(scene, shots, fps):
         if marker.name.startswith('MM · '):
             scene.timeline_markers.remove(marker)
     for index, shot in enumerate(shots):
-        scene.timeline_markers.new('MM · ' + shot['kind'], frame=int(round(shot['time'] * fps)))
+        scene.timeline_markers.new('MM · Shot', frame=int(round(shot['time'] * fps)))
         following = shots[index + 1]['time'] if index + 1 < len(shots) else math.inf
         if shot.get('length') is not None and shot['time'] + shot['length'] < following - 1e-9:
             scene.timeline_markers.new('MM · follow', frame=int(round((shot['time'] + shot['length']) * fps)))

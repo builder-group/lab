@@ -1,20 +1,14 @@
 import type { TShot } from '@/modules/project';
 
-/** Seconds a Push In or Close-Up holds before the camera eases back to the rig, unless the shot sets a length */
+/** Seconds a new shot holds before the camera eases back to the rig */
 export const SHOT_HOLD = 2.0;
 
 /** Seconds the follow camera eases into a shot and back out of it, `SHOT_EASE` in `camera.py` */
 export const SHOT_EASE_SECONDS = 0.8;
 
-/** Hold of a shot kind without a length of its own: close shots release, Wide and Follow hold until the next shot */
-export function defaultShotHold(kind: TShot['kind']): number | null {
-	return kind === 'pushIn' || kind === 'closeUp' ? SHOT_HOLD : null;
-}
-
-/** Seconds the shot holds, or null when it holds until the next shot (a hold of 0 or an open kind's default) */
-export function shotHold(shot: Pick<TShot, 'kind' | 'hold'>): number | null {
-	const hold = shot.hold ?? defaultShotHold(shot.kind);
-	return hold != null && hold > 0 ? hold : null;
+/** Seconds the shot holds, or null when it holds until the next shot */
+export function shotHold(shot: Pick<TShot, 'hold'>): number | null {
+	return shot.hold != null && shot.hold > 0 ? shot.hold : null;
 }
 
 /**
@@ -29,13 +23,12 @@ export function shotSpans(shots: readonly TShot[], end: number): TShotSpan[] {
 		const release = hold != null ? shot.time + hold : Infinity;
 		const isRelease = release < following - 1e-9;
 		const stop = Math.min(release, following, Math.max(end, shot.time));
-		return { shotId: shot.id, kind: shot.kind, start: shot.time, end: stop, isRelease };
+		return { shotId: shot.id, start: shot.time, end: stop, isRelease };
 	});
 }
 
 export interface TShotSpan {
 	shotId: string;
-	kind: TShot['kind'];
 	start: number;
 	end: number;
 	/** The camera eases back to the rig at `end` rather than cutting to the next shot */

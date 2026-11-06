@@ -46,7 +46,6 @@ fn specta_builder() -> SpectaBuilder<tauri::Wry> {
             mcp::commands::mcp_connections,
             mcp::commands::mcp_copy_server_command,
             library::commands::library_list,
-            library::commands::library_promote,
             library::commands::library_import,
             library::commands::library_remove,
             library::commands::library_add_asset,

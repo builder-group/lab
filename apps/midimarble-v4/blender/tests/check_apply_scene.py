@@ -317,7 +317,7 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
     from mm_worker import render
     scene = bpy.context.scene
     rig = {'mode': 'rig', 'distance': 0.5, 'pitch': 0.45, 'lead': 0.15, 'smoothing': 0.6,
-           'shots': [{'id': 's1', 'time': 0.6, 'kind': 'pushIn', 'distance': 0.4}]}
+           'shots': [{'id': 's1', 'time': 0.6, 'distance': 0.4}]}
 
     # A user-edited default skin and a custom skin survive a theme switch; untouched default skins are rebuilt
     platform = holder('platform-1')
@@ -369,21 +369,22 @@ def check_themes_camera_and_render(worker, root, marble_records, hit, moved):
         view = world_to_camera_view(scene, camera, marble.matrix_world.translation)
         worst = max(worst, abs(view.x - 0.5), abs(view.y - 0.5))
     check(worst < 0.45, 'marble stays inside the frame (worst offset %.2f)' % worst)
-    check(any(marker.name == 'MM · pushIn' for marker in scene.timeline_markers), 'shot markers are on the timeline')
+    check(any(marker.name == 'MM · Shot' for marker in scene.timeline_markers), 'shot markers are on the timeline')
 
-    # Editing the camera hands it over to Blender until the app regenerates it on request
+    # Editing the camera leaves it to Blender, and a rig after that is Follow Marbles turned back on
     from bpy_extras import anim_utils
     channelbag = anim_utils.animdata_get_channelbag_for_assigned_slot(camera.animation_data)
     channelbag.fcurves.find('location', index=2).keyframe_points[10].co.y += 0.05
     report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
     check(report['camera'] == 'takenOver', 'an edited camera is taken over')
-    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json', 'regenerateCamera': True})
-    check(report['camera'] == 'baked', 'regenerateCamera rebuilds a taken-over camera')
+    report = worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(report['camera'] == 'baked', 'a rig after that bakes over the edit')
     rig_manual = dict(rig, mode='manual')
     write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig_manual)
     check(worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})['camera'] == 'manual', 'manual camera mode is left alone')
+    channelbag.fcurves.find('location', index=2).keyframe_points[10].co.y += 0.05
     write_package(root, marble_records, hit, moved, 0.3, True, theme='brass', camera=rig)
-    worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})
+    check(worker.handle('apply_scene', {'descriptionPath': '.cache/scene.json'})['camera'] == 'baked', 'Follow Marbles turned back on bakes over an edit made while it was off')
 
     # Switching back rebuilds only untouched default skins
     write_package(root, marble_records, hit, moved, 0.3, True, theme='pegboard', camera=rig)

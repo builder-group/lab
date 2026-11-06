@@ -181,11 +181,10 @@ describe('fixtures', () => {
 		expect(counts).toEqual([51, 64]);
 		expectAllOnTime(result, 115);
 		expect(project.marbles.map((marble) => marble.sound)).toEqual([9, 8]);
-		expect(project.film.theme).toBe('theme-christmas');
-		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')).toMatchObject({ name: 'Christmas', base: 'brass' });
+		expect(project.film.theme).toMatchObject({ base: 'brass', pack: { packId: 'christmas', themeName: 'Christmas' } });
 		expect(project.film.decor.length).toBeGreaterThan(70);
 		// A theme carries no side dressing
-		expect(project.film.themes.find((theme) => theme.id === 'theme-christmas')?.wallKind).toBeUndefined();
+		expect(project.film.wall.kind).toBeUndefined();
 		expect(project.film.decor.map((item) => item.source)).toEqual(expect.arrayContaining(['decor:snowfall']));
 		// Built at new projects' default Gravity, which the assists keep on the shared pace
 		expect(project.gravity).toBe(0.25);

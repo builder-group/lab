@@ -1,25 +1,26 @@
 import { createId, type TProject, type TProjectCommand, type TShot } from '@/modules/project';
+import { SHOT_HOLD } from './shot-timing';
 
-// Shot markers ease the follow camera to their distance after their time. `kind` names a distance preset relative
-// to the rig's base distance; the user may fine-tune the distance after.
+// Shot markers ease the follow camera to their distance after their time. The presets are shares of the rig's distance.
 
-export type TShotKind = TShot['kind'];
-
-export const shotKinds: readonly { kind: TShotKind; label: string; scale: number }[] = [
-	{ kind: 'wide', label: 'Wide', scale: 1.6 },
-	{ kind: 'follow', label: 'Follow', scale: 1 },
-	{ kind: 'pushIn', label: 'Push In', scale: 0.7 },
-	{ kind: 'closeUp', label: 'Close-Up', scale: 0.45 }
+export const shotPresets: readonly { id: string; label: string; scale: number }[] = [
+	{ id: 'wide', label: 'Wide', scale: 1.6 },
+	{ id: 'normal', label: 'Normal', scale: 1 },
+	{ id: 'pushIn', label: 'Push In', scale: 0.7 },
+	{ id: 'closeUp', label: 'Close-Up', scale: 0.45 }
 ];
 
-export function shotKindLabel(kind: TShotKind): string {
-	return shotKinds.find((item) => item.kind === kind)?.label ?? kind;
+/** Share of the rig's distance a new shot stands at: Push In */
+const NEW_SHOT_SCALE = 0.7;
+
+/** Distance of a preset for a rig with the given base distance */
+export function shotPresetDistance(scale: number, baseDistance: number): number {
+	return round(baseDistance * scale);
 }
 
-/** Distance of a kind's preset for a rig with the given base distance */
-export function shotPresetDistance(kind: TShotKind, baseDistance: number): number {
-	const scale = shotKinds.find((item) => item.kind === kind)?.scale ?? 1;
-	return round(baseDistance * scale);
+/** The preset a shot stands at, or null when its distance is its own */
+export function shotPresetOf(shot: Pick<TShot, 'distance'>, baseDistance: number): (typeof shotPresets)[number] | null {
+	return shotPresets.find((preset) => shotPresetDistance(preset.scale, baseDistance) === shot.distance) ?? null;
 }
 
 /** Shots in time order, which the follow camera assumes */
@@ -27,21 +28,19 @@ export function sortShots(shots: TShot[]): TShot[] {
 	return [...shots].sort((a, b) => a.time - b.time);
 }
 
-/** Adds a marker at the given time, a Push In unless `options` say otherwise, and returns its id */
-export function addShotCommands(project: TProject, time: number, id = createId('shot'), options: Partial<Pick<TShot, 'kind' | 'distance' | 'hold'>> = {}): { commands: TProjectCommand[]; shotId: string } {
+/** Adds a marker at the given time: a Push In that holds 2 s unless `options` say otherwise, and returns its id */
+export function addShotCommands(project: TProject, time: number, id = createId('shot'), options: Partial<Pick<TShot, 'distance' | 'hold'>> = {}): { commands: TProjectCommand[]; shotId: string } {
 	const camera = project.film.camera;
-	const kind = options.kind ?? 'pushIn';
-	const shot: TShot = { id, time: round(Math.max(0, time)), kind, distance: round(options.distance ?? shotPresetDistance(kind, camera.distance)), ...(options.hold != null ? { hold: options.hold } : {}) };
+	const shot: TShot = { id, time: round(Math.max(0, time)), distance: round(options.distance ?? shotPresetDistance(NEW_SHOT_SCALE, camera.distance)), hold: options.hold ?? SHOT_HOLD };
 	return { commands: shotsCommands(project, [...camera.shots, shot]), shotId: id };
 }
 
-/** Changes one marker; a new kind applies its preset distance unless the patch sets one */
+/** Changes one marker */
 export function updateShotCommands(project: TProject, shotId: string, patch: Partial<Omit<TShot, 'id'>>): TProjectCommand[] {
 	const camera = project.film.camera;
 	const shot = camera.shots.find((item) => item.id === shotId);
 	if (shot == null) return [];
-	const preset = patch.kind != null && patch.kind !== shot.kind ? { distance: shotPresetDistance(patch.kind, camera.distance) } : {};
-	const next: TShot = { ...shot, ...preset, ...patch, ...(patch.time != null ? { time: round(Math.max(0, patch.time)) } : {}) };
+	const next: TShot = { ...shot, ...patch, ...(patch.time != null ? { time: round(Math.max(0, patch.time)) } : {}) };
 	return shotsCommands(
 		project,
 		camera.shots.map((item) => (item.id === shotId ? next : item))

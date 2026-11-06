@@ -1,9 +1,14 @@
-import { isPatternGroup, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import type { TSimulator } from '@/modules/simulation';
-import { touchingPairs } from '@/modules/simulation';
-import { sampleAt, ZIGZAG_WIDTH } from './fit-bars';
-import { fitPattern, type TFitPatternResult, type TPatternExit, type TPatternKind, type TPatternProblem } from './fit-pattern';
+import { isPatternGroup, type THit, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
+import type { TSimulationResult, TSimulator } from '@/modules/simulation';
+import { LONG_FALL, soundsHit, touchingPairs } from '@/modules/simulation';
+import { RELEASE_LEAD } from '../reachability';
+import { arrivalAt } from './arrival';
+import type { THitVerdict, TPatternCourse, TPatternMoment } from './contract';
+import { railHolding } from './long-rail';
+import { sampleAt } from './fit-bars';
+import { fitPattern, type TFitPatternResult, type TPatternProblem } from './fit-pattern';
 import { measurePattern, type TPatternMeasures } from './measures';
+import { dropForBounce, patternKinds, patternLabel, patternOfKind } from './registry';
 import { wordsForHitTime } from './words';
 
 // Making or changing a Group: fits it, then fits the Groups after it on that marble again when the marble now leaves it
@@ -11,25 +16,10 @@ import { wordsForHitTime } from './words';
 
 /** Keeps a Long Rail's block off the notes around its silence, so it holds none */
 const RAIL_MARGIN = 0.01;
+/** A marble needs this long to fall before its first note strikes */
+const MIN_LEAD = 0.12;
 /** The marble leaving within this is the same marble: later Groups keep their hand edits */
 const SAME_EXIT = { position: 0.001, velocity: 0.01 };
-
-export const PATTERN_LABELS: Record<TPatternKind, string> = { zigzag: 'Zigzag', staircase: 'Staircase', longRail: 'Long Rail' };
-
-/** Width and Bounce a Pattern starts from */
-export const PATTERN_DEFAULTS: Record<TPatternKind, { width: number; bounce: number }> = {
-	zigzag: { width: ZIGZAG_WIDTH, bounce: 0.5 },
-	staircase: { width: 0.09, bounce: 0.5 },
-	longRail: { width: 0.14, bounce: 0.5 }
-};
-
-/**
- * What the inspector's Bounce asks for. The same restitution on every bar missed hits on real rhythm (54 of 58 on the
- * reference, 38 of 58 at 0.75), so each bar's bounce is solved, and a livelier Bounce asks for less fall per hit.
- */
-export function dropForBounce(kind: TPatternKind, bounce: number): number {
-	return (kind === 'staircase' ? 0.12 : 0.08) * (1 + (0.5 - bounce) * 2.5);
-}
 
 export interface TGroupChange {
 	/** The Group to change; absent makes a new one */
@@ -37,7 +27,7 @@ export interface TGroupChange {
 	marbleId: string;
 	from: number;
 	to: number;
-	kind: TPatternKind;
+	kind: string;
 	width: number;
 	bounce: number;
 	/** The steepest a bar may tilt, in degrees; the usual limit otherwise */
@@ -68,10 +58,10 @@ export interface TGroupRunOutcome {
 	groupId: string | null;
 	name: string;
 	problems: TPatternProblem[];
+	/** One per hit it was asked to play */
+	verdicts: THitVerdict[];
 	/** Of the Group and the later ones, the problems that keep a hit from playing cleanly */
 	blocking: TPatternProblem[];
-	/** The nearest Width with no problems, when one was found */
-	nearestWidth: number | null;
 	/** Later Groups that were fitted again */
 	later: TLaterGroupOutcome[];
 	/** Hits after the Group, in no Group, that are no longer on time: nothing fits those again */
@@ -91,6 +81,12 @@ export interface TGroupRunOptions {
 	sim: TSimulator;
 	/** A hover preview: one shape, only this Group, nothing after it */
 	isPreview?: boolean;
+	/** The way the track goes now, for a Pattern to follow */
+	along?: TPatternCourse;
+	/** How many drops to try */
+	maxTries?: number;
+	/** A check: nothing can apply after a bar that can't play */
+	stopsAtBadBar?: boolean;
 	onProgress?: (progress: TGroupRunProgress) => void;
 }
 
@@ -125,9 +121,22 @@ export function patternSpan(marble: TMarble, group: TPatternGroup): { from: numb
 	const first = times[0];
 	const last = times.at(-1);
 	if (first == null || last == null) return null;
-	if (group.pattern.kind !== 'longRail') return { from: first, to: last };
+	if (!takesSilence(group.pattern.kind)) return { from: first, to: last };
 	if (group.pattern.hitIds.length === 1) return { from: marble.start.time, to: last - RAIL_MARGIN };
 	return times.length === 2 ? { from: first + RAIL_MARGIN, to: last - RAIL_MARGIN } : null;
+}
+
+/** A live Pattern's hits that don't play right now, worked out from the run: a verdict is never stored */
+export function groupProblems(project: TProject, result: TSimulationResult | null, group: TPatternGroup): TPatternProblem[] {
+	const marble = project.marbles.find((item) => item.id === group.marbleId);
+	if (marble == null || result == null) return [];
+	const isSilence = takesSilence(group.pattern.kind);
+	return group.pattern.hitIds.flatMap((hitId) => {
+		const hit = result.hits.find((item) => item.marbleId === marble.id && item.hitId === hitId);
+		const isOff = hit?.status === 'missed' || hit?.status === 'blocked' || hit?.status === 'waiting' || (hit?.status === 'open' && !isSilence);
+		if (hit == null || !isOff) return [];
+		return [{ hitId, words: `Hit ${marble.hits.findIndex((item) => item.id === hitId) + 1} of ${marble.name} doesn't play. Fit ${group.name} again, or Flatten it.` }];
+	});
 }
 
 /** The hits in a range, in time order */
@@ -150,33 +159,88 @@ interface TGroupTarget {
 }
 
 /** What a range means for a Pattern, or why it can't take it */
-function targetOf(marble: TMarble, change: Pick<TGroupChange, 'from' | 'to' | 'kind'>): TGroupTarget {
+function targetOf(marble: TMarble, change: Pick<TGroupChange, 'from' | 'to' | 'kind'>, isBuiltBefore: (time: number) => boolean): TGroupTarget {
 	const { from, to, kind } = change;
 	const hits = hitsInRange(marble, from, to);
+	const label = patternLabel(kind);
 	const refuse = (hitId: string, words: string): TGroupTarget => ({ hitIds: [], from, to, problem: { hitId, words } });
-	if (kind === 'longRail') {
-		if (hits.length > 0) return refuse(hits[0]?.id ?? '', `A Long Rail fills silence, and this range holds ${hits.length} ${hits.length === 1 ? 'note' : 'notes'}. Try Zigzag or Staircase.`);
+	if (takesSilence(kind)) {
+		if (hits.length > 0) return refuse(hits[0]?.id ?? '', `A ${label} fills silence, and this range holds ${hits.length} ${hits.length === 1 ? 'note' : 'notes'}. Try ${labelsFor('notes')}.`);
 		const before = [...marble.hits].reverse().find((hit) => hit.time < from);
 		const after = marble.hits.find((hit) => hit.time > to);
-		if (after == null) return refuse(before?.id ?? '', 'A Long Rail ends at a note, and none comes after this range.');
+		if (after == null) return refuse(before?.id ?? '', `A ${label} ends at a note, and none comes after this range.`);
 		// Before the first note it opens the track, from the marble's release at the range's start
-		if (before == null) return { hitIds: [after.id], from: Math.max(0, from), to: after.time - RAIL_MARGIN, problem: null };
+		if (before == null || !isBuiltBefore(after.time)) return { hitIds: [after.id], from: Math.max(0, from), to: after.time - RAIL_MARGIN, problem: null };
 		return { hitIds: [before.id, after.id], from: before.time + RAIL_MARGIN, to: after.time - RAIL_MARGIN, problem: null };
 	}
 	const first = hits[0];
 	const last = hits.at(-1);
-	if (first == null || last == null) return refuse('', `A ${PATTERN_LABELS[kind]} plays notes, and this range holds none. Try Long Rail.`);
+	if (first == null || last == null) return refuse('', `A ${label} plays notes, and this range holds none. Try ${labelsFor('silence')}.`);
 	return { hitIds: hits.map((hit) => hit.id), from: first.time, to: last.time, problem: null };
 }
 
 /** What a Group's own span means for its Pattern; one whose hits are gone refuses as an empty range does */
 function targetOfGroup(marble: TMarble, group: TPatternGroup): TGroupTarget {
-	return targetOf(marble, { ...(patternSpan(marble, group) ?? { from: Infinity, to: Infinity }), kind: group.pattern.kind });
+	return targetOf(marble, { ...(patternSpan(marble, group) ?? { from: Infinity, to: Infinity }), kind: group.pattern.kind }, () => group.pattern.hitIds.length > 1);
+}
+
+/** Whether any piece other than these plays or follows a hit of this marble before this time */
+function hasPiecesBefore(project: TProject, marble: TMarble, time: number, except: ReadonlySet<string>): boolean {
+	return project.track.pieces.some((piece) => {
+		const tie = tieOf(piece);
+		return tie?.marbleId === marble.id && !except.has(piece.id) && (marble.hits.find((hit) => hit.id === tie.hitId)?.time ?? Infinity) < time - 1e-6;
+	});
+}
+
+/**
+ * When a marble with nothing before this note should be released: null when its release already falls onto that note.
+ * After the note before, so that one only waits to be built, and never so late that this one comes too soon.
+ */
+function startFor(sim: TSimulator, project: TProject, marble: TMarble, hit: THit): number | null {
+	const arrival = hit.time - marble.start.time >= MIN_LEAD ? arrivalAt(sim, project, marble.id, hit.id, hit.time) : null;
+	// As it really goes: a start rail holds the marble through most of its lead
+	if (arrival != null && marble.start.position.y - arrival.position.y < LONG_FALL) return null;
+	const before = [...marble.hits].reverse().find((item) => item.time < hit.time)?.time ?? -Infinity;
+	return Math.max(0, Math.min(hit.time - MIN_LEAD, Math.max(hit.time - RELEASE_LEAD, before + 0.01)));
+}
+
+/**
+ * Notes before this one with nothing to play them, after pieces that do: the marble falls past them, and a fall this long
+ * can't be turned into a hit. Said as the owner says it: this hit is out of order.
+ */
+function outOfOrderProblem(sim: TSimulator, project: TProject, marble: TMarble, hitId: string): TPatternProblem | null {
+	const index = marble.hits.findIndex((hit) => hit.id === hitId);
+	const hit = marble.hits[index];
+	if (hit == null || !hasPiecesBefore(project, marble, hit.time, new Set())) return null;
+	const sounds = new Set(project.track.pieces.flatMap((piece) => {
+		const tie = tieOf(piece);
+		return tie != null && soundsHit(piece.type, tie) ? [tie.hitId] : [];
+	}));
+	let firstOpen = index;
+	while (firstOpen > 0 && !sounds.has(marble.hits[firstOpen - 1]?.id ?? '')) firstOpen--;
+	if (firstOpen === index) return null;
+	const played = marble.hits[firstOpen - 1];
+	const arrival = arrivalAt(sim, project, marble.id, hit.id, hit.time);
+	const from = played != null ? arrivalAt(sim, project, marble.id, played.id, played.time) : null;
+	const fall = arrival != null && from != null ? from.position.y - arrival.position.y : Infinity;
+	if (fall < LONG_FALL) return null;
+	const open = firstOpen === index - 1 ? `Hit ${firstOpen + 1} has` : `Hits ${firstOpen + 1} to ${index} have`;
+	return { hitId, words: `It's out of order: ${open} no pieces yet, so the marble falls ${Number.isFinite(fall) ? `${fall.toFixed(1)} m` : 'away'} before it.` };
+}
+
+/** Whether this Pattern fills silence, where a stored kind this version doesn't have counts as playing notes */
+function takesSilence(kind: string): boolean {
+	return patternOfKind(kind)?.takes === 'silence';
+}
+
+/** "Zigzag or Staircase": what to try on a range of this sort */
+function labelsFor(takes: 'notes' | 'silence'): string {
+	return patternKinds(takes).map(patternLabel).join(' or ');
 }
 
 /** A new name: "Zigzag", then "Zigzag 2" */
-function nextGroupName(groups: readonly TGroup[], kind: TPatternKind): string {
-	const label = PATTERN_LABELS[kind];
+function nextGroupName(groups: readonly TGroup[], kind: string): string {
+	const label = patternLabel(kind);
 	const names = new Set(groups.map((group) => group.name));
 	if (!names.has(label)) return label;
 	for (let index = 2; ; index++) if (!names.has(`${label} ${index}`)) return `${label} ${index}`;
@@ -187,12 +251,12 @@ function withoutPieces(project: TProject, ids: readonly string[]): TProject {
 	return ids.length > 0 ? { ...project, track: { ...project.track, pieces: project.track.pieces.filter((piece) => !removed.has(piece.id)) } } : project;
 }
 
-function sameExit(a: TPatternExit | null, b: TPatternExit | null): boolean {
+function sameExit(a: TPatternMoment | null, b: TPatternMoment | null): boolean {
 	if (a == null || b == null) return a === b;
 	return Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) < SAME_EXIT.position && Math.hypot(a.velocity.x - b.velocity.x, a.velocity.y - b.velocity.y) < SAME_EXIT.velocity;
 }
 
-function marbleAt(sim: TSimulator, project: TProject, marbleId: string, time: number): TPatternExit | null {
+function marbleAt(sim: TSimulator, project: TProject, marbleId: string, time: number): TPatternMoment | null {
 	const result = sim.simulate({ ...project, length: time + 0.01 });
 	const sample = sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time);
 	return sample == null ? null : { position: sample.position, velocity: sample.velocity, time: sample.time };
@@ -200,14 +264,17 @@ function marbleAt(sim: TSimulator, project: TProject, marbleId: string, time: nu
 
 /** Runs a Group's Pattern and what follows it, and answers with one edit. The project isn't touched */
 export function runGroupChange(project: TProject, change: TGroupChange, options: TGroupRunOptions): TGroupRunOutcome {
-	const { sim, isPreview = false, onProgress } = options;
+	const { sim, isPreview = false, onProgress, along, maxTries, stopsAtBadBar } = options;
 	const marble = project.marbles.find((item) => item.id === change.marbleId);
 	const existing = change.groupId != null ? project.track.groups.filter(isPatternGroup).find((group) => group.id === change.groupId) : undefined;
 	let name = existing != null && existing.pattern.kind === change.kind ? existing.name : nextGroupName(project.track.groups, change.kind);
-	const refuse = (problems: TPatternProblem[]): TGroupRunOutcome => ({ commands: [], groupId: null, name, problems, blocking: problems, nearestWidth: null, later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], measures: null, madePieces: [], project });
+	const refuse = (problems: TPatternProblem[], verdicts: THitVerdict[] = problems.map((problem) => ({ ...problem, fits: false }))): TGroupRunOutcome => ({ commands: [], groupId: null, name, problems, verdicts, blocking: problems, later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], measures: null, madePieces: [], project });
 	if (marble == null) return refuse([{ hitId: '', words: 'That marble is gone.' }]);
-	const target = targetOf(marble, change);
+	const own = new Set(existing?.pieceIds ?? []);
+	const target = targetOf(marble, change, (time) => hasPiecesBefore(project, marble, time, own));
 	if (target.problem != null) return refuse([target.problem]);
+	const outOfOrder = target.hitIds[0] != null ? outOfOrderProblem(sim, withoutPieces(project, [...own]), marble, target.hitIds[0]) : null;
+	if (outOfOrder != null) return refuse([outOfOrder]);
 
 	const others = groupsOfMarble(project, marble.id).filter((group) => group.id !== existing?.id);
 	const later = isPreview ? [] : others.filter((group) => (patternSpan(marble, group)?.from ?? Infinity) > target.to - 1e-6);
@@ -216,14 +283,21 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 
 	// A rail it replaces goes first: the new one may take its ID
 	let working = withoutPieces(project, [...(existing?.pieceIds ?? []), ...freed]);
-	if (change.kind === 'longRail' && target.hitIds.length === 1) working = withReleaseAt(working, marble.id, target.from);
+	const firstHit = marble.hits.find((hit) => hit.id === target.hitIds[0]);
+	const hits = target.hitIds.flatMap((id) => marble.hits.find((hit) => hit.id === id) ?? []);
+	if (takesSilence(change.kind) && target.hitIds.length === 1 && railHolding(sim, project, marble.id, hits) == null) working = withReleaseAt(working, marble.id, target.from);
+	// A marble with nothing to play before these notes starts just above them: the notes before wait until someone builds them
+	if (!takesSilence(change.kind) && firstHit != null && !hasPiecesBefore(project, marble, firstHit.time, own)) {
+		const release = startFor(sim, working, marble, firstHit);
+		if (release != null) working = withReleaseAt(working, marble.id, release);
+	}
 	const steps = 1 + later.length;
-	const askFit = (hitIds: string[], item: TPatternAsk, step: number, label: string, pieceIds: readonly string[], offersNearestWidth = false): TFitPatternResult =>
+	const askFit = (hitIds: string[], item: TPatternAsk, step: number, label: string, pieceIds: readonly string[]): TFitPatternResult =>
 		keepingSkins(
 			project,
 			pieceIds,
 			fitPattern(
-				{ project: working, marbleId: marble.id, hitIds, kind: item.kind, width: item.width, drop: dropForBounce(item.kind, item.bounce), ...(item.maxTilt != null ? { maxTilt: item.maxTilt } : {}), ...barSizeOf(project, pieceIds), ...(isPreview ? { maxTries: 1 } : {}), ...(offersNearestWidth && !isPreview ? { offersNearestWidth } : {}) },
+				{ project: working, marbleId: marble.id, hitIds, kind: item.kind, width: item.width, bounce: item.bounce, drop: dropForBounce(item.kind, item.bounce), ...(item.maxTilt != null ? { maxTilt: item.maxTilt } : {}), ...barSizeOf(project, pieceIds), ...(isPreview ? { maxTries: 1 } : maxTries != null ? { maxTries } : {}), ...(stopsAtBadBar === true && !isPreview ? { stopsAtBadBar } : {}), ...(along != null && step === 1 ? { along } : {}) },
 				{ sim, onProgress: (fraction) => onProgress?.({ name: label, step, steps, fraction: (step - 1 + fraction) / steps }) }
 			)
 		);
@@ -231,26 +305,26 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 	const laterFrom = later[0] != null ? patternSpan(marble, later[0])?.from : undefined;
 	const exitBefore = laterFrom != null ? marbleAt(sim, project, marble.id, laterFrom) : null;
 	const before = [...others].reverse().find((group) => (patternSpan(marble, group)?.to ?? Infinity) <= target.from + 1e-6);
-	let fit = askFit(target.hitIds, change, 1, name, existing?.pieceIds ?? [], true);
+	let fit = askFit(target.hitIds, change, 1, name, existing?.pieceIds ?? []);
 	let refitBefore: { group: TPatternGroup; fit: TFitPatternResult } | null = null;
 
 	// A rail that doesn't fit after the turn toward the frame: the bars before it play again without that turn
-	if (!fit.pieces.length && change.kind === 'longRail' && before != null && before.pattern.kind !== 'longRail' && !isPreview) {
+	if (!fit.pieces.length && takesSilence(change.kind) && before != null && !takesSilence(before.pattern.kind) && !isPreview) {
 		const refit = refitBarsWithoutTurn(before, marble, working, sim, project);
 		if (refit != null) {
 			const saved = working;
 			working = refit.project;
-			const retried = askFit(target.hitIds, change, 1, name, existing?.pieceIds ?? [], true);
+			const retried = askFit(target.hitIds, change, 1, name, existing?.pieceIds ?? []);
 			if (retried.pieces.length > 0) {
 				fit = retried;
 				refitBefore = { group: before, fit: refit };
 			} else working = saved;
 		}
 	}
-	if (!fit.pieces.length) return refuse(fit.problems);
+	if (!fit.pieces.length) return refuse(fit.problems, fit.verdicts);
 	working = fit.project;
 
-	const groupId = existing?.id ?? `group-${change.kind !== 'longRail' ? '' : target.hitIds.length === 1 ? 'start-' : 'rail-'}${target.hitIds[0] ?? 'range'}`.slice(0, 64);
+	const groupId = existing?.id ?? `group-${!takesSilence(change.kind) ? '' : target.hitIds.length === 1 ? 'start-' : 'rail-'}${target.hitIds[0] ?? 'range'}`.slice(0, 64);
 	const group: TPatternGroup = {
 		id: groupId,
 		name,
@@ -261,8 +335,7 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 			hitIds: target.hitIds,
 			width: change.width,
 			bounce: change.bounce,
-			...(change.maxTilt != null ? { maxTilt: change.maxTilt } : {}),
-			...(fit.problems.length > 0 ? { problems: fit.problems } : {})
+			...(change.maxTilt != null ? { maxTilt: change.maxTilt } : {})
 		}
 	};
 
@@ -278,15 +351,14 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 			const laterTarget = targetOfGroup(marble, item);
 			if (laterTarget.problem != null) {
 				blocking.push(laterTarget.problem);
-				groups.set(item.id, { ...item, pieceIds: [], pattern: { ...item.pattern, problems: [laterTarget.problem] } });
+				groups.set(item.id, { ...item, pieceIds: [] });
 				outcomes.push({ groupId: item.id, name: item.name, problems: [laterTarget.problem] });
 				return;
 			}
 			const laterFit = askFit(laterTarget.hitIds, item.pattern, index + 2, item.name, item.pieceIds);
 			working = laterFit.project;
 			blocking.push(...laterFit.blocking);
-			const { problems: _old, ...pattern } = item.pattern;
-			groups.set(item.id, { ...item, pieceIds: laterFit.pieces.map((piece) => piece.id), pattern: { ...pattern, hitIds: laterTarget.hitIds, ...(laterFit.problems.length > 0 ? { problems: laterFit.problems } : {}) } });
+			groups.set(item.id, { ...item, pieceIds: laterFit.pieces.map((piece) => piece.id), pattern: { ...item.pattern, hitIds: laterTarget.hitIds } });
 			outcomes.push({ groupId: item.id, name: item.name, problems: laterFit.problems });
 		});
 	}
@@ -313,13 +385,13 @@ export function runGroupChange(project: TProject, change: TGroupChange, options:
 		groupId,
 		name,
 		problems: fit.problems,
+		verdicts: fit.verdicts,
 		blocking,
-		nearestWidth: fit.nearestWidth,
 		later: outcomes,
 		laterLateHits,
 		otherMarbleTouches: [...new Set(otherMarbleTouches)],
 		notes: fit.notes,
-		measures: result != null ? measurePattern(working, result, marble.id, change.kind === 'longRail' ? undefined : target.hitIds) : null,
+		measures: result != null ? measurePattern(working, result, marble.id, takesSilence(change.kind) ? undefined : target.hitIds) : null,
 		madePieces: fit.pieces,
 		project: working
 	};
@@ -359,9 +431,9 @@ function barSizeOf(project: TProject, pieceIds: readonly string[]): { barLength?
 /** The bars before a rail played again, the last one keeping its own direction; null when that leaves problems of its own */
 function refitBarsWithoutTurn(group: TPatternGroup, marble: TMarble, working: TProject, sim: TSimulator, wearing: TProject): TFitPatternResult | null {
 	const span = patternSpan(marble, group);
-	if (group.pattern.kind === 'longRail' || span == null) return null;
+	if (takesSilence(group.pattern.kind) || span == null) return null;
 	const hits = hitsInRange(marble, span.from, span.to).map((hit) => hit.id);
-	const fit = keepingSkins(wearing, group.pieceIds, fitPattern({ project: withoutPieces(working, group.pieceIds), marbleId: marble.id, hitIds: hits, kind: group.pattern.kind, width: group.pattern.width, bounce: group.pattern.bounce, ...(group.pattern.maxTilt != null ? { maxTilt: group.pattern.maxTilt } : {}), keepsDirection: true, ...barSizeOf(working, group.pieceIds) }, { sim }));
+	const fit = keepingSkins(wearing, group.pieceIds, fitPattern({ project: withoutPieces(working, group.pieceIds), marbleId: marble.id, hitIds: hits, kind: group.pattern.kind, width: group.pattern.width, bounce: group.pattern.bounce, drop: dropForBounce(group.pattern.kind, group.pattern.bounce), ...(group.pattern.maxTilt != null ? { maxTilt: group.pattern.maxTilt } : {}), keepsDirection: true, ...barSizeOf(working, group.pieceIds) }, { sim }));
 	return fit.pieces.length > 0 ? fit : null;
 }
 
@@ -377,7 +449,7 @@ function trimOverlaps(project: TProject, others: readonly TPatternGroup[], hitId
 	for (const group of others) {
 		const span = patternSpan(marble, group);
 		if (span == null || span.to < from || span.from > to) continue;
-		if (group.pattern.kind === 'longRail') {
+		if (takesSilence(group.pattern.kind)) {
 			removedGroupIds.push(group.id);
 			freed.push(...group.pieceIds);
 			continue;

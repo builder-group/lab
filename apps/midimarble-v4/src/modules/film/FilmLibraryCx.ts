@@ -2,19 +2,18 @@ import { createState } from 'feature-state';
 import { host } from '@/environment';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { addedPacks, isPackAdded, library } from '@/modules/library';
-import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, themeCommands, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme, skinnedOf } from '@/modules/scene';
-import { type TPackOrigin, type TProject, type TProjectCommand, type TProjectTheme } from '@/modules/project';
+import { packOriginOf, STARTER_PACK_ID, withStarterPack, type TLibraryItem, type TPack, packAddedNotice, packExport, packThemeCommands, themeAssetIds, withThemeAssets, type TPackExportOptions, packOrigin, packOriginLine, resolveTheme, skinnedOf } from '@/modules/scene';
+import { type TPackOrigin, type TPackTheme, type TProject, type TProjectCommand } from '@/modules/project';
 import type { TSimulationResult } from '@/modules/simulation';
 import { skinCommands, type TSkinTarget } from './film-commands';
 
 /**
- * The library behind Film's Library tab and the inspector's skin pickers. Items live in the project's library and, when kept (the star), in the user's global
- * library; the UI shows one list without those scopes. Applying a kept item copies it into the project first so the
- * package stays portable.
+ * The library behind Film's Library tab and the inspector's skin pickers. An item lives in the project's library or in an
+ * added Pack; the UI shows one list. Applying a Pack's item copies it into the project first so the package stays
+ * portable.
  */
 export class FilmLibraryCx {
 	readonly $projectItems = createState<TLibraryItem[]>([]);
-	readonly $globalItems = createState<TLibraryItem[]>([]);
 	/** The Packs that ship inside the app */
 	readonly $bundledPacks = createState<TPack[]>([]);
 	/** The Packs… sheet is open */
@@ -33,7 +32,7 @@ export class FilmLibraryCx {
 
 	constructor(private readonly source: TFilmLibrarySource) {}
 
-	/** Loads both libraries; `force` reloads even when the package did not change */
+	/** Loads the project's library and the Packs; `force` reloads even when the package did not change */
 	async refresh(force = true): Promise<void> {
 		if (!library.isAvailable()) {
 			this.$status.set('unavailable');
@@ -42,14 +41,13 @@ export class FilmLibraryCx {
 		const packagePath = this.source.getPackagePath();
 		if (!force && this.loadedFor === packagePath && this.$status.get() === 'ready') return;
 		this.$status.set('loading');
-		const [isGlobalOk, globalErr, globalItems] = await library.list('global', null);
-		const [isProjectOk, projectErr, projectItems] = packagePath == null ? [true, null, []] as const : await library.list('project', packagePath);
+		const [isProjectOk, projectErr, projectItems] = packagePath == null ? [true, null, []] as const : await library.list(packagePath);
 		const [isPacksOk, , packs] = await library.listPacks();
 		if (isPacksOk) addedPacks.set(withStarterPack(packs));
 		const [isBundledOk, , bundled] = await library.listBundledPacks();
 		if (isBundledOk) this.$bundledPacks.set(bundled);
-		if (!isGlobalOk || !isProjectOk) {
-			const message = (isGlobalOk ? projectErr : globalErr)?.message ?? "The library couldn't be read";
+		if (!isProjectOk) {
+			const message = projectErr.message;
 			if (import.meta.env.DEV) console.warn('[library]', message);
 			this.$error.set(message);
 			this.$status.set('error');
@@ -57,7 +55,6 @@ export class FilmLibraryCx {
 		}
 		this.loadedFor = packagePath;
 		this.$projectItems.set([...projectItems]);
-		this.$globalItems.set(globalItems);
 		this.$error.set(null);
 		this.$status.set('ready');
 	}
@@ -78,13 +75,13 @@ export class FilmLibraryCx {
 	}
 
 	/**
-	 * The item's ID in the project, copying a kept or Pack item in first so the package stays portable. Null with a
+	 * The item's ID in the project, copying a Pack's item in first so the package stays portable. Null with a
 	 * notice when it can't be copied.
 	 */
 	async inProject(item: TLibraryItem): Promise<string | null> {
 		const packagePath = this.source.getPackagePath();
 		if (packagePath == null) return null;
-		if (item.scope === 'project') return item.id;
+		if (item.packId == null) return item.id;
 		const [isImportedOk, importedErr, imported] = await library.import(packagePath, item.id, item.packId);
 		if (!isImportedOk) {
 			this.source.notify(`“${label(item)}” couldn't be copied into the project: ${importedErr.message}`, 'error');
@@ -167,21 +164,16 @@ export class FilmLibraryCx {
 		this.source.notify(`${packOrigin(pack.name)} removed. Projects keep what they use from it.`);
 	}
 
-	/** Applies a Pack's theme: the items it needs are copied in, then the project gets the theme and shows it, as one edit */
-	async applyPackTheme(pack: TPack, theme: TProjectTheme): Promise<boolean> {
-		const existing = this.source.getProject();
-		if (existing == null) return false;
-		if (!existing.film.themes.some((item) => item.id === theme.id)) {
-			const ready = await this.packThemeInProject(pack, theme);
-			const project = this.source.getProject();
-			if (ready == null || project == null) return false;
-			return this.source.execute(packThemeCommands(project, ready));
-		}
-		return this.source.execute(themeCommands(existing, theme.id));
+	/** Wears a Pack's theme: the items it needs are copied in, then its look goes on the film, as one edit */
+	async applyPackTheme(pack: TPack, theme: TPackTheme): Promise<boolean> {
+		const ready = await this.packThemeInProject(pack, theme);
+		const project = this.source.getProject();
+		if (ready == null || project == null) return false;
+		return this.source.execute(packThemeCommands(project, ready, packOriginOf(pack)));
 	}
 
-	/** A Pack's theme as a project stores it, with the items it needs copied in; null with a notice when one can't be */
-	async packThemeInProject(pack: TPack, theme: TProjectTheme): Promise<TProjectTheme | null> {
+	/** A Pack's theme with the items it needs copied in; null with a notice when one can't be */
+	async packThemeInProject(pack: TPack, theme: TPackTheme): Promise<TPackTheme | null> {
 		const ids = new Map<string, string>();
 		for (const id of themeAssetIds(theme)) {
 			const item = pack.items.find((candidate) => candidate.id === id);
@@ -189,33 +181,13 @@ export class FilmLibraryCx {
 			if (copied == null) return null;
 			ids.set(id, copied);
 		}
-		return { ...withThemeAssets(theme, ids), pack: packOriginOf(pack) };
-	}
-
-	/** Keep in Library (the star): a project item is copied into the global library; unstarring removes that copy */
-	async setKept(entry: TLibraryEntry, isKept: boolean): Promise<void> {
-		// A Pack's item stays in the library with its Pack; Remove Pack takes it out
-		if (isKept === entry.isKept || entry.item.packId != null) return;
-		const packagePath = this.source.getPackagePath();
-		if (isKept) {
-			if (packagePath == null) return;
-			const [isPromotedOk, promotedErr] = await library.promote(packagePath, entry.item.id);
-			if (!isPromotedOk) {
-				this.source.notify(promotedErr.message, 'error');
-				return;
-			}
-		} else {
-			const [isRemovedOk, removedErr] = await library.remove('global', packagePath, entry.item.id);
-			if (!isRemovedOk) {
-				this.source.notify(removedErr.message, 'error');
-				return;
-			}
-		}
-		await this.refresh();
+		return withThemeAssets(theme, ids);
 	}
 
 	async remove(item: TLibraryItem): Promise<void> {
-		const [isRemovedOk, removedErr] = await library.remove(item.scope, this.source.getPackagePath(), item.id);
+		const packagePath = this.source.getPackagePath();
+		if (packagePath == null) return;
+		const [isRemovedOk, removedErr] = await library.remove(packagePath, item.id);
 		if (!isRemovedOk) {
 			this.source.notify(removedErr.message, 'error');
 			return;
@@ -233,28 +205,16 @@ export interface TFilmLibrarySource {
 	notify: (message: string, tone?: 'info' | 'error') => void;
 }
 
-/** One library item as the UI shows it: the project's copy when there is one, and whether it is kept */
-export interface TLibraryEntry {
-	item: TLibraryItem;
-	isKept: boolean;
-}
-
 /**
- * Project, kept and Pack items as one list, the project's copy first when an item is in both. A Pack's item the project
- * copied under another ID, or holds under the same ID from elsewhere, still shows until it is the same Pack's.
+ * The project's and the Packs' items as one list, the project's first. A Pack's item the project copied under another
+ * ID, or holds under the same ID from elsewhere, still shows until it is the same Pack's.
  */
-export function libraryEntries(projectItems: TLibraryItem[], globalItems: TLibraryItem[], packs: readonly TPack[] = []): TLibraryEntry[] {
-	const keptIds = new Set(globalItems.map((item) => item.id));
-	const projectIds = new Set(projectItems.map((item) => item.id));
+export function libraryEntries(projectItems: TLibraryItem[], packs: readonly TPack[] = []): TLibraryItem[] {
 	const copiedFromPacks = new Set(projectItems.flatMap((item) => (item.manifest?.pack != null ? [`${item.manifest.pack.packId}:${item.manifest.label}`] : [])));
-	return [
-		...projectItems.map((item) => ({ item, isKept: keptIds.has(item.id) })),
-		...globalItems.filter((item) => !projectIds.has(item.id)).map((item) => ({ item, isKept: true })),
-		...packs.flatMap((pack) => pack.items.filter((item) => !copiedFromPacks.has(`${pack.id}:${item.manifest?.label ?? item.id}`)).map((item) => ({ item, isKept: false })))
-	];
+	return [...projectItems, ...packs.flatMap((pack) => pack.items.filter((item) => !copiedFromPacks.has(`${pack.id}:${item.manifest?.label ?? item.id}`)))];
 }
 
-/** The key of a library tile: the same ID may be in the project, in the library and in several Packs */
+/** The key of a library tile: the same ID may be in the project and in several Packs */
 export function libraryItemKey(item: TLibraryItem): string {
 	return `${item.scope}:${item.packId ?? ''}:${item.id}`;
 }

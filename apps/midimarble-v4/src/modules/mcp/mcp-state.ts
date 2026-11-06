@@ -1,4 +1,4 @@
-import { problemSummary, type TExportPreflight } from '@/modules/building';
+import { PATTERN_KINDS, PATTERNS, problemSummary, type TExportPreflight } from '@/modules/building';
 import { resolveElementLook, resolveTheme, keyLightLayer, wallLayer } from '@/modules/scene';
 import type { TPiece, TProject } from '@/modules/project';
 import { DEFAULT_GRAVITY, shownSongs, marbleFilmColor, noteName, parseDecorKey, parseHitKey, parseLightKey, parseShotKey, toHitKey, backingOf, tempoOf, tieOf } from '@/modules/project';
@@ -53,6 +53,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 	};
 	const hits = result?.hits ?? [];
 	return {
+		patterns: PATTERN_KINDS.map((kind) => ({ kind, name: PATTERNS[kind].label, takes: PATTERNS[kind].takes, does: PATTERNS[kind].title })),
 		project: { title: project.title, path: view.path, revision: project.revision, length: round(project.length), format: project.format },
 		// Gravity: a share of Earth's gravity for every marble
 		gravity: { value: project.gravity, default: DEFAULT_GRAVITY, range: [0.05, 2] },
@@ -108,8 +109,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 		// What the film uses, and in `own` what this project changed on top of its theme
 		wall: { color: wall.color, backgroundColor: wall.backgroundColor, kind: wall.kind, own: wall.own },
 		lights: { key: { color: light.color, strength: light.strength, side: light.side, height: light.height, softness: light.softness, exposure: light.exposure, bloom: light.bloom }, own: film.lights ?? {} },
-		theme: { id: theme.id, name: theme.name, base: theme.base, overrides: theme.overrides, parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
-		projectThemes: film.themes.map((item) => ({ id: item.id, name: item.name })),
+		theme: { id: theme.id, name: theme.name, base: theme.base, ...(theme.glowColor != null ? { glowColor: theme.glowColor } : {}), ...(theme.pack != null ? { pack: theme.pack.packName } : {}), parts: Object.fromEntries(Object.entries(theme.parts).map(([element, part]) => [element, part.skin])) },
 		...(view.packThemes != null && view.packThemes.length > 0 ? { packThemes: view.packThemes } : {}),
 		decor: { count: film.decor.length, sources: countBy(film.decor.map((item) => item.source)) },
 		quality: film.quality

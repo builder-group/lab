@@ -5528,41 +5528,42 @@
 		"groups": []
 	},
 	"film": {
-		"theme": "theme-christmas",
-		"themes": [
-			{
-				"id": "theme-christmas",
-				"name": "Christmas",
-				"base": "brass",
-				"overrides": {
-					"wallColor": "#fcf3df",
-					"lightColor": "#ffe6b3",
-					"backgroundColor": "#fff2d2"
+		"theme": {
+			"base": "brass",
+			"parts": {
+				"platform": {
+					"skin": "platform:gift"
 				},
-				"keyLight": {
-					"strength": 5,
-					"side": -0.26,
-					"height": 0.35,
-					"softness": 0.55,
-					"exposure": 0.4,
-					"bloom": 0.5
+				"rail": {
+					"skin": "rail:candy"
 				},
-				"parts": {
-					"platform": {
-						"skin": "platform:gift"
-					},
-					"rail": {
-						"skin": "rail:candy"
-					},
-					"marble": {
-						"skin": "marble:glass-green",
-						"colorSource": "marble"
-					}
+				"marble": {
+					"skin": "marble:glass-green",
+					"colorSource": "marble"
 				}
+			},
+			"pack": {
+				"packId": "christmas",
+				"packName": "Christmas",
+				"version": "1.0",
+				"themeId": "theme-christmas",
+				"themeName": "Christmas"
 			}
-		],
-		"wall": {},
+		},
+		"wall": {
+			"color": "#fcf3df",
+			"backgroundColor": "#fff2d2"
+		},
 		"lights": {
+			"key": {
+				"color": "#ffe6b3",
+				"strength": 5,
+				"side": -0.26,
+				"height": 0.35,
+				"softness": 0.55,
+				"exposure": 0.4,
+				"bloom": 0.5
+			},
 			"added": []
 		},
 		"decor": [

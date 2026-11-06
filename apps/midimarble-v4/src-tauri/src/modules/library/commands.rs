@@ -4,76 +4,36 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-const GLOBAL_FOLDER: &str = "Library";
 const PROJECT_FOLDER: &str = "assets";
 
-/// Items of the project library (`<package>/assets/`) or the global library in the app's support folder
+/// Items of the project library, `<package>/assets/`
 #[tauri::command(async)]
 #[specta::specta]
-pub fn library_list(
-    app: AppHandle,
-    scope: LibraryScope,
-    package_path: Option<String>,
-) -> Result<Vec<LibraryItemDto>, String> {
-    let root = scope_root(&app, scope, package_path.as_deref())?;
-    return Ok(store::list(&root, scope));
+pub fn library_list(package_path: String) -> Result<Vec<LibraryItemDto>, String> {
+    return Ok(store::list(&package(&package_path)?.join(PROJECT_FOLDER), LibraryScope::Project));
 }
 
-/// Copies a project item into the global library for use in other projects
-#[tauri::command(async)]
-#[specta::specta]
-pub fn library_promote(
-    app: AppHandle,
-    package_path: String,
-    item_id: String,
-) -> Result<LibraryItemDto, String> {
-    let package = package(&package_path)?;
-    let target = store::copy_item(
-        &package.join(PROJECT_FOLDER).join(&item_id),
-        &global_root(&app)?,
-        &item_id,
-        None,
-    )
-    .map_err(|error| error.to_string())?;
-    return Ok(store::item(&target, &item_id, LibraryScope::Global));
-}
-
-/// Copies a global item, or an item of an imported Pack, into the project so the package stays portable
+/// Copies an item of an imported Pack into the project so the package stays portable
 #[tauri::command(async)]
 #[specta::specta]
 pub fn library_import(
     app: AppHandle,
     package_path: String,
     item_id: String,
-    pack_id: Option<String>,
+    pack_id: String,
 ) -> Result<LibraryItemDto, String> {
     let package = package(&package_path)?;
-    if let Some(pack_id) = pack_id {
-        if !store::is_valid_id(&pack_id) || !store::is_valid_id(&item_id) {
-            return Err(format!("Invalid Pack item {}", item_id));
-        }
-        let source = packs_root(&app)?.join(&pack_id).join(PROJECT_FOLDER).join(&item_id);
-        return pack::copy_into_project(&source, &package.join(PROJECT_FOLDER), &item_id);
+    if !store::is_valid_id(&pack_id) || !store::is_valid_id(&item_id) {
+        return Err(format!("Invalid Pack item {}", item_id));
     }
-    let target = store::copy_item(
-        &global_root(&app)?.join(&item_id),
-        &package.join(PROJECT_FOLDER),
-        &item_id,
-        None,
-    )
-    .map_err(|error| error.to_string())?;
-    return Ok(store::item(&target, &item_id, LibraryScope::Project));
+    let source = packs_root(&app)?.join(&pack_id).join(PROJECT_FOLDER).join(&item_id);
+    return pack::copy_into_project(&source, &package.join(PROJECT_FOLDER), &item_id);
 }
 
 #[tauri::command(async)]
 #[specta::specta]
-pub fn library_remove(
-    app: AppHandle,
-    scope: LibraryScope,
-    package_path: Option<String>,
-    item_id: String,
-) -> Result<(), String> {
-    let root = scope_root(&app, scope, package_path.as_deref())?;
+pub fn library_remove(package_path: String, item_id: String) -> Result<(), String> {
+    let root = package(&package_path)?.join(PROJECT_FOLDER);
     return store::remove(&root, &item_id).map_err(|error| error.to_string());
 }
 
@@ -161,28 +121,6 @@ fn packs_root(app: &AppHandle) -> Result<PathBuf, String> {
         .path()
         .app_data_dir()
         .map(|dir| dir.join(pack::PACKS_FOLDER))
-        .map_err(|error| error.to_string());
-}
-
-fn scope_root(
-    app: &AppHandle,
-    scope: LibraryScope,
-    package_path: Option<&str>,
-) -> Result<PathBuf, String> {
-    return match scope {
-        LibraryScope::Global => global_root(app),
-        LibraryScope::Project => {
-            let path = package_path.ok_or("The project library needs a package path")?;
-            Ok(package(path)?.join(PROJECT_FOLDER))
-        }
-    };
-}
-
-fn global_root(app: &AppHandle) -> Result<PathBuf, String> {
-    return app
-        .path()
-        .app_data_dir()
-        .map(|dir| dir.join(GLOBAL_FOLDER))
         .map_err(|error| error.to_string());
 }
 

@@ -1,4 +1,4 @@
-import { decorList, type TBlenderObject, addedLights } from '@/modules/scene';
+import { decorList, type TBlenderObject } from '@/modules/scene';
 import type { TDecor, TPiece, TGroup, TMarble, TLight, TProject, TShot, TSong, TTitle } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
 import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, shownSongs, toSongKey, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
@@ -57,7 +57,7 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 
 	if (workspace === 'track') return rows;
 
-	const lights = addedLights(project.film);
+	const lights = project.film.lights.added;
 	const isLightsOpen = !collapsed.includes(LIGHTS_KEY);
 	rows.push({ kind: 'group', id: LIGHTS_KEY, depth: 0, parentId: null, label: 'Lights', groupKey: LIGHTS_KEY, childIds: [KEY_LIGHT_KEY, ...lights.map((light) => toLightKey(light.id))], isOpen: isLightsOpen });
 	if (isLightsOpen) {
@@ -161,7 +161,7 @@ export type TOutlineRow =
 	| (TOutlineRowBase & { kind: 'song'; source: TSong; label: string })
 	| (TOutlineRowBase & { kind: 'marble'; marble: TMarble; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'piece'; piece: TPiece; marbleId: string | null })
-	// What a Pattern made (prototype) or a plain Group: selects as itself, with its pieces under it
+	// What a Pattern made or a plain Group: selects as itself, with its pieces under it
 	| (TOutlineRowBase & { kind: 'patternGroup'; group: TGroup; groupKey: string; hasChildren: boolean; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean })
 	| (TOutlineRowBase & { kind: 'wall'; labelColor: string | undefined })

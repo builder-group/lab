@@ -6,7 +6,7 @@ import { PieceIcon } from '@/modules/canvas';
 import { unreachableActions, GroupInspector, PatternRangeInspector, PatternTiles, FixButton, PieceInspector, placeAtHit, timingStatus, auditionNote, handNotes } from '@/modules/track';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
-import { THEME_HELP, addedLights } from '@/modules/scene';
+import { THEME_HELP } from '@/modules/scene';
 import { DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, instruments, marbleSounds, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
 import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
@@ -81,7 +81,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return <WallInspector cx={cx} project={project} isFilm={isFilm} />;
 		case 'light': {
 			if (target.id === KEY_LIGHT_ID) return <KeyLightInspector cx={cx} project={project} />;
-			const light = addedLights(project.film).find((item) => item.id === target.id);
+			const light = project.film.lights.added.find((item) => item.id === target.id);
 			return light == null ? null : <LightInspector cx={cx} project={project} light={light} />;
 		}
 		case 'decor': {

@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { RotateCcw } from 'lucide-react';
 import React from 'react';
 import { addedPacks, isPackAdded } from '@/modules/library';
-import { packOriginOf, draftMarble, draftPieceColors, draftWall, themeCommands, projectThemes, renameThemeCommands, resolveTheme, THEME_OVERRIDE_FIELDS, themeOrigin, type TResolvedTheme } from '@/modules/scene';
+import { appliedColors, draftMarble, draftPieceColors, draftWall, packThemeCommands, packOriginOf, themeCommands, resolveTheme, THEME_COLOR_FIELDS, themeOrigin, type TResolvedTheme, type TThemeColors } from '@/modules/scene';
 import type { TMenuEntry } from '@/components';
-import type { TProject } from '@/modules/project';
+import type { TFilm, TProject } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { handChangeCount, resetHandChangesCommands, themePresets } from './film-commands';
 import { TilePicker, type TPickerTile } from './TilePicker';
@@ -16,57 +16,38 @@ import { TilePicker, type TPickerTile } from './TilePicker';
  */
 export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
-	const [renamingId, setRenamingId] = React.useState<string | null>(null);
 	const packs = useFeatureState(addedPacks);
 	const theme = resolveTheme(project.film);
 	const changes = handChangeCount(project);
-	const own = projectThemes(project.film);
-	const themes = [...themePresets.map((item) => item.id), ...own.map((item) => item.id)].map((id) => resolveTheme(project.film, id));
-	// A Pack's themes join the project when applied; one already in it shows as the project's
+	const noColors: TThemeColors = {};
+	// A Pack's themes show as the look they'd give the film, with their tile checked while the film wears one
 	const packThemes = packs.flatMap((pack) =>
-		pack.themes.filter((item) => !own.some((theirs) => theirs.id === item.id)).map((item) => ({ pack, theme: item, resolved: resolveTheme({ theme: project.film.theme, themes: [{ ...item, pack: packOriginOf(pack) }] }, item.id) }))
+		pack.themes.map((item) => {
+			const [command] = packThemeCommands(project, item, packOriginOf(pack));
+			const look = (command?.type === 'updateFilm' ? command.film : {}) as Pick<TFilm, 'theme' | 'wall' | 'lights'>;
+			return { pack, theme: item, resolved: resolveTheme(look), colors: appliedColors(look) };
+		})
 	);
-
-	/** A project theme's own: a click on the tile applies any theme */
-	function menu(item: TResolvedTheme): TMenuEntry[] {
-		return [
-			{ label: 'Rename', onSelect: () => setRenamingId(item.id) },
-			{ label: 'Delete Theme', onSelect: () => cx.commands.deleteTheme(item.id) }
-		];
-	}
+	const isWorn = (packId: string, themeId: string): boolean => theme.pack?.packId === packId && theme.pack.themeId === themeId;
+	// A Pack this Mac doesn't have can't list the theme the film wears, so it gets a tile of its own
+	const wornFromElsewhere = theme.pack != null && !packThemes.some((item) => isWorn(item.pack.id, item.theme.id));
 
 	function resetChanges(): void {
 		if (cx.execute(resetHandChangesCommands(project))) cx.notifyEdit(`${changesLabel(changes)} cleared`);
 	}
 
 	const tiles: TPickerTile[] = [
-		...themes.map((item) => ({
-			...themeTile(cx, item),
-			isCurrent: project.film.theme === item.id,
-			onApply: () => {
-				cx.execute(themeCommands(project, item.id));
-			},
-			...(item.projectTheme != null ? { onMenu: () => menu(item) } : {}),
-			...(renamingId === item.id
-				? {
-						nameField: (
-							<ThemeNameField
-								name={item.name}
-								onCommit={(name) => {
-									setRenamingId(null);
-									cx.execute(renameThemeCommands(project, item.id, name));
-								}}
-								onCancel={() => setRenamingId(null)}
-							/>
-						)
-					}
-				: {})
-		})),
-		...packThemes.map(({ pack, theme: item, resolved }) => ({
-			...themeTile(cx, resolved),
+		...themePresets.map((item) => {
+			const preset = resolveTheme({ theme: { base: item.id } });
+			return { ...themeTile(cx, preset, noColors), isCurrent: theme.pack == null && theme.base === item.id, onApply: () => void cx.execute(themeCommands(project, item.id)) };
+		}),
+		...(wornFromElsewhere ? [{ ...themeTile(cx, theme, appliedColors(project.film)), isCurrent: true, onApply: () => undefined }] : []),
+		...packThemes.map(({ pack, theme: item, resolved, colors }) => ({
+			...themeTile(cx, resolved, colors),
 			key: `${pack.id}:${item.id}`,
-			isCurrent: false,
-			onApply: () => void cx.library.applyPackTheme(pack, item),
+			isCurrent: isWorn(pack.id, item.id),
+			// Picking the theme the film already wears changes nothing, as with a built-in one: wearing it again would clear the Wall and Lights changes made on it
+			onApply: () => (isWorn(pack.id, item.id) ? undefined : void cx.library.applyPackTheme(pack, item)),
 			onMenu: (): TMenuEntry[] => [{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
 		}))
 	];
@@ -76,7 +57,7 @@ export const ThemeRow: React.FC<{ cx: StudioCx; project: TProject }> = (props) =
 				id="scene-theme"
 				heading="Theme"
 				label="Themes"
-				current={{ label: theme.name, ...(changes > 0 ? { detail: changesLabel(changes) } : {}), previewUrl: null, thumb: <ThemePicture theme={theme} /> }}
+				current={{ label: theme.name, ...(changes > 0 ? { detail: changesLabel(changes) } : {}), previewUrl: null, thumb: <ThemePicture theme={theme} colors={appliedColors(project.film)} /> }}
 				title="Choose another theme"
 				tiles={tiles}
 				accessory={
@@ -94,11 +75,11 @@ function changesLabel(count: number): string {
 	return `${count} ${count === 1 ? 'change' : 'changes'}`;
 }
 
-/** What every theme tile shows: its still, the colors a project theme changes as dots in the corner, its name and origin */
-function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key' | 'label' | 'detail' | 'onDetail' | 'previewUrl' | 'thumb' | 'title'> {
-	const origin = theme.projectTheme?.pack;
-	const swatches = THEME_OVERRIDE_FIELDS.flatMap((field) => {
-		const color = theme.overrides[field.name];
+/** What every theme tile shows: its still, the colors a Pack's theme changes as dots in the corner, its name and origin */
+function themeTile(cx: StudioCx, theme: TResolvedTheme, colors: TThemeColors): Pick<TPickerTile, 'key' | 'label' | 'detail' | 'onDetail' | 'previewUrl' | 'thumb' | 'title'> {
+	const origin = theme.pack;
+	const swatches = THEME_COLOR_FIELDS.flatMap((field) => {
+		const color = colors[field.name];
 		return color != null ? [{ name: field.label, color }] : [];
 	});
 	return {
@@ -109,7 +90,7 @@ function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key'
 		previewUrl: null,
 		thumb: (
 			<>
-				<ThemePicture theme={theme} />
+				<ThemePicture theme={theme} colors={colors} />
 				{swatches.length > 0 ? (
 					<span className="absolute top-1 left-1 flex gap-0.5" aria-label={swatches.map((swatch) => `${swatch.name} ${swatch.color}`).join(', ')}>
 						{swatches.map((swatch) => (
@@ -124,18 +105,18 @@ function themeTile(cx: StudioCx, theme: TResolvedTheme): Pick<TPickerTile, 'key'
 }
 
 /** A theme's rendered still of its base, the Color by Note still when its platforms take their note's color */
-const ThemePicture: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
+const ThemePicture: React.FC<{ theme: TResolvedTheme; colors: TThemeColors }> = ({ theme, colors }) => {
 	const preset = themePresets.find((item) => item.id === theme.base);
 	if (preset == null) return null;
-	if (theme.projectTheme != null && (theme.overrides.wallColor != null || theme.projectTheme.parts != null)) return <ThemeSketch theme={theme} />;
+	if (theme.ownParts != null || (theme.pack != null && colors.wallColor != null)) return <ThemeSketch theme={theme} colors={colors} />;
 	return <img alt="" src={theme.parts.platform.colorSource === 'note' ? preset.notePreviewUrl : preset.previewUrl} draggable={false} />;
 };
 
-/** A project theme has no rendered still of its own, so its base's would lie: its wall, bars and marble as the Draft Preview draws them */
-const ThemeSketch: React.FC<{ theme: TResolvedTheme }> = ({ theme }) => {
-	const wall = draftWall(theme.base, theme.overrides).color;
-	const { bar } = draftPieceColors(theme.base, { type: 'platform', color: SKETCH_BLUE, skin: null }, theme.overrides, theme.projectTheme?.parts);
-	const marble = draftMarble(theme.base, SKETCH_BLUE, theme.overrides, theme.parts.marble);
+/** A Pack's theme has no rendered still of its own, so its base's would lie: its wall, bars and marble as the Draft Preview draws them */
+const ThemeSketch: React.FC<{ theme: TResolvedTheme; colors: TThemeColors }> = ({ theme, colors }) => {
+	const wall = draftWall(theme.base, colors).color;
+	const { bar } = draftPieceColors(theme.base, { type: 'platform', color: SKETCH_BLUE, skin: null }, colors, theme.ownParts);
+	const marble = draftMarble(theme.base, SKETCH_BLUE, colors, theme.parts.marble);
 	return (
 		<svg viewBox="0 0 48 36" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden>
 			<rect width="48" height="36" fill={wall} />
@@ -153,28 +134,3 @@ const SKETCH_BARS = [
 	[33, 19, -14],
 	[15, 29, 14]
 ] as const;
-
-/** Inline rename of a project theme's tile, like Finder: Return keeps the name, Escape cancels */
-const ThemeNameField: React.FC<{ name: string; onCommit: (name: string) => void; onCancel: () => void }> = (props) => {
-	const { name, onCommit, onCancel } = props;
-	const [value, setValue] = React.useState(name);
-	return (
-		<input
-			className="mm-input mt-0.5 w-full"
-			aria-label="Theme name"
-			autoFocus
-			value={value}
-			onFocus={(event) => event.currentTarget.select()}
-			onChange={(event) => setValue(event.target.value)}
-			onBlur={() => onCommit(value)}
-			onKeyDown={(event) => {
-				if (event.key === 'Enter') onCommit(value);
-				if (event.key === 'Escape') {
-					event.stopPropagation();
-					onCancel();
-				}
-				event.stopPropagation();
-			}}
-		/>
-	);
-};

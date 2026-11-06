@@ -1,11 +1,12 @@
 import { createState } from 'feature-state';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Ok } from 'tuple-result';
 import { host } from '@/environment';
 import { addedPacks, library } from '@/modules/library';
 import { type TLibraryItem, type TPack } from '@/modules/scene';
 import { createHistory, createMarble, createProject, type TMarble, type TPiece, type TProject } from '@/modules/project';
-import type { TSimulationResult } from '@/modules/simulation';
+import { checkPattern, type TPatternAsk } from '@/modules/building';
+import { createSimulator, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { readMenuItem } from '@/modules/studio/menu-bar';
 import { StudioCx } from '@/modules/studio';
 import { expandCommands } from './project-commands';
@@ -265,6 +266,8 @@ describe('MCP tools', () => {
 
 	it('should show the project under the names of its fields in get_state', async () => {
 		const { cx, marbleId } = studio();
+		vi.spyOn(host, 'sourceUrl').mockReturnValueOnce('asset://audio/song.wav');
+		vi.spyOn(host, 'readFile').mockResolvedValueOnce(Ok(new ArrayBuffer(4)));
 		await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'addSong', song: { id: 'song-1', name: 'Song.wav', kind: 'audio', path: 'audio/song.wav', start: 1, backing: [] } }] } });
 		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {})));
 		expect(state.project.format).toEqual({ width: 9, height: 16 });
@@ -347,14 +350,63 @@ describe('MCP tools', () => {
 		});
 	});
 
+	describe('null in a nested field', () => {
+		it('should clear a camera, wall, Key Light and theme field, back to the theme\'s', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+			await execute(cx, { type: 'updateFilm', film: { camera: { turn: 1.2, focusMarbleId: marbleId }, wall: { color: '#112233' }, lights: { key: { exposure: 1, bloom: 0.2 } }, theme: { glowColor: '#00ff88' } } });
+
+			// Act
+			const reply = await execute(cx, { type: 'updateFilm', film: { camera: { turn: null, focusMarbleId: null }, wall: { color: null }, lights: { key: { exposure: null } }, theme: { glowColor: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			const film = cx.project?.film;
+			expect(film?.camera).not.toHaveProperty('turn');
+			expect(film?.camera).not.toHaveProperty('focusMarbleId');
+			expect(film?.wall).not.toHaveProperty('color');
+			expect(film?.lights.key).not.toHaveProperty('exposure');
+			expect(film?.lights.key).toMatchObject({ bloom: 0.2 });
+			expect(film?.theme).not.toHaveProperty('glowColor');
+		});
+
+		it('should clear a skin\'s field on a marble and a piece, and a start\'s velocity', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			const piece = { id: 'p', name: 'p', type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 }, skin: { color: '#112233', assetId: 'platform:copper' } };
+			await execute(cx, { type: 'addPiece', piece }, { type: 'updateMarble', marbleId, patch: { skin: { color: '#112233' }, start: { velocity: { x: 0.1, y: 0 } } } });
+
+			// Act
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { skin: { color: null }, start: { velocity: null } } }, { type: 'updatePiece', pieceId: 'p', patch: { skin: { color: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(marbleOf(cx).skin ?? {}).not.toHaveProperty('color');
+			expect(marbleOf(cx).start).not.toHaveProperty('velocity');
+			expect(cx.project?.track.pieces[0]?.skin).toEqual({ assetId: 'platform:copper' });
+		});
+
+		it('should refuse null on a field that must have a value', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+
+			// Act
+			const reply = await execute(cx, { type: 'updateMarble', marbleId, patch: { start: { position: null } } });
+
+			// Assert
+			expect(reply.isError).toBe(true);
+			expect(textOf(reply)).toContain('position');
+		});
+	});
+
 	describe('updateFilm', () => {
 		it('should refuse an unknown theme and name the ones there are', async () => {
 			const { cx } = studio();
-			const reply = await execute(cx, { type: 'updateFilm', film: { theme: 'theme-nope' } });
+			const reply = await execute(cx, { type: 'applyTheme', theme: 'theme-nope' });
 			expect(reply.isError).toBe(true);
 			expect(textOf(reply)).toContain('There is no theme theme-nope');
 			expect(textOf(reply)).toContain('pegboard');
-			expect(cx.project?.film.theme).not.toBe('theme-nope');
+			expect(cx.project?.film.theme.base).not.toBe('theme-nope');
 		});
 
 		it('should change only the fields it names', async () => {
@@ -380,13 +432,13 @@ describe('MCP tools', () => {
 
 		it("should apply an added Pack's theme by its id", async () => {
 			const { cx } = studio();
-			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', overrides: { wallColor: '#ffefc8' } };
+			const theme = { id: 'theme-pack', name: 'Golden', base: 'brass', wall: { color: '#ffefc8' } };
 			addedPacks.set([{ id: 'xmas', name: 'Christmas', version: '1.0', themes: [theme], items: [], builtInDecor: [] } as unknown as TPack]);
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { packThemes: { id: string; pack: string }[] };
 			expect(state.packThemes).toEqual([{ id: 'theme-pack', name: 'Golden', pack: 'Christmas' }]);
-			expect((await execute(cx, { type: 'updateFilm', film: { theme: 'theme-pack' } })).isError).toBe(false);
-			expect(cx.project?.film.theme).toBe('theme-pack');
-			expect(cx.project?.film.themes[0]?.pack?.packName).toBe('Christmas');
+			expect((await execute(cx, { type: 'applyTheme', theme: 'theme-pack' })).isError).toBe(false);
+			expect(cx.project?.film.theme).toMatchObject({ base: 'brass', pack: { packName: 'Christmas', themeId: 'theme-pack', themeName: 'Golden' } });
+			expect(cx.project?.film.wall.color).toBe('#ffefc8');
 			addedPacks.set([]);
 		});
 	});
@@ -414,6 +466,22 @@ describe('MCP tools', () => {
 			expect((await execute(cx, { type: 'updateMarble', marbleId: id, patch: { radius: 1.2 } })).isError).toBe(true);
 		});
 
+		it('should keep what a person edits while the call waits for the run', async () => {
+			// Prepare
+			const { cx } = studio();
+			const camera = cx.project?.film.camera;
+			if (camera == null) throw new Error('Missing camera');
+
+			// Act
+			const replying = execute(cx, { type: 'updateFilm', film: { camera: { distance: 0.6 } } });
+			await vi.advanceTimersByTimeAsync(100);
+			cx.execute([{ type: 'updateFilm', film: { camera: { ...camera, tilt: 0.9 } } }]);
+			await replying;
+
+			// Assert
+			expect(cx.project?.film.camera).toMatchObject({ distance: 0.6, tilt: 0.9 });
+		});
+
 		it('should refuse ids that are not there and fonts a title can not use', async () => {
 			const { cx } = studio();
 			expect(textOf(await execute(cx, { type: 'removePieces', pieceIds: ['nobody'] }))).toContain('There is nothing called nobody');
@@ -422,6 +490,110 @@ describe('MCP tools', () => {
 			await runTool(cx, 'run_command', { id: 'film.addText', args: { text: 'Hello' } });
 			const titles = cx.project?.film.titles.map((title) => ({ ...title, font: 'Georgia' }));
 			expect(textOf(await execute(cx, { type: 'updateFilm', film: { titles } }))).toContain("isn't a font");
+		});
+	});
+
+	describe('references', () => {
+		const platform = (id: string, marbleId: string, hitId: string): TPiece => ({ id, name: id, type: 'platform', params: {}, angle: 0, place: { kind: 'plays', marbleId, hitId, contactAt: 0.5 } });
+		const other = { ...createMarble(1, { x: 0.3, y: 0 }, 'other'), hits: [] };
+
+		it('should take a platform along when assignHits gives its hit to another marble', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addMarble', marble: other }, { type: 'addPiece', piece: platform('tied', marbleId, hitId) });
+
+			// Act
+			const reply = await execute(cx, { type: 'assignHits', hitIds: [hitId], marbleId: 'other' });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(cx.project?.track.pieces[0]?.place).toMatchObject({ marbleId: 'other', hitId });
+		});
+
+		it('should remove the platform when assignHits gives its hit to Backing', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addPiece', piece: platform('tied', marbleId, hitId) });
+
+			// Act
+			await execute(cx, { type: 'assignHits', hitIds: [hitId], marbleId: 'backing' });
+
+			// Assert
+			expect(cx.project?.track.pieces).toEqual([]);
+		});
+
+		it('should remove the platform with its hit on removeHits', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addPiece', piece: platform('tied', marbleId, hitId) });
+
+			// Act
+			const reply = await execute(cx, { type: 'removeHits', marbleId, hitIds: [hitId] });
+
+			// Assert
+			expect(reply.isError).toBe(false);
+			expect(marbleOf(cx).hits).toEqual([]);
+			expect(cx.project?.track.pieces).toEqual([]);
+		});
+
+		it('should refuse what names a marble, hit, piece, song or file that is not there, naming it', async () => {
+			// Prepare
+			const { cx, marbleId, hitId } = studio();
+			await execute(cx, { type: 'addPiece', piece: platform('kept', marbleId, hitId) });
+			const refusals: [unknown, string][] = [
+				[{ type: 'addPiece', piece: platform('a', 'ghost-marble', hitId) }, 'ghost-marble'],
+				[{ type: 'addPiece', piece: platform('b', marbleId, 'ghost-hit') }, 'ghost-hit'],
+				[{ type: 'addPiece', piece: { ...platform('c', marbleId, hitId), type: 'nonsense' } }, 'nonsense'],
+				[{ type: 'updatePiece', pieceId: 'kept', patch: { place: { kind: 'plays', marbleId: 'ghost-marble', hitId, contactAt: 0.5 } } }, 'ghost-marble'],
+				[{ type: 'updatePiece', pieceId: 'kept', patch: { place: { kind: 'plays', marbleId, hitId: 'ghost-hit', contactAt: 0.5 } } }, 'ghost-hit'],
+				[{ type: 'updatePiece', pieceId: 'kept', patch: { type: 'nonsense' } }, 'nonsense'],
+				[{ type: 'addGroup', group: { id: 'g', name: 'G', marbleId: 'ghost-marble', pieceIds: ['kept'] } }, 'ghost-marble'],
+				[{ type: 'addGroup', group: { id: 'g', name: 'G', pieceIds: ['ghost-piece'] } }, 'ghost-piece'],
+				[{ type: 'upsertHits', marbleId, hits: [{ id: 'new', time: 2, songId: 'ghost-song' }] }, 'ghost-song'],
+				[{ type: 'assignHits', hitIds: ['ghost-hit'], marbleId }, 'ghost-hit'],
+				[{ type: 'addSong', song: { id: 's', name: 'S', kind: 'audio', path: 'audio/ghost.wav', start: 0, backing: [] } }, 'audio/ghost.wav'],
+				[{ type: 'updateProject', patch: { length: 1e9 } }, '1000000000']
+			];
+			const before = cx.project;
+
+			// Act
+			for (const [command, named] of refusals) {
+				const reply = await execute(cx, command);
+
+				// Assert
+				expect(reply.isError).toBe(true);
+				expect(textOf(reply)).toContain(named);
+				expect(cx.project).toBe(before);
+			}
+		});
+
+		it('should let an agent keep a length past the limit that a long song set, but go no further', async () => {
+			// Prepare
+			const { cx } = studio();
+			const longSong = 2 * 3600;
+			cx.execute([{ type: 'updateProject', patch: { length: longSong } }]);
+
+			// Act
+			const same = await execute(cx, { type: 'updateProject', patch: { length: longSong, title: 'Long' } });
+			const further = await execute(cx, { type: 'updateProject', patch: { length: longSong + 1 } });
+
+			// Assert
+			expect(same.isError).toBe(false);
+			expect(further.isError).toBe(true);
+			expect(cx.project?.length).toBe(longSong);
+		});
+
+		it('should still let an agent skin a piece tied to a hit that is gone', async () => {
+			// Prepare
+			const { cx, marbleId } = studio();
+			const stray = platform('stray', marbleId, 'gone');
+			cx.execute([{ type: 'addPiece', piece: stray }]);
+
+			// Act
+			const reply = await execute(cx, { type: 'updatePiece', pieceId: 'stray', patch: { name: 'Renamed' } });
+
+			// Assert
+			expect(reply.isError).toBe(false);
 		});
 	});
 
@@ -440,9 +612,9 @@ describe('MCP tools', () => {
 
 		it('should add a shot from its arguments, readable in get_state', async () => {
 			const { cx } = studio();
-			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, kind: 'wide', distance: 1.2, hold: 2 } });
+			await runTool(cx, 'run_command', { id: 'camera.addShot', args: { time: 3, distance: 1.2, hold: 2 } });
 			const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { camera: { shots: unknown[]; distance: number } };
-			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, kind: 'wide', distance: 1.2, hold: 2 })]);
+			expect(state.camera.shots).toEqual([expect.objectContaining({ time: 3, distance: 1.2, hold: 2 })]);
 			expect(state.camera.distance).toBeGreaterThan(0);
 		});
 	});
@@ -512,6 +684,69 @@ describe('MCP tools', () => {
 		cx.$playhead.set(2.1);
 		expect(cx.$playing.get()).toBe(false);
 	});
+});
+
+describe('applyPattern', () => {
+	let sim: TSimulator;
+
+	beforeAll(async () => {
+		sim = await createSimulator();
+	});
+	afterAll(() => sim.dispose());
+
+	/** A studio on a real project, with its Patterns asked in this thread instead of a worker */
+	function patternStudio(times: number[]): { cx: StudioCx; project: TProject; marbleId: string } {
+		const created = createProject({ id: 'pattern', title: 'Pattern' });
+		const marble = { ...createMarble(0, { x: 0, y: 0.6 }), start: { position: { x: 0, y: 0.6 }, time: (times[0] ?? 0) - 0.35 }, hits: times.map((time, index) => ({ id: `h${index + 1}`, time })) };
+		const project: TProject = { ...created, marbles: [marble], length: (times.at(-1) ?? 0) + 0.6 };
+		const cx = new StudioCx();
+		cx.$history.set(createHistory(project));
+		cx.$path.set('/tmp/Pattern.marble');
+		cx.simulation.$result.set({ ...sim.simulate(project), revision: project.revision });
+		const client = {
+			run: (asked: TProject, change: TPatternAsk, _progress: unknown, isChecked = true) => {
+				const { project: _after, ...answer } = checkPattern(asked, change, { sim, isChecked });
+				return Promise.resolve({ ...answer, pieces: [] });
+			},
+			cancel: () => undefined,
+			dispose: () => undefined
+		};
+		(cx.patterns as unknown as { client: unknown }).client = client;
+		return { cx, project, marbleId: marble.id };
+	}
+
+	it('should refuse over MCP the way a person is refused, with the hit, the reason and nothing changed', async () => {
+		const { cx, project, marbleId } = patternStudio([1, 1.14, 1.28, 1.42, 1.56]);
+		const ask = { marbleId, from: 1, to: 1.56, kind: 'zigzag', width: 0.3 };
+		const person = checkPattern(project, ask, { sim });
+
+		const dry = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'applyPattern', ...ask, dryRun: true }] } }))) as Record<string, unknown>;
+		const real = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'applyPattern', ...ask }] } }))) as Record<string, unknown>;
+
+		expect(person.refusal?.words).toMatch(/^Zigzag doesn't fit at Hit \d of .*Nothing changed\.$/);
+		expect(dry).toMatchObject({ changed: false, dryRun: true, fits: false, group: null, refusal: person.refusal, verdicts: person.verdicts });
+		expect(real).toMatchObject({ changed: false, fits: false, group: null, refusal: person.refusal, verdicts: person.verdicts });
+		expect(cx.project).toBe(project);
+		expect(cx.$history.get()?.past).toHaveLength(0);
+	}, 60_000);
+
+	it('should list the Patterns in get_state and answer a dry run that fits, applying the same pieces', async () => {
+		const { cx, marbleId } = patternStudio([1, 1.4, 1.8, 2.2]);
+		const ask = { type: 'applyPattern', marbleId, from: 1, to: 1.8, kind: 'zigzag' };
+
+		const state = JSON.parse(textOf(await runTool(cx, 'get_state', {}))) as { patterns: { kind: string }[] };
+		const dry = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ ...ask, dryRun: true }] } }))) as { fits: boolean; verdicts: unknown[] };
+		const before = cx.$history.get()?.past.length;
+		const real = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [ask] } }))) as { fits: boolean; group: { name: string } };
+
+		expect(state.patterns.map((item) => item.kind)).toEqual(['zigzag', 'staircase', 'longRail']);
+		expect(dry.fits).toBe(true);
+		expect(dry.verdicts).toHaveLength(3);
+		expect(real.fits).toBe(true);
+		expect(real.group.name).toBe('Zigzag');
+		expect(cx.$history.get()?.past.length).toBe((before ?? 0) + 1);
+		expect(cx.project?.track.groups[0]?.pattern?.kind).toBe('zigzag');
+	}, 60_000);
 });
 
 describe('expandCommands function', () => {

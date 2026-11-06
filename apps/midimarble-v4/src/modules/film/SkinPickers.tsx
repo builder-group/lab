@@ -7,8 +7,8 @@ import type { TProject, TWallSkin } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { builtInSkinCommands, itemFitsPieceType, resetToThemeCommands, skinAppliedMessage, skinTargetIds, type TSkinTarget } from './film-commands';
-import { libraryEntries, libraryItemKey, libraryItemLabel, libraryItemOrigin, notAddedPackAction, type TLibraryEntry } from './FilmLibraryCx';
-import { LIBRARY_DRAG_TYPE, removeLibraryEntry } from './FilmInsert';
+import { libraryEntries, libraryItemKey, libraryItemLabel, libraryItemOrigin, notAddedPackAction } from './FilmLibraryCx';
+import { LIBRARY_DRAG_TYPE } from './FilmInsert';
 import { skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
 import { TilePicker, type TPickerTile } from './TilePicker';
 
@@ -28,12 +28,11 @@ function currentOf(tiles: readonly TPickerTile[], fallback: string): React.Compo
 export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TSkinElement; pieceType: string; pieces: TSkinned[]; selected?: TSkinned[] }> = (props) => {
 	const { cx, project, element, pieceType, pieces, selected = pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
 	const packs = useFeatureState(addedPacks);
 	const typeLabel = pieceType === 'marble' ? elementLabel('marble') : (getPieceDefinition(pieceType)?.label ?? pieceType);
 	const plural = elementPlural(element);
 	const ids = pieces.map((piece) => piece.id);
-	const entries = libraryEntries(projectItems, globalItems, packs).filter((entry) => itemFitsPieceType(entry.item, pieceType));
+	const items = libraryEntries(projectItems, packs).filter((item) => itemFitsPieceType(item, pieceType));
 	const targetOf = (toAll: boolean): TSkinTarget => (toAll ? { kind: 'pieceType', pieceType } : { kind: 'pieces', entityIds: ids });
 	const tileTitle = (label: string): string => `${label}: click applies to the selection, ⌥-click to all ${plural.toLowerCase()}`;
 
@@ -71,7 +70,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 			onApply: (toAll: boolean) => apply(tile.id, tile.label, toAll),
 			onMenu: () => menu((toAll) => apply(tile.id, tile.label, toAll))
 		})),
-		...entries.map((entry) => libraryTile(cx, project, entry, pieces, tileTitle(libraryItemLabel(entry.item)), (toAll) => void applyItem(entry.item, toAll), () => menu((toAll) => void applyItem(entry.item, toAll))))
+		...items.map((item) => libraryTile(cx, project, item, pieces, tileTitle(libraryItemLabel(item)), (toAll) => void applyItem(item, toAll), () => menu((toAll) => void applyItem(item, toAll))))
 	];
 	// A single piece in something the tiles don't list yet, such as a skin of a project still loading its library
 	const worn = new Set(pieces.map((piece) => piece.skin?.assetId));
@@ -82,8 +81,7 @@ export const SkinPicker: React.FC<{ cx: StudioCx; project: TProject; element: TS
 };
 
 /** A skin from a Pack, made by an agent or imported, with where it comes from and its star */
-function libraryTile(cx: StudioCx, project: TProject, entry: TLibraryEntry, pieces: TSkinned[], title: string, onApply: (toAll: boolean) => void, menu: () => TMenuEntry[]): TPickerTile {
-	const { item } = entry;
+function libraryTile(cx: StudioCx, project: TProject, item: TLibraryItem, pieces: TSkinned[], title: string, onApply: (toAll: boolean) => void, menu: () => TMenuEntry[]): TPickerTile {
 	const pack = addedPacks.get().find((candidate) => candidate.id === item.packId);
 	// Removing an item the film still shows would leave its pieces without a skin
 	const isInUse = skinnedOf(project).some((piece) => piece.skin?.assetId === item.id);
@@ -95,17 +93,13 @@ function libraryTile(cx: StudioCx, project: TProject, entry: TLibraryEntry, piec
 		previewUrl: item.previewUrl,
 		isCurrent: pieces.length > 0 && pieces.every((piece) => piece.skin?.assetId === item.id),
 		title,
-		...(pack != null ? {} : { isKept: entry.isKept, onKeep: () => void cx.library.setKept(entry, !entry.isKept) }),
 		onApply,
 		onMenu: () => [
 			...menu(),
 			'separator',
 			...(pack != null
 				? [{ label: 'Remove Pack', onSelect: () => void cx.library.removePack(pack) }]
-				: [
-						{ label: 'Keep in Library', checked: entry.isKept, onSelect: () => void cx.library.setKept(entry, !entry.isKept) },
-						{ label: 'Remove', disabled: isInUse, onSelect: () => void removeLibraryEntry(cx, entry) }
-					])
+				: [{ label: 'Remove', disabled: isInUse, onSelect: () => void cx.library.remove(item) }])
 		],
 		onDragStart: (event) => {
 			event.dataTransfer.setData(LIBRARY_DRAG_TYPE, JSON.stringify({ id: item.id, scope: item.scope, packId: item.packId }));

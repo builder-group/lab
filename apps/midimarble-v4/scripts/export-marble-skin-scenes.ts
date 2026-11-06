@@ -17,7 +17,7 @@ if (packageDir == null) throw new Error('Usage: export-marble-skin-scenes <packa
 
 const [isProjectOk, projectErr, parsed] = parseProject(readFileSync(new URL('../fixtures/two-marbles.marble.json', import.meta.url), 'utf8'));
 if (!isProjectOk) throw projectErr;
-const project: TProject = { ...parsed, film: { ...parsed.film, theme: 'brass', decor: [], camera: { ...parsed.film.camera, distance: 0.5 } } };
+const project: TProject = { ...parsed, film: { ...parsed.film, theme: { base: 'brass' }, decor: [], camera: { ...parsed.film.camera, distance: 0.5 } } };
 const [first, second] = project.marbles.map((piece) => piece.id);
 if (first == null || second == null) throw new Error('The fixture needs two marbles');
 

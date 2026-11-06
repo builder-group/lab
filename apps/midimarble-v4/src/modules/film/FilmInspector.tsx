@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Bookmark, RotateCcw, Type, Video } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, Panel, ScrubField, SelectField, StateRow, TextField } from '@/components';
-import { shotHold, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, shotKindLabel, shotKinds, updateShotCommands, type TShotKind, songDisplayName, titleSpan, withTitleTime, type TSkinned } from '@/modules/scene';
+import { shotHold, shotPresetDistance, shotPresetOf, shotPresets, defaultTitleColor, SKIN_HELP, themeOriginLabel, skinElement, updateShotCommands, songDisplayName, titleSpan, withTitleTime, type TSkinned } from '@/modules/scene';
 import { PieceIcon, cameraAngles, MAX_TILT_DEGREES } from '@/modules/canvas';
 import type { TFilm, TProject, TShot } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
@@ -77,9 +77,7 @@ function degreesToRadians(degrees: number): number {
 const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 	const { cx, project } = props;
 	const camera = project.film.camera;
-	const cameraState = useFeatureState(cx.film.$camera);
 	const status = useFeatureState(cx.film.$status);
-	const [isConfirming, setIsConfirming] = React.useState(false);
 	// A drag in the preview shows here as it goes
 	const angles = useFeatureState(cx.film.$orbit) ?? cameraAngles(camera);
 
@@ -107,33 +105,6 @@ const CameraPanel: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
 					<ScrubField id="camera-turn" label="Turn" name="How far around the marbles the camera stands; drag in the preview to orbit" value={radiansToDegrees(angles.turn)} unit="°" step={0.5} min={0} max={360} onCommit={(value) => set({ turn: degreesToRadians(value) })} />
 					<ScrubField id="camera-pitch" label="Tilt" name="Downward angle; drag in the preview to orbit" value={radiansToDegrees(angles.tilt)} unit="°" step={0.5} min={0} max={MAX_TILT_DEGREES} onCommit={(value) => set({ tilt: degreesToRadians(value) })} />
 					<ScrubField id="camera-sway" label="Sway" name="How much the view turns and rolls on its own; 0 holds the Turn and keeps the wall upright" value={Math.round(camera.sway * 100)} unit="%" step={1} min={0} max={100} onCommit={(value) => set({ sway: value / 100 })} />
-					{cameraState === 'takenOver' ? (
-						<>
-							<StateRow tone="warn" label="Edited in Blender" detail="The app no longer updates the camera, so your Blender changes stay. Reset Camera discards them and follows the marbles again." />
-							{isConfirming ? (
-								<>
-									<button className="mm-button" onClick={() => setIsConfirming(false)} type="button">
-										Keep Changes
-									</button>
-									<button
-										className="mm-button"
-										data-variant="primary"
-										onClick={() => {
-											setIsConfirming(false);
-											void cx.film.regenerateCamera();
-										}}
-										type="button"
-									>
-										Reset Camera
-									</button>
-								</>
-							) : (
-								<button className="mm-button" data-span="2" onClick={() => setIsConfirming(true)} type="button">
-									Reset Camera…
-								</button>
-							)}
-						</>
-					) : null}
 				</>
 			) : (
 				<>
@@ -172,8 +143,11 @@ function parseHold(text: string): number | null {
 	return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+const CUSTOM_SHOT = 'custom';
+
 export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TShot }> = (props) => {
 	const { cx, project, shot } = props;
+	const preset = shotPresetOf(shot, project.film.camera.distance);
 
 	function set(patch: Partial<Omit<TShot, 'id'>>): void {
 		cx.execute(updateShotCommands(project, shot.id, patch));
@@ -181,7 +155,7 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 
 	return (
 		<>
-			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title={shotKindLabel(shot.kind)} subtitle="Shot" />
+			<InspectorHeader icon={<Bookmark size={16} strokeWidth={1.7} />} title="Shot" subtitle={formatTime(shot.time)} />
 			<Panel
 				id="film.shot"
 				title="Shot"
@@ -189,7 +163,16 @@ export const ShotInspector: React.FC<{ cx: StudioCx; project: TProject; shot: TS
 					<HelpTip text="When the shot starts, the camera eases to its distance over 0.8 s. After its hold it eases back to the automatic camera; a hold of 0 keeps the shot until the next one. Drag the shot on the timeline to move it." />
 				}
 			>
-				<SelectField id="shot-kind" label="Kind" value={shot.kind} options={shotKinds.map((item) => ({ value: item.kind, label: item.label }))} onChange={(value) => set({ kind: value as TShotKind })} />
+				<SelectField
+					id="shot-preset"
+					label="Preset"
+					value={preset?.id ?? CUSTOM_SHOT}
+					options={[...shotPresets.map((item) => ({ value: item.id, label: item.label })), ...(preset == null ? [{ value: CUSTOM_SHOT, label: 'Custom' }] : [])]}
+					onChange={(value) => {
+						const chosen = shotPresets.find((item) => item.id === value);
+						if (chosen != null) set({ distance: shotPresetDistance(chosen.scale, project.film.camera.distance) });
+					}}
+				/>
 				<ScrubField id="shot-time" label="Time" name="Time" value={shot.time} unit="" step={0.01} precision={2} min={0} max={project.length} format={formatTime} parse={parseTime} onCommit={(value) => set({ time: value })} />
 				<ScrubField id="shot-distance" label="Distance" name="Distance" value={shot.distance * 100} unit="cm" step={0.5} precision={1} min={MIN_CAMERA_CM} max={MAX_CAMERA_CM} onCommit={(value) => set({ distance: value / 100 })} />
 				<ScrubField
@@ -343,7 +326,6 @@ export const WallTextInspector: React.FC<{ cx: StudioCx; project: TProject; piec
 export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSkinned[] }> = (props) => {
 	const { cx, project, pieces } = props;
 	const projectItems = useFeatureState(cx.library.$projectItems);
-	const globalItems = useFeatureState(cx.library.$globalItems);
 	const links = useFeatureState(cx.film.$links);
 
 	const first = pieces[0] as TSkinned;
@@ -361,7 +343,7 @@ export const PieceSkin: React.FC<{ cx: StudioCx; project: TProject; pieces: TSki
 	const name = isSingle ? (first.name ?? typeLabel) : pieceCountLabel(pieces);
 
 	function applyToAll(assetId: string): void {
-		const item = [...projectItems, ...globalItems].find((candidate) => candidate.id === assetId);
+		const item = projectItems.find((candidate) => candidate.id === assetId);
 		if (item != null) void cx.library.applySkin(item, { kind: 'pieceType', pieceType: type });
 		else cx.execute(builtInSkinCommands(project, { kind: 'pieceType', pieceType: type }, assetId));
 	}

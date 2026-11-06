@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { z } from 'zod';
-import { BACKING_ID, SFilm, SGroup, SHit, SMarble, SPiece, SProject, SSong, type TGroup, type THit, type TMarble, type TProject, type TSong } from './schema';
+import { BACKING_ID, SFilm, SGroup, SHit, SMarble, SPiece, SProject, SSong, tieOf, type TGroup, type THit, type TMarble, type TProject, type TSong } from './schema';
 
 // Every edit of a project, an agent's too. One definition per command: its fields here, with an example beside them, and the
 // TypeScript type inferred. `add` replaces what has the same ID, `update` changes the named fields and deletes one with
@@ -57,7 +57,7 @@ export const PROJECT_COMMAND_EXAMPLES: Record<TProjectCommand['type'], string> =
 	addGroup: "{ type: 'addGroup', group: { id, name, pieceIds: [] } }",
 	updateGroup: "{ type: 'updateGroup', groupId, patch: { name: 'Bridge', pattern: null } }",
 	removeGroups: "{ type: 'removeGroups', groupIds: [] }",
-	updateFilm: "{ type: 'updateFilm', film: { theme: 'brass' } }"
+	updateFilm: "{ type: 'updateFilm', film: { quality: 'draft' } }"
 };
 
 /**
@@ -98,13 +98,16 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			const patch = command.patch.hits != null ? { ...command.patch, hits: sortHits(command.patch.hits) } : command.patch;
 			return updateList(project, 'marbles', command.marbleId, patch, 'Marble');
 		}
-		case 'removeMarble':
-			// A marble owns its hits; pieces tied to them stay and surface as orphans
+		case 'removeMarble': {
+			// A marble owns its hits, and the pieces tied to them can't stand without them
+			const tied = new Set(project.track.pieces.filter((piece) => tieOf(piece)?.marbleId === command.marbleId).map((piece) => piece.id));
+			const track = withoutPieces(project.track, tied);
 			return Ok({
 				...project,
 				marbles: project.marbles.filter((marble) => marble.id !== command.marbleId),
-				track: { ...project.track, groups: project.track.groups.filter((group) => group.marbleId !== command.marbleId) }
+				track: { ...track, groups: track.groups.filter((group) => group.marbleId !== command.marbleId) }
 			});
+		}
 		case 'upsertHits': {
 			if (command.marbleId === BACKING_ID) return Ok({ ...project, songs: withBacking(project.songs, command.hits) });
 			const marble = project.marbles.find((item) => item.id === command.marbleId);
@@ -129,16 +132,8 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			if (pieces == null) return Err(new Error(`Piece ${command.pieceId} does not exist`));
 			return Ok({ ...project, track: { ...project.track, pieces } });
 		}
-		case 'removePieces': {
-			const removed = new Set(command.pieceIds);
-			// A Group lists its pieces; one that lost them all is gone with them
-			const groups = project.track.groups.flatMap((group) => {
-				if (!group.pieceIds.some((id) => removed.has(id))) return [group];
-				const pieceIds = group.pieceIds.filter((id) => !removed.has(id));
-				return pieceIds.length > 0 ? [{ ...group, pieceIds }] : [];
-			});
-			return Ok({ ...project, track: { pieces: project.track.pieces.filter((piece) => !removed.has(piece.id)), groups } });
-		}
+		case 'removePieces':
+			return Ok({ ...project, track: withoutPieces(project.track, new Set(command.pieceIds)) });
 		case 'addGroup':
 			return Ok({ ...project, track: { ...project.track, groups: upsertById<TGroup>(project.track.groups, command.group) } });
 		case 'updateGroup': {
@@ -157,6 +152,20 @@ function applyCommand(project: TProject, command: TProjectCommand): TResult<TPro
 			return Ok({ ...project, film: { ...film, ...sorted } });
 		}
 	}
+}
+
+const MIN_FILM_LENGTH = 0.5;
+// An hour, far past any short: much longer and one run of the song outgrows the memory
+const MAX_FILM_LENGTH = 3600;
+
+/** The longest a person or an agent can ask a film to be. A longer song brought it past the limit, and it may stay there */
+export function longestFilmLength(length: number): number {
+	return Math.max(MAX_FILM_LENGTH, length);
+}
+
+/** The length a film gets when typed or dragged to `asked` */
+export function askedFilmLength(asked: number, length: number): number {
+	return Math.min(longestFilmLength(length), Math.max(MIN_FILM_LENGTH, asked));
 }
 
 // Hit times are kept to a millionth of a second, so a song moved back and forth comes back to where it was
@@ -287,6 +296,16 @@ function updatedById<GItem extends { id: string }>(items: GItem[], id: string, p
 	const next = [...items];
 	next[index] = patched(existing, patch);
 	return next;
+}
+
+/** The track without these pieces. A Group lists its pieces; one that lost them all is gone with them */
+function withoutPieces(track: TProject['track'], removed: ReadonlySet<string>): TProject['track'] {
+	const groups = track.groups.flatMap((group) => {
+		if (!group.pieceIds.some((id) => removed.has(id))) return [group];
+		const pieceIds = group.pieceIds.filter((id) => !removed.has(id));
+		return pieceIds.length > 0 ? [{ ...group, pieceIds }] : [];
+	});
+	return { pieces: track.pieces.filter((piece) => !removed.has(piece.id)), groups };
 }
 
 /** The record with a patch's fields; `null` deletes one and an absent or undefined one stays */

@@ -19,8 +19,11 @@ export interface TSimulationClient {
 	 * Fix: both resume from the snapshots of that worker's latest run instead of rebuilding it.
 	 */
 	simulateAssist: (project: TProject) => Promise<TSimulationResult>;
-	/** Keeps the run after an edit (`settleEdit`); a newer request replaces a waiting one */
-	settle: (request: TSettleRequest) => Promise<TSettleAnswer>;
+	/**
+	 * Keeps the run after an edit (`settleEdit`); a newer request replaces a waiting one. A preview's whole settle waits in
+	 * its own line behind an edit's, so a paused drag never takes the place of an edit that hasn't landed.
+	 */
+	settle: (request: TSettleRequest, options?: { isPreview?: boolean }) => Promise<TSettleAnswer>;
 	/** Brings the marble back to pieces waiting for it, null when no way plays every hit */
 	reconnect: (project: TProject) => Promise<{ pieces: TPiece[] } | null>;
 	/**
@@ -40,7 +43,7 @@ export interface TSimulationClient {
 const assistPriority: Record<string, number> = { settle: 0, reconnect: 0, autoPlace: 0, simulate: 0, gapPiece: 1, continue: 2 };
 
 export function createSimulationClient(): TSimulationClient {
-	const simulation = connect();
+	const simulation = connect((channel) => (channel === 'previewSettle' ? 1 : 0));
 	const assists = connect((channel) => assistPriority[channel] ?? 3);
 	const poolSize = assistPoolSize(typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined);
 	let pool: TAssistPool | null = null;
@@ -58,8 +61,11 @@ export function createSimulationClient(): TSimulationClient {
 				return assists.queue.enqueue<TAutoPlaceAnswer>('autoPlace', { kind: 'autoPlace', ...request });
 			return startPool().autoPlace(request, options);
 		},
-		settle(request) {
-			return assists.queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
+		settle(request, options) {
+			// A drag's quick one stops short of the song's end, and the trajectory worker keeps the end for what lies past a preview
+			if (request.isQuick === true) return assists.queue.enqueue<TSettleAnswer>('settle', { kind: 'settle', ...request });
+			// A whole settle ends on the run the edit then asks for, so in the trajectory worker that run resumes from its snapshots
+			return simulation.queue.enqueue<TSettleAnswer>(options?.isPreview === true ? 'previewSettle' : 'settle', { kind: 'settle', ...request });
 		},
 		reconnect(project) {
 			return assists.queue.enqueue<{ pieces: TPiece[] } | null>('reconnect', { kind: 'reconnect', project });

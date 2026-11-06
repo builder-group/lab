@@ -8,7 +8,7 @@ import { newProjectTitle } from '@/environment';
 import type { TrackCx } from '@/modules/track';
 import { BACKING_ID, type TMarble, type TProject, CAMERA_KEY, KEY_LIGHT_ID, KEY_LIGHT_KEY, parseHitKey, parseLightKey, parseShotKey, WALL_KEY, toDecorKey, toHitKey, toLightKey, toShotKey, tieOf, parseSongKey, shownSongs, type TSong, toSongKey } from '@/modules/project';
 import { isSuperseded, PIECE_TYPES, pieceDefinitions, soundsHit, type TPieceType, type TSimulationResult } from '@/modules/simulation';
-import { deleteThemeCommands, resolveTheme, deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
+import { deleteDecorCommands, duplicateDecorCommands, selectedDecorIds, addLightCommands, deleteLightsCommands, addShotCommands, removeShotsCommands } from '@/modules/scene';
 import { openScatterPanel } from '@/modules/film';
 import { connectTitle } from '@/modules/mcp/agent-connect';
 import { shownRepeatRange } from './repeat-range';
@@ -102,16 +102,6 @@ function canRunBlender(cx: StudioCx): boolean {
 function unlinkedSelection(cx: StudioCx): string[] {
 	const links = cx.film.$links.get();
 	return cx.$selection.get().filter((id) => links[id]?.link === 'unlinked');
-}
-
-/** Delete Theme for a project theme; the film falls back to its base when it uses it */
-export function deleteTheme(cx: StudioCx, themeId: string): void {
-	const project = cx.project;
-	if (project == null) return;
-	const theme = resolveTheme(project.film, themeId);
-	if (theme.projectTheme == null || !cx.execute(deleteThemeCommands(project, themeId))) return;
-	const base = resolveTheme(project.film, theme.base).name;
-	cx.notifyEdit(project.film.theme === themeId ? `${theme.name} deleted; the film uses ${base} again` : `${theme.name} deleted`);
 }
 
 function hasPieces(cx: StudioCx): boolean {
@@ -601,14 +591,6 @@ export const commands: readonly TCommand[] = [
 		run: (cx) => void cx.film.relink(unlinkedSelection(cx))
 	},
 	{
-		id: 'film.regenerateCamera',
-		title: 'Reset Camera',
-		section: 'Film',
-		keywords: 'regenerate rig follow automatic camera taken over discard blender changes',
-		isEnabled: (cx) => hasBlender(cx) && cx.film.$camera.get() === 'takenOver',
-		run: (cx) => void cx.film.regenerateCamera()
-	},
-	{
 		id: 'camera.addShot',
 		workspace: null,
 		title: 'Add Shot',
@@ -651,17 +633,6 @@ export const commands: readonly TCommand[] = [
 			cx.$workspace.set('film');
 			const { commands, lightId } = addLightCommands(project);
 			if (cx.execute(commands)) cx.$selection.set([toLightKey(lightId)]);
-		}
-	},
-	{
-		id: 'film.deleteTheme',
-		title: 'Delete Theme',
-		section: 'Film',
-		keywords: 'remove theme',
-		isEnabled: (cx) => cx.project != null && resolveTheme(cx.project.film).projectTheme != null,
-		run: (cx) => {
-			const project = cx.project;
-			if (project != null) deleteTheme(cx, project.film.theme);
 		}
 	},
 	{ id: 'film.cancelExport', title: 'Cancel Export', section: 'Film', keywords: 'stop render film', isEnabled: (cx) => cx.filmExport.isRunning, run: (cx) => cx.filmExport.cancel() },
@@ -809,12 +780,10 @@ export type TCommandId =
 	| 'film.renderPreview'
 	| 'film.addText'
 	| 'film.resetToTrack'
-	| 'film.regenerateCamera'
 	| 'camera.addShot'
 	| 'light.add'
 	| 'decor.scatter'
 	| 'decor.add'
-	| 'film.deleteTheme'
 	| 'film.cancelExport'
 	| 'edit.undo'
 	| 'edit.redo'

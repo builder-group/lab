@@ -71,7 +71,7 @@ export function pathGap(
 	return gap;
 }
 
-function boundsOf(shapes: TPieceShape[]): TBounds2 {
+export function boundsOf(shapes: TPieceShape[]): TBounds2 {
 	const bounds: TBounds2 = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 	for (const shape of shapes) {
 		const b = shapeBounds(shape);

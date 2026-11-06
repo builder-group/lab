@@ -86,7 +86,7 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 		const marble = result.marbles.find((item) => item.marbleId === marbleId);
 		const last = [...(marble?.samples ?? [])].reverse().find((sample) => sample.time <= to);
 		const leave = ride.leave != null ? ride.leave - from : null;
-		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.otherId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.track.pieces.find((item) => item.id === contact.otherId)?.type === 'platform');
+		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.marbleId === marbleId && contact.otherId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.track.pieces.find((item) => item.id === contact.otherId)?.type === 'platform');
 		const isTouching = !ride.isBlocked && touchingPairs(next, result).some((pair) => pair.a === id || pair.b === id);
 		const why = ride.isBlocked ? 'it would run through the marble’s path' : ride.isTrapped ? 'the marble stops on it' : leave == null ? 'the marble misses it' : isStruck ? 'the marble strikes a bar on the way' : null;
 		if (why != null) whys.set(why, (whys.get(why) ?? 0) + 1);
@@ -181,10 +181,10 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 				if (seen.size > 4) break;
 				solveSlope(candidate.width, candidate.turns, downhill0, 0.25, 2 * DEGREE, 18 * DEGREE);
 				solveSlope(candidate.width, candidate.turns, -downhill0, 0.25, 2 * DEGREE, 18 * DEGREE);
-				if (results.some((item) => item.kind === 'switchback' && Math.abs(item.holdErr) < 0.015)) break;
+				if (results.some((item) => item.kind === 'switchback' && Math.abs(item.holdErr) < 0.015 && !item.isTouching)) break;
 			}
 		}
-		if (results.some((item) => item.kind === kind && Math.abs(item.holdErr) < 0.02)) break;
+		if (results.some((item) => item.kind === kind && Math.abs(item.holdErr) < 0.02 && !item.isTouching)) break;
 	}
 	const cost = (item: TTrial): number => Math.abs(item.holdErr) + (item.isTouching ? 0.05 : 0);
 	const best = results.sort((a, b) => cost(a) - cost(b))[0];

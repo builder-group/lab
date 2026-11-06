@@ -3,7 +3,7 @@ import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { checkRun, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { attentionOf, checkRun, problemSummary, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, selectedPieceIds } from './step-loop';
@@ -46,6 +46,7 @@ export class AssistCx {
 	mount(): () => void {
 		this.forget();
 		this.isMounted = true;
+		let projectId = this.studio.project?.id;
 		const unlisten = [
 			this.studio.simulation.$result.listen(() => {
 				this.offerFixIt();
@@ -57,6 +58,11 @@ export class AssistCx {
 				this.refresh();
 			}),
 			this.studio.$history.listen(({ value }) => {
+				// What was offered belongs to the project that asked, whatever its revision
+				if (value?.present.id !== projectId) {
+					projectId = value?.present.id;
+					this.forget();
+				}
 				if (value != null) this.dispatch({ type: 'revision', revision: value.present.revision });
 				if (!this.hasGhosts) this.previewKey = null;
 			})
@@ -181,12 +187,12 @@ export class AssistCx {
 	 */
 	private async stepPastGap(key: string, message: string): Promise<void> {
 		const project = this.studio.project;
-		const deps = this.buildDeps(() => this.studio.project?.revision !== project?.revision);
+		const deps = this.buildDeps(() => this.studio.project !== project);
 		if (project == null || deps == null || this.isPlacing) return;
 		this.isPlacing = true;
 		try {
 			const step = await buildOneStep(project, deps);
-			if (this.studio.project?.revision !== project.revision) return;
+			if (this.studio.project !== project) return;
 			if (step != null && step.commands.length > 0 && this.studio.execute(step.commands)) {
 				const placed = step.project.track.pieces.find((piece) => tieOf(piece)?.hitId === step.target.hitId);
 				if (placed != null) this.studio.$selection.set([placed.id]);
@@ -267,8 +273,8 @@ export class AssistCx {
 		const request = ask();
 		const quick = await Promise.race([request, wait(AUTO_PLACE_WAIT_MS).then(() => 'slow' as const)]);
 		const present = this.studio.project;
-		if (present == null) return;
-		if (typeof quick === 'object' && present.revision === project.revision) {
+		if (present?.id !== project.id) return;
+		if (typeof quick === 'object' && present === project) {
 			commitAtHit(this.studio, hit, quick.piece);
 			return;
 		}
@@ -276,19 +282,19 @@ export class AssistCx {
 		// the answer then gives it the same tilt and bounce a quick answer would have, so the track is the same either way
 		const fallback = pieceForHit(present, hit, type, 'default', id);
 		if (!commitAtHit(this.studio, hit, fallback)) return;
-		const placedRevision = this.studio.project?.revision;
+		const placed = this.studio.project;
 		const placedGroup = this.studio.editGroup ?? undefined;
 		let answer: TAutoPlaceAnswer | 'failed' | 'superseded' | 'slow' = quick;
 		if (answer === 'slow') answer = await request;
 		// A newer request replaced this one in the queue, not an answer about this hit
 		if (answer === 'superseded') answer = await ask();
 		if (answer === 'failed' || answer === 'superseded') {
-			if (this.studio.project?.revision === placedRevision) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
+			if (this.studio.project === placed) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
 			return;
 		}
 		const latest = this.studio.project;
 		// Only refine while nothing else happened since the default placement; the tilt undoes with it
-		if (latest == null || latest.revision !== placedRevision) return;
+		if (latest == null || latest !== placed) return;
 		const commands = replaceCommands(latest, answer.piece);
 		if (commands.length > 0) this.studio.execute(commands, { group: placedGroup });
 	}
@@ -325,10 +331,10 @@ export class AssistCx {
 		show(guess, guessAngle, null, false, true);
 		client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, entityId: id }).then(
 			(answer) => {
-				if (run === this.previewRun && this.studio.project?.revision === project.revision) show(answer.piece, answer.angle, answer.nextDot, true, true);
+				if (run === this.previewRun && this.studio.project === project) show(answer.piece, answer.angle, answer.nextDot, true, true);
 			},
 			(error: unknown) => {
-				if (run === this.previewRun && !isSuperseded(error) && this.studio.project?.revision === project.revision) show(guess, guessAngle, null, true, false);
+				if (run === this.previewRun && !isSuperseded(error) && this.studio.project === project) show(guess, guessAngle, null, true, false);
 			}
 		);
 	}
@@ -509,8 +515,8 @@ export class AssistCx {
 			return null;
 		}
 		const run = { isCanceled: false };
-		let expected = project.revision;
-		const isCanceled = (): boolean => run.isCanceled || (this.studio.project?.revision ?? expected) !== expected;
+		let expected = project;
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project !== expected;
 		const deps = this.buildDeps(isCanceled);
 		if (deps == null) return null;
 		this.buildRun = run;
@@ -542,9 +548,9 @@ export class AssistCx {
 				...deps,
 				commit: (commands, isFirst, hit) => {
 					// Another edit since the last step stops the build rather than folding into it
-					if (this.studio.project?.revision !== expected) return false;
-					if (!this.studio.execute(commands, { amend: !isFirst, label: 'Build Track' })) return false;
-					expected = this.studio.project?.revision ?? expected;
+					if (this.studio.project !== expected) return false;
+					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Track' })) return false;
+					expected = this.studio.project ?? expected;
 					if (hit != null && !this.studio.$playing.get()) {
 						this.studio.$playhead.set(hit.targetTime);
 						this.studio.$reveal.set({ ids: [toHitKey(hit.marbleId, hit.hitId)], isZoomKept: from != null });
@@ -564,26 +570,35 @@ export class AssistCx {
 		}
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 		if (outcome == null) return null;
+		// With another project open, nothing of this build is about it
+		if (this.studio.project?.id !== project.id) return null;
 		// What it built shows as plain Groups on the strip, in the build's Undo step
-		if (this.studio.project?.revision === expected) {
+		if (this.studio.project === expected) {
 			const runs = builtRunCommands(project, this.studio.project, outcome.result.hits);
 			if (runs.length > 0) this.studio.execute(runs, { amend: true });
+			expected = this.studio.project ?? expected;
 		}
-		const present = this.studio.project;
-		const revision = present?.revision ?? outcome.project.revision;
-		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
-		this.lastFixRevision = revision;
-		const summary = problemSummary(checkRun(present ?? outcome.project, outcome.result, this.studio.film.$blenderObjects.get()));
+		// The build's last run is about the project it built, so what an edit since then broke still offers Fix
+		this.baseline = { projectId: project.id, revision: expected.revision, hits: outcome.result.hits };
+		this.lastFixRevision = expected.revision;
+		// An edit stopped it, so its last run isn't this project's: the report reads the run as it stands now
+		const standing = this.studio.project === expected ? null : await this.runAsItStands(deps);
+		if (this.studio.project?.id !== project.id) return null;
+		const present = standing?.project ?? this.studio.project;
+		const shownResult = standing?.result ?? outcome.result;
+		const summary = problemSummary(checkRun(present ?? outcome.project, shownResult, this.studio.film.$blenderObjects.get()));
 		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
 		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
 		await this.studio.lengthenForCatch();
-		const built = buildReport(project, outcome, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
+		if (this.studio.project?.id !== project.id) return null;
+		const reported = standing != null ? { ...outcome, isStopped: true, attention: attentionOf(standing.project, standing.result) } : outcome;
+		const built = buildReport(project, reported, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
 		const end = this.studio.project?.length ?? project.length;
 		const report = end !== project.length ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
 		if (changed) {
-			const broken = brokenHits(outcome.result.hits).length;
+			const broken = brokenHits(shownResult.hits).length;
 			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [this.fixAction()] : [], { details: report.details });
 		} else this.studio.notify(report.message);
 		// A person's build ends with its result in view and the song from the top; a rebuild keeps the zoom, back at the
@@ -599,6 +614,13 @@ export class AssistCx {
 			}
 		}
 		return outcome;
+	}
+
+	/** The project once what's settling has landed, with its own run */
+	private async runAsItStands(deps: TBuildTrackDeps): Promise<{ project: TProject; result: TSimulationResult } | null> {
+		await this.studio.simulation.whenSettled();
+		const project = this.studio.project;
+		return project != null ? { project, result: await deps.simulate(project) } : null;
 	}
 
 	/** The hit Rebuild From Here starts at: the selected hit, or the one the selected piece belongs to */
@@ -733,10 +755,10 @@ export class AssistCx {
 		try {
 			const fix = await fixPiece(project, result, entityId, deps);
 			// Another edit while the what-if ran makes it stale
-			if (this.studio.project?.revision !== project.revision) return;
+			if (this.studio.project !== project) return;
 			const { rebuildFrom } = fix;
 			if (fix.commands != null) {
-				if (this.studio.execute(fix.commands)) this.studio.notifyEdit(fix.message);
+				if (this.studio.simulation.landWorkedOut(fix.commands, {})) this.studio.notifyEdit(fix.message);
 			} else if (rebuildFrom != null) {
 				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
 			} else this.studio.notify(fix.message);
@@ -754,7 +776,7 @@ export class AssistCx {
 	 */
 	private async fixWholeRun(project: TProject, result: TSimulationResult): Promise<void> {
 		const run = { isCanceled: false };
-		const isCanceled = (): boolean => run.isCanceled || this.studio.project?.revision !== project.revision;
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project !== project;
 		const deps = this.fixDeps(isCanceled);
 		if (deps == null) return;
 		this.fixRun = run;
@@ -788,7 +810,7 @@ export class AssistCx {
 			);
 			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 			// Another edit while it ran makes the copy stale
-			if (outcome != null && this.studio.project?.revision === project.revision) this.landWholeRun(project, result, outcome, commands, run.isCanceled);
+			if (outcome != null && this.studio.project === project) this.landWholeRun(project, result, outcome, commands, run.isCanceled);
 		} catch (error: unknown) {
 			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
 			this.studio.notify(`Fix stopped: ${error instanceof Error ? error.message : String(error)}`, 'error');
@@ -812,7 +834,7 @@ export class AssistCx {
 			return;
 		}
 		const added = addedProblems(project, result, outcome.project, outcome.result, this.studio.film.$blenderObjects.get());
-		if (!this.studio.execute(commands)) return;
+		if (!this.studio.simulation.landWorkedOut(commands, {})) return;
 		const revision = this.studio.project?.revision ?? outcome.result.revision;
 		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
 		this.lastFixRevision = revision;
@@ -835,12 +857,12 @@ export class AssistCx {
 			await this.place(open, this.studio.$trackCx.get()?.placementType() ?? 'platform');
 			const marble = project.marbles.find((item) => item.id === open.marbleId);
 			const number = (marble?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
-			if (this.studio.project?.revision !== project.revision) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
+			if (this.studio.project?.id === project.id && this.studio.project !== project) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
 			return;
 		}
 		const run = { isCanceled: false };
 		const startedAt = performance.now();
-		const isCanceled = (): boolean => run.isCanceled || this.studio.project?.revision !== project.revision || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project !== project || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
 		const deps = this.fixDeps(isCanceled);
 		if (deps == null) return;
 		this.fixRun = run;
@@ -884,7 +906,7 @@ export class AssistCx {
 			this.fixRun = null;
 		}
 		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
-		if (this.studio.project?.revision !== project.revision) return;
+		if (this.studio.project !== project) return;
 		const { fixed } = verdict;
 		if (fixed == null) {
 			const from = firstHeld != null ? { marbleId: firstHeld.marbleId, hitId: firstHeld.hitId } : null;
@@ -918,7 +940,7 @@ export class AssistCx {
 		try {
 			const placed = await findBowl(project, marbleId, { simulate: deps.simulate });
 			// Another edit while the what-ifs ran makes them stale
-			if (this.studio.project?.revision !== project.revision) return;
+			if (this.studio.project !== project) return;
 			if ('error' in placed) {
 				this.studio.notify(placed.error);
 				return;
@@ -959,7 +981,7 @@ export class AssistCx {
 		client.continueRun({ project, marbleId }).then(
 			(answer: TContinueAnswer | null) => {
 				done();
-				this.dispatch({ type: 'continueAnswer', revision: project.revision, answer });
+				if (this.studio.project === project) this.dispatch({ type: 'continueAnswer', revision: project.revision, answer });
 			},
 			() => {
 				done();

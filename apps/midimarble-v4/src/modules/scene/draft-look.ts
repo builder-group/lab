@@ -1,6 +1,7 @@
 import type { TRenderPreset } from './export-estimate';
 import type { TScenePiece } from './scene-description';
-import type { TThemeOverrides, TThemeParts, TWallKind } from '@/modules/project';
+import type { TThemeParts, TWallKind } from '@/modules/project';
+import type { TThemeColors } from './project-themes';
 import { filmSize } from './export-estimate';
 import { resolveSkinLook, skinElement, type TSkinLook } from './skin-catalog';
 
@@ -61,7 +62,7 @@ const DRAFT_WALL_COLORS: Record<string, string> = { brass: '#888296', neon: '#14
  * Birch hardboard with dark peg holes for Pegboard, matte lavender plaster for Brass, deep navy for Neon. A project
  * theme's Wall color replaces the base's, and Pegboard keeps its holes.
  */
-export function draftWall(theme: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, kind?: TWallKind): TWallLook {
+export function draftWall(theme: string, overrides: Pick<TThemeColors, 'wallColor'> = {}, kind?: TWallKind): TWallLook {
 	const color = overrides.wallColor ?? DRAFT_WALL_COLORS[theme] ?? '#b3a38f';
 	// The Wall layer's Skin puts peg holes on any theme or takes them away; Grid draws flat here, its lines are Blender's
 	const hasHoles = kind != null ? kind === 'pegboard' : theme !== 'brass' && theme !== 'neon';
@@ -102,7 +103,7 @@ function accentOf(look: TSkinLook, piece: Pick<TScenePiece, 'color' | 'notePitch
 export function draftPieceColors(
 	theme: string,
 	piece: Pick<TScenePiece, 'type' | 'color' | 'skin' | 'notePitch'>,
-	overrides: Pick<TThemeOverrides, 'glowColor'> = {},
+	overrides: Pick<TThemeColors, 'glowColor'> = {},
 	parts?: TThemeParts
 ): TDraftColors {
 	const look = resolveSkinLook(theme, parts, skinElement(piece.type), piece.skin);
@@ -220,18 +221,18 @@ export const MARBLE_CONTRAST = 3;
  * deep on a light one (Pegboard's birch, Brass's lavender), whichever contrasts more with both. A project theme's
  * Wall color can change the choice. The same rule as `marble_look` in themes.py.
  */
-export function draftMarble(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, skin?: TSkinLook): TDraftMarble {
+export function draftMarble(theme: string, color: string, overrides: Pick<TThemeColors, 'wallColor'> = {}, skin?: TSkinLook): TDraftMarble {
 	return marbleLook(theme, color, overrides, skin).marble;
 }
 
 /**
  * The lower of a marble's contrasts against its wall and its own pieces, which the theme's choice of marble keeps at `MARBLE_CONTRAST`
  */
-export function marbleContrast(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'> = {}, skin?: TSkinLook): number {
+export function marbleContrast(theme: string, color: string, overrides: Pick<TThemeColors, 'wallColor'> = {}, skin?: TSkinLook): number {
 	return marbleLook(theme, color, overrides, skin).contrast;
 }
 
-function marbleLook(theme: string, color: string, overrides: Pick<TThemeOverrides, 'wallColor'>, skin?: TSkinLook): { marble: TDraftMarble; contrast: number } {
+function marbleLook(theme: string, color: string, overrides: Pick<TThemeColors, 'wallColor'>, skin?: TSkinLook): { marble: TDraftMarble; contrast: number } {
 	const around = [draftWall(theme, overrides).color, ...marbleSurfaces(theme, color)];
 	const lowest = (body: string): number => Math.min(...around.map((other) => contrastRatio(body, other)));
 	const hue = saturate(color, 1);

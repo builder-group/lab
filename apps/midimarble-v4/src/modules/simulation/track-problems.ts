@@ -1,8 +1,8 @@
 import { type TProject, type TVec2, tieOf } from '@/modules/project';
-import { resolvedPieceShapes, shapesGap } from './clearance';
+import { boundsOf, resolvedPieceShapes, shapesGap } from './clearance';
 import { layoutOf } from './piece-layout';
 import { soundsHit } from './pieces';
-import { shapeDistance, type TPieceShape } from './shapes';
+import { shapeDistance, type TBounds2, type TPieceShape } from './shapes';
 import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
 
 // What's physically wrong with a run beyond its timing: pieces touching in the wall plane, a platform struck outside its
@@ -81,17 +81,31 @@ export function touchingPairs(project: TProject, result: TSimulationResult): TTo
 		.filter((piece) => tieOf(pieces.get(piece.pieceId)) != null && piece.type !== 'bowl')
 		.map((piece) => ({ piece, shapes: visualShapes(piece, radius), time: piece.hitTime ?? piece.entryTime ?? 0 }));
 	const pairs: TTouchingPair[] = [];
-	for (let i = 0; i < items.length; i++) {
-		for (let j = i + 1; j < items.length; j++) {
-			const [first, second] = [items[i], items[j]];
-			if (first == null || second == null) continue;
-			const between = shapesGap(first.shapes, second.shapes, gap);
-			if (between >= gap) continue;
-			const [a, b] = first.time <= second.time ? [first, second] : [second, first];
-			pairs.push({ a: a.piece.pieceId, b: b.piece.pieceId, gap: between, point: { x: (a.piece.position.x + b.piece.position.x) / 2, y: (a.piece.position.y + b.piece.position.y) / 2 }, time: b.time });
-		}
+	for (const [i, j] of pairsWithin(items.map((item) => boundsOf(item.shapes)), gap)) {
+		const [first, second] = [items[i], items[j]];
+		if (first == null || second == null) continue;
+		const between = shapesGap(first.shapes, second.shapes, gap);
+		if (between >= gap) continue;
+		const [a, b] = first.time <= second.time ? [first, second] : [second, first];
+		pairs.push({ a: a.piece.pieceId, b: b.piece.pieceId, gap: between, point: { x: (a.piece.position.x + b.piece.position.x) / 2, y: (a.piece.position.y + b.piece.position.y) / 2 }, time: b.time });
 	}
 	return pairs.sort((x, y) => x.time - y.time);
+}
+
+/** Index pairs in order whose bounds come within `gap` vertically, found by sweeping down the wall: a long song's 800 pieces make 300,000 pairs */
+function pairsWithin(bounds: readonly TBounds2[], gap: number): [number, number][] {
+	const down = bounds.map((_, index) => index).sort((a, b) => (bounds[a]?.minY ?? 0) - (bounds[b]?.minY ?? 0));
+	const pairs: [number, number][] = [];
+	for (let k = 0; k < down.length; k++) {
+		const i = down[k] as number;
+		const bottom = (bounds[i] as TBounds2).maxY;
+		for (let l = k + 1; l < down.length; l++) {
+			const j = down[l] as number;
+			if ((bounds[j] as TBounds2).minY - bottom >= gap) break;
+			pairs.push(i < j ? [i, j] : [j, i]);
+		}
+	}
+	return pairs.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 }
 
 /** Air from `piece` to the nearest other standing piece in the wall plane, for a check while placing */
@@ -177,9 +191,22 @@ export function passThroughs(project: TProject, result: TSimulationResult): TPas
 	const boxes = standingPieces(result).filter((piece) => layoutOf(piece.type) === 'box');
 	const passes: TPassThrough[] = [];
 	for (const marble of result.marbles) {
-		for (const piece of boxes) {
-			const sample = passingSample(marble.samples, marble.radius, piece, -Infinity, result.duration);
-			if (sample != null) passes.push({ entityId: piece.pieceId, marbleId: marble.marbleId, time: sample.time, position: sample.position });
+		const limit = marble.radius * (1 - PASS_DEPTH_RADII);
+		const chunks = sampleChunks(marble.samples);
+		const shaped = boxes.map((piece) => ({ piece, shapes: visualShapes(piece, marble.radius), reach: (piece.params['length'] ?? 0) / 2 + 3 * marble.radius }));
+		for (const { piece, shapes, reach } of shaped) {
+			const { x, y } = piece.position;
+			let found: TMarbleSample | undefined;
+			for (const chunk of chunks) {
+				if (chunk.maxX <= x - reach || chunk.minX >= x + reach || chunk.maxY <= y - reach || chunk.minY >= y + reach) continue;
+				for (let index = chunk.from; index < chunk.to && found == null; index++) {
+					const sample = marble.samples[index] as TMarbleSample;
+					const { time, position } = sample;
+					if (time <= result.duration && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit)) found = sample;
+				}
+				if (found != null) break;
+			}
+			if (found != null) passes.push({ entityId: piece.pieceId, marbleId: marble.marbleId, time: found.time, position: found.position });
 		}
 	}
 	return passes.sort((a, b) => a.time - b.time);
@@ -192,6 +219,26 @@ export function passingSample(samples: readonly TMarbleSample[], radius: number,
 	const reach = (piece.params['length'] ?? 0) / 2 + 3 * radius;
 	const { x, y } = piece.position;
 	return samples.find(({ time, position }) => time >= from && time <= until && Math.abs(position.x - x) < reach && Math.abs(position.y - y) < reach && shapes.some((shape) => shapeDistance(shape, position.x, position.y) < limit));
+}
+
+const SAMPLE_CHUNK = 64;
+
+/** A marble's path in runs of samples with their bounds: asking every sample of a long song about every piece took half a second */
+function sampleChunks(samples: readonly TMarbleSample[]): { from: number; to: number; minX: number; maxX: number; minY: number; maxY: number }[] {
+	const chunks = [];
+	for (let from = 0; from < samples.length; from += SAMPLE_CHUNK) {
+		const to = Math.min(samples.length, from + SAMPLE_CHUNK);
+		let [minX, maxX, minY, maxY] = [Infinity, -Infinity, Infinity, -Infinity];
+		for (let index = from; index < to; index++) {
+			const { x, y } = (samples[index] as TMarbleSample).position;
+			if (x < minX) minX = x;
+			if (x > maxX) maxX = x;
+			if (y < minY) minY = y;
+			if (y > maxY) maxY = y;
+		}
+		chunks.push({ from, to, minX, maxX, minY, maxY });
+	}
+	return chunks;
 }
 
 /**

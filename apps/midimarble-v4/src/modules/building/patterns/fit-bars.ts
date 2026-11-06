@@ -1,6 +1,7 @@
-import type { TPiece, TProject } from '@/modules/project';
+import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import { bounceTakeoff, gravityOf, platformDefinition, createLinkedPiece, rollingHits } from '@/modules/simulation';
 import type { TSimulator, TMarbleSample, TSimulationResult } from '@/modules/simulation';
+import type { TPatternLeaving, TPatternMoment } from './contract';
 
 // Zigzag and Staircase: decide the shape first, then solve each bar's tilt, and optionally its bounce, against the real
 // simulator. Promoted from the Patterns experiment (`.local/patterns/zigzag.mts`).
@@ -10,6 +11,9 @@ const DEGREE = Math.PI / 180;
 const COLUMN_CLOSE = 0.003;
 /** Further off a column than this reads on the wall, so it is a problem */
 export const COLUMN_PROBLEM = 0.01;
+
+/** Physics runs one bar may take before it settles for its best: past this more scanning rarely finds a shape */
+const BAR_TRIALS = 240;
 
 /** Air kept under the bar above a landing: its inner end tilts down a little */
 const CLEARING_MARGIN = 0.005;
@@ -49,6 +53,12 @@ export interface TBarShape {
 	exitToFrame?: number;
 	/** The last id is the next Pattern's first hit: aim there, place nothing on it */
 	stopBefore?: boolean;
+	/** Where the marble must be at the last id, so what follows can stay where it stands */
+	endAt?: TVec2;
+	/** How the last bar sends the marble on when no next id says: as the bar it replaces did */
+	leaveLike?: TPatternLeaving;
+	/** Stop at the first bar that can't play: nothing after it can apply, so a refusal comes sooner. A ghost goes on, to show the shape */
+	stopsAtBadBar?: boolean;
 }
 
 export interface TBar {
@@ -93,13 +103,14 @@ interface TTrial {
 	why: TBarIssue[];
 }
 
-export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
+export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitIds: string[], firstArrival: TPatternMoment, shape: TBarShape, onBar?: (done: number, total: number) => void): TBarsFit {
 	const gravity = Math.abs(gravityOf(base));
 	const marble = base.marbles.find((item) => item.id === marbleId);
 	if (marble == null) throw new Error(`Marble ${marbleId} does not exist`);
 	const times = new Map(marble.hits.map((hit) => [hit.id, hit.time]));
 	const length = shape.barLength ?? BAR_LENGTH;
 	const maxTilt = (shape.maxTilt ?? MAX_TILT) * DEGREE;
+	const isFollowing = shape.endAt != null || shape.leaveLike != null;
 	const scanTilt = Math.floor((shape.maxTilt ?? MAX_TILT) / 4) * 4;
 	let sims = 0;
 	const run = (next: TProject, until: number): TSimulationResult => {
@@ -109,12 +120,9 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	let project = base;
 	const bars: TBar[] = [];
 	const pieces: TPiece[] = [];
-	const first = times.get(hitIds[0] ?? '') ?? 0;
-	let result = run(project, first + 0.03);
+	let result: TSimulationResult;
 	const arrival = (time: number): TMarbleSample | null => sampleAt(result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [], time - 1e-6);
-	const firstArrival = arrival(first);
-	if (firstArrival == null) return { project, pieces, bars, sims, center: 0 };
-	const firstDot = result.hits.find((hit) => hit.hitId === hitIds[0])?.dot ?? firstArrival.position;
+	const firstDot = firstArrival.position;
 
 	// Sides. Zigzag: a marble moving right lands in the right column
 	const firstSide = shape.dir ?? (Math.abs(firstArrival.velocity.x) > 0.02 ? Math.sign(firstArrival.velocity.x) : 1);
@@ -131,7 +139,8 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		const id = hitIds[index] as string;
 		const time = times.get(id) as number;
 		const nextId = hitIds[index + 1];
-		const nextTime = nextId != null ? (times.get(nextId) as number) : time + 0.3;
+		const leave = nextId == null ? shape.leaveLike : undefined;
+		const nextTime = nextId != null ? (times.get(nextId) as number) : time + (leave?.after ?? 0.3);
 		const hop = nextTime - time;
 		result = run(project, time + 0.03);
 		const here = result.hits.find((hit) => hit.hitId === id);
@@ -140,17 +149,18 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		heights.push(dot.y);
 		const incoming: TVelocity = sample?.velocity ?? { x: 0, y: -1 };
 		const toward = nextId == null && shape.exitToFrame != null ? Math.sign(shape.exitToFrame - dot.x) || 1 : shape.kind === 'zigzag' ? -sideOf(index) : firstSide;
-		const targetX = nextId != null ? dotX(index + 1) : dot.x + toward * 0.05;
+		const isEnd = shape.endAt != null && nextId != null && nextId === hitIds.at(-1);
+		const targetX = isEnd ? (shape.endAt?.x ?? 0) : nextId != null ? dotX(index + 1) : leave != null ? dot.x + leave.offset.x : dot.x + toward * 0.05;
 
 		// The drop aimed for stays small enough for a real bounce: the takeoff the rule asks, with a little to spare
-		const sideways = Math.abs(((nextId != null ? dotX(index + 1) : dot.x) - dot.x) / hop);
+		const sideways = Math.abs(((nextId != null ? targetX : dot.x) - dot.x) / hop);
 		const guess = Math.atan2(sideways + Math.abs(incoming.x), Math.max(0.3, Math.abs(incoming.y) + 0.35));
 		const minUp = Math.max(0.12, ((shape.minTakeoff ?? 1.1 * bounceTakeoff(radius, gravity)) - sideways * Math.sin(guess)) / Math.cos(guess));
 		const mostDrop = (gravity * hop * hop) / 2 - minUp * hop;
 		const above = shape.kind === 'zigzag' && index > 0 && nextId != null ? (heights[index - 1] as number) - dot.y : null;
 		const clearing = above != null ? clearingDrop(gravity, hop, Math.abs(span), length / 2 - shape.strike + radius, radius, above) : 0;
 		const dropHere = shape.drop != null ? Math.max(0.02, Math.min(Math.max(planned[index] ?? shape.drop, clearing), mostDrop)) : null;
-		const targetY = dropHere != null ? dot.y - dropHere : null;
+		const targetY = isEnd ? (shape.endAt?.y ?? 0) : leave != null ? dot.y + leave.offset.y : dropHere != null ? dot.y - dropHere : null;
 		const want = { x: (targetX - dot.x) / hop, y: ((targetY ?? dot.y - 0.05) - dot.y + (gravity * hop * hop) / 2) / hop };
 
 		// Seed: the normal lies along the change in velocity
@@ -168,7 +178,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 			const hit = trial.result.hits.find((item) => item.hitId === id);
 			if (hit?.status !== 'onTime' && hit?.status !== 'drifting') out.push(hit?.reason === 'resting' ? 'resting' : 'late');
 			for (const contact of trial.result.contacts) {
-				if (contact.kind !== 'piece' || contact.time > nextTime - 0.004) continue;
+				if (contact.kind !== 'piece' || contact.marbleId !== marbleId || contact.time > nextTime - 0.004) continue;
 				if (contact.otherId === trial.piece.id) {
 					if (contact.time > time + 0.03) {
 						out.push('restrike');
@@ -205,15 +215,22 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		};
 		const score = (item: TTrial): number => (item.why.length > 0 ? 10 : 0) + Math.abs(item.errX) * 20 + Math.abs(item.errY) * 2;
 		const isGood = (item: TTrial): boolean => !item.why.length && Math.abs(item.errX) < 0.001 && (targetY == null || Math.abs(item.errY) < 0.005 || (item.bounce <= 0.1 && item.errY < 0) || (item.bounce >= 0.95 && item.errY > 0));
+		// Following a track, held for the column and the drop: not worth a scan that may trade the drop for the last millimeters
+		const isCloseEnough = (item: TTrial): boolean => isFollowing && !item.why.length && Math.abs(item.errX) < 0.002 && (targetY == null || Math.abs(item.errY) < 0.01);
 		const keep = (item: TTrial): void => {
 			if (found.best == null || score(item) < score(found.best)) found.best = item;
 		};
 
 		// Fast path: the bounce model as a Jacobian, the simulator as the truth
-		for (let step = 0; step < 6 && nextId != null; step++) {
+		let lastErrX = 0;
+		let settling = 1;
+		for (let step = 0; step < 6 && (nextId != null || leave != null); step++) {
 			const item = trial(angle, bounce);
 			keep(item);
 			if (isGood(item)) break;
+			// The model is only a guess at the slope: following a track, a step that overshoots halves those after it
+			if (isFollowing && item.errX * lastErrX < 0) settling /= 2;
+			lastErrX = item.errX;
 			const dvx = item.errX / hop;
 			const dvy = item.errY / hop;
 			const small = 0.2 * DEGREE;
@@ -231,13 +248,13 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 				da = (dvx * jye - dvy * jxe) / determinant;
 				de = (jxa * dvy - jya * dvx) / determinant;
 			} else da = dvx / (Math.abs(jxa) > 1e-3 ? jxa : 1e-3);
-			angle = clamp(angle + clamp(da, -12 * DEGREE, 12 * DEGREE), -maxTilt, maxTilt);
+			angle = clamp(angle + clamp(da * settling, -12 * DEGREE, 12 * DEGREE), -maxTilt, maxTilt);
 			bounce = clamp(bounce + clamp(de, -0.25, 0.25), 0.1, 0.95);
 		}
 
 		if (nextId == null) {
 			// A last bar has no column to reach, but the marble must still leave it once
-			let last = trial(angle, bounce);
+			let last = found.best ?? trial(angle, bounce);
 			outer: for (const de of [0, 0.1, 0.2, 0.3, 0.4]) {
 				for (const da of [0, 6, -6, 12, -12, 18, -18]) {
 					if (!last.why.length) break outer;
@@ -249,14 +266,15 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		}
 
 		// Slow path: tilt scan with the bounce held, then bisection between clean trials on either side of the column
-		if (nextId != null && (found.best == null || !isGood(found.best))) {
+		if (nextId != null && (found.best == null || (!isGood(found.best) && !isCloseEnough(found.best)))) {
 			const seeds = shape.drop != null ? [0, 0.1, -0.1, 0.2, -0.2, 0.3].map((d) => bounceSeed + d) : [0, 0.08, 0.16, -0.08, 0.24, -0.16].map((d) => shape.bounce + d);
 			// Each bounce has its own root, and the one nearest the drop aimed for wins: the first found can fall many times further
 			let solved: TTrial | null = null;
 			for (const seed of seeds.map((item) => clamp(item, 0.1, 0.95))) {
+				if (trials >= BAR_TRIALS) break;
 				let previous: TTrial | null = null;
 				const roots: TTrial[] = [];
-				for (let step = -scanTilt; step <= scanTilt; step += 4) {
+				for (let step = -scanTilt; step <= scanTilt && trials < BAR_TRIALS; step += 4) {
 					const item = trial(step * DEGREE, seed);
 					keep(item);
 					if (previous != null && !previous.why.length && !item.why.length && previous.errX * item.errX <= 0) {
@@ -296,6 +314,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		result = chosen.result;
 		bars.push({ hitId: id, hop, angle: chosen.angle, bounce: chosen.bounce, contactAt: chosen.contactAt, errX: chosen.errX, errY: chosen.errY, trials, why: chosen.why });
 		onBar?.(index + 1, total);
+		if (shape.stopsAtBadBar === true && chosen.why.length > 0) break;
 	}
 	return { project, pieces, bars, sims, center };
 }

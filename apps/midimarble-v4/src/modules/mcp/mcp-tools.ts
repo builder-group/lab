@@ -2,10 +2,11 @@ import { isTauri } from '@tauri-apps/api/core';
 import { z } from 'zod';
 import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
-import { defaultTitleColor, filmFileName, addShotCommands, shotKinds, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, patternSpan } from '@/modules/building';
+import type { TReadyPackTheme } from './project-commands';
+import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
+import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, type TProjectTheme, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey } from '@/modules/project';
+import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey, type TSong } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -40,7 +41,7 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'file.export': 'the export_film tool',
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
-	'camera.addShot': 'args.time, kind, distance and hold if wanted',
+	'camera.addShot': 'args.time, distance and hold if wanted',
 	'marble.speed': 'args.value, Gravity from 0.05 to 2'
 };
 
@@ -81,7 +82,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				playhead: cx.$playhead.get(),
 				isPlaying: cx.$playing.get(),
 				agentFolder: await agentFolder(cx),
-				packThemes: addedPacks.get().flatMap((pack) => pack.themes.filter((theme) => !project.film.themes.some((item) => item.id === theme.id)).map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
+				packThemes: addedPacks.get().flatMap((pack) => pack.themes.map((theme) => ({ id: theme.id, name: theme.name, pack: pack.name }))),
 				references: { images: references.images.length, text: references.text }
 			})
 		);
@@ -283,10 +284,10 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		addTitle(cx, args);
 	},
 	'camera.addShot': async (cx, args) => {
-		const { time, kind, distance, hold } = SShotArgs.parse(args);
+		const { time, distance, hold } = SShotArgs.parse(args);
 		const project = cx.project;
 		if (project == null) return;
-		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(kind != null ? { kind } : {}), ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
+		const { commands, shotId } = addShotCommands(project, time ?? cx.$playhead.get(), undefined, { ...(distance != null ? { distance } : {}), ...(hold != null ? { hold } : {}) });
 		cx.$workspace.set('film');
 		if (cx.execute(commands)) cx.$selection.set([toShotKey(shotId)]);
 	},
@@ -319,7 +320,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		}
 		const [isAddedOk, addedErr, pack] = await cx.library.addPack(from);
 		if (!isAddedOk) throw addedErr;
-		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'updateFilm', film: { theme: id } }.`);
+		if (pack != null && pack.themes.length > 0) cx.notify(`Its themes are ${pack.themes.map((theme) => `${theme.name} (${theme.id})`).join(', ')}. Apply one with { type: 'applyTheme', theme: id }.`);
 	},
 	'film.restartBlender': async (cx) => {
 		await cx.film.restart();
@@ -338,9 +339,8 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 	}
 };
 
-const SShotArgs = z.object({
+const SShotArgs = z.strictObject({
 	time: z.number().min(0).optional(),
-	kind: z.enum(shotKinds.map((item) => item.kind) as [string, ...string[]]).optional() as z.ZodOptional<z.ZodType<(typeof shotKinds)[number]['kind']>>,
 	distance: z.number().positive().optional(),
 	hold: z.number().nonnegative().optional()
 });
@@ -380,15 +380,15 @@ async function removePack(cx: StudioCx, args: Record<string, unknown>): Promise<
 	return text(cx, { removed: pack.name, changed: false });
 }
 
-/** The themes of added Packs that `commands` apply, as a project stores them: their items copied in */
-async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TProjectTheme[]> {
-	const wanted = commands.flatMap((command) => (command.type === 'updateFilm' ? [(command as { film?: { theme?: unknown } }).film?.theme] : []));
-	const themes: TProjectTheme[] = [];
+/** The themes of added Packs that `commands` apply, with their items copied in */
+async function packThemesToApply(cx: StudioCx, commands: readonly { type: string }[]): Promise<TReadyPackTheme[]> {
+	const wanted = commands.flatMap((command) => (command.type === 'applyTheme' ? [(command as { theme?: unknown }).theme] : []));
+	const themes: TReadyPackTheme[] = [];
 	for (const pack of addedPacks.get()) {
 		for (const theme of pack.themes) {
-			if (!wanted.includes(theme.id) || cx.project?.film.themes.some((item) => item.id === theme.id) === true) continue;
+			if (!wanted.includes(theme.id)) continue;
 			const ready = await cx.library.packThemeInProject(pack, theme);
-			if (ready != null) themes.push(ready);
+			if (ready != null) themes.push({ theme: ready, origin: packOriginOf(pack) });
 		}
 	}
 	return themes;
@@ -399,17 +399,17 @@ const SApplyPattern = z.strictObject({
 	marbleId: z.string(),
 	from: z.number(),
 	to: z.number(),
-	kind: z.enum(['zigzag', 'staircase', 'longRail']),
+	kind: z.enum(PATTERN_KINDS),
 	width: z.number().positive().optional(),
 	bounce: z.number().min(0).max(1).optional(),
 	maxTilt: z.number().positive().optional(),
 	dryRun: z.boolean().optional()
 });
 
-/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same (prototype) */
+/** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same */
 async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {
 	const parsed = SApplyPattern.safeParse(command);
-	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', width: 0.14, bounce: 0.5, dryRun: true }`);
+	if (!parsed.success) return fail(cx, `applyPattern: ${parsed.error.issues[0]?.path.join('.') ?? ''} ${parsed.error.issues[0]?.message ?? ''}. Example: { type: 'applyPattern', marbleId, from: 2.1, to: 8.4, kind: 'zigzag', dryRun: true }`);
 	const { marbleId, from, to, kind, width, bounce, maxTilt, dryRun } = parsed.data;
 	const project = cx.project;
 	if (project == null) return noProject(cx);
@@ -426,7 +426,7 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 	const report = (answer: Awaited<ReturnType<typeof cx.patterns.apply>>): Record<string, unknown> =>
 		answer == null
 			? { stopped: true }
-			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
+			: { group: answer.groupId != null ? { id: answer.groupId, name: answer.name } : null, fits: answer.refusal == null, verdicts: answer.verdicts, problems: answer.problems, ...(answer.refusal != null ? { refusal: answer.refusal } : {}), ...(answer.ending != null ? { ending: answer.ending } : {}), ...(answer.offers.length > 0 ? { offers: answer.offers } : {}), ...(answer.movedAfter > 0 ? { movedAfter: answer.movedAfter } : {}), later: answer.later, ...(answer.notes.length > 0 ? { notes: answer.notes } : {}), laterLateHits: answer.laterLateHits, otherMarbleTouches: answer.otherMarbleTouches, measures: answer.measures };
 	if (dryRun === true) {
 		// A step that edits nothing, so Stop reaches it and no Undo step comes of it
 		let answer: Awaited<ReturnType<typeof cx.patterns.dryRun>> = null;
@@ -436,11 +436,23 @@ async function runApplyPattern(cx: StudioCx, command: unknown, label: string | u
 		return text(cx, { changed: false, dryRun: true, ...report(answer) });
 	}
 	if (cx.mcp.presence.stopEpoch !== stop) return text(cx, { changed: false, selection: cx.$selection.get() });
-	cx.mcp.presence.relabel(label ?? `Fitting ${kind === 'longRail' ? 'Long Rail' : kind === 'zigzag' ? 'Zigzag' : 'Staircase'}`);
+	cx.mcp.presence.relabel(label ?? `Fitting ${PATTERNS[kind].label}`);
 	let reply: Record<string, unknown> = {};
 	return editStep(cx, label ?? 'Apply Pattern', async () => {
 		reply = report(await cx.patterns.apply(target, kind, settings));
 	}, {}, () => reply);
+}
+
+/** A song command that names a file the project doesn't have, in words; null when every file is there */
+async function missingSongFile(cx: StudioCx, commands: readonly { type: string }[]): Promise<string | null> {
+	for (const command of commands) {
+		const song = command.type === 'addSong' ? (command as { song?: Partial<TSong> }).song : command.type === 'updateSong' ? (command as { patch?: Partial<TSong> }).patch : null;
+		if (typeof song?.path !== 'string') continue;
+		const url = cx.resolveSourceUrl({ path: song.path } as TSong);
+		const [isReadOk] = url != null ? await host.readFile(url) : [false];
+		if (!isReadOk) return `There is no file ${song.path} in this project. The add_song tool brings a file in.`;
+	}
+	return null;
 }
 
 async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
@@ -449,14 +461,18 @@ async function runProjectCommands(cx: StudioCx, args: Record<string, unknown>): 
 		if (commands.length > 1) return fail(cx, 'applyPattern takes its own project.execute call, since it fits against the real run.');
 		return runApplyPattern(cx, commands[0], label);
 	}
-	const project = cx.project;
-	if (project == null) return noProject(cx);
+	if (cx.project == null) return noProject(cx);
 	const stopEpoch = cx.mcp.presence.stopEpoch;
 	await settled(cx);
 	const items = cx.library.$projectItems.get();
 	const packThemes = await packThemesToApply(cx, commands);
+	const noFile = await missingSongFile(cx, commands);
+	if (noFile != null) return fail(cx, noFile);
 	// Stop came while waiting for the run: this edit never starts, and McpCx's reply says why
 	if (cx.mcp.presence.stopEpoch !== stopEpoch) return text(cx, { changed: false, selection: cx.$selection.get(), ...hitReport(cx.simulation.$problems.get()) });
+	// Read after the waits, so an edit a person made meanwhile stays
+	const project = cx.project;
+	if (project == null) return noProject(cx);
 	const [isExpandedOk, expandedErr, expanded] = expandCommands(project, cx.simulation.$result.get(), items, commands as unknown as TAgentCommand[], packThemes, cx.film.$blenderObjects.get());
 	if (!isExpandedOk) return fail(cx, expandedErr.message);
 	if (!expanded.isChange) {
