@@ -251,7 +251,9 @@ const SKeyLightPose = z.strictObject({
 	// The whole film's brightness in stops on top of the base theme, and how much what glows spills light. Here because a
 	// film has one Key Light
 	exposure: z.number().min(-3).max(3).optional(),
-	bloom: z.number().min(0).max(1).optional()
+	bloom: z.number().min(0).max(1).optional(),
+	// How much of the light falls in a pool that travels with the camera, instead of evenly on the whole wall; absent is none
+	pool: z.number().min(0).max(1).optional()
 });
 
 /** A light added with Add Light, a layer in Film; a sun like the Key Light */

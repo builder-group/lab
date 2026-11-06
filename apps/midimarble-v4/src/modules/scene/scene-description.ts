@@ -253,6 +253,8 @@ export interface TSceneKeyLight {
 	exposure?: number;
 	/** Glare over the render, 0 none; Flat Light skips it */
 	bloom?: number;
+	/** Share of the light in a pool that travels with the camera, 0 none; Flat Light has no lights, so it skips it */
+	pool?: number;
 }
 
 export interface TSceneLight {

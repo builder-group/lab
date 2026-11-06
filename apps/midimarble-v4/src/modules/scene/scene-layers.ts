@@ -131,7 +131,8 @@ function themedKeyLight(themeBase: string): Required<TKeyLightPose> & { color: s
 		height: placement.height,
 		softness: base.angle / MAX_SUN_ANGLE,
 		exposure: 0,
-		bloom: 0
+		bloom: 0,
+		pool: 0
 	};
 }
 

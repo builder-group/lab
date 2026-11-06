@@ -3,8 +3,8 @@ import type { TDecor, TProject, TProjectCommand, TVec2 } from '@/modules/project
 import type { TSimulationResult } from '@/modules/simulation';
 import { blenderObjectBox, decorBox, decorList, newDecor, setDecorList, type TBlenderObject, type TDecorSource, decorExtent, isFrameEffect, cachedObstacleField, isBoxClear, nearestRunPoint, type TWallBox } from '@/modules/scene';
 
-// Scatter Decor: fills the free wall the film camera shows, beside the run and clear of every marble's swept path and of
-// the pieces. Deterministic for a seed, so a re-scatter at the same settings lands in the same places.
+// Scatter Decor: fills the free wall the film camera shows, in the frame's side bands, beside the run and clear of every
+// marble's swept path and of the pieces. Deterministic for a seed, so a re-scatter at the same settings lands in the same places.
 
 /** Clearance kept from a marble's swept path and from pieces, beyond the marble's radius */
 export const SCATTER_MARGIN = 0.012;
@@ -19,6 +19,8 @@ const JITTER = 0.2;
 const MAX_ITEMS = 160;
 /** Share of the frame an item keeps from its edge when it shows */
 const FRAME_INSET = 0.02;
+/** The share of the frame's width, left to right, that Scatter keeps clear for what the film is about: Decor dresses the sides */
+const CENTER_BAND = [0.28, 0.72] as const;
 /** Seconds around the moment the run passes an item in which the camera has to show it, and the step they are checked at */
 const VISIBLE_WINDOW = 3;
 const VISIBLE_STEP = 0.1;
@@ -87,7 +89,7 @@ export function scatterPlacements(project: TProject, result: TSimulationResult, 
 		const box: TWallBox = { x: candidate.x, y: candidate.y, halfX: extent.x, halfY: extent.y, angle: rotation };
 		if (!isBoxClear(field, box, SCATTER_MARGIN)) continue;
 		if (kept.some((other) => boxesTouch(box, other, SCATTER_MARGIN))) continue;
-		if (!isShownByCamera(track, box, candidate.time)) continue;
+		if (isInCenterBand(track, box, candidate.time) || !isShownByCamera(track, box, candidate.time)) continue;
 		placements.push({ source, position: { x: round(candidate.x), y: round(candidate.y) }, scale: round(scale), rotation: round(rotation) });
 	}
 	return placements;
@@ -116,6 +118,13 @@ function keptBoxes(project: TProject, blenderObjects: readonly TBlenderObject[])
 
 function boxesTouch(a: TWallBox, b: TWallBox, margin: number): boolean {
 	return Math.hypot(a.x - b.x, a.y - b.y) < Math.hypot(a.halfX, a.halfY) + Math.hypot(b.halfX, b.halfY) + margin;
+}
+
+/** Whether the box stands in the frame's middle as the run passes it, where the marble and its pieces should read */
+function isInCenterBand(track: TCameraTrack, box: TWallBox, time: number): boolean {
+	const frame = Math.min(track.frameCount - 1, Math.round(time * track.fps));
+	const [u] = projectToFrame(track, frame, box.x, box.y, 0);
+	return u > CENTER_BAND[0] && u < CENTER_BAND[1];
 }
 
 /** Whether the film camera shows all of the box at some moment around `time`, when the run passes it */

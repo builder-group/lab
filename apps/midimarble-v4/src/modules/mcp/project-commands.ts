@@ -83,7 +83,7 @@ export interface TExpandedCommands {
 const FILM_EXAMPLES: Record<string, string> = {
 	theme: "To wear a theme use { type: 'applyTheme', theme: 'brass' }. updateFilm's theme changes the one worn: { type: 'updateFilm', film: { theme: { base: 'brass', parts: { platform: { skin: 'platform:copper' } }, glowColor: '#00ff88' } } }",
 	wall: "{ type: 'updateFilm', film: { wall: { color: '#f6e3b8', backgroundColor: '#fff2d2', kind: 'plain' } } }, with kind plain, plaster, pegboard, grid or none, the plain Pegboard wall in wall.labelColor, the color it has in Track",
-	lights: "{ type: 'updateFilm', film: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2 } } } }; lights has key and added, a film has one Key Light",
+	lights: "{ type: 'updateFilm', film: { lights: { key: { color: '#ffd08a', strength: 4, side: 0.4, height: 0.3, softness: 0.2, exposure: 0, bloom: 0.2, pool: 0.5 } } } }; lights has key and added, a film has one Key Light, and pool puts its light in a soft spot around the camera's view",
 	camera: "{ type: 'updateFilm', film: { camera: { distance: 0.48, tilt: 0.54, turn: 1.57, sway: 0, auto: true } } }; name only what changes. A shot looks like { id, time, distance: 1.1, hold: 2 }",
 	quality: "{ type: 'updateFilm', film: { quality: 'final' } }, with draft or final",
 	decor: 'Decor is easier with placeDecor and scatterDecor'
