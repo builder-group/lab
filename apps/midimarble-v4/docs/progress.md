@@ -11,6 +11,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final, each at −14 LUFS with its true peak at −1 dB. The film's first frame is 0 on the timeline, and the sheet shows it. The melody plays 10 dB over the other parts by default.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window. A small film over MCP takes 7 calls and about 2 min, Draft included.
+- **Builder core:** one verdict, `propose` and `acceptProposal` with `build.propose` and `build.accept` for an agent, Next on top of them, and a guide line per marble that only an agent can set. No UI for any of it yet. Build Track and Fix stay their own searches.
 - **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.25. Why: `references.md`.
 - **Data:** `marble-project@6`, no migrations, since the app hasn't shipped. A marble has one color, its `labelColor`.
 - **Timeline:** 0 is the film's first frame. An import releases the marble at 0: a new JB opens with its first sound at 0.5 s. Jingle Bells' example still has it at 1 s, from its long start rail, until the fixture is rebuilt. The Camera sits above the Song, so marbles sit under their song. A marble's row shows the song its hits move with and a ring for its start, which drags in time.
@@ -30,6 +31,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - The opening's push-in watched in motion: Jingle Bells opens at about 0.79 m and comes to about 0.65 m by about 7 s. It's one eased move, judged from numbers and stills, so `follow-camera.e2e` checks 10 cm/s only from 7 s on. If it reads as too fast in a film, lengthen `OPENING_ZOOM_EASE`.
 - Fix in the app, through the worker: the e2e tests call it in Node
 - A Final film since Draft and Final replaced the old presets, and a whole Final film at the default camera
+- Next, `propose` and `build.propose` in the running app: unit tests with mocks and Node only, so the pool's times aren't known
 - Native window: export through the sheet, the unsaved-example save panel, a covered window (music, playhead, export progress), and how the Playback and Track menus show a single key
 - Build Track in the native window against Node's time, read from `get_state.lastBuild.seconds`
 
@@ -43,6 +45,8 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
 - Patterns fit far less often as Staircases on two-marble songs (11 of 42 on built Jingle Bells), and a Long Rail on a built song about half the time (`references.md`). A check takes 5 to 20 s on built Jingle Bells for 8 notes that don't fit first time, in the Pattern worker, with the ghost and "Checking the whole song…" showing: over 90 % is about 1100 to 4250 short physics runs searching tilts, not the whole-song check. A stretch that plays first time takes 0.2 s.
+- Next places what `propose` offers even with a fault, and says so in a notice. On Jingle Bells' Melody 2 of 26 pieces have one.
+- Build Track on Jingle Bells' melody alone at Gravity 0.3 gets 41 of 51 with 5 Problems, where placing plain pieces with no going back gets 51 of 51 with 2. See `references.md`.
 - Build Track after a Pattern in the middle of a bare song names the notes before it in its attention list instead of moving the marble's release back; a Pattern on them does move it.
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
 - A drag's chip can run past a narrow wall's edge, seen cut off at "Goes 1.5 cm: the marble" at 1280 px. Dragging a platform on a fresh Pattern's flattened pieces named its Undo step Change Marble, not the move

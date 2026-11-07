@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { applyProjectCommands, createId, tieOf, type TPiece, type TProject, type TProjectCommand } from '@/modules/project';
+import { applyProjectCommands, createId, type TPiece, type TProject, type TProjectCommand } from '@/modules/project';
 import { isSuperseded, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { hitOwners, openLongGaps } from './assists';
 import { hitReach, isUnreachable, reachMessage } from './reachability';
@@ -47,6 +47,14 @@ export interface TProposalFacts {
 	total: number;
 	/** Notes on time before and not after */
 	lost: number;
+	/** New since the track before: pieces struck twice, rolled on or passed through, pieces that touch, what another marble hits */
+	strikes: number;
+	rolls: number;
+	passThroughs: number;
+	touching: number;
+	crossings: number;
+	/** Whether the marble's next dot stays near the shared pace, with several marbles */
+	isNearPace: boolean;
 	/** Whether a flat platform fits at the marble's next dot; null when something else is wrong first, or there's no next dot to ask about */
 	hasRoomAtNext: boolean | null;
 }
@@ -207,6 +215,7 @@ async function landed(project: TProject, before: TSimulationResult, ask: TPropos
 	const known = noKnownFaults();
 	addKnownFaults(known, project, before);
 	const verdict = await verdictWithRoom({ before: { project, result: before }, after: { project: after, result }, marbleId: ask.marbleId, known, checksNext }, deps.simulate);
+	const countOf = (kind: TVerdictReason['kind']): number => verdict.reasons.filter((reason) => reason.kind === kind).length;
 	const made = new Set(pieces.map((piece) => piece.id));
 	const nextDotAsked = checksNext && (!verdict.reasons.length || verdict.reasons.every((reason) => reason.kind === 'noRoom'));
 	return {
@@ -222,6 +231,12 @@ async function landed(project: TProject, before: TSimulationResult, ask: TPropos
 			onTime: verdict.onTime,
 			total: verdict.total,
 			lost: verdict.lost.length,
+			strikes: countOf('struckTwice'),
+			rolls: countOf('rolls'),
+			passThroughs: countOf('passesThrough'),
+			touching: countOf('touching'),
+			crossings: countOf('crossing'),
+			isNearPace: countOf('offPace') === 0,
 			hasRoomAtNext: nextDotAsked ? !verdict.reasons.some((reason) => reason.kind === 'noRoom') : null
 		},
 		reasons: verdict.reasons,
@@ -283,9 +298,4 @@ export function acceptProposal(project: TProject, proposal: TProposal): TResult<
 	if (proposal.base !== project) return Err(new Error('The track changed since this was proposed. Propose again.'));
 	if (!proposal.commands.length) return Err(new Error(proposal.words ?? 'This proposal has nothing to place.'));
 	return Ok(proposal.commands);
-}
-
-/** The piece that plays a note in a proposal's commands, for what selects it */
-export function proposedPieceFor(proposal: TProposal, hitId: string): TPiece | undefined {
-	return proposal.pieces.find((piece) => tieOf(piece)?.hitId === hitId) ?? proposal.pieces[0];
 }

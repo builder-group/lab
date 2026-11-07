@@ -154,6 +154,26 @@ Bounce doesn't lower tilt; Gravity does. Build Track on the same hits falls 35, 
 
 **Bloom** is cheap at quality Low and only runs while `bloom > 0`; Flat Light skips it.
 
+### One marble, placed in Next's order
+
+One marble with the other notes as Backing, Node, single thread (`scripts/one-marble-measure.ts`). Plain places a platform per note and fills each rest with the first of Long Rail, Switchback and Rail that fits, with no going back.
+
+| Melody | Gravity .25 | .3 | .35 | .5 |
+|---|---|---|---|---|
+| Jingle Bells, plain | 51 of 51 | 51 of 51 | 26 of 51 | 51 of 51 |
+| Jingle Bells, Zigzag first | 51 of 51 | 51 of 51 | 36 of 51 | 51 of 51 |
+| Jingle Bells, Build Track | 51 of 51 | 41 of 51 | 51 of 51 | 51 of 51 |
+| `reference-20`, all three | 48 of 48 | 48 of 48 | 48 of 48 | 48 of 48 |
+| Ode to Joy, plain | 47 of 47 | 43 of 47 | 47 of 47 | 47 of 47 |
+| Ode to Joy, Zigzag first | 47 of 47 | 42 of 47 | 47 of 47 | 47 of 47 |
+| Ode to Joy, Build Track | 47 of 47 | 47 of 47 | 47 of 47 | 47 of 47 |
+
+A Long Rail fits 46 of the 53 rests met, and nothing fits 2, both the 1 s rest at 16 s of Jingle Bells. Zigzag first costs up to 14 times the simulations of plain on Ode to Joy, 34752 against 2556, where its stretches often don't fit, and fewer on `reference-20`, where they do. The camera stays at its 0.48 m on all of them.
+
+### A slanted guide line
+
+Sideways speed is slope times descent rate. On `reference-20` and Jingle Bells' melody Build Track plays every note up to 2 m sideways per meter of drop, and loses notes at 3: the limit lies between 0.36 and 0.53 m/s at Gravity 0.25 and between 0.52 and 0.77 m/s at 0.5. Dots stay about the same distance from the line up to there, 5 to 10 cm at the median. Keep the line straight down to the first note. Fitted over 16 notes of `reference-20`, a Staircase on a line holds from slope 0.5 to 2, within 1 cm at the median, and steps under a bar's length at lower slopes fail. A Zigzag holds up to about slope 0.5 with a wide enough Width, and past that it stops crossing.
+
 ## Scale
 
 Blender's unit is the meter, and the purchased Marble Race Kit uses real scale: marbles 16 mm, track modules about 0.2 m. MidiMarble works in the same units, with a default kit 1.5 times that size (24 mm marbles), so Rapier and Blender share units and lighting and depth of field behave like real objects.
