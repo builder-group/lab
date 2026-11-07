@@ -16,7 +16,7 @@ import { followKey } from './keys';
 import { BarHint } from './FloatingBar';
 import { GuideLayer } from './GuideLayer';
 import { HitFlashLayer } from './HitFlashLayer';
-import { PatternMoveHint } from './PatternMoveHint';
+import { PatternMoveHint, PatternMoveReason } from './PatternMoveHint';
 import { canvasMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
@@ -324,6 +324,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 					<SnapChip trackCx={trackCx} project={project} position={drag.current.position} snap={drag.snap} />
 				)
 			) : null}
+			<PatternMoveReason trackCx={trackCx} />
 			{insertSnap != null && drag == null ? <SnapChip trackCx={trackCx} project={project} position={insertSnap.position} snap={insertSnap.snap} /> : null}
 			{drag?.kind === 'rotate' ? <AngleReadout position={{ x: drag.pointer.x + 14, y: drag.pointer.y + 14 }} angle={drag.angle} /> : null}
 			{drag?.kind === 'path' && pathHandles != null && single != null ? <PathReadout piece={single} points={drag.points} position={pathHandles.end} /> : null}

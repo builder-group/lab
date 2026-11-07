@@ -2708,6 +2708,16 @@ button.mm-lcd-length:hover {
 	color: var(--on-accent);
 }
 
+/* Why a moved Pattern doesn't fit, beside it while dragging: the one red word on the wall */
+.mm-move-reason {
+	height: auto;
+	max-width: 280px;
+	padding: 3px 7px;
+	color: var(--bad);
+	line-height: 15px;
+	white-space: normal;
+}
+
 .mm-snap-chip kbd {
 	font-family: var(--font);
 }

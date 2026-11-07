@@ -387,7 +387,7 @@ export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 		<g className="mm-ghost-in" data-bar-hint={answer.kind} data-shape-ms={answer.shapeMs != null ? Math.round(answer.shapeMs) : undefined} data-answer-ms={answer.answerMs != null ? Math.round(answer.answerMs) : undefined}>
 			{flight.length > 1 ? <polyline points={toPoints(flight.map((point) => trackCx.toScreen(point)))} fill="none" stroke={color} strokeWidth={1.25} strokeDasharray="2 4" strokeLinecap="round" opacity={0.7} /> : null}
 			{shape.map((piece) => (
-				<GhostPiece key={piece.pieceId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk && answer.kind !== 'remove'} />
+				<GhostPiece key={piece.pieceId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk && answer.kind !== 'remove'} color={color} />
 			))}
 			{proposal?.nextDot != null ? <NextDot position={trackCx.toScreen(proposal.nextDot)} color={color} /> : null}
 		</g>
