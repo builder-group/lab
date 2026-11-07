@@ -4,6 +4,7 @@ import { globalIgnores } from 'eslint/config';
 
 // The modules, lowest first. A module imports only from layers below its own, never from its own layer's other
 // modules, except what `SAME_LAYER` lists. Tests sit on top of everything, so they may reach up. See docs/architecture.md.
+// `simulation` is the engine: what happens if the track is this. What to place belongs in `building`, which asks it.
 const LAYERS = [['project'], ['simulation', 'music'], ['scene'], ['camera'], ['building'], ['library', 'blender'], ['canvas'], ['track', 'film'], ['studio', 'mcp', 'start']];
 const SAME_LAYER = { start: ['studio'], studio: ['mcp'] };
 /** These take `StudioCx` as `cx`: a narrow interface would have one implementer. Everything else they need comes through `cx`. */
@@ -14,7 +15,8 @@ const NOT_PLAIN = ['react', 'react-dom', 'three', 'three/**', '@tauri-apps/**', 
 
 // The shared config loads eslint-plugin-only-warn, which turns every error into a warning. The layers and unused code must fail the lint.
 const LAYER_RULE = '@typescript-eslint/no-restricted-imports';
-const FAILING_RULES = new Set([LAYER_RULE, '@typescript-eslint/no-unused-vars']);
+const ENGINE_RULE = 'no-restricted-syntax';
+const FAILING_RULES = new Set([LAYER_RULE, ENGINE_RULE, '@typescript-eslint/no-unused-vars']);
 const verify = Linter.prototype.verify;
 Linter.prototype.verify = function (...args) {
 	const messages = verify.apply(this, args);
@@ -51,4 +53,16 @@ function layerRule(module, layer) {
  * @see https://eslint.org/docs/latest/use/configure/configuration-files
  * @type {import("eslint").Linter.Config[]}
  */
-export default [...tanstack, globalIgnores(['src-tauri/', 'target/', 'dist/', '.local/', 'blender/'], 'Ignore Tauri Rust files'), ...LAYERS.flatMap((modules, layer) => modules.map((module) => layerRule(module, layer))).filter((rule) => rule != null)];
+export default [
+	...tanstack,
+	globalIgnores(['src-tauri/', 'target/', 'dist/', '.local/', 'blender/'], 'Ignore Tauri Rust files'),
+	...LAYERS.flatMap((modules, layer) => modules.map((module) => layerRule(module, layer))).filter((rule) => rule != null),
+	{
+		name: 'midimarble/engine',
+		files: ['src/modules/simulation/**/*.ts'],
+		ignores: ['**/*.test.ts'],
+		rules: {
+			[ENGINE_RULE]: ['error', { selector: "NewExpression[callee.name='Worker']", message: 'The engine is called, it calls nothing: the workers that ask it are in `building`.' }]
+		}
+	}
+];
