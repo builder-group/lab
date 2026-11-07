@@ -1,0 +1,9 @@
+[workspace]
+members = ["src-tauri", "crates/macos"]
+resolver = "2"
+
+[workspace.package]
+authors = ["builder.group"]
+license = "AGPL-3.0-or-later"
+edition = "2021"
+repository = "https://github.com/builder-group/lab"

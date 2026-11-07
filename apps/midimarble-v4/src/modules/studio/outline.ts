@@ -1,0 +1,226 @@
+import { decorList, type TBlenderObject } from '@/modules/scene';
+import type { TDecor, TPiece, TGroup, TMarble, TLight, TProject, TShot, TSong, TTitle } from '@/modules/project';
+import { startRailOf } from '@/modules/simulation';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, shownSongs, toSongKey, toDecorKey, toLightKey, toGroupKey, parseGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
+import { songRowLabel } from './song-layer';
+import type { TWorkspace } from './StudioCx';
+
+/**
+ * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow, the same in
+ * both workspaces where they have the row: the Scene, the Camera with its shots, the Wall, the Song while the project has
+ * one, each marble with the Rail it starts on and the pieces it plays or that follow it in hit order, Track Pieces (those no
+ * marble plays, follows or starts on), then in Film the Lights, Titles and Decor. Track is the skeleton and stops after the
+ * pieces; Film is what the viewer sees. A group with nothing in it has no row: what it holds is added through Insert. Rows of
+ * a collapsed group leave out their children. The timeline shows only what changes over time: the Camera, the Song, the
+ * marbles, and in Film Titles.
+ */
+export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
+	const { collapsed = [], workspace = 'film', blenderObjects = [] } = options;
+	const rows: TOutlineRow[] = [{ kind: 'scene', id: SCENE_KEY, depth: 0, parentId: null }];
+
+	const shots = [...project.film.camera.shots].sort((a, b) => a.time - b.time);
+	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
+	rows.push({ kind: 'camera', id: CAMERA_KEY, depth: 0, parentId: null, groupKey: CAMERA_KEY, hasChildren: shots.length > 0, isOpen: isCameraOpen });
+	if (isCameraOpen) for (const shot of shots) rows.push({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, shot });
+
+	rows.push({ kind: 'wall', id: WALL_KEY, depth: 0, parentId: null, labelColor: project.film.wall.labelColor });
+
+	// The marbles sit directly under the song they play
+	for (const song of shownSongs(project)) rows.push({ kind: 'song', id: toSongKey(song.id), depth: 0, parentId: null, source: song, label: songRowLabel(project, song) });
+
+	// A plain Group across marbles or of free pieces lists its pieces under Track Pieces, like one layer of them
+	const looseGroups = project.track.groups.filter((group) => group.marbleId == null);
+	const beyondMarbles = new Set(looseGroups.flatMap((group) => group.pieceIds));
+
+	for (const marble of project.marbles) {
+		const pieces = marblePieces(project, marble).filter((piece) => !beyondMarbles.has(piece.id));
+		const isOpen = !collapsed.includes(marble.id);
+		rows.push({ kind: 'marble', id: marble.id, depth: 0, parentId: null, marble, groupKey: marble.id, hasChildren: pieces.length > 0 || project.track.groups.some((group) => group.marbleId === marble.id), isOpen });
+		if (isOpen) rows.push(...marblePieceRows(project, marble.id, pieces, collapsed));
+	}
+
+	// Newest first, like Figma's layer list
+	const startRails = new Set(project.marbles.map((marble) => startRailOf(project, marble.id)));
+	const free = project.track.pieces.filter((piece) => tieOf(piece) == null && !startRails.has(piece) && !beyondMarbles.has(piece.id)).reverse();
+	if (free.length > 0 || looseGroups.length > 0) {
+		const isOpen = !collapsed.includes(FREE_PIECES_KEY);
+		rows.push({ kind: 'group', id: FREE_PIECES_KEY, depth: 0, parentId: null, label: PIECES_GROUP_LABEL, help: PIECES_GROUP_HELP, groupKey: FREE_PIECES_KEY, childIds: [...free.map((piece) => piece.id), ...beyondMarbles], isOpen });
+		if (isOpen) {
+			for (const group of looseGroups) {
+				const isGroupOpen = !collapsed.includes(group.id);
+				const key = toGroupKey(group.id);
+				rows.push({ kind: 'patternGroup', id: key, depth: 1, parentId: FREE_PIECES_KEY, group, groupKey: group.id, hasChildren: group.pieceIds.length > 0, isOpen: isGroupOpen });
+				if (isGroupOpen) for (const piece of project.track.pieces.filter((piece) => group.pieceIds.includes(piece.id))) rows.push({ kind: 'piece', id: piece.id, depth: 2, parentId: key, piece, marbleId: null });
+			}
+			for (const piece of free) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: FREE_PIECES_KEY, piece, marbleId: null });
+		}
+	}
+
+	if (workspace === 'track') return rows;
+
+	const lights = project.film.lights.added;
+	const isLightsOpen = !collapsed.includes(LIGHTS_KEY);
+	rows.push({ kind: 'group', id: LIGHTS_KEY, depth: 0, parentId: null, label: 'Lights', groupKey: LIGHTS_KEY, childIds: [KEY_LIGHT_KEY, ...lights.map((light) => toLightKey(light.id))], isOpen: isLightsOpen });
+	if (isLightsOpen) {
+		rows.push({ kind: 'light', id: KEY_LIGHT_KEY, depth: 1, parentId: LIGHTS_KEY, label: KEY_LIGHT_LABEL, light: null });
+		for (const light of lights) rows.push({ kind: 'light', id: toLightKey(light.id), depth: 1, parentId: LIGHTS_KEY, label: light.name, light });
+	}
+
+	const titles = [...project.film.titles].reverse();
+	if (titles.length > 0) {
+		const isOpen = !collapsed.includes(TITLES_KEY);
+		rows.push({ kind: 'group', id: TITLES_KEY, depth: 0, parentId: null, label: 'Titles', groupKey: TITLES_KEY, childIds: titles.map((title) => title.id), isOpen });
+		if (isOpen) for (const title of titles) rows.push({ kind: 'title', id: title.id, depth: 1, parentId: TITLES_KEY, title });
+	}
+
+	// Newest first, like the titles; what Blender holds comes after, since the app didn't place it
+	const decor = [...decorList(project.film)].reverse();
+	const childIds = [...decor.map((item) => toDecorKey(item.id)), ...blenderObjects.map((object) => toMadeInBlenderKey(object.name))];
+	if (childIds.length > 0) {
+		const isOpen = !collapsed.includes(DECOR_KEY);
+		rows.push({ kind: 'group', id: DECOR_KEY, depth: 0, parentId: null, label: DECOR_GROUP_LABEL, groupKey: DECOR_KEY, childIds, isOpen });
+		if (isOpen) {
+			for (const item of decor) rows.push({ kind: 'decor', id: toDecorKey(item.id), depth: 1, parentId: DECOR_KEY, decor: item });
+			for (const object of blenderObjects) rows.push({ kind: 'madeInBlender', id: toMadeInBlenderKey(object.name), depth: 1, parentId: DECOR_KEY, name: object.name });
+		}
+	}
+
+	return rows;
+}
+
+/**
+ * The groups that start closed: in Film the marbles' pieces and Decor, so the Lights and Titles are in view
+ * without scrolling; none in Track, where the pieces are the work
+ */
+export function defaultCollapsed(project: TProject, workspace: 'track' | 'film'): string[] {
+	const groups = project.track.groups.map((group) => group.id);
+	// Marbles start closed in both tabs, so a built track doesn't read as a wall of folders, and every marble is in view
+	const marbles = project.marbles.map((marble) => marble.id);
+	return workspace === 'film' ? [...marbles, DECOR_KEY, ...groups] : [...marbles, ...groups];
+}
+
+/** The closed groups: the defaults, with the ones the user toggled the other way */
+export function collapsedGroups(project: TProject, workspace: 'track' | 'film', toggled: readonly string[]): string[] {
+	const defaults = defaultCollapsed(project, workspace);
+	return [...defaults.filter((key) => !toggled.includes(key)), ...toggled.filter((key) => !defaults.includes(key))];
+}
+
+/** The groups that hold the selected layers, which a selection made outside Layers opens */
+export function groupsOfSelection(project: TProject, selection: readonly string[]): string[] {
+	return selection.flatMap((key) => {
+		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
+		// A Group selected whole, such as from its block in the strip, opens the marble it belongs to
+		const selectedGroupId = parseGroupKey(key);
+		if (selectedGroupId != null) {
+			const selected = project.track.groups.find((item) => item.id === selectedGroupId);
+			return selected == null ? [] : [selected.marbleId ?? FREE_PIECES_KEY];
+		}
+		const marbleId = tieOf(project.track.pieces.find((piece) => piece.id === key))?.marbleId ?? project.marbles.find((marble) => startRailOf(project, marble.id)?.id === key)?.id;
+		const group = project.track.groups.find((item) => item.pieceIds.includes(key));
+		if (marbleId != null && group?.marbleId != null) return [marbleId, group.id];
+		if (group != null) return [FREE_PIECES_KEY, group.id];
+		return marbleId != null ? [marbleId] : [];
+	});
+}
+
+export interface TOutlineOptions {
+	/** Group keys of folded groups: a marble ID, the Camera key or a group row's ID */
+	collapsed?: string[];
+	/** Track leaves out the Lights, the titles and Decor; Film, the default, shows every layer */
+	workspace?: TWorkspace;
+	/** Objects the Blender file holds that the app doesn't own, listed under Decor as Made in Blender */
+	blenderObjects?: readonly TBlenderObject[];
+}
+
+/** Group row of the pieces tied to nothing; its ID is never a selection key */
+export const FREE_PIECES_KEY = 'group:free';
+
+/** Name of the group of pieces no marble plays or follows (words.md: Track Pieces) */
+export const PIECES_GROUP_LABEL = 'Track Pieces';
+
+/** The ? beside the Track Pieces group: unlinked pieces still collide */
+export const PIECES_GROUP_HELP = 'Pieces no marble plays or follows; marbles can still hit them';
+
+/** Group row of the titles on the wall; its ID is never a selection key */
+export const TITLES_KEY = 'group:titles';
+
+/** Group row of the decorations; its ID is never a selection key */
+export const DECOR_KEY = 'group:decor';
+
+/** Name of the group of decorations (words.md: Decor) */
+export const DECOR_GROUP_LABEL = 'Decor';
+
+/** Group row of the Key Light and the added lights; its ID is never a selection key */
+export const LIGHTS_KEY = 'group:lights';
+
+/** Name of the theme's light (words.md: Key Light) */
+export const KEY_LIGHT_LABEL = 'Key Light';
+
+interface TOutlineRowBase {
+	/** Selection key of the row, or a group key for a group row */
+	id: string;
+	depth: number;
+	parentId: string | null;
+}
+
+export type TOutlineRow =
+	// Selecting it empties the selection: see SCENE_KEY
+	| (TOutlineRowBase & { kind: 'scene' })
+	// Without a file the Song layer holds only Backing notes
+	| (TOutlineRowBase & { kind: 'song'; source: TSong; label: string })
+	| (TOutlineRowBase & { kind: 'marble'; marble: TMarble; groupKey: string; hasChildren: boolean; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'piece'; piece: TPiece; marbleId: string | null })
+	// What a Pattern made or a plain Group: selects as itself, with its pieces under it
+	| (TOutlineRowBase & { kind: 'patternGroup'; group: TGroup; groupKey: string; hasChildren: boolean; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'group'; label: string; help?: string; groupKey: string; childIds: string[]; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'wall'; labelColor: string | undefined })
+	// `light` is null for the Key Light, which comes from the theme
+	| (TOutlineRowBase & { kind: 'light'; label: string; light: TLight | null })
+	| (TOutlineRowBase & { kind: 'camera'; groupKey: string; hasChildren: boolean; isOpen: boolean })
+	| (TOutlineRowBase & { kind: 'shot'; shot: TShot })
+	| (TOutlineRowBase & { kind: 'title'; title: TTitle })
+	| (TOutlineRowBase & { kind: 'decor'; decor: TDecor })
+	| (TOutlineRowBase & { kind: 'madeInBlender'; name: string });
+
+/** Whether a row belongs to the Film workspace only: the Lights, the titles and Decor */
+export function isFilmRow(row: TOutlineRow): boolean {
+	return row.kind === 'light' || row.kind === 'title' || row.kind === 'decor' || row.kind === 'madeInBlender' || (row.kind === 'group' && (row.id === TITLES_KEY || row.id === LIGHTS_KEY || row.id === DECOR_KEY));
+}
+
+/** Whether a click on the row selects the row itself; group rows select their children instead */
+export function isSelectableRow(row: TOutlineRow): boolean {
+	return row.kind !== 'group';
+}
+
+/** A marble's pieces in hit order, those of a Group under its row, which comes where its first piece would */
+function marblePieceRows(project: TProject, marbleId: string, pieces: readonly TPiece[], collapsed: readonly string[]): TOutlineRow[] {
+	const groups = project.track.groups.filter((group) => group.marbleId === marbleId);
+	const ofPiece = new Map(groups.flatMap((group) => group.pieceIds.map((id) => [id, group] as const)));
+	const rows: TOutlineRow[] = [];
+	const shown = new Set<string>();
+	const groupRow = (group: TGroup): void => {
+		shown.add(group.id);
+		const inGroup = pieces.filter((piece) => ofPiece.get(piece.id)?.id === group.id);
+		const isOpen = !collapsed.includes(group.id);
+		const key = toGroupKey(group.id);
+		rows.push({ kind: 'patternGroup', id: key, depth: 1, parentId: marbleId, group, groupKey: group.id, hasChildren: inGroup.length > 0, isOpen });
+		if (isOpen) for (const piece of inGroup) rows.push({ kind: 'piece', id: piece.id, depth: 2, parentId: key, piece, marbleId });
+	};
+	for (const piece of pieces) {
+		const group = ofPiece.get(piece.id);
+		if (group == null) rows.push({ kind: 'piece', id: piece.id, depth: 1, parentId: marbleId, piece, marbleId });
+		else if (!shown.has(group.id)) groupRow(group);
+	}
+	for (const group of groups) if (!shown.has(group.id)) groupRow(group);
+	return rows;
+}
+
+/** The Rail the marble starts on, then the pieces linked or anchored to its hits, in hit order */
+function marblePieces(project: TProject, marble: TMarble): TPiece[] {
+	const order = new Map(marble.hits.map((hit, index) => [hit.id, index]));
+	const startRail = startRailOf(project, marble.id);
+	const tied = project.track.pieces
+		.filter((piece) => tieOf(piece)?.marbleId === marble.id)
+		.sort((a, b) => (order.get(tieOf(a)?.hitId ?? '') ?? 0) - (order.get(tieOf(b)?.hitId ?? '') ?? 0));
+	return startRail != null ? [startRail, ...tied] : tied;
+}

@@ -1,0 +1,447 @@
+{
+	"$schema": "marble-project@6",
+	"id": "long-gap",
+	"title": "Long gap",
+	"revision": 0,
+	"format": {
+		"width": 9,
+		"height": 16
+	},
+	"length": 5.2,
+	"gravity": 0.5,
+	"songs": [],
+	"marbles": [
+		{
+			"id": "marble-1",
+			"name": "Marble 1",
+			"labelColor": "#3478f6",
+			"sound": 9,
+			"radius": 0.012,
+			"start": {
+				"position": {
+					"x": 0,
+					"y": 0.6
+				},
+				"time": 0
+			},
+			"hits": [
+				{
+					"id": "hit-1-1",
+					"time": 0.15
+				},
+				{
+					"id": "hit-1-2",
+					"time": 0.45
+				},
+				{
+					"id": "hit-1-3",
+					"time": 0.75
+				},
+				{
+					"id": "hit-1-4",
+					"time": 2.25
+				},
+				{
+					"id": "hit-1-5",
+					"time": 2.55
+				},
+				{
+					"id": "hit-1-6",
+					"time": 2.85
+				},
+				{
+					"id": "hit-1-7",
+					"time": 4.35
+				},
+				{
+					"id": "hit-1-8",
+					"time": 4.65
+				}
+			],
+			"handOvers": [
+				{
+					"step": 36,
+					"position": {
+						"x": 0,
+						"y": 0.5446271300315857
+					},
+					"origin": {
+						"x": 0,
+						"y": 0
+					},
+					"velocity": {
+						"x": 0,
+						"y": -0.7357521057128906
+					},
+					"rotation": [
+						0,
+						1
+					],
+					"spin": 0
+				},
+				{
+					"step": 108,
+					"position": {
+						"x": -0.1006922721862793,
+						"y": 0.46681705117225647
+					},
+					"origin": {
+						"x": -0.0001910179853439331,
+						"y": -6.520748138427734e-05
+					},
+					"velocity": {
+						"x": -0.3382129371166229,
+						"y": -0.9862809181213379
+					},
+					"rotation": [
+						0.6545901298522949,
+						-0.7559840083122253
+					],
+					"spin": 16.192794799804688
+				},
+				{
+					"step": 180,
+					"position": {
+						"x": 0.05450792983174324,
+						"y": 0.34312504529953003
+					},
+					"origin": {
+						"x": 5.0202012062072754e-05,
+						"y": -0.00026702880859375
+					},
+					"velocity": {
+						"x": 0.5226929783821106,
+						"y": -1.1403156518936157
+					},
+					"rotation": [
+						-0.839497447013855,
+						0.5433635711669922
+					],
+					"spin": -22.83997344970703
+				},
+				{
+					"step": 540,
+					"position": {
+						"x": 0.21647274494171143,
+						"y": -0.056107938289642334
+					},
+					"origin": {
+						"x": -0.000392913818359375,
+						"y": -0.000402744859457016
+					},
+					"velocity": {
+						"x": 0.4659744203090668,
+						"y": -1.7128385305404663
+					},
+					"rotation": [
+						-0.6852743029594421,
+						0.7282850742340088
+					],
+					"spin": -39.77610397338867
+				},
+				{
+					"step": 612,
+					"position": {
+						"x": 0.030767958611249924,
+						"y": -0.2151591181755066
+					},
+					"origin": {
+						"x": 0.0001240856945514679,
+						"y": -0.00036173686385154724
+					},
+					"velocity": {
+						"x": -0.6244643926620483,
+						"y": -1.2583426237106323
+					},
+					"rotation": [
+						-0.2743067443370819,
+						0.9616422057151794
+					],
+					"spin": 45.11484909057617
+				},
+				{
+					"step": 684,
+					"position": {
+						"x": -0.08461514860391617,
+						"y": -0.23091337084770203
+					},
+					"origin": {
+						"x": 0.0005094371736049652,
+						"y": -0.0004161261022090912
+					},
+					"velocity": {
+						"x": -0.38343143463134766,
+						"y": -0.7779690027236938
+					},
+					"rotation": [
+						-0.7319530248641968,
+						0.6813551187515259
+					],
+					"spin": 38.249488830566406
+				},
+				{
+					"step": 1044,
+					"position": {
+						"x": -0.20862175524234772,
+						"y": -0.49248090386390686
+					},
+					"origin": {
+						"x": 0.0008095018565654755,
+						"y": -0.0006229840219020844
+					},
+					"velocity": {
+						"x": -0.42597219347953796,
+						"y": -1.2197184562683105
+					},
+					"rotation": [
+						0.9381144642829895,
+						-0.34632545709609985
+					],
+					"spin": 36.444549560546875
+				}
+			]
+		}
+	],
+	"track": {
+		"pieces": [
+			{
+				"id": "piece-1-1",
+				"name": "Platform 1",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.79,
+					"entryDelay": 0
+				},
+				"angle": 0.33161255787892263,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-1",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-2",
+				"name": "Platform 2",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.59,
+					"entryDelay": 0
+				},
+				"angle": -0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-2",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-3",
+				"name": "Platform 3",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": 0.5,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-3",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "rail-1",
+				"name": "Rail 1",
+				"type": "rail",
+				"params": {
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.375
+				},
+				"angle": -0.20943951023931956,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-3"
+				},
+				"path": {
+					"points": [
+						{
+							"x": -0.20268,
+							"y": 0
+						},
+						{
+							"x": 0,
+							"y": 0
+						},
+						{
+							"x": 0.14922,
+							"y": 0
+						}
+					]
+				}
+			},
+			{
+				"id": "piece-1-4",
+				"name": "Platform 4",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.34,
+					"entryDelay": 0
+				},
+				"angle": 0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-4",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-5",
+				"name": "Platform 5",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.46,
+					"entryDelay": 0
+				},
+				"angle": -0.13962634015954636,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-5",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-6",
+				"name": "Platform 6",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": -0.4,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-6",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "tunnel-1",
+				"name": "Tunnel 1",
+				"type": "tunnel",
+				"params": {
+					"radius": 0.003,
+					"bore": 0.006,
+					"mouth": 0.045,
+					"entryDelay": 0.492
+				},
+				"angle": 0.20943951023931956,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-6"
+				},
+				"path": {
+					"points": [
+						{
+							"x": 0.28013,
+							"y": 0
+						},
+						{
+							"x": 0,
+							"y": 0
+						},
+						{
+							"x": -0.11824,
+							"y": 0
+						}
+					]
+				}
+			},
+			{
+				"id": "piece-1-7",
+				"name": "Platform 7",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.51,
+					"entryDelay": 0
+				},
+				"angle": -0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-7",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-8",
+				"name": "Platform 8",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": 0.08726646259971647,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-8",
+					"contactAt": 0.5
+				}
+			}
+		],
+		"groups": []
+	},
+	"film": {
+		"theme": {
+			"base": "pegboard"
+		},
+		"wall": {},
+		"lights": {
+			"added": []
+		},
+		"decor": [],
+		"madeInBlender": [],
+		"titles": [],
+		"quality": "final",
+		"camera": {
+			"auto": true,
+			"distance": 0.48,
+			"sway": 1,
+			"tilt": 0.54,
+			"shots": []
+		}
+	}
+}

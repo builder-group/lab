@@ -1,0 +1,262 @@
+{
+	"$schema": "marble-pack@1",
+	"id": "starter",
+	"name": "Starter",
+	"version": "1.0",
+	"description": "The themes, skins, plain decor and particles that come with the app.",
+	"author": "MidiMarble",
+	"items": [
+		{
+			"kind": "theme",
+			"id": "theme-pegboard",
+			"label": "Pegboard",
+			"source": "theme:pegboard"
+		},
+		{
+			"kind": "theme",
+			"id": "theme-brass",
+			"label": "Brass",
+			"source": "theme:brass"
+		},
+		{
+			"kind": "theme",
+			"id": "theme-neon",
+			"label": "Neon",
+			"source": "theme:neon"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-none",
+			"label": "None",
+			"source": "platform:none"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-gold",
+			"label": "Gold",
+			"source": "platform:gold"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-copper",
+			"label": "Copper",
+			"source": "platform:copper"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-silver",
+			"label": "Silver",
+			"source": "platform:silver"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-plate-gold",
+			"label": "Gold Plate",
+			"source": "platform:plate-gold"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-plate-copper",
+			"label": "Copper Plate",
+			"source": "platform:plate-copper"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-plate-wood",
+			"label": "Wood Plate",
+			"source": "platform:plate-wood"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-chrome-device",
+			"label": "Chrome Device",
+			"source": "platform:chrome-device"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-dark-housing",
+			"label": "Dark Housing",
+			"source": "platform:dark-housing"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-pegboard",
+			"label": "Pegboard",
+			"source": "platform:pegboard"
+		},
+		{
+			"kind": "skin",
+			"id": "platform-neon",
+			"label": "Neon",
+			"source": "platform:neon"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-none",
+			"label": "None",
+			"source": "rail:none"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-chrome",
+			"label": "Chrome Rail",
+			"source": "rail:chrome"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-wood",
+			"label": "Wood Rail",
+			"source": "rail:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "rail-glow",
+			"label": "Glow Rail",
+			"source": "rail:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-none",
+			"label": "None",
+			"source": "tunnel:none"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-frosted",
+			"label": "Frosted Tunnel",
+			"source": "tunnel:frosted"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-wood",
+			"label": "Wood Tunnel",
+			"source": "tunnel:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "tunnel-glow",
+			"label": "Glow Tunnel",
+			"source": "tunnel:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-none",
+			"label": "None",
+			"source": "windmill:none"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-gold",
+			"label": "Gold Windmill",
+			"source": "windmill:gold"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-wood",
+			"label": "Wood Windmill",
+			"source": "windmill:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "windmill-glow",
+			"label": "Glow Windmill",
+			"source": "windmill:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "bowl-none",
+			"label": "None",
+			"source": "bowl:none"
+		},
+		{
+			"kind": "skin",
+			"id": "bowl-chrome",
+			"label": "Chrome Bowl",
+			"source": "bowl:chrome"
+		},
+		{
+			"kind": "skin",
+			"id": "bowl-wood",
+			"label": "Wood Bowl",
+			"source": "bowl:wood"
+		},
+		{
+			"kind": "skin",
+			"id": "bowl-glow",
+			"label": "Glow Bowl",
+			"source": "bowl:glow"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-none",
+			"label": "None",
+			"source": "marble:none"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-glass",
+			"label": "Glass",
+			"source": "marble:glass"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-metal",
+			"label": "Metal",
+			"source": "marble:metal"
+		},
+		{
+			"kind": "skin",
+			"id": "marble-magic",
+			"label": "Magic",
+			"source": "marble:magic"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-plain",
+			"label": "Plain Wall",
+			"source": "wall:plain"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-plaster",
+			"label": "Plaster Wall",
+			"source": "wall:plaster"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-pegboard",
+			"label": "Pegboard Wall",
+			"source": "wall:pegboard"
+		},
+		{
+			"kind": "skin",
+			"id": "wall-grid",
+			"label": "Grid Wall",
+			"source": "wall:grid"
+		},
+		{
+			"kind": "decor",
+			"id": "sphere",
+			"label": "Sphere",
+			"source": "decor:sphere"
+		},
+		{
+			"kind": "decor",
+			"id": "ring",
+			"label": "Ring",
+			"source": "decor:ring"
+		},
+		{
+			"kind": "decor",
+			"id": "cube",
+			"label": "Cube",
+			"source": "decor:cube"
+		},
+		{
+			"kind": "decor",
+			"id": "snowfall",
+			"label": "Particles",
+			"source": "decor:snowfall"
+		}
+	]
+}

@@ -1,0 +1,207 @@
+import { useFeatureState } from 'feature-react/state';
+import { FileMusic, FolderOpen, LayoutTemplate, Music, Plus } from 'lucide-react';
+import React from 'react';
+import { WindowHeader } from '@/components';
+import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
+import { host, newProjectTitle } from '@/environment';
+import { useFileDropped } from '@/hooks';
+import type { StartCx } from './StartCx';
+
+/** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
+export const StartScreen: React.FC<TStartScreenProps> = (props) => {
+	const { cx, extraActions } = props;
+	const recent = useFeatureState(cx.$recent);
+	// A song dropped here starts a project named after it, as Import Song… does
+	useFileDropped((file) => void cx.newProjectFromFile(file));
+	const [showAllRecent, setShowAllRecent] = React.useState(false);
+
+	// ⌘N and ⌘O work here as in the studio
+	React.useEffect(() => {
+		function onKeyDown(event: KeyboardEvent): void {
+			if (!event.metaKey || event.shiftKey || event.ctrlKey || event.altKey) return;
+			const key = event.key.toLowerCase();
+			if (key === 'n') {
+				event.preventDefault();
+				void cx.newProject();
+			} else if (key === 'o') {
+				event.preventDefault();
+				void cx.openProject();
+			}
+		}
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [cx]);
+
+	async function openExample(example: TExample): Promise<void> {
+		const [isExampleOk, exampleErr, loaded] = await loadExample(example);
+		if (!isExampleOk) {
+			void cx.notify(exampleErr.message, 'error');
+			return;
+		}
+		// An example opens unsaved, like a macOS untitled document, so Recent does not fill with copies
+		await cx.openTemporary(loaded.project, (packagePath) => copyExampleFiles(packagePath, loaded.files));
+	}
+
+	return (
+		<div className="relative flex h-full">
+			<WindowHeader floating />
+			<section className="relative flex flex-1 flex-col items-center justify-center gap-8 bg-[var(--content)] px-10">
+				<div className="flex flex-col items-center gap-2">
+					<img alt="" src="/app-icon.svg" className="h-28 w-28" draggable={false} />
+					<h1 className="m-0 text-[28px] font-semibold tracking-tight">MidiMarble</h1>
+					<p className="m-0 text-[var(--text-secondary)]">
+						Build a marble track that plays a song, then make the film
+					</p>
+				</div>
+				<div className="flex w-[300px] flex-col gap-1">
+					<StartAction
+						icon={<Plus size={18} strokeWidth={1.7} />}
+						title={newProjectTitle()}
+						detail="Start with an empty wall"
+						onClick={() => void cx.newProject()}
+					/>
+					<StartAction
+						icon={<FileMusic size={18} strokeWidth={1.7} />}
+						title="Import Song…"
+						detail="Start from a MIDI file or a recording"
+						onClick={() => void cx.newProjectFromSong()}
+					/>
+					{extraActions}
+					<StartAction
+						icon={<FolderOpen size={18} strokeWidth={1.7} />}
+						title="Open Project…"
+						detail="Continue a saved project"
+						onClick={() => void cx.openProject()}
+					/>
+				</div>
+				<p className="absolute bottom-3 m-0 text-[11px] text-[var(--text-tertiary)] tabular-nums select-text" data-testid="build-version">
+					Version {__APP_VERSION__} · {__APP_COMMIT__}
+				</p>
+			</section>
+			<aside className="flex w-[360px] flex-col overflow-y-auto bg-[var(--chrome)] pt-12 pb-4" aria-label="Recent projects and examples">
+				<div className="mm-section-title">Recent</div>
+				{!recent.length ? (
+					<div className="mm-placeholder !h-auto pt-10">
+						<span className="mm-placeholder-body">No recent projects</span>
+					</div>
+				) : (
+					(showAllRecent ? recent : recent.slice(0, RECENT_LIMIT)).map((item) => (
+						<button
+							key={item.path}
+							className="mm-row !h-11 w-[calc(100%-16px)] shrink-0 text-left"
+							onClick={() => void cx.openProject(item.path)}
+							// The browser's stored path (/browser/…) means nothing to a user; the name does
+							title={host.isDesktop() ? item.path : item.name}
+							type="button"
+						>
+							<FileMusic size={20} strokeWidth={1.4} className="shrink-0 text-[var(--text-secondary)]" />
+							<span className="flex min-w-0 flex-col leading-tight">
+								<span className="truncate font-medium">{item.name}</span>
+								<span className="truncate text-[11px] text-[var(--text-secondary)]">
+									{[shortenPath(item.path), formatOpened(item.openedAt)].filter(Boolean).join(' · ')}
+								</span>
+							</span>
+						</button>
+					))
+				)}
+				{recent.length > RECENT_LIMIT ? (
+					<button
+						className="mm-row !h-7 w-[calc(100%-16px)] shrink-0 text-left text-[12px] text-[var(--text-secondary)]"
+						onClick={() => setShowAllRecent(!showAllRecent)}
+						type="button"
+					>
+						{showAllRecent ? 'Show Less' : `Show All ${recent.length}`}
+					</button>
+				) : null}
+				{exampleGroups.map((group) => (
+					<React.Fragment key={group.title}>
+						<div className="mm-section-title mt-4">{group.title}</div>
+						{/* A gallery of stills like GarageBand's project templates, so a run is recognized before it opens */}
+						<div className="grid shrink-0 grid-cols-3 gap-x-2 gap-y-3 px-3 pt-1">
+							{group.examples.map((example) => (
+								<button
+									key={example.id}
+									className="group flex min-w-0 flex-col gap-1 rounded-lg p-1 text-left hover:bg-[var(--hover)] focus-visible:bg-[var(--hover)]"
+									onClick={() => void openExample(example)}
+									title={example.detail}
+									type="button"
+								>
+									<ExampleThumbnail id={example.id} icon={group.hasSong ? <Music size={22} strokeWidth={1.4} /> : <LayoutTemplate size={22} strokeWidth={1.4} />} />
+									<span className="truncate px-0.5 text-[12px] font-medium leading-tight">{example.title}</span>
+								</button>
+							))}
+						</div>
+					</React.Fragment>
+				))}
+			</aside>
+		</div>
+	);
+};
+
+// Enough recent projects to resume work while the examples stay in view
+const RECENT_LIMIT = 6;
+
+interface TStartScreenProps {
+	cx: StartCx;
+	extraActions?: React.ReactNode;
+}
+
+/**
+ * A still of the example's run rendered in Blender at the film's 9:16, like the template previews in Xcode and
+ * GarageBand; the group icon stands in until it loads or when it is missing
+ */
+const ExampleThumbnail: React.FC<{ id: string; icon: React.ReactNode }> = (props) => {
+	const { id, icon } = props;
+	const [hasImage, setHasImage] = React.useState(true);
+	return (
+		<span
+			className="flex aspect-[9/16] w-full items-center justify-center overflow-hidden rounded-md bg-[var(--hover)] text-[var(--text-secondary)] shadow-[inset_0_0_0_0.5px_var(--separator)]"
+			aria-hidden
+		>
+			{hasImage ? (
+				<img alt="" src={`/examples/${id}.jpg`} loading="lazy" draggable={false} onError={() => setHasImage(false)} className="h-full w-full object-cover" />
+			) : (
+				icon
+			)}
+		</span>
+	);
+};
+
+const StartAction: React.FC<TStartActionProps> = (props) => {
+	const { icon, title, detail, onClick } = props;
+	return (
+		<button className="mm-row !mx-0 !h-12 text-left" onClick={onClick} type="button">
+			<span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--hover)] text-[var(--text-secondary)]">
+				{icon}
+			</span>
+			<span className="flex flex-col leading-tight">
+				<span className="font-medium">{title}</span>
+				<span className="text-[11px] text-[var(--text-secondary)]">{detail}</span>
+			</span>
+		</button>
+	);
+};
+
+interface TStartActionProps {
+	icon: React.ReactNode;
+	title: string;
+	detail: string;
+	onClick: () => void;
+}
+
+/** The folder of a project, home as ~; nothing in the browser, whose packages have no folder */
+function shortenPath(path: string): string {
+	if (!host.isDesktop()) return '';
+	return path.replace(/^\/Users\/[^/]+/, '~').replace(/\/[^/]+$/, '');
+}
+
+/** Opened time like Finder's Date Last Opened column: time today, Yesterday, then a short date */
+function formatOpened(openedAt: number): string {
+	if (!openedAt) return '';
+	const date = new Date(openedAt);
+	const today = new Date();
+	const days = Math.round((new Date(today.toDateString()).getTime() - new Date(date.toDateString()).getTime()) / 86_400_000);
+	if (days === 0) return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+	if (days === 1) return 'Yesterday';
+	return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: days > 300 ? 'numeric' : undefined });
+}

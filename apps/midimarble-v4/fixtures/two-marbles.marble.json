@@ -1,0 +1,252 @@
+{
+	"$schema": "marble-project@6",
+	"id": "two-marbles",
+	"title": "Two marbles",
+	"revision": 6,
+	"format": {
+		"width": 9,
+		"height": 16
+	},
+	"length": 2.75,
+	"gravity": 0.5,
+	"songs": [],
+	"marbles": [
+		{
+			"id": "marble-1",
+			"name": "Marble 1",
+			"labelColor": "#3478f6",
+			"sound": 9,
+			"radius": 0.012,
+			"start": {
+				"position": {
+					"x": -0.13,
+					"y": 0.6
+				},
+				"time": 0,
+				"velocity": {
+					"x": 0.65,
+					"y": 0
+				}
+			},
+			"hits": [
+				{
+					"id": "hit-1-1",
+					"time": 0.45
+				},
+				{
+					"id": "hit-1-2",
+					"time": 0.95
+				},
+				{
+					"id": "hit-1-3",
+					"time": 1.45
+				}
+			]
+		},
+		{
+			"id": "marble-2",
+			"name": "Marble 2",
+			"labelColor": "#ff9f0a",
+			"sound": 9,
+			"radius": 0.012,
+			"start": {
+				"position": {
+					"x": 0.13,
+					"y": 0.6
+				},
+				"time": 0,
+				"velocity": {
+					"x": -0.65,
+					"y": 0
+				}
+			},
+			"hits": [
+				{
+					"id": "hit-2-1",
+					"time": 0.55
+				},
+				{
+					"id": "hit-2-2",
+					"time": 1.05
+				},
+				{
+					"id": "hit-2-3",
+					"time": 1.55
+				}
+			]
+		}
+	],
+	"track": {
+		"pieces": [
+			{
+				"id": "piece-1-1",
+				"name": "Platform 1",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.41,
+					"entryDelay": 0
+				},
+				"angle": -0.2617993877991494,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-1",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-1",
+				"name": "Platform 4",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.38,
+					"entryDelay": 0
+				},
+				"angle": 0.2617993877991494,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-1",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-2",
+				"name": "Platform 2",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-2",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-2",
+				"name": "Platform 5",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.7,
+					"entryDelay": 0
+				},
+				"angle": -0.2530727415391778,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-2",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-1-3",
+				"name": "Platform 3",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": -0.2181661564992912,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-3",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-3",
+				"name": "Platform 6",
+				"type": "platform",
+				"params": {
+					"length": 0.09,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": 0.19198621771937624,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-3",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "bowl-lane-1",
+				"name": "Bowl 1",
+				"type": "bowl",
+				"params": {
+					"mirror": 0,
+					"size": 0.06,
+					"radius": 0.00375,
+					"entryDelay": 0.4583
+				},
+				"angle": 0,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-3"
+				}
+			},
+			{
+				"id": "bowl-lane-2",
+				"name": "Bowl 2",
+				"type": "bowl",
+				"params": {
+					"mirror": 1,
+					"size": 0.06,
+					"radius": 0.00375,
+					"entryDelay": 0.4458
+				},
+				"angle": 0,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-3"
+				}
+			}
+		],
+		"groups": []
+	},
+	"film": {
+		"theme": {
+			"base": "pegboard"
+		},
+		"wall": {},
+		"lights": {
+			"added": []
+		},
+		"decor": [],
+		"madeInBlender": [],
+		"titles": [],
+		"quality": "final",
+		"camera": {
+			"auto": true,
+			"distance": 0.48,
+			"sway": 1,
+			"tilt": 0.54,
+			"shots": []
+		}
+	}
+}

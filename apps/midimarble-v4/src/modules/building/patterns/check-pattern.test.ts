@@ -1,0 +1,77 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { applyProjectCommands, createProject, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
+import { createSimulator, type TSimulator } from '@/modules/simulation';
+import { checkGroupChange } from './check-pattern';
+import { runGroupChange, type TGroupRunOutcome } from './run-group';
+
+// Real fits of a few hits, which an otherwise busy machine runs several times slower
+vi.setConfig({ testTimeout: 30_000 });
+
+const MARBLE = 'marble';
+let sim: TSimulator;
+
+beforeAll(async () => {
+	sim = await createSimulator();
+});
+afterAll(() => sim.dispose());
+
+function apply(project: TProject, commands: TProjectCommand[]): TProject {
+	const [isOk, err, next] = applyProjectCommands(project, commands);
+	if (!isOk) throw err;
+	return next;
+}
+
+function smallProject(times: number[]): TProject {
+	const project = createProject({ id: 'check', title: 'Check' });
+	const marble = project.marbles[0];
+	if (marble == null) throw new Error('No marble');
+	return apply(project, [
+		{ type: 'addMarble', marble: { ...marble, id: MARBLE, hits: times.map((time, index) => ({ id: `h${index}`, time })) } },
+		{ type: 'removeMarble', marbleId: marble.id },
+		{ type: 'updateProject', patch: { length: (times.at(-1) ?? 0) + 0.6 } }
+	]);
+}
+
+const change = { marbleId: MARBLE, from: 1, to: 2.2, kind: 'zigzag' as const, width: 0.1, bounce: 0.5 };
+
+function outcomeOf(project: TProject, over: Partial<TGroupRunOutcome> = {}): TGroupRunOutcome {
+	return { ...runGroupChange(project, change, { sim }), ...over };
+}
+
+describe('checkGroupChange function', () => {
+	it('should refuse a Pattern a hit can\'t fit, naming the hit and why', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2]);
+
+		const check = checkGroupChange(project, outcomeOf(project, { blocking: [{ hitId: 'h2', words: 'The marble lands on this platform a second time.' }] }), MARBLE, sim);
+
+		expect(check.commands).toEqual([]);
+		expect(check.refusal).toEqual({ marbleId: MARBLE, hitId: 'h2', words: expect.stringContaining('Note 3 of') as string });
+		expect(check.refusal?.words).toContain('The marble lands on this platform a second time. Nothing changed.');
+	});
+
+	it('should land a Pattern that keeps the song as good as it was', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2]);
+		const outcome = outcomeOf(project);
+		expect(outcome.blocking).toEqual([]);
+
+		const check = checkGroupChange(project, outcome, MARBLE, sim);
+
+		expect(check.refusal).toBeNull();
+		expect(check.commands.length).toBeGreaterThanOrEqual(outcome.commands.length);
+		expect(sim.simulate(apply(project, check.commands)).hits.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
+	});
+
+	it('should refuse when the run after it would leave the song worse, whatever the fit said', () => {
+		const project = smallProject([1, 1.4, 1.8, 2.2]);
+		const outcome = outcomeOf(project);
+		// A piece dropped on the marble's way: the edit would land a problem the song didn't have
+		const bar = outcome.project.track.pieces.find((piece) => piece.type === 'platform') as TPiece;
+		const stray: TPiece = { ...bar, id: 'stray', name: 'Stray', place: { ...tieOf(bar)!, hitId: 'h1' } };
+		const worse = { ...outcome, project: { ...outcome.project, track: { ...outcome.project.track, pieces: [...outcome.project.track.pieces, stray] } } };
+
+		const check = checkGroupChange(project, worse, MARBLE, sim);
+
+		expect(check.commands).toEqual([]);
+		expect(check.refusal?.words).toMatch(/Zigzag doesn't fit (at Note \d+ of .+|here)\. .+\. Nothing changed\./);
+	});
+});

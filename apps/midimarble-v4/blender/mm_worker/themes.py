@@ -1,0 +1,1209 @@
+"""Themes as data: studio lighting, wall, render look and the materials default skins use.
+
+Materials are shared, app-created and keyed by name. An existing material is never changed, so a user's edit of
+an app material in Blender survives every apply. Studio objects (wall, sun, world) are re-themed only while they
+still hold what the app last wrote.
+"""
+import math
+import re
+
+import bpy
+
+from .util import parse_color
+
+DEFAULT_THEME = 'pegboard'
+
+THEMES = {
+    'pegboard': {
+        'wall': {'kind': 'pegboard'},
+        # Travel direction of the sunlight in wall terms: right, into the wall, down
+        'sun': {'energy': 3.2, 'angle': 12.0, 'color': (1.0, 0.96, 0.9), 'direction': (0.62, 0.62, -0.48)},
+        'world': {'color': (0.72, 0.74, 0.78), 'strength': 0.55},
+        'look': 'AgX - Base Contrast',
+        'exposure': 0.0,
+        'flat': {'exposure': 0.05, 'sheen': 0.025, 'wallSheen': 0.018},
+        'fstop': 32.0,
+        'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
+    },
+    'brass': {
+        'wall': {'kind': 'plaster', 'color': (0.385, 0.34, 0.50)},
+        # A wide sun from the upper right, mostly into the wall, and a stronger fill: short soft shadows to the lower
+        # left of each piece like the reference's, not long streaks from the posts
+        'sun': {'energy': 3.0, 'angle': 40.0, 'color': (1.0, 0.95, 0.88), 'direction': (-0.40, 0.80, -0.45)},
+        'world': {'color': (0.53, 0.50, 0.62), 'strength': 1.0, 'studio': True},
+        'look': 'AgX - Medium High Contrast',
+        'exposure': -1.25,
+        # Flat Light's shadows fall short and to the lower left, as the sun's do
+        'flat': {'exposure': 0.62, 'sheen': 0.025, 'wallSheen': 0.0, 'light': (0.35, 0.45, 0.82)},
+        'fstop': 32.0,
+        'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 0.0},
+    },
+    'neon': {
+        # Deep navy wall with a faint grid; saturated glossy pieces whose front trim glows and flashes on a hit
+        'wall': {'kind': 'neon', 'color': (0.006, 0.008, 0.02), 'grid': (0.013, 0.019, 0.05)},
+        # A cool key from the upper left; the dark wall keeps its shadows from reading as dirt
+        'sun': {'energy': 2.6, 'angle': 10.0, 'color': (0.86, 0.92, 1.0), 'direction': (0.55, 0.62, -0.56)},
+        # Studio patches give the glossy marbles and bodies their highlights; the navy keeps the fill cool
+        'world': {'color': (0.05, 0.06, 0.12), 'strength': 0.7, 'studio': True},
+        # Back light: a second sun from behind the pieces that only catches their top and side edges
+        'rim': {'energy': 4.0, 'angle': 8.0, 'color': (0.7, 0.85, 1.0), 'direction': (-0.35, -0.75, -0.55)},
+        'look': 'AgX - Punchy',
+        'exposure': 0.0,
+        'flat': {'exposure': 0.4, 'sheen': 0.012, 'wallSheen': 0.008},
+        'fstop': 32.0,
+        'reactions': {'dip': 3.0, 'press': 0.0012, 'flash': 9.0},
+    },
+}
+
+
+# Colors a project theme changes on top of its base, as `#rrggbb` display values; the same fields as
+# `TSceneThemeOverrides` in scene-description.ts. Set for one apply by `set_overrides`.
+OVERRIDE_FIELDS = ('wallColor', 'lightColor', 'glowColor', 'backgroundColor')
+_overrides = {}
+
+
+def clean_overrides(overrides):
+    """The valid `#rrggbb` fields of a scene description's `themeOverrides`, lowercased"""
+    cleaned = {}
+    for field in OVERRIDE_FIELDS:
+        value = (overrides or {}).get(field) if isinstance(overrides, dict) else None
+        if isinstance(value, str) and len(value) == 7 and value.startswith('#'):
+            try:
+                int(value[1:], 16)
+            except ValueError:
+                continue
+            cleaned[field] = value.lower()
+    return cleaned
+
+
+def grid_color(wall):
+    """The grid lines of a Grid wall: a faint lighter shade of the wall"""
+    return tuple(min(1.0, channel * 2.4 + 0.004) for channel in wall[:3])
+
+
+# The Wall layer's Skin and the Key Light layer's pose on top of the theme: `wallKind` and `keyLight` of the scene
+# description, set for one apply by `set_scene_look`. Grid is the Neon wall's lit grid.
+WALL_KINDS = {'plain': 'plain', 'plaster': 'plaster', 'pegboard': 'pegboard', 'grid': 'neon'}
+# The Key Light's Softness runs from a point sun to this angle in degrees; `softnessOf` in scene-layers.ts reads a theme's
+MAX_SUN_ANGLE = 60.0
+_scene_look = {}
+
+# The Key Light's `pool` at full: a soft spot that hangs from the camera, up and to the right of the view, aimed back at
+# what the camera looks at about `reach` meters away, and how much of the sun and the world's fill it takes the place of
+POOL = {'energy': 16.0, 'angle': 75.0, 'radius': 0.15, 'offset': (0.12, 0.18, 0.0), 'reach': 0.55}
+POOL_SUN_SHARE = 0.7
+POOL_WORLD_SHARE = 0.55
+# What a full pool's film comes down in Flat Light, measured against its Fast frames
+POOL_FLAT_STOPS = 1.0
+
+
+def set_scene_look(wall_kind, key_light):
+    """The valid `wallKind` and `keyLight` fields of a scene description for the apply that follows"""
+    global _scene_look
+    look = {}
+    if wall_kind in WALL_KINDS:
+        look['wallKind'] = wall_kind
+    for field in ('strength', 'side', 'height', 'softness', 'exposure', 'bloom', 'pool'):
+        value = key_light.get(field) if isinstance(key_light, dict) else None
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
+            look[field] = float(value)
+    _scene_look = look
+
+
+def sun_direction(side, height):
+    """Travel direction (right, into the wall, up) of a sun at Side and Height: shares of a quarter turn from
+    straight in front of the wall, left and below negative. `lightPlacement` in scene-layers.ts is the inverse."""
+    across, up = side * math.pi / 2, height * math.pi / 2
+    return (-math.sin(across) * math.cos(up), math.cos(across) * math.cos(up), -math.sin(up))
+
+
+def sun_placement(direction):
+    """Side and Height of a sun whose light travels along `direction`"""
+    length = math.sqrt(sum(value * value for value in direction)) or 1.0
+    return math.atan2(-direction[0], direction[1]) / (math.pi / 2), math.asin(-direction[2] / length) / (math.pi / 2)
+
+
+def _with_scene_look(settings):
+    if not _scene_look:
+        return settings
+    settings = {key: dict(value) if isinstance(value, dict) else value for key, value in settings.items()}
+    if 'wallKind' in _scene_look:
+        settings['wall']['kind'] = WALL_KINDS[_scene_look['wallKind']]
+    if 'strength' in _scene_look:
+        settings['sun']['energy'] = _scene_look['strength']
+    if 'softness' in _scene_look:
+        settings['sun']['angle'] = max(0.0, min(1.0, _scene_look['softness'])) * MAX_SUN_ANGLE
+    if 'side' in _scene_look or 'height' in _scene_look:
+        side, height = sun_placement(settings['sun']['direction'])
+        settings['sun']['direction'] = sun_direction(_scene_look.get('side', side), _scene_look.get('height', height))
+    if 'exposure' in _scene_look:
+        settings['exposure'] = settings['exposure'] + _scene_look['exposure']
+    if 'bloom' in _scene_look:
+        settings['bloom'] = max(0.0, min(1.0, _scene_look['bloom']))
+    if _scene_look.get('pool', 0.0) > 0.0:
+        # What the pool adds comes off the even light, or the wall would just get brighter instead of falling off
+        share = min(1.0, _scene_look['pool'])
+        settings['pool'] = {**POOL, 'energy': POOL['energy'] * share}
+        settings['sun']['energy'] *= 1.0 - POOL_SUN_SHARE * share
+        settings['world']['strength'] *= 1.0 - POOL_WORLD_SHARE * share
+    return settings
+
+
+def set_overrides(overrides):
+    """Project theme colors for the apply that follows; None or {} draws the built-in theme as it is"""
+    global _overrides
+    _overrides = clean_overrides(overrides)
+
+
+def resolve_theme(name, overrides=None):
+    """Settings of a built-in theme with a project theme's colors on top. Mirrors `resolveTheme` and
+    `sceneThemeOverrides` in project-themes.ts: the base keeps its skins, reactions and render look."""
+    base = THEMES.get(name) or THEMES[DEFAULT_THEME]
+    overrides = clean_overrides(overrides)
+    if not overrides:
+        return base
+    settings = {key: dict(value) if isinstance(value, dict) else value for key, value in base.items()}
+    if 'wallColor' in overrides:
+        settings['wall']['color'] = parse_color(overrides['wallColor'])[:3]
+        if 'grid' in settings['wall']:
+            settings['wall']['grid'] = grid_color(settings['wall']['color'])
+    if 'lightColor' in overrides:
+        settings['sun']['color'] = parse_color(overrides['lightColor'])[:3]
+    if 'backgroundColor' in overrides:
+        settings['world']['color'] = parse_color(overrides['backgroundColor'])[:3]
+        settings['world']['tinted'] = True
+    if 'glowColor' in overrides:
+        settings['glow'] = parse_color(overrides['glowColor'])[:3]
+    return settings
+
+
+def theme_settings(name):
+    return _with_scene_look(resolve_theme(name, _overrides))
+
+
+def theme_name(name):
+    return name if name in THEMES else DEFAULT_THEME
+
+
+def theme_key(name):
+    """What the studio was last themed with: the base name, plus the project theme's colors when it has any"""
+    name = theme_name(name)
+    parts = {**_overrides, **_scene_look}
+    if not parts:
+        return name
+    return name + ' ' + ' '.join('%s=%s' % (field, parts[field]) for field in sorted(parts))
+
+
+def flat_look(key):
+    """(stops, sheen, wall sheen) Flat Light adds in the theme of `theme_key`: to the scene's exposure, for the light Eevee's
+    sun and world put on a wall facing the camera, and to the color of a painted surface, for its satin reflections. A wall
+    reflects the room whatever its color, which only shows on a dark wall or a dark channel, so it gets more. Measured per
+    theme against Fast frames; a project theme keeps its base's values. Flat Light has no pool of light, so a film with one
+    comes down to about the middle of the wall it lights."""
+    flat = THEMES.get(str(key).split(' ')[0], {}).get('flat', {})
+    pool = re.search(r'\bpool=([0-9.]+)', str(key))
+    stops = flat.get('exposure', 0.0) - (POOL_FLAT_STOPS * float(pool.group(1)) if pool else 0.0)
+    return stops, flat.get('sheen', 0.0), flat.get('wallSheen', 0.0)
+
+
+def flat_light(key, default):
+    """Flat Light's light direction in the theme of `theme_key`, in view space: where its sun throws a piece's shadow, so
+    Draft and Final agree on which side the shadows fall. `default` serves a theme without its own."""
+    return THEMES.get(str(key).split(' ')[0], {}).get('flat', {}).get('light', default)
+
+
+# Materials
+
+
+def _new_material(name):
+    material = bpy.data.materials.new(name)
+    material['mm_owner'] = 'midimarble'
+    material.use_nodes = True
+    return material
+
+
+def _principled(material):
+    return material.node_tree.nodes.get('Principled BSDF')
+
+
+def _set(principled, name, value):
+    socket = principled.inputs.get(name)
+    if socket is not None:
+        socket.default_value = value
+
+
+def _shared(name, build):
+    existing = bpy.data.materials.get(name)
+    if existing is not None:
+        return existing
+    material = _new_material(name)
+    build(material)
+    return material
+
+
+def _flash_emission(material, color):
+    """Emission driven by the object property `mm_flash` that reaction drivers set"""
+    tree = material.node_tree
+    principled = _principled(material)
+    attribute = tree.nodes.new('ShaderNodeAttribute')
+    attribute.attribute_type = 'OBJECT'
+    attribute.attribute_name = 'mm_flash'
+    tree.links.new(attribute.outputs['Fac'], principled.inputs['Emission Strength'])
+    _set(principled, 'Emission Color', color)
+
+
+def flat_material(color, roughness=0.5, coat=0.0, flash=True):
+    """Pegboard toy material: a flat color with an optional clear coat"""
+    def build(material):
+        linear = parse_color(color)
+        material.diffuse_color = linear
+        principled = _principled(material)
+        _set(principled, 'Base Color', linear)
+        _set(principled, 'Roughness', roughness)
+        _set(principled, 'Coat Weight', coat)
+        _set(principled, 'Coat Roughness', 0.08)
+        if flash:
+            _flash_emission(material, linear)
+    return _shared('MM · flat ' + color + ' r%.2f c%.1f' % (roughness, coat), build)
+
+
+def wood_material():
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        coordinates = tree.nodes.new('ShaderNodeTexCoord')
+        wave = tree.nodes.new('ShaderNodeTexWave')
+        wave.inputs['Scale'].default_value = 180.0
+        wave.inputs['Distortion'].default_value = 6.0
+        ramp = tree.nodes.new('ShaderNodeValToRGB')
+        ramp.color_ramp.elements[0].color = (0.42, 0.24, 0.10, 1.0)
+        ramp.color_ramp.elements[1].color = (0.62, 0.40, 0.20, 1.0)
+        tree.links.new(coordinates.outputs['Object'], wave.inputs['Vector'])
+        tree.links.new(wave.outputs['Fac'], ramp.inputs['Fac'])
+        tree.links.new(ramp.outputs['Color'], principled.inputs['Base Color'])
+        _set(principled, 'Roughness', 0.55)
+        material.diffuse_color = (0.55, 0.35, 0.18, 1.0)
+    return _shared('MM · wood', build)
+
+
+# Bar finishes: base color, metallic, roughness range and coat. Gold is the reference's brushed brass.
+FINISHES = {
+    'gold': {'base': (0.80, 0.50, 0.13), 'metallic': 1.0, 'roughness': (0.10, 0.18), 'coat': 0.0},
+    'copper': {'base': (0.93, 0.42, 0.24), 'metallic': 1.0, 'roughness': (0.22, 0.36), 'coat': 0.0},
+    'silver': {'base': (0.46, 0.48, 0.52), 'metallic': 1.0, 'roughness': (0.14, 0.26), 'coat': 0.0},
+    'dark': {'base': (0.035, 0.038, 0.045), 'metallic': 0.0, 'roughness': (0.30, 0.42), 'coat': 0.6},
+}
+
+
+def brass_material():
+    return bar_material('gold')
+
+
+def bar_material(finish):
+    """Brushed bar metal: streaked roughness along the bar (object X) with anisotropic highlights"""
+    finish = finish if finish in FINISHES else 'gold'
+    spec = FINISHES[finish]
+
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        base = (*spec['base'], 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Metallic', spec['metallic'])
+        _set(principled, 'Anisotropic', 0.6 if spec['metallic'] else 0.0)
+        _set(principled, 'Coat Weight', spec['coat'])
+        _set(principled, 'Coat Roughness', 0.05)
+        coordinates = tree.nodes.new('ShaderNodeTexCoord')
+        mapping = tree.nodes.new('ShaderNodeMapping')
+        mapping.inputs['Scale'].default_value = (3.0, 1400.0, 1400.0)
+        noise = tree.nodes.new('ShaderNodeTexNoise')
+        noise.inputs['Scale'].default_value = 1.0
+        noise.inputs['Detail'].default_value = 6.0
+        roughness = tree.nodes.new('ShaderNodeMapRange')
+        roughness.inputs['From Min'].default_value = 0.3
+        roughness.inputs['From Max'].default_value = 0.7
+        roughness.inputs['To Min'].default_value = spec['roughness'][0]
+        roughness.inputs['To Max'].default_value = spec['roughness'][1]
+        tree.links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
+        tree.links.new(mapping.outputs['Vector'], noise.inputs['Vector'])
+        tree.links.new(noise.outputs['Fac'], roughness.inputs['Value'])
+        tree.links.new(roughness.outputs['Result'], principled.inputs['Roughness'])
+        # Brushing streaks also darken the base slightly so the grain reads at film resolution
+        grain = tree.nodes.new('ShaderNodeMix')
+        grain.data_type = 'RGBA'
+        grain.blend_type = 'MULTIPLY'
+        grain.inputs['Factor'].default_value = 0.1
+        grain.inputs['A'].default_value = base
+        tree.links.new(noise.outputs['Color'], grain.inputs['B'])
+        tree.links.new(grain.outputs['Result'], principled.inputs['Base Color'])
+        tangent = tree.nodes.new('ShaderNodeTangent')
+        tangent.direction_type = 'RADIAL'
+        tangent.axis = 'X'
+        tree.links.new(tangent.outputs['Tangent'], principled.inputs['Tangent'])
+        _flash_emission(material, base)
+    return _shared('MM · brass' if finish == 'gold' else 'MM · bar ' + finish, build)
+
+
+def plastic_material(name, color, roughness, coat=0.0, flash=False):
+    """Smooth plastic such as a white key or a grille's dark inside"""
+    def build(material):
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        principled = _principled(material)
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', roughness)
+        _set(principled, 'Coat Weight', coat)
+        _set(principled, 'Coat Roughness', 0.05)
+        if flash:
+            _flash_emission(material, base)
+    return _shared('MM · ' + name, build)
+
+
+# Note colors for Color by Note, one per pitch class from C, after the boomwhacker color wheel
+NOTE_COLORS = (
+    (0.86, 0.12, 0.12), (0.93, 0.33, 0.10), (0.98, 0.55, 0.10), (0.98, 0.75, 0.12),
+    (0.95, 0.87, 0.16), (0.60, 0.84, 0.18), (0.20, 0.70, 0.32), (0.12, 0.62, 0.62),
+    (0.18, 0.42, 0.86), (0.44, 0.26, 0.82), (0.64, 0.22, 0.74), (0.88, 0.26, 0.58),
+)
+NOTE_NAMES = ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B')
+
+
+def note_color(pitch):
+    """Linear color of a MIDI pitch's pitch class, or None without a pitch. The table is in display (sRGB) values,
+    so it is converted to the linear values Blender's shaders expect; that keeps the colors saturated"""
+    if pitch is None:
+        return None
+    return tuple(_srgb_to_linear(value) for value in NOTE_COLORS[int(round(pitch)) % 12])
+
+
+def note_material(pitch):
+    """Glossy colored plastic like a boomwhacker tube, shared per pitch class; flashes on a hit"""
+    index = int(round(pitch)) % 12
+    return plastic_material('note ' + NOTE_NAMES[index], note_color(index), 0.26, coat=0.7, flash=True)
+
+
+def _srgb_to_linear(value):
+    return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+
+def key_material():
+    return plastic_material('key', (0.86, 0.87, 0.88), 0.22, coat=0.4, flash=True)
+
+
+def housing_material():
+    """Dark coated device housing; it never flashes, so a glowing lens on it stays the only light"""
+    return plastic_material('housing', (0.035, 0.038, 0.045), 0.34, coat=0.6)
+
+
+def slot_material():
+    return plastic_material('slot', (0.012, 0.012, 0.016), 0.6)
+
+
+def glow_material(color, idle=1.6):
+    """Lit lens: a steady glow of strength `idle` that the reaction's `mm_flash` raises"""
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.18)
+        _set(principled, 'Coat Weight', 1.0)
+        _set(principled, 'Coat Roughness', 0.03)
+        _set(principled, 'Emission Color', base)
+        attribute = tree.nodes.new('ShaderNodeAttribute')
+        attribute.attribute_type = 'OBJECT'
+        attribute.attribute_name = 'mm_flash'
+        strength = tree.nodes.new('ShaderNodeMath')
+        strength.operation = 'ADD'
+        strength.inputs[1].default_value = idle
+        tree.links.new(attribute.outputs['Fac'], strength.inputs[0])
+        tree.links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · glow %.2f %.2f %.2f' % color, build)
+
+
+def chrome_material():
+    def build(material):
+        principled = _principled(material)
+        base = (0.88, 0.89, 0.92, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Metallic', 1.0)
+        _set(principled, 'Roughness', 0.09)
+    return _shared('MM · chrome', build)
+
+
+def wire_material():
+    """Chrome for a Rail's thin wires and posts: darker than a plate's, as a pale mirror of a pale wall vanishes against it"""
+    def build(material):
+        principled = _principled(material)
+        base = (0.62, 0.63, 0.66, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Metallic', 1.0)
+        _set(principled, 'Roughness', 0.05)
+    return _shared('MM · wire', build)
+
+
+def frosted_material():
+    """Satin frosted metal tube; opaque so the marble disappears inside it like in the film"""
+    def build(material):
+        principled = _principled(material)
+        base = (0.80, 0.82, 0.87, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Metallic', 0.65)
+        _set(principled, 'Roughness', 0.38)
+        _set(principled, 'Coat Weight', 0.5)
+        _set(principled, 'Coat Roughness', 0.1)
+    return _shared('MM · frosted tube', build)
+
+
+def glass_marble_material(color):
+    """Clear glass marble: the wall shows through it tinted, with a dark colored edge where the glass bends the wall away, light
+    gathered low in the ball, a thin pale ribbon inside, and crisp arcs of the studio on top"""
+    from . import skin_materials as paint
+
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        output = nodes.get('Material Output')
+        nodes.remove(_principled(material))
+        material.diffuse_color = (*paint._hue(color, 0.5, 0.8), 1.0)
+        clear = nodes.new('ShaderNodeBsdfTransparent')
+        clear.inputs['Color'].default_value = (*paint._hue(color, 0.86, 0.72), 1.0)
+        # A thin ribbon inside: mostly clear
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        wave = nodes.new('ShaderNodeTexWave')
+        wave.wave_type = 'BANDS'
+        wave.bands_direction = 'DIAGONAL'
+        wave.inputs['Scale'].default_value = 1.1
+        wave.inputs['Distortion'].default_value = 4.0
+        wave.inputs['Detail'].default_value = 1.5
+        links.new(coordinates.outputs['Generated'], wave.inputs['Vector'])
+        ribbon = paint._math(tree, 'MULTIPLY', paint._range(tree, wave.outputs['Fac'], 0.70, 0.72), paint._math(tree, 'SUBTRACT', 1.0, paint._range(tree, wave.outputs['Fac'], 0.76, 0.78)))
+        pale = nodes.new('ShaderNodeEmission')
+        pale.inputs['Color'].default_value = (*paint._hue(color, 1.0, 0.35), 1.0)
+        pale.inputs['Strength'].default_value = 0.5
+        through = nodes.new('ShaderNodeMixShader')
+        links.new(paint._math(tree, 'MULTIPLY', ribbon, 0.28), through.inputs['Fac'])
+        links.new(clear.outputs[0], through.inputs[1])
+        links.new(pale.outputs[0], through.inputs[2])
+        # The dark edge
+        edge = nodes.new('ShaderNodeBsdfDiffuse')
+        edge.inputs['Color'].default_value = (*paint._hue(color, 0.09, 0.95), 1.0)
+        weight = nodes.new('ShaderNodeLayerWeight')
+        weight.inputs['Blend'].default_value = 0.5
+        rim = nodes.new('ShaderNodeMixShader')
+        links.new(paint._math(tree, 'MULTIPLY', paint._range(tree, weight.outputs['Facing'], 0.42, 0.72), 0.95), rim.inputs['Fac'])
+        links.new(through.outputs[0], rim.inputs[1])
+        links.new(edge.outputs[0], rim.inputs[2])
+        # Light gathered in the lower right of the ball
+        normal = paint._camera_normal(tree)
+        dot = nodes.new('ShaderNodeVectorMath')
+        dot.operation = 'DOT_PRODUCT'
+        links.new(normal, dot.inputs[0])
+        dot.inputs[1].default_value = (0.42, -0.72, -0.55)
+        gather = nodes.new('ShaderNodeEmission')
+        gather.inputs['Color'].default_value = (*paint._hue(color, 1.0, 0.62), 1.0)
+        links.new(paint._math(tree, 'MULTIPLY', paint._range(tree, dot.outputs['Value'], 0.45, 0.98), 0.55), gather.inputs['Strength'])
+        # Crisp arcs: a band of sky along the top edge and a small window, hard edged. Facing the camera, a camera-space
+        # normal's z is about -1 here
+        arcs = nodes.new('ShaderNodeEmission')
+        separate = nodes.new('ShaderNodeSeparateXYZ')
+        links.new(normal, separate.inputs['Vector'])
+        band = paint._math(tree, 'MULTIPLY', paint._range(tree, separate.outputs['Y'], 0.80, 0.82), paint._math(tree, 'SUBTRACT', 1.0, paint._range(tree, separate.outputs['Y'], 0.85, 0.87)))
+        window = nodes.new('ShaderNodeVectorMath')
+        window.operation = 'DOT_PRODUCT'
+        links.new(normal, window.inputs[0])
+        window.inputs[1].default_value = (-0.42, 0.58, -0.70)
+        spot = paint._range(tree, window.outputs['Value'], 0.982, 0.988)
+        links.new(paint._math(tree, 'ADD', paint._math(tree, 'MULTIPLY', band, 0.9), paint._math(tree, 'MULTIPLY', spot, 5.0)), arcs.inputs['Strength'])
+        add = nodes.new('ShaderNodeAddShader')
+        links.new(gather.outputs[0], add.inputs[0])
+        links.new(arcs.outputs[0], add.inputs[1])
+        total = nodes.new('ShaderNodeAddShader')
+        links.new(rim.outputs[0], total.inputs[0])
+        links.new(add.outputs[0], total.inputs[1])
+        links.new(total.outputs[0], output.inputs['Surface'])
+        paint._blended(material)
+    return _shared('MM · glass marble ' + color, build)
+
+
+# How strongly the clear marble's color core and gathered light shine. Emission, so it holds under any theme's exposure
+CLEAR_MARBLE_CORE = 3.6
+CLEAR_MARBLE_GATHER = 1.6
+
+
+def clear_marble_material(color):
+    """Brass's marble, the film's hero: nearly clear glass that bends the wall behind it, so it stays as bright as the wall,
+    with a band of its color wound through the middle, light gathered low in the ball and a window on top. At about 7 % of
+    the frame the color and the highlights are what reads. Eevee refracts it through its ray tracing; Cycles through the glass
+    itself."""
+    from . import skin_materials as paint
+
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        material.diffuse_color = (*paint._hue(color, 0.5, 0.8), 1.0)
+        _set(principled, 'Base Color', (*paint._hue(color, 1.0, 0.12), 1.0))
+        _set(principled, 'Roughness', 0.02)
+        _set(principled, 'IOR', 1.45)
+        _set(principled, 'Transmission Weight', 1.0)
+        # The core: bands of the marble's color, only in the middle of the ball, where glass looks deepest
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        bands = nodes.new('ShaderNodeTexNoise')
+        bands.inputs['Scale'].default_value = 3.2
+        bands.inputs['Detail'].default_value = 1.0
+        links.new(coordinates.outputs['Generated'], bands.inputs['Vector'])
+        weight = nodes.new('ShaderNodeLayerWeight')
+        weight.inputs['Blend'].default_value = 0.5
+        inside = paint._math(tree, 'SUBTRACT', 1.0, paint._range(tree, weight.outputs['Facing'], 0.25, 0.72))
+        core = nodes.new('ShaderNodeEmission')
+        core.inputs['Color'].default_value = (*paint._hue(color, 1.0, 1.0), 1.0)
+        links.new(paint._math(tree, 'MULTIPLY', paint._math(tree, 'MULTIPLY', paint._range(tree, bands.outputs['Fac'], 0.40, 0.56), inside), CLEAR_MARBLE_CORE), core.inputs['Strength'])
+        # Light gathered in the lower right of the ball, as the glass focuses the room
+        dot = nodes.new('ShaderNodeVectorMath')
+        dot.operation = 'DOT_PRODUCT'
+        links.new(paint._camera_normal(tree), dot.inputs[0])
+        dot.inputs[1].default_value = (0.42, -0.72, -0.55)
+        gather = nodes.new('ShaderNodeEmission')
+        gather.inputs['Color'].default_value = (*paint._hue(color, 1.0, 0.35), 1.0)
+        links.new(paint._math(tree, 'MULTIPLY', paint._range(tree, dot.outputs['Value'], 0.55, 0.98), CLEAR_MARBLE_GATHER), gather.inputs['Strength'])
+        # The painted studio's softbox and window on top, so it reads as glass whatever the room shows
+        studio = nodes.new('ShaderNodeEmission')
+        links.new(paint.painted_studio(tree, horizon=False), studio.inputs['Color'])
+        total = principled.outputs[0]
+        for light in (core, gather, studio):
+            add = nodes.new('ShaderNodeAddShader')
+            links.new(total, add.inputs[0])
+            links.new(light.outputs[0], add.inputs[1])
+            total = add.outputs[0]
+        links.new(total, nodes['Material Output'].inputs['Surface'])
+        if hasattr(material, 'use_raytrace_refraction'):
+            material.use_raytrace_refraction = True
+        if hasattr(material, 'thickness_mode'):
+            material.thickness_mode = 'SPHERE'
+    return _shared('MM · clear marble ' + color, build)
+
+
+def glossy_marble_material(color):
+    def build(material):
+        linear = parse_color(color)
+        material.diffuse_color = linear
+        principled = _principled(material)
+        _set(principled, 'Base Color', linear)
+        _set(principled, 'Roughness', 0.12)
+        _set(principled, 'Coat Weight', 0.6)
+    return _shared('MM · marble ' + color, build)
+
+
+def _wall_name(name, color, default):
+    """A wall material per color; the base theme's own color keeps the original name"""
+    if default is not None and all(abs(a - b) < 1e-4 for a, b in zip(color, default)):
+        return name
+    return name + ' %.4f %.4f %.4f' % tuple(color[:3])
+
+
+def plain_wall_material(color):
+    """One smooth color: the Wall skin that turns a theme's pattern off"""
+    def build(material):
+        principled = _principled(material)
+        material.diffuse_color = (*color, 1.0)
+        _set(principled, 'Base Color', (*color, 1.0))
+        _set(principled, 'Roughness', 0.88)
+    return _shared(_wall_name('MM · wall plain', color, None), build)
+
+
+PLASTER_WASH_SCALE = 1.4
+PLASTER_WASH = (0.80, 1.12)
+PLASTER_CONTACT_DISTANCE = 0.08
+PLASTER_CONTACT = 0.35
+
+
+def plaster_wall_material(color):
+    """Matte painted wall with low-frequency mottling and a fine bump"""
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        mottle = nodes.new('ShaderNodeTexNoise')
+        mottle.inputs['Scale'].default_value = 6.0
+        mottle.inputs['Detail'].default_value = 3.0
+        tint = nodes.new('ShaderNodeMix')
+        tint.data_type = 'RGBA'
+        tint.inputs['A'].default_value = tuple(channel * 0.94 for channel in color) + (1.0,)
+        tint.inputs['B'].default_value = tuple(min(1.0, channel * 1.04) for channel in color) + (1.0,)
+        links.new(coordinates.outputs['Object'], mottle.inputs['Vector'])
+        links.new(mottle.outputs['Fac'], tint.inputs['Factor'])
+        # A wash much larger than the frame, so the light across the frame falls off like a lit room's
+        wash = nodes.new('ShaderNodeTexNoise')
+        wash.inputs['Scale'].default_value = PLASTER_WASH_SCALE
+        wash.inputs['Detail'].default_value = 0.0
+        washed = nodes.new('ShaderNodeMapRange')
+        washed.inputs['From Min'].default_value = 0.35
+        washed.inputs['From Max'].default_value = 0.65
+        washed.inputs['To Min'].default_value = PLASTER_WASH[0]
+        washed.inputs['To Max'].default_value = PLASTER_WASH[1]
+        multiply = nodes.new('ShaderNodeVectorMath')
+        multiply.operation = 'SCALE'
+        links.new(coordinates.outputs['Object'], wash.inputs['Vector'])
+        links.new(wash.outputs['Fac'], washed.inputs['Value'])
+        links.new(tint.outputs['Result'], multiply.inputs[0])
+        links.new(washed.outputs['Result'], multiply.inputs['Scale'])
+        # Darkens the wall right beside what stands on it, as the room's light can't reach there
+        occlusion = nodes.new('ShaderNodeAmbientOcclusion')
+        occlusion.samples = 8
+        occlusion.inputs['Distance'].default_value = PLASTER_CONTACT_DISTANCE
+        contact = nodes.new('ShaderNodeMapRange')
+        contact.inputs['To Min'].default_value = PLASTER_CONTACT
+        links.new(occlusion.outputs['AO'], contact.inputs['Value'])
+        darkened = nodes.new('ShaderNodeVectorMath')
+        darkened.operation = 'SCALE'
+        links.new(multiply.outputs[0], darkened.inputs[0])
+        links.new(contact.outputs['Result'], darkened.inputs['Scale'])
+        links.new(darkened.outputs[0], principled.inputs['Base Color'])
+        grain = nodes.new('ShaderNodeTexNoise')
+        grain.inputs['Scale'].default_value = 900.0
+        grain.inputs['Detail'].default_value = 2.0
+        bump = nodes.new('ShaderNodeBump')
+        bump.inputs['Strength'].default_value = 0.08
+        bump.inputs['Distance'].default_value = 0.0003
+        links.new(coordinates.outputs['Object'], grain.inputs['Vector'])
+        links.new(grain.outputs['Fac'], bump.inputs['Height'])
+        links.new(bump.outputs['Normal'], principled.inputs['Normal'])
+        _set(principled, 'Roughness', 0.88)
+    return _shared(_wall_name('MM · wall plaster', color, THEMES['brass']['wall']['color']), build)
+
+
+PEGBOARD_COLOR = (0.58, 0.42, 0.26)
+
+
+def pegboard_wall_material(pitch, color=PEGBOARD_COLOR):
+    """Hardboard in `color` with recessed peg holes on a regular grid"""
+    color = tuple(color[:3])
+
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        material.diffuse_color = (*(channel * 0.95 for channel in color), 1.0)
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        mapping = nodes.new('ShaderNodeMapping')
+        mapping.inputs['Scale'].default_value = (1 / pitch, 1 / pitch, 1.0)
+        fraction = nodes.new('ShaderNodeVectorMath')
+        fraction.operation = 'FRACTION'
+        center = nodes.new('ShaderNodeVectorMath')
+        center.operation = 'SUBTRACT'
+        center.inputs[1].default_value = (0.5, 0.5, 0.0)
+        length = nodes.new('ShaderNodeVectorMath')
+        length.operation = 'LENGTH'
+        ramp = nodes.new('ShaderNodeValToRGB')
+        ramp.color_ramp.interpolation = 'EASE'
+        ramp.color_ramp.elements[0].position = 0.13
+        ramp.color_ramp.elements[0].color = (0.03, 0.02, 0.015, 1.0)
+        ramp.color_ramp.elements[1].position = 0.16
+        ramp.color_ramp.elements[1].color = (*color, 1.0)
+        links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
+        links.new(mapping.outputs['Vector'], fraction.inputs[0])
+        links.new(fraction.outputs['Vector'], center.inputs[0])
+        links.new(center.outputs['Vector'], length.inputs[0])
+        links.new(length.outputs['Value'], ramp.inputs['Fac'])
+        grain = nodes.new('ShaderNodeTexNoise')
+        grain.inputs['Scale'].default_value = 400.0
+        tint = nodes.new('ShaderNodeMix')
+        tint.data_type = 'RGBA'
+        tint.blend_type = 'MULTIPLY'
+        tint.inputs['Factor'].default_value = 0.15
+        links.new(coordinates.outputs['Object'], grain.inputs['Vector'])
+        links.new(ramp.outputs['Color'], tint.inputs['A'])
+        links.new(grain.outputs['Color'], tint.inputs['B'])
+        links.new(tint.outputs['Result'], principled.inputs['Base Color'])
+        bump = nodes.new('ShaderNodeBump')
+        bump.inputs['Strength'].default_value = 0.6
+        bump.inputs['Distance'].default_value = 0.002
+        links.new(ramp.outputs['Alpha'], bump.inputs['Height'])
+        links.new(bump.outputs['Normal'], principled.inputs['Normal'])
+        _set(principled, 'Roughness', 0.8)
+    return _shared(_wall_name('MM · pegboard', color, PEGBOARD_COLOR), build)
+
+
+def neon_wall_material(color, grid, spacing=0.05):
+    """Deep navy wall with faint grid lines every `spacing` meters and a soft satin sheen"""
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        material.diffuse_color = (*color, 1.0)
+        coordinates = nodes.new('ShaderNodeTexCoord')
+        mapping = nodes.new('ShaderNodeMapping')
+        mapping.inputs['Scale'].default_value = (1 / spacing, 1 / spacing, 1.0)
+        # Distance to the nearest grid line along x and y, as a share of the cell
+        fraction = nodes.new('ShaderNodeVectorMath')
+        fraction.operation = 'FRACTION'
+        center = nodes.new('ShaderNodeVectorMath')
+        center.operation = 'SUBTRACT'
+        center.inputs[1].default_value = (0.5, 0.5, 0.0)
+        absolute = nodes.new('ShaderNodeVectorMath')
+        absolute.operation = 'ABSOLUTE'
+        separate = nodes.new('ShaderNodeSeparateXYZ')
+        nearest = nodes.new('ShaderNodeMath')
+        nearest.operation = 'MAXIMUM'
+        line = nodes.new('ShaderNodeMapRange')
+        line.inputs['From Min'].default_value = 0.485
+        line.inputs['From Max'].default_value = 0.5
+        links.new(coordinates.outputs['Object'], mapping.inputs['Vector'])
+        links.new(mapping.outputs['Vector'], fraction.inputs[0])
+        links.new(fraction.outputs['Vector'], center.inputs[0])
+        links.new(center.outputs['Vector'], absolute.inputs[0])
+        links.new(absolute.outputs['Vector'], separate.inputs['Vector'])
+        links.new(separate.outputs['X'], nearest.inputs[0])
+        links.new(separate.outputs['Y'], nearest.inputs[1])
+        links.new(nearest.outputs['Value'], line.inputs['Value'])
+        # Low-frequency mottling so the dark wall reads as a surface, not a void
+        mottle = nodes.new('ShaderNodeTexNoise')
+        mottle.inputs['Scale'].default_value = 5.0
+        mottle.inputs['Detail'].default_value = 2.0
+        base = nodes.new('ShaderNodeMix')
+        base.data_type = 'RGBA'
+        base.inputs['A'].default_value = tuple(channel * 0.8 for channel in color) + (1.0,)
+        base.inputs['B'].default_value = tuple(channel * 1.25 for channel in color) + (1.0,)
+        links.new(coordinates.outputs['Object'], mottle.inputs['Vector'])
+        links.new(mottle.outputs['Fac'], base.inputs['Factor'])
+        tint = nodes.new('ShaderNodeMix')
+        tint.data_type = 'RGBA'
+        tint.inputs['B'].default_value = (*grid, 1.0)
+        links.new(line.outputs['Result'], tint.inputs['Factor'])
+        links.new(base.outputs['Result'], tint.inputs['A'])
+        links.new(tint.outputs['Result'], principled.inputs['Base Color'])
+        _set(principled, 'Roughness', 0.55)
+    return _shared(_wall_name('MM · wall neon', color, THEMES['neon']['wall']['color']), build)
+
+
+def wall_material(theme, pitch):
+    wall = theme_settings(theme)['wall']
+    # The Wall layer's Skin can put any theme's color on any kind; a Pegboard theme's own wall has no color field
+    color = wall.get('color', PEGBOARD_COLOR)
+    if wall['kind'] == 'plain':
+        return plain_wall_material(color)
+    if wall['kind'] == 'plaster':
+        return plaster_wall_material(color)
+    if wall['kind'] == 'neon':
+        return neon_wall_material(color, wall.get('grid') or grid_color(color))
+    return pegboard_wall_material(pitch, color)
+
+
+# Neon: saturated glossy bodies with glowing trim on a dark wall
+
+
+def neon_color(color, value=0.75):
+    """Linear color of a hex or linear color pushed to full saturation at brightness `value`, so every piece reads
+    as a strong hue on the dark wall whatever its marble color"""
+    import colorsys
+    linear = parse_color(color) if isinstance(color, str) else color
+    hue, saturation, _ = colorsys.rgb_to_hsv(*linear[:3])
+    if saturation < 0.08:
+        # A gray marble keeps a cool white-blue instead of a random hue
+        return (value * 0.7, value * 0.82, value)
+    return colorsys.hsv_to_rgb(hue, max(saturation, 0.88), value)
+
+
+def neon_body_material(color):
+    """Glossy coated plastic in `color` (linear) with a faint inner glow that brightens on a hit"""
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        base = (*color, 1.0)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.2)
+        _set(principled, 'Coat Weight', 1.0)
+        _set(principled, 'Coat Roughness', 0.03)
+        _set(principled, 'Emission Color', base)
+        attribute = tree.nodes.new('ShaderNodeAttribute')
+        attribute.attribute_type = 'OBJECT'
+        attribute.attribute_name = 'mm_flash'
+        strength = tree.nodes.new('ShaderNodeMath')
+        strength.operation = 'MULTIPLY_ADD'
+        strength.inputs[1].default_value = NEON_BODY_FLASH
+        strength.inputs[2].default_value = NEON_BODY_GLOW
+        tree.links.new(attribute.outputs['Fac'], strength.inputs[0])
+        tree.links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · neon body %.3f %.3f %.3f' % tuple(color), build)
+
+
+# Steady glow of a neon body and the share of the hit flash it takes; the trim takes all of it
+NEON_BODY_GLOW = 0.12
+NEON_BODY_FLASH = 0.22
+NEON_TRIM_GLOW = 1.8
+
+
+def neon_trim_material(color, idle=NEON_TRIM_GLOW):
+    """Glowing tube light in `color` (linear): a steady glow the hit flash `mm_flash` raises"""
+    def build(material):
+        tree = material.node_tree
+        principled = _principled(material)
+        # A dark base keeps the strip its own color; a light one would wash the glow out toward white
+        base = tuple(channel * 0.35 for channel in color) + (1.0,)
+        material.diffuse_color = base
+        _set(principled, 'Base Color', base)
+        _set(principled, 'Roughness', 0.3)
+        _set(principled, 'Emission Color', (*color, 1.0))
+        attribute = tree.nodes.new('ShaderNodeAttribute')
+        attribute.attribute_type = 'OBJECT'
+        attribute.attribute_name = 'mm_flash'
+        strength = tree.nodes.new('ShaderNodeMath')
+        strength.operation = 'ADD'
+        strength.inputs[1].default_value = idle
+        tree.links.new(attribute.outputs['Fac'], strength.inputs[0])
+        tree.links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · neon trim %.3f %.3f %.3f i%.1f' % (*color, idle), build)
+
+
+def neon_mount_material():
+    """Dark gloss mounts and posts; they never glow, so the trim stays the only light"""
+    return plastic_material('neon mount', (0.012, 0.014, 0.024), 0.25, coat=0.8)
+
+
+def neon_marble_core(color):
+    """Linear color of a Neon marble's body: near-white with a hint of its label color's hue. The pieces glow in that
+    saturated hue, so a marble in that hue vanished against its own platforms; the reference channels light their
+    marbles white or pearl and keep the color for the rim"""
+    hue = neon_color(color, 1.0)
+    return tuple(NEON_MARBLE_WHITE + (1.0 - NEON_MARBLE_WHITE) * channel for channel in hue)
+
+
+def neon_marble_material(color):
+    """Glossy pearl-white marble with a faint glow of its own and a rim in its label color's saturated hue, so it reads
+    against the dark wall and against its own glowing pieces"""
+    def build(material):
+        tree = material.node_tree
+        nodes, links = tree.nodes, tree.links
+        principled = _principled(material)
+        core = (*neon_marble_core(color), 1.0)
+        hue = (*neon_color(color, 1.0), 1.0)
+        material.diffuse_color = core
+        _set(principled, 'Base Color', core)
+        _set(principled, 'Roughness', 0.12)
+        _set(principled, 'Coat Weight', 1.0)
+        _set(principled, 'Coat Roughness', 0.02)
+        # Facing rises toward the silhouette; the power keeps the colored glow to a thin rim around a white core
+        weight = nodes.new('ShaderNodeLayerWeight')
+        weight.inputs['Blend'].default_value = 0.5
+        rim = nodes.new('ShaderNodeMath')
+        rim.operation = 'POWER'
+        rim.inputs[1].default_value = 3.0
+        links.new(weight.outputs['Facing'], rim.inputs[0])
+        mix = nodes.new('ShaderNodeMix')
+        mix.data_type = 'RGBA'
+        mix.inputs['A'].default_value = core
+        mix.inputs['B'].default_value = hue
+        links.new(rim.outputs['Value'], mix.inputs['Factor'])
+        links.new(mix.outputs['Result'], principled.inputs['Emission Color'])
+        strength = nodes.new('ShaderNodeMath')
+        strength.operation = 'MULTIPLY_ADD'
+        strength.inputs[1].default_value = NEON_MARBLE_RIM
+        strength.inputs[2].default_value = NEON_MARBLE_GLOW
+        links.new(rim.outputs['Value'], strength.inputs[0])
+        links.new(strength.outputs['Value'], principled.inputs['Emission Strength'])
+    return _shared('MM · neon pearl marble ' + color, build)
+
+
+# Share of white in a Neon marble's body, its steady self-glow and the strength of its colored rim
+NEON_MARBLE_WHITE = 0.86
+NEON_MARBLE_GLOW = 0.35
+NEON_MARBLE_RIM = 3.5
+
+
+# Marble contrast: the marble is the film's subject, so it stays 3:1 apart from its wall and its own pieces in every
+# theme. Pearl white with its label color's hue on the rim on a dark wall (Neon), that hue made deep on a light one
+# (Pegboard's birch, Brass's lavender), whichever contrasts more with both. The rule works on the Draft Preview's
+# display colors so both previews choose alike: the same values and steps as `draftMarble` in draft-look.ts.
+
+MARBLE_CONTRAST = 3.0
+PEARL_WHITE = 0.8
+DEEP_LUMINANCE = 0.05
+# A deep body on a lighter wall can be lighter too, as long as it keeps MARBLE_CONTRAST against all it rolls over, so a
+# warm wall shows the marble's hue rather than a near-black ball. `deepBody` in draft-look.ts
+DEEP_LUMINANCE_LIGHTEST = 0.09
+# Darker still where its own Pegboard platform is a dark label color; `DEEP_LUMINANCE_DARKEST` in draft-look.ts
+DEEP_LUMINANCE_DARKEST = 0.03
+NEON_BODY_VALUE = 0.62
+PEGBOARD_TINT = 0.4
+# `draftWall` in draft-look.ts
+DRAFT_WALLS = {'pegboard': '#b3a38f', 'brass': '#888296', 'neon': '#141a2a'}
+
+
+def _hex_channels(color):
+    value = int(color.lstrip('#')[:6], 16)
+    return ((value >> 16) & 255) / 255, ((value >> 8) & 255) / 255, (value & 255) / 255
+
+
+def _to_hex(r, g, b):
+    return '#' + ''.join('%02x' % int(math.floor(max(0.0, min(1.0, channel)) * 255 + 0.5)) for channel in (r, g, b))
+
+
+def display_luminance(color):
+    """WCAG relative luminance of a `#rrggbb` display color"""
+    r, g, b = (_srgb_to_linear(channel) for channel in _hex_channels(color))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def contrast_ratio(a, b):
+    high, low = sorted((display_luminance(a), display_luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def display_saturate(color, value):
+    """`saturate` in draft-look.ts: `color` at full saturation and brightness `value`; a gray turns cool blue-white"""
+    r, g, b = _hex_channels(color)
+    top, bottom = max(r, g, b), min(r, g, b)
+    if top == 0 or (top - bottom) / top < 0.08:
+        return _to_hex(value * 0.82, value * 0.9, value)
+    saturation = max((top - bottom) / top, 0.88)
+    return _to_hex(*(value * (1 - ((top - channel) / (top - bottom)) * saturation) for channel in (r, g, b)))
+
+
+def display_tint(color, amount):
+    return _to_hex(*(channel * (1 - amount) + amount for channel in _hex_channels(color)))
+
+
+def deep_color(color, luminance=DEEP_LUMINANCE):
+    """`color` at full saturation, dark enough to reach `luminance`, found by halving like `deepColor`"""
+    low, high = 0.0, 1.0
+    for _ in range(24):
+        middle = (low + high) / 2
+        if display_luminance(display_saturate(color, middle)) > luminance:
+            high = middle
+        else:
+            low = middle
+    return display_saturate(color, low)
+
+
+def deep_luminance(around):
+    """How light a deep body may be and still keep MARBLE_CONTRAST against the darkest of `around`, `deepLuminance` in draft-look.ts"""
+    darkest = min(display_luminance(other) for other in around)
+    return min(DEEP_LUMINANCE_LIGHTEST, max(DEEP_LUMINANCE_DARKEST, (darkest + 0.05) / MARBLE_CONTRAST - 0.05))
+
+
+def marble_surfaces(theme, color):
+    """Display colors a marble must stand apart from in lightness, without Color by Note, `marbleSurfaces` in draft-look.ts.
+    Brass has none: a glass marble reads by its color on dark gold, as in the reference."""
+    if theme == 'brass':
+        return []
+    if theme == 'neon':
+        return [display_saturate(color, NEON_BODY_VALUE)]
+    # The Draft Preview's lighter tint and the label color itself, which is what the film's Pegboard platform is painted
+    return [display_tint(color, PEGBOARD_TINT), color]
+
+
+def marble_look(name, color, overrides=None):
+    """A marble's tone (`pearl` or `deep`), display body color and lowest contrast against its wall and pieces in
+    theme `name`, with the project theme's Wall color from `overrides` or this apply's"""
+    theme = theme_name(name)
+    overrides = clean_overrides(_overrides if overrides is None else overrides)
+    color = color if isinstance(color, str) and len(color) == 7 and color.startswith('#') else '#d0d4dc'
+    around = [overrides.get('wallColor') or DRAFT_WALLS[theme], *marble_surfaces(theme, color)]
+    hue = display_saturate(color, 1.0)
+    candidates = (('pearl', display_tint(hue, PEARL_WHITE)), ('deep', deep_color(color, deep_luminance(around))))
+    looks = [{'tone': tone, 'body': body, 'contrast': min(contrast_ratio(body, other) for other in around)} for tone, body in candidates]
+    return looks[0] if looks[0]['contrast'] >= looks[1]['contrast'] else looks[1]
+
+
+# Render look
+
+
+def sun_rotation(direction):
+    """Euler rotation of a sun whose light travels along `direction` given as (right, into wall, down)"""
+    from mathutils import Vector
+    travel = Vector((direction[0], direction[1], direction[2])).normalized()
+    return travel.to_track_quat('-Z', 'Y').to_euler()
+
+
+def apply_render_look(scene, theme):
+    """Engine, color management and Eevee quality for a theme. Runs when the theme changes, not on every apply."""
+    settings = theme_settings(theme)
+    scene.render.engine = 'BLENDER_EEVEE'
+    scene.view_settings.view_transform = 'AgX'
+    try:
+        scene.view_settings.look = settings['look']
+    except TypeError:
+        pass
+    scene.view_settings.exposure = settings['exposure']
+    eevee = scene.eevee
+    eevee.taa_render_samples = 64
+    eevee.use_shadows = True
+    eevee.shadow_ray_count = 2
+    eevee.shadow_step_count = 8
+    eevee.use_raytracing = True
+    eevee.ray_tracing_method = 'SCREEN'
+    eevee.use_fast_gi = True
+    eevee.fast_gi_method = 'GLOBAL_ILLUMINATION'
+    try:
+        eevee.ray_tracing_options.resolution_scale = '2'
+        eevee.ray_tracing_options.use_denoise = True
+    except (AttributeError, TypeError):
+        pass
+    scene.render.film_transparent = False
+    scene.render.use_motion_blur = False
+    apply_bloom(scene, settings.get('bloom', 0.0))
+    # Cycles settings are prepared so switching the engine gives a good final render
+    cycles = getattr(scene, 'cycles', None)
+    if cycles is not None:
+        cycles.samples = 128
+        cycles.use_denoising = True
+        cycles.max_bounces = 8
+        cycles.glossy_bounces = 4
+        cycles.transmission_bounces = 8
+        cycles.caustics_reflective = False
+        cycles.caustics_refractive = False
+        cycles.blur_glossy = 1.0
+
+
+# Bloom: the Glare node's Bloom type over the render. It reads scene-linear light before the view transform, so the threshold
+# sits above any lit wall and only what glows goes over it. Cost measured in `references.md`; Flat Light skips it.
+BLOOM_GROUP = 'MM · bloom'
+BLOOM_THRESHOLD = 2.2
+BLOOM_STRENGTH = 1.6
+BLOOM_SIZE = 0.72
+BLOOM_QUALITY = 'Low'
+VIGNETTE_START = 0.42
+VIGNETTE_END = 0.9
+VIGNETTE_COLOR = (0.95, 0.75, 0.48)
+
+
+def apply_bloom(scene, amount):
+    """Bloom over the render while `amount` is above 0. The compositor stays the user's when they made their own group."""
+    current = scene.compositing_node_group
+    if current is not None and current.get('mm_owner') != 'midimarble':
+        return
+    if amount <= 0.0:
+        scene.compositing_node_group = None
+        scene.render.use_compositing = False
+        return
+    group = bpy.data.node_groups.get(BLOOM_GROUP)
+    if group is None:
+        group = bpy.data.node_groups.new(BLOOM_GROUP, 'CompositorNodeTree')
+        group['mm_owner'] = 'midimarble'
+        group.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+        layers = group.nodes.new('CompositorNodeRLayers')
+        glare = group.nodes.new('CompositorNodeGlare')
+        output = group.nodes.new('NodeGroupOutput')
+        glare.name = 'Bloom'
+        # The edges of the picture fall away toward warm amber, by image position only, so it costs next to nothing
+        coordinates = group.nodes.new('CompositorNodeImageCoordinates')
+        distance = group.nodes.new('ShaderNodeVectorMath')
+        distance.operation = 'DISTANCE'
+        distance.inputs[1].default_value = (0.5, 0.5, 0.0)
+        falloff = group.nodes.new('ShaderNodeMapRange')
+        falloff.interpolation_type = 'SMOOTHSTEP'
+        falloff.inputs['From Min'].default_value = VIGNETTE_START
+        falloff.inputs['From Max'].default_value = VIGNETTE_END
+        warm = group.nodes.new('ShaderNodeMix')
+        warm.name = 'Vignette'
+        warm.data_type = 'RGBA'
+        warm.blend_type = 'MULTIPLY'
+        # Mix keeps a socket per data type: 6, 7 and output 2 are the color ones
+        warm.inputs[7].default_value = (*VIGNETTE_COLOR, 1.0)
+        group.links.new(coordinates.outputs['Normalized'], distance.inputs[0])
+        group.links.new(distance.outputs['Value'], falloff.inputs['Value'])
+        group.links.new(falloff.outputs['Result'], warm.inputs['Factor'])
+        glare.inputs['Type'].default_value = 'Bloom'
+        glare.inputs['Quality'].default_value = BLOOM_QUALITY
+        glare.inputs['Threshold'].default_value = BLOOM_THRESHOLD
+        glare.inputs['Size'].default_value = BLOOM_SIZE
+        group.links.new(layers.outputs['Image'], glare.inputs['Image'])
+        group.links.new(glare.outputs['Image'], warm.inputs[6])
+        group.links.new(warm.outputs[2], output.inputs[0])
+    group.nodes['Bloom'].inputs['Strength'].default_value = amount * BLOOM_STRENGTH
+    scene.compositing_node_group = group
+    scene.render.use_compositing = True
+
+
+def sun_settings(theme):
+    sun = theme_settings(theme)['sun']
+    return {
+        'energy': sun['energy'],
+        'angle': math.radians(sun['angle']),
+        'color': sun['color'],
+        'rotation': tuple(sun_rotation(sun['direction'])),
+    }
+
+
+def pool_settings(theme):
+    """The theme's pool of light, in the key light's color, or None for a theme without one"""
+    settings = theme_settings(theme)
+    pool = settings.get('pool')
+    if pool is None:
+        return None
+    return {**pool, 'color': settings['sun']['color']}
+
+
+def rim_settings(theme):
+    """The theme's back light like `sun_settings`, or None for a theme without one"""
+    rim = theme_settings(theme).get('rim')
+    if rim is None:
+        return None
+    return {
+        'energy': rim['energy'],
+        'angle': math.radians(rim['angle']),
+        'color': rim['color'],
+        'rotation': tuple(sun_rotation(rim['direction'])),
+    }
+
+
+STUDIO_NODE = 'MM studio environment'
+
+
+def studio_environment(world, settings):
+    """Soft studio surroundings for metal reflections: bright above, darker below, with large soft patches.
+
+    The nodes feed the Background color only while `settings['studio']` is set; the Background node's own color
+    input stays the theme color either way, so the world signature and Blender edits behave the same.
+    """
+    tree = world.node_tree
+    nodes, links = tree.nodes, tree.links
+    background = nodes['Background']
+    for node in [node for node in nodes if node.get('mm_studio')]:
+        nodes.remove(node)
+    if not settings.get('studio'):
+        return
+    coordinates = nodes.new('ShaderNodeTexCoord')
+    separate = nodes.new('ShaderNodeSeparateXYZ')
+    links.new(coordinates.outputs['Generated'], separate.inputs['Vector'])
+    gradient = nodes.new('ShaderNodeMapRange')
+    gradient.inputs['From Min'].default_value = -0.4
+    gradient.inputs['From Max'].default_value = 0.9
+    links.new(separate.outputs['Z'], gradient.inputs['Value'])
+    patches = nodes.new('ShaderNodeTexNoise')
+    patches.inputs['Scale'].default_value = 6.0
+    patches.inputs['Detail'].default_value = 1.0
+    links.new(coordinates.outputs['Generated'], patches.inputs['Vector'])
+    sharpen = nodes.new('ShaderNodeMapRange')
+    sharpen.inputs['From Min'].default_value = 0.60
+    sharpen.inputs['From Max'].default_value = 0.63
+    links.new(patches.outputs['Fac'], sharpen.inputs['Value'])
+    combine = nodes.new('ShaderNodeMath')
+    combine.operation = 'MULTIPLY_ADD'
+    combine.inputs[1].default_value = 0.6
+    links.new(sharpen.outputs['Result'], combine.inputs[0])
+    links.new(gradient.outputs['Result'], combine.inputs[2])
+    ramp = nodes.new('ShaderNodeValToRGB')
+    ramp.color_ramp.elements[0].position = 0.0
+    ramp.color_ramp.elements[0].color = (0.01, 0.01, 0.015, 1.0)
+    ramp.color_ramp.elements[1].position = 1.0
+    # The bright end of the room: a project theme's background tints it, so a warm room stays warm in its reflections
+    top = settings['color'] if settings.get('tinted') else (1.0, 0.967, 1.033)
+    peak = max(top) or 1.0
+    ramp.color_ramp.elements[1].color = (*(channel / peak * 3.0 for channel in top), 1.0)
+    middle = ramp.color_ramp.elements.new(0.5)
+    middle.color = (*settings['color'], 1.0)
+    links.new(combine.outputs['Value'], ramp.inputs['Fac'])
+    links.new(ramp.outputs['Color'], background.inputs['Color'])
+    for node in (coordinates, separate, gradient, patches, sharpen, combine, ramp):
+        node['mm_studio'] = True

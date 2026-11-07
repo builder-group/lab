@@ -1,0 +1,152 @@
+import { useFeatureState } from 'feature-react/state';
+import React from 'react';
+import { Panel, ScrubField, SelectField } from '@/components';
+import type { TAssetProperty } from '@/modules/scene';
+import type { TMarble, TProject } from '@/modules/project';
+import type { StudioCx } from '@/modules/studio';
+import { skinPropertyCommands, type TSkinPropertyPatch } from './film-commands';
+import { resolveElementLook, themeOriginLabel, catalogSkin, COLOR_SOURCE_LABELS, skinElementOf, ON_HIT_LABELS, sharedSkinProperties, type TSkinned } from '@/modules/scene';
+import { SkinPicker } from './SkinPickers';
+import { ColorWell } from './SceneLayerInspector';
+
+// The standard skin properties in the Skin panel, the same rows for pieces and marbles.
+
+const MIXED = '__mixed__';
+const FROM_THEME = '__theme__';
+
+/**
+ * Color, On Hit, Glow Color, Variant and a library skin's extra properties for the selected pieces: what their skins
+ * share, each with its theme's value as the first choice. Every change is one undo step.
+ */
+export const SkinPropertyRows: React.FC<{ cx: StudioCx; project: TProject; pieces: TSkinned[] }> = (props) => {
+	const { cx, project, pieces } = props;
+	const projectItems = useFeatureState(cx.library.$projectItems);
+	const looks = pieces.map((piece) => {
+		const element = skinElementOf(piece);
+		return { piece, element, look: resolveElementLook(project.film, element, piece.skin) };
+	});
+	const shared = sharedSkinProperties(looks);
+	const ids = pieces.map((piece) => piece.id);
+	const extras = sharedExtras(project, pieces, projectItems);
+
+	function set(patch: TSkinPropertyPatch): void {
+		cx.execute(skinPropertyCommands(project, ids, patch));
+	}
+
+	/** The row's value: the one override, the theme's when nothing is overridden, or Mixed */
+	function valueOf(field: 'colorSource' | 'onHit' | 'variant'): string {
+		const values = new Set(pieces.map((piece) => piece.skin?.[field] ?? FROM_THEME));
+		return values.size > 1 ? MIXED : ([...values][0] ?? FROM_THEME);
+	}
+
+	const options = (value: string, fromTheme: string, choices: readonly { value: string; label: string }[]): { value: string; label: string }[] => [
+		...(value === MIXED ? [{ value: MIXED, label: 'Mixed' }] : []),
+		{ value: FROM_THEME, label: fromTheme },
+		...choices
+	];
+	const first = looks[0];
+	const firstSkin = first != null ? catalogSkin(first.look.skin) : null;
+	// Showing the theme's skin, a value not set here comes from the theme: "From Brass"; on a skin of its own, it is that skin's
+	const origin = first?.look.isThemeSkin === false ? 'Default' : themeOriginLabel(project.film);
+	// On a marble, Marble means a color of its own, set in the row below
+
+	return (
+		<>
+			{shared.colorSources.length > 1 ? (
+				<SelectField
+					id="skin-color"
+					label="Color"
+					value={valueOf('colorSource')}
+					options={options(valueOf('colorSource'), origin, shared.colorSources.map((colorSource) => ({ value: colorSource, label: COLOR_SOURCE_LABELS[colorSource] })))}
+					onChange={(value) => {
+						if (value !== MIXED) set({ colorSource: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['colorSource']>) });
+					}}
+				/>
+			) : null}
+			{shared.onHit.length > 0 ? (
+				<SelectField
+					id="skin-on-hit"
+					label="On Hit"
+					value={valueOf('onHit')}
+					options={options(valueOf('onHit'), first != null ? `${ON_HIT_LABELS[first.look.onHit ?? firstSkin?.reacts ?? 'none']} · ${origin}` : origin, shared.onHit.map((onHit) => ({ value: onHit, label: ON_HIT_LABELS[onHit] })))}
+					onChange={(value) => {
+						if (value !== MIXED) set({ onHit: value === FROM_THEME ? null : (value as NonNullable<TSkinPropertyPatch['onHit']>) });
+					}}
+				/>
+			) : null}
+			{shared.glowColor ? <SkinColor cx={cx} id="skin-glow" label="Glow Color" value={sameOf(pieces.map((piece) => piece.skin?.glowColor))} fallback={first?.look.glowColor ?? '#ffffff'} origin={origin} patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { glowColor: color })} /> : null}
+			{shared.variants.length > 0 ? (
+				<SelectField
+					id="skin-variant"
+					label="Variant"
+					value={valueOf('variant')}
+					options={options(valueOf('variant'), `${shared.variants.find((item) => item.id === firstSkin?.variant)?.label ?? ''} · ${origin}`, shared.variants.map((item) => ({ value: item.id, label: item.label })))}
+					onChange={(value) => {
+						if (value !== MIXED) set({ variant: value === FROM_THEME ? null : value });
+					}}
+				/>
+			) : null}
+			{extras.map((extra) =>
+				extra.type === 'color' ? (
+					<SkinColor
+						key={extra.name}
+						cx={cx}
+						id={`skin-extra-${extra.name}`}
+						label={extra.name}
+						value={sameOf(pieces.map((piece) => piece.skin?.properties?.[extra.name])) as string | null}
+						fallback={typeof extra.default === 'string' ? extra.default : '#ffffff'}
+							origin={origin}
+						patch={(color) => skinPropertyCommands(cx.project ?? project, ids, { property: { name: extra.name, value: color } })}
+					/>
+				) : (
+					<ScrubField
+						key={extra.name}
+						id={`skin-extra-${extra.name}`}
+						label={extra.name}
+						name={extra.name}
+						value={Number(sameOf(pieces.map((piece) => piece.skin?.properties?.[extra.name])) ?? extra.default ?? 0)}
+						unit=""
+						step={0.01}
+						precision={2}
+						{...(extra.min != null ? { min: extra.min } : {})}
+						{...(extra.max != null ? { max: extra.max } : {})}
+						onCommit={(value) => set({ property: { name: extra.name, value } })}
+					/>
+				)
+			)}
+		</>
+	);
+};
+
+function sameOf<T>(values: readonly (T | undefined)[]): T | null {
+	const set = new Set(values);
+	return set.size === 1 ? (values[0] ?? null) : null;
+}
+
+/** Extra properties every selected piece's skin has: a library skin's manifest declares them, the catalog a built-in skin's */
+function sharedExtras(project: TProject, pieces: TSkinned[], items: readonly { id: string; manifest?: { properties?: TAssetProperty[] | undefined } | null }[]): TAssetProperty[] {
+	const lists = pieces.map((piece) => {
+		const library = items.find((item) => item.id === piece.skin?.assetId)?.manifest?.properties;
+		if (library != null) return library;
+		return catalogSkin(resolveElementLook(project.film, skinElementOf(piece), piece.skin).skin)?.properties ?? [];
+	});
+	return (lists[0] ?? []).filter((property) => lists.every((list) => list.some((item) => item.name === property.name && item.type === property.type)));
+}
+
+/** A skin's color well; without a color of its own it shows what it gets from `origin` */
+const SkinColor: React.FC<{ cx: StudioCx; id: string; label: string; value: string | null; fallback: string; origin: string; patch: (color: string | null) => ReturnType<typeof skinPropertyCommands> }> = (props) => {
+	const { cx, id, label, value, fallback, origin, patch } = props;
+	return <ColorWell cx={cx} id={id} label={label} name={label} own={value} shown={value ?? fallback} origin={origin} resetTitle={`Use ${origin === 'Default' ? 'the default' : "the theme's"} ${label.toLowerCase()} again`} commandsFor={patch} />;
+};
+
+/** A marble's Skin section in Film: its skin and properties. Its physics never change with its skin. */
+export const MarbleSkin: React.FC<{ cx: StudioCx; project: TProject; marble: TMarble }> = (props) => {
+	const { cx, project, marble } = props;
+
+	return (
+		<Panel id="marble.skin" title="Appearance">
+			<SkinPicker cx={cx} project={project} element="marble" pieceType="marble" pieces={[marble]} />
+			<SkinPropertyRows cx={cx} project={project} pieces={[marble]} />
+		</Panel>
+	);
+};

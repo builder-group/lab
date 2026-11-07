@@ -1,0 +1,262 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { expandCommands } from '@/modules/mcp/project-commands';
+import { createImportCommands } from '@/modules/music';
+import { applyProjectCommands, createProject, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
+import { loadFixture } from '@/modules/project/test-helpers';
+import { createSimulator, hitPlace, type TSimulator } from '@/modules/simulation';
+import { findLongGaps } from './assists';
+import { type TAutoPlaceAnswer } from './worker-protocol';
+import { buildOneStep, buildTrack, localBuildDeps, withoutPiecesAfter } from './build-track';
+
+const MINUTES = 60_000;
+let simulator: TSimulator;
+
+beforeAll(async () => {
+	simulator = await createSimulator();
+});
+afterAll(() => simulator.dispose());
+
+function fromHitTimes(marbles: number[][]): TProject {
+	const project = createProject({ id: 'build', title: 'Build' });
+	const notes = marbles.map((times) => times.map((time, index) => ({ time, duration: 0.2, midi: 60 + (index % 12), velocity: 0.8, id: `note-${index}` })));
+	const [isOk, error, applied] = applyProjectCommands(project, createImportCommands(project, { marbles: notes as never }));
+	if (!isOk) throw error;
+	return applied;
+}
+
+function bareFixture(name: string): TProject {
+	const project = loadFixture(name);
+	return { ...project, track: { ...project.track, pieces: [] } };
+}
+
+/** The same project with other hit IDs, as another import would give it */
+function withHitIds(project: TProject, order: 'marble 0 sorts first' | 'last marble sorts first'): TProject {
+	const count = project.marbles.length;
+	const marbles = project.marbles.map((marble, marbleIndex) => ({
+		...marble,
+		hits: marble.hits.map((hit, hitIndex) => ({ ...hit, id: `hit-${order === 'marble 0 sorts first' ? marbleIndex : count - marbleIndex}-${String(hitIndex).padStart(3, '0')}` }))
+	}));
+	return { ...project, marbles };
+}
+
+function piecesByOrder(project: TProject): string[] {
+	const order = new Map(project.marbles.flatMap((marble) => marble.hits).map((hit, index) => [hit.id, index]));
+	return project.track.pieces.map(({ id: _id, name: _name, ...rest }) => {
+		const link = tieOf(rest);
+		return JSON.stringify({ ...rest, place: link == null ? rest.place : { ...link, hitId: order.get(link.hitId) } });
+	});
+}
+
+function piecesOf(project: TProject): string[] {
+	const marbles = project.marbles.map(({ radius, start, skin }) => JSON.stringify({ radius, start, skin }));
+	return [...marbles, ...project.track.pieces.map(({ id: _id, name: _name, ...rest }) => JSON.stringify(rest))];
+}
+
+describe('buildTrack function', () => {
+	it('gives the same track every time, from a fresh or a used simulator', async () => {
+		const project = fromHitTimes([[0.92, 1.37, 1.91, 2.28, 2.95, 3.31]]);
+		const first = await buildTrack(project, localBuildDeps(simulator));
+		const again = await buildTrack(project, localBuildDeps(simulator));
+		const fresh = await createSimulator();
+		const third = await buildTrack(project, localBuildDeps(fresh));
+		fresh.dispose();
+		expect(piecesOf(again.project)).toEqual(piecesOf(first.project));
+		expect(piecesOf(third.project)).toEqual(piecesOf(first.project));
+	}, MINUTES);
+
+	it('gives the same track whatever the random IDs, when hits of two marbles coincide', async () => {
+		const project = fromHitTimes([[1, 1.5, 2, 2.5], [1, 1.5, 2, 2.5]]);
+		const first = await buildTrack(withHitIds(project, 'marble 0 sorts first'), localBuildDeps(simulator));
+		const second = await buildTrack(withHitIds(project, 'last marble sorts first'), localBuildDeps(simulator));
+		expect(piecesByOrder(second.project)).toEqual(piecesByOrder(first.project));
+	}, MINUTES);
+
+	it('keeps the pieces already placed and builds the rest', async () => {
+		const project = fromHitTimes([Array.from({ length: 10 }, (_, index) => 1 + index * 0.5)]);
+		const marble = project.marbles[0];
+		const first = marble?.hits[0];
+		if (marble == null || first == null) throw new Error('No hit');
+		const { piece: mine, angle } = localBuildDeps(simulator).autoPlace({ project, marbleId: marble.id, hitId: first.id, type: 'platform', pieceId: 'mine' }) as TAutoPlaceAnswer;
+		const [isOk, error, placed] = applyProjectCommands(project, [{ type: 'addPiece', piece: mine }]);
+		if (!isOk) throw error;
+		const outcome = await buildTrack(placed, localBuildDeps(simulator));
+		expect(outcome.attention).toEqual([]);
+		expect(outcome.turned).toEqual([]);
+		expect(outcome.releaseShift).toBe(0);
+		expect(outcome.project.track.pieces.find((piece) => piece.id === 'mine')?.angle).toBe(angle);
+	}, MINUTES);
+
+	it('finishes the rest and names a hit no platform can play', async () => {
+		// The first note comes before the marble can have fallen at all
+		const project = fromHitTimes([[0.005, 1, 1.5, 2, 2.5, 3]]);
+		project.marbles = project.marbles.map((marble) => ({ ...marble, start: { ...marble.start, time: 0 } }));
+		const outcome = await buildTrack(project, localBuildDeps(simulator));
+		expect(outcome.attention.map((hit) => hit.index)).toEqual([0]);
+		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime')).toHaveLength(5);
+	}, MINUTES);
+
+	it('stops searching at its limit and still ends, with every hit it could not place named', async () => {
+		// Prepare: no search ever finds anything, the worst a song can do
+		const project = fromHitTimes([Array.from({ length: 12 }, (_, index) => 1 + index * 0.5)]);
+		let searches = 0;
+		const refuse = (): never => {
+			searches++;
+			throw new Error('Nothing fits');
+		};
+
+		// Act
+		const outcome = await buildTrack(project, { ...localBuildDeps(simulator), autoPlace: refuse, gapPiece: refuse });
+
+		// Assert: 6 per hit to look for a clean run, 2 to go on past it, then one Auto place for each hit left
+		expect(searches).toBeLessThanOrEqual(12 * 12);
+		expect(outcome.isStopped).toBe(false);
+		expect(outcome.result.hits).toHaveLength(12);
+		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime').length + outcome.attention.length).toBe(12);
+	}, MINUTES);
+
+	it('sends its steps to commit, the first starting the undo step, so they replay to the same project', async () => {
+		const project = fromHitTimes([Array.from({ length: 8 }, (_, index) => 1 + index * 0.5)]);
+		let shown = project;
+		const firsts: boolean[] = [];
+		const outcome = await buildTrack(project, {
+			...localBuildDeps(simulator),
+			commit: (commands: TProjectCommand[], isFirst) => {
+				firsts.push(isFirst);
+				const [isOk, error, applied] = applyProjectCommands(shown, commands);
+				if (!isOk) throw error;
+				shown = applied;
+				return true;
+			}
+		});
+		expect(firsts.filter(Boolean)).toHaveLength(1);
+		expect(firsts[0]).toBe(true);
+		expect(piecesOf(shown)).toEqual(piecesOf(outcome.project));
+	}, MINUTES);
+
+	it('stops between steps and keeps what it built', async () => {
+		const project = bareFixture('zigzag');
+		let steps = 0;
+		const outcome = await buildTrack(project, {
+			...localBuildDeps(simulator),
+			commit: () => {
+				steps++;
+				return true;
+			},
+			isCanceled: () => steps >= 1
+		});
+		expect(outcome.isStopped).toBe(true);
+		expect(outcome.project.track.pieces.length).toBeGreaterThan(0);
+		expect(outcome.attention.length).toBeGreaterThan(0);
+	});
+});
+
+describe('Rebuild From Here', () => {
+	const song = (): TProject => fromHitTimes([Array.from({ length: 14 }, (_, index) => 1 + index * 0.5)]);
+
+	it('should keep everything up to the hit and build the rest again, as one undo step', async () => {
+		const built = await buildTrack(song(), localBuildDeps(simulator));
+		const marble = built.project.marbles[0];
+		const hit = marble?.hits[5];
+		if (marble == null || hit == null) throw new Error('No hit');
+		// The person turns the platform of that hit, which steers what comes after it
+		const mine = built.project.track.pieces.find((piece) => tieOf(piece)?.hitId === hit.id);
+		if (mine == null || tieOf(mine) == null) throw new Error('No platform');
+		mine.angle -= 0.05;
+		const before = built.project.track.pieces.filter((piece) => {
+			const link = tieOf(piece);
+			return link != null && (marble.hits.find((item) => item.id === link.hitId)?.time ?? Infinity) <= hit.time;
+		});
+		let shown = built.project;
+		const firsts: boolean[] = [];
+		const outcome = await buildTrack(built.project, {
+			...localBuildDeps(simulator),
+			commit: (commands: TProjectCommand[], isFirst) => {
+				firsts.push(isFirst);
+				const [isOk, error, applied] = applyProjectCommands(shown, commands);
+				if (!isOk) throw error;
+				shown = applied;
+				return true;
+			}
+		}, { from: { marbleId: marble.id, hitId: hit.id } });
+		expect(outcome.turned).toEqual([]);
+		expect(outcome.releaseShift).toBe(0);
+		for (const piece of before) {
+			const kept = outcome.project.track.pieces.find((item) => item.id === piece.id);
+			expect(tieOf(kept)).toEqual(tieOf(piece));
+			expect(kept?.angle).toBe(piece.angle);
+		}
+		expect(outcome.attention).toEqual([]);
+		expect(firsts.filter(Boolean)).toHaveLength(1);
+		expect(piecesOf(shown)).toEqual(piecesOf(outcome.project));
+		// A second go gives the same track
+		const again = await buildTrack(built.project, localBuildDeps(simulator), { from: { marbleId: marble.id, hitId: hit.id } });
+		expect(piecesOf(again.project)).toEqual(piecesOf(outcome.project));
+	}, 2 * MINUTES);
+
+	it('should cut every marble at the same time, with a gap piece that reaches past it', () => {
+		const project = fromHitTimes([[1, 1.5, 3, 3.5], [1.2, 1.7, 3.2]]);
+		const [marbleA, marbleB] = project.marbles;
+		const hitOf = (index: number, marble = marbleA) => marble?.hits[index]?.id ?? '';
+		const tied = (id: string, type: string, marbleId: string, hitId: string): TPiece => ({ id, type, params: {}, angle: 0, place: hitPlace(type, marbleId, hitId) });
+		const kept = { ...project, track: { ...project.track, pieces: [...project.track.pieces, tied('a1', 'platform', marbleA?.id ?? '', hitOf(0)), tied('a2', 'platform', marbleA?.id ?? '', hitOf(1)), tied('bridge', 'rail', marbleA?.id ?? '', hitOf(1)), tied('a3', 'platform', marbleA?.id ?? '', hitOf(2)), tied('b1', 'platform', marbleB?.id ?? '', hitOf(0, marbleB)), tied('b2', 'platform', marbleB?.id ?? '', hitOf(1, marbleB))] } };
+		const ids = withoutPiecesAfter(kept, { marbleId: marbleA?.id ?? '', hitId: hitOf(1) }).track.pieces.map((piece) => piece.id);
+		expect(ids).toEqual(['a1', 'a2', 'b1']);
+	});
+});
+
+describe('gap pieces', () => {
+	const gappy = (): TProject => fromHitTimes([[1, 1.5, 2, 3, 3.5, 4, 5, 5.5, 6]]);
+
+	it('should build through long gaps whichever piece it is asked to try first', async () => {
+		for (const gapPiece of ['rail', 'switchback'] as const) {
+			const outcome = await buildTrack(gappy(), localBuildDeps(simulator), { gapPiece });
+			expect(outcome.attention).toEqual([]);
+			for (const gap of findLongGaps(outcome.project, outcome.project.marbles[0]?.id ?? '')) expect(gap.bridgedBy).not.toBeNull();
+		}
+	}, 2 * MINUTES);
+});
+
+describe('a chosen gap piece', () => {
+	it('should bridge the gap when placed with project.execute, and stay through Build Track', async () => {
+		const project = fromHitTimes([[1, 1.5, 2, 3, 3.5, 4]]);
+		const marble = project.marbles[0];
+		const from = marble?.hits[2];
+		if (marble == null || from == null) throw new Error('No hit');
+		// The platforms up to the gap, then the rail a person or an agent picked
+		let current = project;
+		for (const hit of marble.hits.slice(0, 3)) {
+			const placed = localBuildDeps(simulator).autoPlace({ project: current, marbleId: marble.id, hitId: hit.id, type: 'platform', pieceId: `mine-${hit.id}` }) as TAutoPlaceAnswer;
+			const [isOk, error, applied] = applyProjectCommands(current, [{ type: 'addPiece', piece: placed.piece }]);
+			if (!isOk) throw error;
+			current = applied;
+		}
+		const [isExpanded, expandError, expanded] = expandCommands(current, simulator.simulate(current), [], [{ type: 'placePiece', pieceType: 'rail', hit: { marbleId: marble.id, hitId: from.id }, params: { entryDelay: 0.3 }, name: 'My Rail' }]);
+		if (!isExpanded) throw expandError;
+		const [isOk, error, chosen] = applyProjectCommands(current, expanded.commands);
+		if (!isOk) throw error;
+		expect(findLongGaps(chosen, marble.id).map((gap) => gap.bridgedBy)).not.toContain(null);
+		const outcome = await buildTrack(chosen, localBuildDeps(simulator));
+		expect(outcome.project.track.pieces.find((piece) => piece.name === 'My Rail')?.type).toBe('rail');
+	}, MINUTES);
+});
+
+describe('buildOneStep function', () => {
+	it('takes the next step, for Next past a gap it cannot bridge', async () => {
+		const project = fromHitTimes([[1, 1.5, 2, 2.5]]);
+		const step = await buildOneStep(project, localBuildDeps(simulator));
+		expect(step?.target.targetTime).toBe(1);
+		expect(step?.commands.length).toBeGreaterThan(0);
+	});
+
+	it('leaves the pieces already there as they are, and adds one', async () => {
+		const bare = fromHitTimes([[1, 1.5, 2, 2.5]]);
+		const first = await buildOneStep(bare, localBuildDeps(simulator));
+		if (first == null) throw new Error('Expected a first step');
+
+		const step = await buildOneStep(first.project, localBuildDeps(simulator));
+
+		const kept = first.project.track.pieces;
+		expect(kept.every((piece) => step?.project.track.pieces.find((item) => item.id === piece.id) === piece)).toBe(true);
+		expect(step?.project.track.pieces.length).toBe(kept.length + 1);
+	});
+});

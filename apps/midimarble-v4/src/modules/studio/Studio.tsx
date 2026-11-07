@@ -1,0 +1,87 @@
+import { useFeatureState } from 'feature-react/state';
+import React from 'react';
+import { ContextMenuHost } from '@/components';
+import { ExportSheet, PacksSheet, ExportPackSheet } from '@/modules/film';
+import { CommandPalette } from './CommandPalette';
+import { ConfirmAlert } from './ConfirmAlert';
+import { HintLayer } from './HintLayer';
+import { ImportMidiSheet } from './ImportMidiSheet';
+import { Inspector } from './Inspector';
+import { LabelColorSuggestions } from './LabelColorInput';
+import { FloatingBar } from '@/modules/track';
+import { Notice } from './Notice';
+import { QuickHelp } from './QuickHelp';
+import { SaveChangesAlert } from './SaveChangesAlert';
+import { Sidebar } from './Sidebar';
+import type { StudioCx } from './StudioCx';
+import { TitleBar } from './TitleBar';
+import { ToolRail } from './ToolRail';
+import { Timeline } from './timeline/Timeline';
+import { useFileDrop } from './use-file-drop';
+import { usePlayback } from './use-playback';
+import { useStudioShortcuts } from './use-studio-shortcuts';
+
+export const Studio: React.FC<TStudioProps> = (props) => {
+	const { cx, canvas } = props;
+	const workspace = useFeatureState(cx.$workspace);
+	const panels = useFeatureState(cx.$panels);
+
+	useStudioShortcuts(cx);
+	usePlayback(cx);
+	const isDropping = useFileDrop(cx);
+
+	return (
+		<div className="relative flex h-full flex-col">
+			<TitleBar cx={cx} />
+			<LabelColorSuggestions />
+			<div className="flex min-h-0 flex-1">
+				{panels.sidebar ? <Sidebar cx={cx} /> : null}
+				<div className="flex min-w-0 flex-1 flex-col">
+					<div className="flex min-h-0 flex-1">
+						<ToolRail cx={cx} />
+						<main className="relative min-w-0 flex-1" data-canvas-bounds data-quick-help="wall" aria-label={workspace === 'track' ? 'Track wall' : 'Film preview'}>
+							{canvas}
+							<div className="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex flex-col items-center gap-2">
+								<Notice cx={cx} />
+								<FloatingBar cx={cx} />
+							</div>
+						</main>
+						{panels.inspector ? <Inspector cx={cx} /> : null}
+					</div>
+					{panels.timeline ? <Timeline cx={cx} /> : null}
+				</div>
+			</div>
+			<ImportMidiSheet cx={cx} />
+			<ExportSheet cx={cx} />
+			<PacksSheet cx={cx} />
+			<ExportPackSheet cx={cx} />
+			<CommandPalette cx={cx} />
+			<SaveChangesAlert cx={cx} />
+			<ConfirmAlert cx={cx} />
+			<HintLayer cx={cx} />
+			<QuickHelp cx={cx} />
+			<ContextMenuHost />
+			{isDropping ? <DropOverlay /> : null}
+		</div>
+	);
+};
+
+interface TStudioProps {
+	cx: StudioCx;
+	canvas: React.ReactNode;
+}
+
+/** Drop target highlight while a file is dragged over the window, like Finder and Logic */
+const DropOverlay: React.FC = () => (
+	<div className="pointer-events-none absolute inset-0 z-50 p-2">
+		<div
+			className="flex h-full items-center justify-center rounded-[10px] border-2 border-[var(--accent-strong)]"
+			style={{ background: 'color-mix(in srgb, var(--accent) 8%, transparent)' }}
+		>
+			<div className="mm-floating px-4 py-2.5 text-center">
+				<div className="font-semibold">Drop to Import Song</div>
+				<div className="mm-caption">A MIDI file becomes marbles. A recording plays behind the marbles.</div>
+			</div>
+		</div>
+	</div>
+);

@@ -1,0 +1,93 @@
+import { describe, expect, it } from 'vitest';
+import { createMarble, createProject, type TPiece, type TProject } from '@/modules/project';
+import { catalogSkins } from '@/modules/scene';
+import { filterTiles, showsTileSearch, skinTiles, THEME_DEFAULT_TILE, usedSkinIds, wallTiles } from './skin-tiles';
+
+function platform(id: string, assetId?: string): TPiece {
+	return { id, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } }, ...(assetId != null ? { skin: { assetId } } : {}) };
+}
+
+function brassProject(pieces: TPiece[] = []): TProject {
+	const project = createProject({ id: 'p', title: 'T' });
+	project.film.theme = { base: 'brass' };
+	project.track.pieces.push(...pieces);
+	return project;
+}
+
+describe('skinTiles function', () => {
+	it('should list the skin of the theme first, by name, then the other skins with previews', () => {
+		const tiles = skinTiles(brassProject().film, 'platform', [platform('a')]);
+		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, label: 'Theme: Gold', isCurrent: true });
+		expect(tiles[0]?.previewUrl).toBe('/skins/platform-gold.png');
+		expect(tiles.some((tile) => tile.id === 'platform:gold')).toBe(false);
+		expect(tiles.length).toBe(catalogSkins('platform').length);
+		expect(tiles.every((tile) => tile.previewUrl != null)).toBe(true);
+	});
+
+	it('should ring the skin the selection wears, and nothing for a mixed selection', () => {
+		const film = brassProject().film;
+		const current = (pieces: TPiece[]): string[] => skinTiles(film, 'platform', pieces).filter((tile) => tile.isCurrent).map((tile) => tile.id);
+		expect(current([platform('a', 'platform:copper')])).toEqual(['platform:copper']);
+		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:copper')])).toEqual(['platform:copper']);
+		expect(current([platform('a', 'platform:copper'), platform('b', 'platform:silver')])).toEqual([]);
+		expect(current([platform('a', 'platform:copper'), platform('b')])).toEqual([]);
+		// A skin pinned to what the theme already wears reads as the theme's
+		expect(current([platform('a', 'platform:gold')])).toEqual([THEME_DEFAULT_TILE]);
+		// A library skin is none of the built-in tiles
+		expect(current([platform('a', 'asset-1')])).toEqual([]);
+	});
+
+	it("should picture a theme's contrast marble as the skin it resolves to", () => {
+		const marble = { ...createMarble(0, { x: 0, y: 0 }, 'm'), labelColor: '#e0533d' };
+		const [first] = skinTiles(brassProject().film, 'marble', [marble]);
+		expect(first?.id).toBe(THEME_DEFAULT_TILE);
+		expect(first?.previewUrl).not.toBeNull();
+	});
+});
+
+describe('wallTiles function', () => {
+	it('should follow the theme until the project chooses another wall', () => {
+		const project = brassProject();
+		const tiles = wallTiles(project.film);
+		expect(tiles[0]).toMatchObject({ id: THEME_DEFAULT_TILE, kind: null, isCurrent: true });
+		expect(tiles.filter((tile) => tile.kind === tiles[0]?.shownKind)).toEqual([]);
+		const chosen = wallTiles({ ...project.film, wall: { kind: 'grid' } });
+		expect(chosen.filter((tile) => tile.isCurrent).map((tile) => tile.id)).toEqual(['grid']);
+	});
+});
+
+describe('hidden skins', () => {
+	it('should stay off the tiles until the project uses them, and show their origin then', () => {
+		const labels = (skins?: ReadonlySet<string>): string[] => skinTiles(brassProject().film, 'platform', [], skins).map((tile) => tile.label);
+		expect(labels()).toEqual(['Theme: Gold', 'None', 'Copper', 'Silver', 'Gold Plate', 'Copper Plate', 'Wood Plate', 'Chrome Device', 'Dark Housing', 'Pegboard', 'Neon']);
+		const used = usedSkinIds(brassProject([platform('a', 'platform:knob')]));
+		expect(labels(used)).toContain('Knob');
+		expect(skinTiles(brassProject().film, 'platform', [], used).find((tile) => tile.label === 'Knob')?.detail).toBe('Brass Sections');
+	});
+
+	it('should count what the theme names as used', () => {
+		const project = brassProject();
+		const used = usedSkinIds({ ...project, film: { ...project.film, theme: { base: 'brass', parts: { rail: { skin: 'rail:candy' } } } } });
+		expect(used.has('rail:candy')).toBe(true);
+	});
+
+	it('should offer Glass, Metal and Magic for marbles, with the theme\'s Pearl or Deep first', () => {
+		expect(skinTiles(brassProject().film, 'marble', []).map((tile) => tile.label)).toEqual([expect.stringMatching(/^Theme: (Pearl|Deep)$/), 'None', 'Glass', 'Metal', 'Magic']);
+	});
+});
+
+describe('filterTiles function', () => {
+	const tiles = [{ label: 'Theme: Gold', detail: '' }, { label: 'Copper', detail: 'Starter' }, { label: 'Gift', detail: 'Christmas Pack' }];
+
+	it('should keep every tile without a query and match the name or the origin by each word', () => {
+		expect(filterTiles(tiles, ' ')).toHaveLength(3);
+		expect(filterTiles(tiles, 'cop').map((tile) => tile.label)).toEqual(['Copper']);
+		expect(filterTiles(tiles, 'christmas gi').map((tile) => tile.label)).toEqual(['Gift']);
+		expect(filterTiles(tiles, 'nope')).toEqual([]);
+	});
+
+	it('should offer search only past about 12 items', () => {
+		expect(showsTileSearch(Array.from({ length: 12 }))).toBe(false);
+		expect(showsTileSearch(Array.from({ length: 13 }))).toBe(true);
+	});
+});

@@ -1,0 +1,537 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import { assignNotesCommands } from './assign-notes';
+import { applyProjectCommands, BACKING_ID, createProject, type TProject, tieOf } from '@/modules/project';
+import { loadFixture } from '@/modules/project/test-helpers';
+import { createLinkedPiece, createSimulator, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
+import { extraStrikes, passThroughs, rollingHits, touchingPairs } from './track-problems';
+import { answerSettle, editCommands } from './edit-rule';
+import { autoPlace } from './assists';
+import { createRailForGap, createSwitchbackForGap, createTunnelForGap } from './gap-pieces';
+import { createBareRunProject, evenTimes } from '@/modules/simulation/fixture-projects';
+import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight';
+import { newlyBroken } from './bowl-assist';
+import { addedProblems, brokenHits, fixHelps, fixMessage, fixPiece, fixTrack, fixWorseWords, hasFixes, moveClear, problemPieces, releaseFix, sceneryFix, withCommands, type TFixCount, type TFixDeps } from './fix-it';
+
+function hitsNeedingAttention(result: TSimulationResult): THitResult[] {
+	return result.hits.filter((hit) => hit.status === 'drifting' || hit.status === 'missed' || hit.status === 'blocked');
+}
+
+function hit(time: number, status: THitResult['status'], options: Partial<THitResult> = {}): THitResult {
+	return {
+		marbleId: 'marble-1',
+		hitId: `h${time}`,
+		targetTime: time,
+		pieceId: status === 'open' ? null : `p${time}`,
+		dot: { x: 0, y: -time },
+		velocity: { x: 0, y: -1 },
+		actualTime: null,
+		error: null,
+		status,
+		...options
+	};
+}
+
+function oneMarble(): TProject {
+	const project = createProject();
+	const marble = project.marbles[0];
+	if (marble != null) marble.id = 'marble-1';
+	return project;
+}
+
+describe('brokenHits function', () => {
+	it('should count broken hits and the early or late hits after the first broken one', () => {
+		// Prepare
+		const hits = [hit(1, 'drifting'), hit(2, 'onTime'), hit(3, 'blocked'), hit(4, 'drifting'), hit(5, 'missed'), hit(6, 'open')];
+
+		// Act
+		const broken = brokenHits(hits);
+
+		// Assert
+		expect(broken.map((item) => item.targetTime)).toEqual([3, 4, 5]);
+	});
+});
+
+describe('newlyBroken function', () => {
+	it('should name only the hits an edit broke', () => {
+		const before = [hit(1, 'blocked'), hit(2, 'onTime'), hit(3, 'onTime')];
+		const after = [hit(1, 'blocked'), hit(2, 'missed'), hit(3, 'onTime')];
+
+		expect(newlyBroken(before, after).map((item) => item.targetTime)).toEqual([2]);
+	});
+});
+
+describe('releaseFix function', () => {
+	it('should release the marble so it arrives where and how fast it did before the edit', () => {
+		// Prepare
+		const project = oneMarble();
+		const marble = project.marbles[0];
+		if (marble != null) marble.hits = [{ id: 'h5', time: 5 }];
+		const before = [hit(5, 'onTime', { dot: { x: 0.1, y: -2 }, velocity: { x: 0.2, y: -1 } })];
+		const after = [hit(5, 'blocked')];
+
+		// Act
+		const commands = releaseFix(project, after, 'marble-1', before);
+
+		// Assert
+		const command = commands[0];
+		expect(command?.type).toBe('updateMarble');
+		if (command?.type !== 'updateMarble' || command.patch.start == null) throw new Error('Expected a release');
+		const release = command.patch.start;
+		// At the default gravity the marble falls back to 1 m/s in about 0.4 s
+		const lead = 5 - release.time;
+		expect(lead).toBeCloseTo(1 / 2.4525, 3);
+		expect(release.velocity?.y).toBeCloseTo(0, 3);
+		const g = 2.4525;
+		expect(release.position.x + (release.velocity?.x ?? 0) * lead).toBeCloseTo(0.1, 3);
+		expect(release.position.y + (release.velocity?.y ?? 0) * lead - (g * lead * lead) / 2).toBeCloseTo(-2, 3);
+	});
+
+	it('should leave a short first fall alone', () => {
+		const project = oneMarble();
+		const marble = project.marbles[0];
+		if (marble != null) marble.hits = [{ id: 'h1', time: 0.8 }];
+
+		expect(releaseFix(project, [hit(0.8, 'blocked')], 'marble-1', [hit(0.8, 'onTime')])).toEqual([]);
+	});
+});
+
+// MARK: - Recovery
+
+
+describe('fixTrack function', () => {
+	let simulate: (project: TProject) => TSimulationResult;
+
+	beforeAll(async () => {
+		const simulator = await createSimulator();
+		simulate = (project) => simulator.simulate(project);
+	});
+
+	function deps(): TFixDeps {
+		return {
+			simulate: async (project) => simulate(project),
+			autoPlace: async (project, target, piece) => {
+				const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: piece.type });
+				if (!isOk) throw error;
+				return placement.piece;
+			},
+			gapPiece: async (project, gap, type, id) => {
+				const create = type === 'switchback' ? createSwitchbackForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
+				const [isOk, error, proposal] = create(project, simulate(project), gap.marbleId, gap.fromHitId, gap.toHitId, { simulate, id });
+				if (!isOk) throw error;
+				return proposal.piece;
+			},
+			commit: (project, commands) => {
+				const [isOk, error, next] = applyProjectCommands(project, commands);
+				if (!isOk) throw error;
+				return next;
+			}
+		};
+	}
+
+	// A fixture with `count` notes of its first track from `from` on handed to Backing, as Played By does
+	function handToBacking(name: string, from: number, count: number): { before: TSimulationResult; edited: TProject; broken: TSimulationResult; marbleId: string } {
+		const project = loadFixture(name);
+		const before = simulate(project);
+		const marble = project.marbles[0];
+		if (marble == null) throw new Error(`${name} has a track`);
+		const notes = marble.hits.slice(from, from + count).map((item) => item.id);
+		const [isEditOk, editErr, edited] = applyProjectCommands(project, assignNotesCommands(project, before, notes, BACKING_ID));
+		if (!isEditOk) throw editErr;
+		return { before, edited, broken: simulate(edited), marbleId: marble.id };
+	}
+
+	/** The result notice as Track shows it, with how the run stands from the problem model */
+	function resultMessage(edited: TProject, broken: TSimulationResult, outcome: Awaited<ReturnType<typeof fixTrack>>): string {
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
+		const added = addedProblems(edited, broken, outcome.project, outcome.result, NO_BLENDER_OBJECTS);
+		return fixMessage(edited, broken.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
+	}
+
+	it('should offer a platform struck twice or touching a Fix that clears it, breaks no hit and adds no problem', async () => {
+		const project = loadFixture('zigzag');
+		// The plain copied tilts, which Continue turns a little: the marble grazes two of its own earlier platforms
+		for (const piece of project.track.pieces) {
+			const link = tieOf(piece);
+			if (link != null) piece.angle = piece.angle < 0 ? -0.45 : 0.45;
+		}
+		const result = simulate(project);
+		const problems = problemPieces(project, result);
+		expect(problems.length).toBeGreaterThan(0);
+		let fixed = 0;
+		for (const pieceId of problems.slice(0, 3)) {
+			const fix = await fixPiece(project, result, pieceId, deps());
+			// Near the start of a song every later hit follows a tilt, so a small change isn't enough
+			if (fix.commands == null) {
+				expect(fix.rebuildFrom).toBeDefined();
+				continue;
+			}
+			fixed++;
+			const next = withCommands(project, fix.commands);
+			const run = simulate(next);
+			expect(problemPieces(next, run)).not.toContain(pieceId);
+			expect(newlyBroken(result.hits, run.hits)).toEqual([]);
+		}
+		expect(fixed).toBeGreaterThanOrEqual(0);
+		expect(hasFixes(project, result)).toBe(true);
+	}, 120_000);
+
+	it('should move the release and recover a run after its first notes become Backing', async () => {
+		// Prepare
+		const { before, edited, broken, marbleId } = handToBacking('zigzag', 0, 3);
+		const counted = brokenHits(broken.hits).length;
+		expect(counted).toBeGreaterThan(0);
+		const progress: { done: number; total: number }[] = [];
+
+		// Act
+		const outcome = await fixTrack(edited, broken, { ...deps(), onProgress: (done, total) => progress.push({ done, total }) }, before.hits);
+
+		// Assert
+		expect(outcome.releases).toEqual([marbleId]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
+		// One count for the whole run, the label's, and the fixed count only grows: never "0 of 37", then "0 of 38"
+		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
+		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted === 1 ? 'the note' : `${counted} hits`} · .*moved the release · ${summary.label}`));
+	}, 60_000);
+
+	it('should keep the release and recover a run after notes in its middle become Backing', async () => {
+		// Prepare
+		const { before, edited, broken } = handToBacking('zigzag', 8, 2);
+		expect(brokenHits(broken.hits).length).toBeGreaterThan(0);
+
+		// Act
+		const outcome = await fixTrack(edited, broken, deps(), before.hits);
+
+		// Assert: the release stays, since the marble's first notes still play
+		expect(outcome.releases).toEqual([]);
+		expect(hitsNeedingAttention(outcome.result)).toEqual([]);
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed .* · placed \\d+ platforms? again.* · ${summary.label}`));
+	}, 60_000);
+});
+
+describe('moveClear function', () => {
+	// A windmill that follows Marble 1 at 0:02.00, sitting on the marble's straight fall from 0:00 to 0:01
+	function createBlocked(): { project: TProject; result: TSimulationResult } {
+		const base = createProject({ title: 'Move Clear' });
+		const marble = base.marbles[0];
+		if (marble == null) throw new Error('A new project has a marble');
+		const project: TProject = {
+			...base,
+			marbles: [{ ...marble, hits: [{ id: 'h1', time: 1.5 }] }],
+			track: { ...base.track, pieces: [
+				...base.track.pieces,
+				{
+					id: 'windmill',
+					name: 'Windmill 1',
+					type: 'windmill', params: { entryDelay: 0.5 }, angle: 0, place: { kind: 'follows', marbleId: marble.id, hitId: 'h1', offset: { x: 0.1, y: 0.2 } }
+				}
+			] }
+		};
+		const samples = Array.from({ length: 101 }, (_, index) => ({ time: index / 100, position: { x: 0, y: 0.2 - index * 0.004 }, angle: 0, velocity: { x: 0, y: -0.4 } }));
+		const result: TSimulationResult = {
+			revision: project.revision,
+			duration: 3,
+			marbles: [{ marbleId: marble.id, radius: 0.008, samples }],
+			pieces: [
+				{
+					pieceId: 'windmill',
+					type: 'windmill',
+					position: { x: 0, y: 0 },
+					angle: 0,
+					params: { motorSpeed: 0 },
+					contactPoint: null,
+					contactNormal: null,
+					hitTime: 1.5,
+					status: 'blocked',
+					entryTime: 2,
+					shapes: [{ kind: 'ball', center: { x: 0, y: 0 }, radius: 0.02 }]
+				}
+			],
+			contacts: [],
+			hits: [],
+			stats: { computeMs: 0, reusedUntil: 0, steps: 0 }
+		};
+		return { project, result };
+	}
+
+	it('should nudge the offset just far enough to clear the earlier run and keep the tie', () => {
+		// Prepare
+		const { project, result } = createBlocked();
+
+		// Act
+		const move = moveClear(project, result, 'windmill');
+
+		// Assert: the ball of 2 cm clears a marble of 8 mm with a 3 mm margin on the first 5 mm ring past 3.1 cm
+		expect(move?.distance).toBeCloseTo(0.035, 6);
+		const command = move?.commands[0];
+		if (command?.type !== 'updatePiece' || command.patch.place?.kind !== 'follows') throw new Error('Move Clear sets the tie');
+		const { offset, marbleId, hitId } = command.patch.place;
+		expect({ marbleId, hitId }).toEqual({ marbleId: project.marbles[0]?.id, hitId: 'h1' });
+		expect(Math.hypot((offset?.x ?? 0) - 0.1, (offset?.y ?? 0) - 0.2)).toBeCloseTo(0.035, 4);
+	});
+
+	it('should leave pieces that are not Blocked alone', () => {
+		const { project, result } = createBlocked();
+		const placed = { ...result, pieces: result.pieces.map((piece) => ({ ...piece, status: 'placed' as const })) };
+
+		expect(moveClear(project, placed, 'windmill')).toBeNull();
+	});
+
+	it('should move the piece only when its what-if run breaks no hit', async () => {
+		// Prepare: the move clears the windmill, but the run with it moved loses a hit that was on time
+		const { project, result } = createBlocked();
+		const marbleId = project.marbles[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
+		const unused = (): Promise<never> => Promise.reject(new Error('Move Clear places no platform'));
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
+		const keeps = { ...breaks, hits: onTime.hits };
+
+		// Act
+		const refused = await fixPiece(project, onTime, 'windmill', { simulate: async () => breaks, autoPlace: unused });
+		const moved = await fixPiece(project, onTime, 'windmill', { simulate: async () => keeps, autoPlace: unused });
+
+		// Assert
+		expect(refused).toEqual(expect.objectContaining({ commands: null, message: 'Moving Windmill 1 clear would break a note, so nothing changed. Drag it by hand or Detach it.' }));
+		expect(moved.commands).toHaveLength(1);
+		expect(moved.message).toMatch(/^Windmill 1 moved \d+ cm, clear of .+'s run$/);
+	});
+
+	it('should keep a Blocked Bowl, which is how its marble ends, even when moving it clear would break a hit', async () => {
+		// Prepare
+		const { project: blocked, result } = createBlocked();
+		const project = { ...blocked, track: { ...blocked.track, pieces: blocked.track.pieces.map((piece) => (piece.id === 'windmill' ? { ...piece, type: 'bowl' } : piece)) } };
+		const marbleId = project.marbles[0]?.id ?? '';
+		const onTime = { ...result, hits: [hit(1.5, 'onTime', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
+		const breaks = { ...onTime, pieces: onTime.pieces.map((piece) => ({ ...piece, status: 'placed' as const })), hits: [hit(1.5, 'missed', { marbleId, hitId: 'h1', pieceId: 'p1' })] };
+		const simulate = async (next: TProject): Promise<TSimulationResult> => (next.track.pieces.some((piece) => piece.id === 'windmill') ? breaks : { ...onTime, pieces: [] });
+
+		// Act
+		const fix = await sceneryFix(project, onTime, 'windmill', { simulate });
+
+		// Assert
+		expect(fix.commands).toBeNull();
+	});
+});
+
+describe('fixHelps function', () => {
+	const run = (onTime: number, otherProblems: number, total = 115): TFixCount => ({ onTime, otherProblems, total });
+
+	it('should keep a result when the total of broken hits and problems falls', () => {
+		expect(fixHelps(run(114, 5), run(115, 3))).toBe(true);
+	});
+
+	it('should refuse a run that leaves the song worse, as the marble brought back on tens of broken hits did', () => {
+		expect(fixHelps(run(114, 5), run(44, 88))).toBe(false);
+	});
+
+	it('should refuse a result that only trades one problem for another', () => {
+		expect(fixHelps(run(114, 2), run(115, 3))).toBe(false);
+		expect(fixHelps(run(100, 2), run(100, 2))).toBe(false);
+	});
+
+	it('should count hits waiting behind a break as broken', () => {
+		expect(fixHelps(run(95, 2), run(115, 4))).toBe(true);
+	});
+});
+
+describe('fixWorseWords function', () => {
+	it('should give the real counts of both runs', () => {
+		const words = fixWorseWords({ onTime: 114, otherProblems: 5, total: 115 }, { onTime: 44, otherProblems: 88, total: 115 });
+		expect(words).toContain('Fix would leave 71 broken notes and 88 other problems, where there are now 1 broken note and 5 other problems, so nothing changed.');
+	});
+
+	it('should say when nothing better was found', () => {
+		expect(fixWorseWords({ onTime: 10, otherProblems: 0, total: 10 }, { onTime: 10, otherProblems: 0, total: 10 })).toContain('nothing better');
+	});
+});
+
+describe('fixMessage function', () => {
+	it('should say what it fixed and changed, how the run stands and the new problems', () => {
+		// Prepare
+		const project = oneMarble();
+		const withPieces: TProject = { ...project, track: { ...project.track, pieces: [...project.track.pieces, { id: 'rail', name: 'Rail 2', type: 'rail', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } }, { id: 'windmill', name: 'Windmill 1', type: 'windmill', params: {}, angle: 0, place: { kind: 'free', position: { x: 0, y: 0 } } }] } };
+		const before = [hit(1, 'blocked', { hitId: 'a' }), hit(2, 'blocked', { hitId: 'b' }), hit(3, 'missed', { hitId: 'c' })];
+		const after = [hit(1, 'onTime', { hitId: 'a' }), hit(2, 'onTime', { hitId: 'b' }), hit(3, 'missed', { hitId: 'c' })];
+		const outcome = { project: withPieces, result: { hits: after } as TSimulationResult, replaced: 13, moved: ['rail'], cleared: ['windmill'], releases: ['marble-1'] };
+		const added = [{ id: 'contact:m:s', kind: 'contact' as const, severity: 'warning' as const, title: 'Bass hits Rail 6 of Melody', target: null }];
+
+		// Act
+		const message = fixMessage(withPieces, before, outcome, { label: '2 of 3 notes on time', hitProblems: 1, added });
+
+		// Assert
+		expect(message).toBe('Fixed 2 of 3 notes · placed 13 platforms again · moved the release · moved Rail 2 and Windmill 1 · 2 of 3 notes on time · 1 new problem: Bass hits Rail 6 of Melody. Turn it by hand or undo the edit.');
+	});
+});
+
+describe('addedProblems function', () => {
+	function contactResult(project: TProject, contacts: TSimulationResult['contacts']): TSimulationResult {
+		return { revision: project.revision, duration: 10, marbles: [], pieces: [], contacts, hits: [], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } };
+	}
+
+	it('should count another marble hitting a piece, except ahead of the marble being fixed', () => {
+		// Prepare: Bass's marble hits a switchback of Melody at 0:05.00
+		const base = createProject();
+		const [melody] = base.marbles;
+		if (melody == null) throw new Error('A new project has a marble');
+		const project: TProject = {
+			...base,
+			marbles: [{ ...melody, name: 'Melody' }, { ...melody, id: 'bass', name: 'Bass', radius: 0.008, hits: [] }],
+			track: { ...base.track, pieces: [
+				...base.track.pieces,
+				{ id: 'switchback', name: 'Rail 6', type: 'rail', layout: 'switchback', params: {}, angle: 0, place: { kind: 'follows', marbleId: melody.id, hitId: 'h1' } }
+			] }
+		} as TProject;
+		const clear = contactResult(project, []);
+		const hitBy = contactResult(project, [{ kind: 'piece', marbleId: 'bass', otherId: 'switchback', time: 5, position: { x: 0, y: 0 } }] as TSimulationResult['contacts']);
+
+		// Act
+		const added = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS);
+		const ahead = addedProblems(project, clear, project, hitBy, NO_BLENDER_OBJECTS, { marbleId: melody.id, from: 4 });
+
+		// Assert
+		expect(added.map((issue) => issue.title)).toEqual(['Bass hits Rail 6 of Melody']);
+		expect(ahead).toEqual([]);
+	});
+});
+
+describe('Fix on a small project', () => {
+	let simulator: TSimulator;
+	let track: TProject;
+	const simulate = (project: TProject): TSimulationResult => simulator.simulate(project);
+	const deps = (): TFixDeps => ({
+		simulate: async (project) => simulate(project),
+		autoPlace: async (project, target, piece) => {
+			const [isOk, error, placement] = autoPlace(project, simulate(project), target.marbleId, target.hitId, { simulate, type: piece.type });
+			if (!isOk) throw error;
+			return placement.piece;
+		},
+		gapPiece: async () => {
+			throw new Error('No gaps here');
+		},
+		settle: async (before, after) => editCommands(answerSettle(simulator, { before, after }, null).answer),
+		commit: (project, commands) => {
+			const [isOk, error, next] = applyProjectCommands(project, commands);
+			if (!isOk) throw error;
+			return next;
+		}
+	});
+
+	beforeAll(async () => {
+		simulator = await createSimulator();
+		track = createBareRunProject({ id: 'small', title: 'Small', end: 5, marbles: [{ x: 0, y: 0.6, releaseTime: 0, hitTimes: evenTimes(0.3, 0.45, 8) }] });
+		const marble = track.marbles[0];
+		if (marble == null) throw new Error('The project has a marble');
+		for (const [index, note] of marble.hits.entries()) {
+			const piece = createLinkedPiece('platform', marble.id, note.id, index % 2 === 0 ? -0.4 : 0.4, { id: `piece-${index}` });
+			const placed = withCommands(track, [{ type: 'addPiece', piece }]);
+			const [isOk, error, placement] = autoPlace(placed, simulate(placed), marble.id, note.id, { simulate, type: 'platform' });
+			if (!isOk) throw error;
+			track = withCommands(placed, [{ type: 'addPiece', piece: { ...placement.piece, id: piece.id } }]);
+		}
+	});
+
+	/** The track with one bar tilted, the first way that shows a problem */
+	function tiltedUntil(isShown: (project: TProject, run: TSimulationResult) => boolean): TProject {
+		for (const piece of track.track.pieces) {
+			if (tieOf(piece) == null) continue;
+			for (let angle = -1.3; angle <= 1.3; angle += 0.1) {
+				const next = withCommands(track, [{ type: 'updatePiece', pieceId: piece.id, patch: { angle } }]);
+				if (isShown(next, simulate(next))) return next;
+			}
+		}
+		throw new Error('No tilt shows the problem');
+	}
+
+	const cases: [string, () => TProject][] = [
+		['a double hit', () => tiltedUntil((project, run) => extraStrikes(project, run).length > 0)],
+		['a touching pair', () => tiltedUntil((project, run) => touchingPairs(project, run).length > 0)],
+		['a missed hit', () => tiltedUntil((_project, run) => brokenHits(run.hits).length > 0)]
+	];
+
+	it.each(cases)('should clear %s across the whole run', async (_name, make) => {
+		// Prepare
+		const broken = make();
+		const run = simulate(broken);
+		expect(hasFixes(broken, run)).toBe(true);
+
+		// Act
+		const outcome = await fixTrack(broken, run, deps());
+
+		// Assert
+		const after = simulate(outcome.project);
+		expect(brokenHits(after.hits)).toEqual([]);
+		expect(problemPieces(outcome.project, after)).toEqual([]);
+	}, 60_000);
+
+	it('should act on a platform the marble passes through, not say it has nothing to fix', async () => {
+		// Prepare: the marble's path runs through the body below a platform's top
+		const run = simulate(track);
+		const piece = run.pieces.find((item) => item.type === 'platform');
+		const samples = run.marbles[0]?.samples ?? [];
+		const inside = samples[samples.length - 1];
+		if (piece == null || inside == null) throw new Error('Missing piece');
+		const below = { ...inside, time: Math.min(inside.time, run.duration), position: { x: piece.position.x, y: piece.position.y } };
+		const passed = { ...run, marbles: run.marbles.map((marble) => ({ ...marble, samples: [...marble.samples, below] })) };
+		expect(passThroughs(track, passed).some((pass) => pass.pieceId === piece.pieceId)).toBe(true);
+
+		// Act
+		const fix = await fixPiece(track, passed, piece.pieceId, deps());
+
+		// Assert
+		expect(problemPieces(track, passed)).toContain(piece.pieceId);
+		expect(fix.message).not.toMatch(/nothing to fix/);
+	});
+
+	it('should say why when a piece with a problem is tied to nothing', async () => {
+		const run = simulate(track);
+		const free = withCommands(track, [{ type: 'addPiece', piece: { id: 'free', name: 'Free', type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x: 0.9, y: 0.9 } } } }]);
+		const samples = run.marbles[0]?.samples ?? [];
+		const inside = samples[samples.length - 1];
+		if (inside == null) throw new Error('Missing run');
+		const freeRun = simulate(free);
+		const passed = { ...freeRun, marbles: freeRun.marbles.map((marble) => ({ ...marble, samples: [...marble.samples, { ...inside, time: Math.min(inside.time, freeRun.duration), position: { x: 0.9, y: 0.9 } }] })) };
+		const fix = await fixPiece(free, passed, 'free', deps());
+		expect(fix.commands).toBeNull();
+		expect(fix.message).toMatch(/Free is tied to nothing/);
+	});
+
+	it('should clear a roll or say why, and never break the rest of the run', async () => {
+		// Prepare
+		const broken = tiltedUntil((project, run) => rollingHits(project, run).length > 0);
+		const run = simulate(broken);
+		const rolled = rollingHits(broken, run)[0]?.pieceId ?? '';
+
+		// Act
+		const fix = await fixPiece(broken, run, rolled, deps());
+
+		// Assert
+		if (fix.commands == null) {
+			expect(fix.message.length).toBeGreaterThan(0);
+			return;
+		}
+		const next = withCommands(broken, fix.commands);
+		const after = simulate(next);
+		expect(problemPieces(next, after)).not.toContain(rolled);
+		expect(newlyBroken(run.hits, after.hits)).toEqual([]);
+	}, 60_000);
+
+	it('should say why when nothing is kept, and never swap one problem for another', async () => {
+		// Prepare
+		const broken = tiltedUntil((project, run) => extraStrikes(project, run).length > 0);
+		const run = simulate(broken);
+		const before = new Set(problemPieces(broken, run));
+
+		for (const pieceId of before) {
+			// Act
+			const fix = await fixPiece(broken, run, pieceId, deps());
+
+			// Assert
+			expect(fix.message.length).toBeGreaterThan(0);
+			if (fix.commands == null) continue;
+			const next = withCommands(broken, fix.commands);
+			expect(problemPieces(next, simulate(next)).every((id) => before.has(id) && id !== pieceId)).toBe(true);
+		}
+	}, 60_000);
+});

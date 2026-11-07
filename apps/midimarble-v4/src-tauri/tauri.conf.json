@@ -1,0 +1,69 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "MidiMarble",
+	"identifier": "group.builder.midimarble-v4.dev",
+	"mainBinaryName": "MidiMarble - Development",
+	"build": {
+		"beforeDevCommand": "pnpm ui:start:dev",
+		"devUrl": "http://localhost:1436",
+		"beforeBuildCommand": "pnpm ui:build",
+		"frontendDist": "../dist"
+	},
+	"app": {
+		"security": {
+			"csp": null,
+			"assetProtocol": {
+				"enable": true,
+				"scope": {
+					"allow": ["**"],
+					"requireLiteralLeadingDot": false
+				}
+			}
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": "all",
+		"fileAssociations": [
+			{
+				"ext": ["marble"],
+				"name": "MidiMarble Project",
+				"description": "MidiMarble project package",
+				"role": "Editor",
+				"exportedType": {
+					"identifier": "group.builder.midimarble.project",
+					"conformsTo": ["com.apple.package"]
+				}
+			},
+			{
+				"ext": ["marblepack"],
+				"name": "MidiMarble Pack",
+				"description": "Themes, skins and decor for MidiMarble",
+				"role": "Viewer",
+				"exportedType": {
+					"identifier": "group.builder.midimarble.pack",
+					"conformsTo": ["com.apple.package"]
+				}
+			}
+		],
+		"resources": {
+			"../blender/worker.py": "blender/worker.py",
+			"../blender/render_job.py": "blender/render_job.py",
+			"../blender/preview_job.py": "blender/preview_job.py",
+			"../blender/mm_worker/*.py": "blender/mm_worker/",
+			"../blender/mm_worker/*.json": "blender/mm_worker/",
+			"../packs/Starter.marblepack/pack.json": "packs/Starter.marblepack/pack.json",
+			"../packs/Christmas.marblepack/pack.json": "packs/Christmas.marblepack/pack.json"
+		},
+		"macOS": {
+			"minimumSystemVersion": "12.0"
+		},
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		]
+	}
+}

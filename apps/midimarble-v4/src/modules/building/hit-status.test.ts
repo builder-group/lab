@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest';
+import type { THitResult } from '@/modules/simulation';
+import { hitTiming, problemsInTimeOrder } from './hit-status';
+
+function result(hitId: string, status: THitResult['status'], targetTime: number, extra: Partial<THitResult> = {}): THitResult {
+	return { marbleId: 'marble-1', hitId, targetTime, pieceId: null, dot: null, velocity: null, actualTime: null, error: null, status, ...extra };
+}
+
+describe('hitTiming function', () => {
+	it('should name each timing status in the words of the app', () => {
+		const names = { marble: 'Marble 1', pitch: 60, piece: 'Platform 3' };
+
+		expect(hitTiming(result('a', 'onTime', 1), names)).toMatchObject({ label: 'On Time', tooltip: 'Marble 1 hits C4 on time' });
+		expect(hitTiming(result('a', 'drifting', 1, { error: 0.012 }), names)).toMatchObject({ label: '12 ms Late', tooltip: 'Lands 12 ms after the note' });
+		expect(hitTiming(result('a', 'drifting', 1, { error: -0.008 }), names).label).toBe('8 ms Early');
+		expect(hitTiming(result('a', 'missed', 1), names).label).toBe('Missed');
+		expect(hitTiming(result('a', 'missed', 1, { reason: 'resting' }), names).label).toBe('Stopped');
+		expect(hitTiming(result('a', 'blocked', 1), names).tooltip).toContain('Platform 3');
+		expect(hitTiming(undefined, names)).toMatchObject({ state: 'open', label: 'Open' });
+		expect(hitTiming(result('a', 'open', 1), names, { label: 'Too Soon', detail: "Marble 1 can't reach a platform by 0:01.00" })).toMatchObject({ state: 'unreachable', label: 'Too Soon' });
+	});
+});
+
+describe('problemsInTimeOrder', () => {
+	it('should order problems by time, a framing span by its start, and keep untimed ones last', () => {
+		const problems = [
+			{ id: 'framing', span: { from: 4, to: 6 }, target: null },
+			{ id: 'step', target: null },
+			{ id: 'blocked', time: 2, target: { time: 2 } },
+			{ id: 'collision', target: { time: 3 } },
+			{ id: 'song', target: null }
+		];
+		expect(problemsInTimeOrder(problems).map((problem) => problem.id)).toEqual(['blocked', 'collision', 'framing', 'step', 'song']);
+	});
+});

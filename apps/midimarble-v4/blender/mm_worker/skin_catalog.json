@@ -1,0 +1,673 @@
+{
+	"elements": {
+		"platform": {
+			"label": "Platform",
+			"plural": "Platforms",
+			"onHit": [
+				"none",
+				"press",
+				"wobble",
+				"glow"
+			],
+			"skins": [
+				{
+					"id": "platform:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "press",
+					"preview": "platform-pegboard.png"
+				},
+				{
+					"id": "platform:gold",
+					"label": "Gold",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-gold.png"
+				},
+				{
+					"id": "platform:copper",
+					"label": "Copper",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-copper.png"
+				},
+				{
+					"id": "platform:silver",
+					"label": "Silver",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-silver.png"
+				},
+				{
+					"id": "platform:plate-gold",
+					"label": "Gold Plate",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-plate-gold.png"
+				},
+				{
+					"id": "platform:plate-copper",
+					"label": "Copper Plate",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-plate-copper.png"
+				},
+				{
+					"id": "platform:plate-wood",
+					"label": "Wood Plate",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-plate-wood.png"
+				},
+				{
+					"id": "platform:chrome-device",
+					"label": "Chrome Device",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-chrome-device.png"
+				},
+				{
+					"id": "platform:dark-housing",
+					"label": "Dark Housing",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-dark-housing.png"
+				},
+				{
+					"id": "platform:device",
+					"label": "Device",
+					"hidden": true,
+					"origin": "Brass Sections",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-device.png",
+					"variants": [
+						{
+							"id": "gold",
+							"label": "Gold"
+						},
+						{
+							"id": "copper",
+							"label": "Copper"
+						},
+						{
+							"id": "silver",
+							"label": "Silver"
+						},
+						{
+							"id": "dark",
+							"label": "Dark"
+						}
+					],
+					"variant": "gold"
+				},
+				{
+					"id": "platform:device-copper",
+					"label": "Copper Device",
+					"hidden": true,
+					"origin": "Brass Sections",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-device-copper.png",
+					"variants": [
+						{
+							"id": "gold",
+							"label": "Gold"
+						},
+						{
+							"id": "copper",
+							"label": "Copper"
+						},
+						{
+							"id": "silver",
+							"label": "Silver"
+						},
+						{
+							"id": "dark",
+							"label": "Dark"
+						}
+					],
+					"variant": "copper"
+				},
+				{
+					"id": "platform:key",
+					"label": "Key",
+					"hidden": true,
+					"origin": "Brass Sections",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-key.png"
+				},
+				{
+					"id": "platform:knob",
+					"label": "Knob",
+					"hidden": true,
+					"origin": "Brass Sections",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "glow",
+					"preview": "platform-knob.png",
+					"glows": true
+				},
+				{
+					"id": "platform:pegboard",
+					"label": "Pegboard",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-pegboard.png"
+				},
+				{
+					"id": "platform:neon",
+					"label": "Neon",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "glow",
+					"preview": "platform-neon.png",
+					"glows": true
+				},
+				{
+					"id": "platform:gift",
+					"label": "Gift",
+					"hidden": true,
+					"origin": "Christmas Pack",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"preview": "platform-gift.png",
+					"properties": [
+						{
+							"name": "Ribbon Color",
+							"type": "color",
+							"default": "#d9a520"
+						}
+					]
+				},
+				{
+					"id": "platform:dark",
+					"label": "Dark",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"hidden": true
+				},
+				{
+					"id": "platform:device-silver",
+					"label": "Silver Device",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"hidden": true
+				},
+				{
+					"id": "platform:device-dark",
+					"label": "Dark Device",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble",
+						"note"
+					],
+					"reacts": "press",
+					"hidden": true
+				}
+			]
+		},
+		"rail": {
+			"label": "Rail",
+			"plural": "Rails",
+			"onHit": [
+				"none",
+				"glow"
+			],
+			"skins": [
+				{
+					"id": "rail:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-wood.png"
+				},
+				{
+					"id": "rail:chrome",
+					"label": "Chrome Rail",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-chrome.png"
+				},
+				{
+					"id": "rail:wood",
+					"label": "Wood Rail",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-wood.png"
+				},
+				{
+					"id": "rail:candy",
+					"label": "Candy Rail",
+					"hidden": true,
+					"origin": "Christmas Pack",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-candy.png"
+				},
+				{
+					"id": "rail:glow",
+					"label": "Glow Rail",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "rail-glow.png",
+					"glows": true
+				}
+			]
+		},
+		"tunnel": {
+			"label": "Tunnel",
+			"plural": "Tunnels",
+			"onHit": [
+				"none",
+				"glow"
+			],
+			"skins": [
+				{
+					"id": "tunnel:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "tunnel-wood.png"
+				},
+				{
+					"id": "tunnel:frosted",
+					"label": "Frosted Tunnel",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "tunnel-frosted.png"
+				},
+				{
+					"id": "tunnel:wood",
+					"label": "Wood Tunnel",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "tunnel-wood.png"
+				},
+				{
+					"id": "tunnel:glow",
+					"label": "Glow Tunnel",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "tunnel-glow.png",
+					"glows": true
+				}
+			]
+		},
+		"windmill": {
+			"label": "Windmill",
+			"plural": "Windmills",
+			"onHit": [
+				"none",
+				"glow"
+			],
+			"skins": [
+				{
+					"id": "windmill:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "glow",
+					"preview": "windmill-wood.png"
+				},
+				{
+					"id": "windmill:gold",
+					"label": "Gold Windmill",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "glow",
+					"preview": "windmill-gold.png"
+				},
+				{
+					"id": "windmill:wood",
+					"label": "Wood Windmill",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "glow",
+					"preview": "windmill-wood.png"
+				},
+				{
+					"id": "windmill:glow",
+					"label": "Glow Windmill",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "glow",
+					"preview": "windmill-glow.png",
+					"glows": true
+				}
+			]
+		},
+		"bowl": {
+			"label": "Bowl",
+			"plural": "Bowls",
+			"onHit": [
+				"none",
+				"glow"
+			],
+			"skins": [
+				{
+					"id": "bowl:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "bowl-wood.png"
+				},
+				{
+					"id": "bowl:chrome",
+					"label": "Chrome Bowl",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "bowl-chrome.png"
+				},
+				{
+					"id": "bowl:wood",
+					"label": "Wood Bowl",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "bowl-wood.png"
+				},
+				{
+					"id": "bowl:glow",
+					"label": "Glow Bowl",
+					"colorSource": "marble",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "bowl-glow.png",
+					"glows": true
+				}
+			]
+		},
+		"marble": {
+			"label": "Marble",
+			"plural": "Marbles",
+			"onHit": [],
+			"skins": [
+				{
+					"id": "marble:none",
+					"label": "None",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "marble-deep.png"
+				},
+				{
+					"id": "marble:contrast",
+					"label": "Pearl or Deep",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"hidden": true
+				},
+				{
+					"id": "marble:glass",
+					"label": "Glass",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble",
+						"skin"
+					],
+					"reacts": "none",
+					"preview": "marble-glass.png",
+					"variants": [
+						{
+							"id": "swirl",
+							"label": "Swirl"
+						},
+						{
+							"id": "cats-eye",
+							"label": "Cat's-Eye"
+						}
+					],
+					"variant": "swirl"
+				},
+				{
+					"id": "marble:glass-green",
+					"label": "Green Glass",
+					"hidden": true,
+					"origin": "Christmas Pack",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "marble-glass-green.png",
+					"variants": [
+						{
+							"id": "swirl",
+							"label": "Swirl"
+						},
+						{
+							"id": "cats-eye",
+							"label": "Cat's-Eye"
+						}
+					],
+					"variant": "swirl"
+				},
+				{
+					"id": "marble:metal",
+					"label": "Metal",
+					"colorSource": "skin",
+					"colorSources": [
+						"skin",
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "marble-metal.png"
+				},
+				{
+					"id": "marble:magic",
+					"label": "Magic",
+					"colorSource": "marble",
+					"colorSources": [
+						"marble",
+						"skin"
+					],
+					"reacts": "none",
+					"preview": "marble-magic.png",
+					"glows": true
+				},
+				{
+					"id": "marble:pearl",
+					"label": "Pearl",
+					"hidden": true,
+					"colorSource": "marble",
+					"colorSources": [
+						"marble",
+						"skin"
+					],
+					"reacts": "none",
+					"preview": "marble-pearl.png"
+				},
+				{
+					"id": "marble:deep",
+					"label": "Deep",
+					"hidden": true,
+					"colorSource": "marble",
+					"colorSources": [
+						"marble"
+					],
+					"reacts": "none",
+					"preview": "marble-deep.png"
+				}
+			]
+		}
+	},
+	"themes": {
+		"pegboard": {
+			"platform": "platform:pegboard",
+			"rail": "rail:wood",
+			"tunnel": "tunnel:wood",
+			"windmill": "windmill:wood",
+			"bowl": "bowl:wood",
+			"marble": "marble:contrast"
+		},
+		"brass": {
+			"platform": "platform:gold",
+			"rail": "rail:chrome",
+			"tunnel": "tunnel:frosted",
+			"windmill": "windmill:gold",
+			"bowl": "bowl:chrome",
+			"marble": "marble:contrast"
+		},
+		"neon": {
+			"platform": "platform:neon",
+			"rail": "rail:glow",
+			"tunnel": "tunnel:glow",
+			"windmill": "windmill:glow",
+			"bowl": "bowl:glow",
+			"marble": "marble:contrast"
+		}
+	}
+}

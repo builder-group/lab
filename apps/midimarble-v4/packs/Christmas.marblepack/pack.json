@@ -1,0 +1,46 @@
+{
+	"$schema": "marble-pack@1",
+	"id": "christmas",
+	"name": "Christmas",
+	"version": "1.0",
+	"description": "Baubles, a snowflake, a fairy light, a gift box and a star to hang on the wall.",
+	"author": "MidiMarble",
+	"items": [
+		{
+			"kind": "decor",
+			"id": "bauble-red",
+			"label": "Red Bauble",
+			"source": "decor:bauble-red"
+		},
+		{
+			"kind": "decor",
+			"id": "bauble-gold",
+			"label": "Gold Bauble",
+			"source": "decor:bauble-gold"
+		},
+		{
+			"kind": "decor",
+			"id": "snowflake-gold",
+			"label": "Gold Snowflake",
+			"source": "decor:snowflake-gold"
+		},
+		{
+			"kind": "decor",
+			"id": "fairy-light",
+			"label": "Fairy Light",
+			"source": "decor:fairy-light"
+		},
+		{
+			"kind": "decor",
+			"id": "gift-box",
+			"label": "Gift Box",
+			"source": "decor:gift-box"
+		},
+		{
+			"kind": "decor",
+			"id": "star",
+			"label": "Star",
+			"source": "decor:star"
+		}
+	]
+}

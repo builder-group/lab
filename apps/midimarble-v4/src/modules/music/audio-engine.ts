@@ -1,0 +1,321 @@
+import { SoundBankLoader, SpessaLog, type BasicSoundBank } from 'spessasynth_core';
+import type { TMarble, TProject, TSong } from '@/modules/project';
+import { levelSignature, melodyMarbleId, renderMix } from './default-mix';
+import { normalizeLoudness, type TLoudness } from './loudness';
+import { backingVoices, mixAudioSource, renderMarbles, soundingMarbles, type TDecodedAudio, type TStereoAudio } from './synthesize';
+import { createScrubber } from './scrub';
+import { decodeAudioFile } from './waveform';
+
+const SAMPLE_RATE = 48000;
+const BANK_URL = '/audio/marble-instruments.sf2';
+
+/**
+ * Seconds the soundtrack fades out over at the film end, so a note still ringing after `SONG_TAIL` is not cut off.
+ */
+export const FILM_AUDIO_FADE = 0.4;
+
+export function createAudioEngine(): TAudioEngine {
+	const context = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
+	const master = context.createGain();
+	master.connect(context.destination);
+	const auditionCache = new Map<string, AudioBuffer>();
+	let timeline: AudioBuffer | null = null;
+	let signature: string | null = null;
+	// How many recordings the timeline plays without: one that comes back makes it render again
+	let lacking = 0;
+	let source: AudioBufferSourceNode | null = null;
+	let startedAt = 0;
+	let startOffset = 0;
+	const scrubber = createScrubber(context, master);
+	// A drag that ended while its soundtrack was rendering must not start playing when the render lands
+	let scrubSession = 0;
+
+	function getTime(): number {
+		if (source == null) return startOffset;
+		const time = startOffset + (context.currentTime - startedAt);
+		return timeline == null ? time : Math.min(time, timeline.duration);
+	}
+
+	function stop(): void {
+		if (source == null) return;
+		startOffset = getTime();
+		const current = source;
+		source = null;
+		current.onended = null;
+		current.stop();
+		current.disconnect();
+	}
+
+	function endScrub(): void {
+		scrubSession++;
+		scrubber.end();
+	}
+
+	async function prepare(project: TProject, resolveSourceUrl: TResolveSourceUrl, mixedAs?: TProject): Promise<void> {
+		const nextSignature = createAudioSignature(project, resolveSourceUrl, mixedAs);
+		if (nextSignature === signature && timeline != null && lacking === 0) return;
+		const nextLacking = (await missingRecordings(project, resolveSourceUrl)).length;
+		if (nextSignature === signature && timeline != null && nextLacking === lacking) return;
+		const audio = await renderProjectAudio(project, resolveSourceUrl, {
+			sampleRate: SAMPLE_RATE,
+			mixedAs
+		});
+		const buffer = context.createBuffer(2, audio.left.length, audio.sampleRate);
+		buffer.copyToChannel(audio.left as Float32Array<ArrayBuffer>, 0);
+		buffer.copyToChannel(audio.right as Float32Array<ArrayBuffer>, 1);
+		const wasPlaying = source != null;
+		const time = getTime();
+		timeline = buffer;
+		signature = nextSignature;
+		lacking = nextLacking;
+		if (wasPlaying) await play(time);
+	}
+
+	async function play(from: number): Promise<void> {
+		endScrub();
+		stop();
+		startOffset = Math.max(0, from);
+		if (context.state !== 'running') await context.resume();
+		if (timeline == null || startOffset >= timeline.duration) return;
+		const node = context.createBufferSource();
+		node.buffer = timeline;
+		node.connect(master);
+		node.onended = () => {
+			if (source !== node) return;
+			startOffset = getTime();
+			source = null;
+		};
+		startedAt = context.currentTime;
+		node.start(0, startOffset);
+		source = node;
+	}
+
+	return {
+		prepare,
+		play,
+		stop,
+		getTime,
+		isPlaying: () => source != null,
+		async beginScrub(project, resolveSourceUrl, mixedAs) {
+			endScrub();
+			const session = scrubSession;
+			scrubber.begin();
+			// Resumed before anything awaits, while this is still the press's gesture
+			const resumed = context.state === 'running' ? undefined : context.resume();
+			await Promise.all([resumed, prepare(project, resolveSourceUrl, mixedAs)]);
+			if (session === scrubSession) scrubber.setBuffer(timeline);
+		},
+		scrubTo: (time) => scrubber.move(time),
+		endScrub,
+		async audition(marble, pitch) {
+			const key = `${marble.sound}:${pitch}`;
+			let buffer = auditionCache.get(key);
+			if (buffer == null) {
+				const bank = await loadInstrumentBank();
+				const audio = renderMarbles(
+					[{ ...marble, hits: [{ id: 'audition', time: 0, pitch }] }],
+					{ sampleRate: SAMPLE_RATE, duration: 1, bank }
+				);
+				fadeOut(audio, 0.05);
+				buffer = context.createBuffer(2, audio.left.length, SAMPLE_RATE);
+				buffer.copyToChannel(audio.left as Float32Array<ArrayBuffer>, 0);
+				buffer.copyToChannel(audio.right as Float32Array<ArrayBuffer>, 1);
+				auditionCache.set(key, buffer);
+			}
+			if (context.state !== 'running') await context.resume();
+			const node = context.createBufferSource();
+			node.buffer = buffer;
+			node.connect(master);
+			node.onended = () => node.disconnect();
+			node.start();
+		},
+		setVolume(volume) {
+			master.gain.setTargetAtTime(Math.max(0, volume), context.currentTime, 0.01);
+		},
+		dispose() {
+			endScrub();
+			stop();
+			auditionCache.clear();
+			timeline = null;
+			void context.close();
+		}
+	};
+}
+
+export interface TAudioEngine {
+	// Renders the timeline `[0, project.end]` unless its audio inputs are unchanged; `mixedAs`: see `renderProjectAudio`
+	prepare: (project: TProject, resolveSourceUrl: TResolveSourceUrl, mixedAs?: TProject) => Promise<void>;
+	play: (from: number) => Promise<void>;
+	stop: () => void;
+	// Timeline seconds; while stopped, the time playback stopped at
+	getTime: () => number;
+	isPlaying: () => boolean;
+	// Starts a playhead drag: renders `project` if it changed, then plays snippets at the positions given to `scrubTo`
+	beginScrub: (project: TProject, resolveSourceUrl: TResolveSourceUrl, mixedAs?: TProject) => Promise<void>;
+	scrubTo: (time: number) => void;
+	endScrub: () => void;
+	// Plays one note of the Song; a hit without a pitch has nothing to play
+	audition: (marble: TMarble, pitch: number) => Promise<void>;
+	setVolume: (volume: number) => void;
+	dispose: () => void;
+}
+
+export type TResolveSourceUrl = (source: TSong) => string | null;
+
+/**
+ * Every song at its start and every note that isn't in a recording: recordings play as they are, a marble's notes with
+ * its Sound and each song's Backing with its own, at the levels of `renderMix`. A project with nothing of these renders as
+ * silence. `project` is what's heard, with Mute and Solo applied; `mixedAs` is the whole project, which says who the melody
+ * is, so a part heard alone stays at its level in the mix.
+ */
+export async function renderProjectAudio(
+	project: TProject,
+	resolveSourceUrl: TResolveSourceUrl,
+	options: { sampleRate?: number; bank?: BasicSoundBank; mixedAs?: TProject } = {}
+): Promise<TStereoAudio> {
+	const { sampleRate = SAMPLE_RATE } = options;
+	const audioSources = recordingsOf(project);
+	const marbles = soundingMarbles(project);
+	const backing = backingVoices(project);
+	if (!audioSources.length && !backing.length && marbles.every((marble) => !marble.hits.length)) return silentAudio(project.length, sampleRate);
+	const hasNotes = backing.length > 0 || marbles.some((marble) => marble.hits.length > 0);
+	const audio = hasNotes ? renderMix(marbles, backing, melodyMarbleId(options.mixedAs ?? project), { sampleRate, duration: project.length, bank: options.bank ?? (await loadInstrumentBank()) }) : silentAudio(project.length, sampleRate);
+	const decodedSources = await Promise.all(
+		audioSources.map(async (source) => ({
+			source,
+			decoded: await loadSource(resolveSourceUrl(source))
+		}))
+	);
+	for (const { source, decoded } of decodedSources)
+		if (decoded != null) mixAudioSource(audio, decoded, source.start);
+	fadeOut(audio, FILM_AUDIO_FADE);
+	return audio;
+}
+
+/**
+ * The film's sound as Export writes it, for every quality alike: what's heard of `project` (`heard`, with what is muted left
+ * out), at the film's loudness.
+ */
+export async function renderFilmSoundtrack(
+	project: TProject,
+	resolveSourceUrl: TResolveSourceUrl,
+	options: { heard?: TProject; sampleRate?: number; bank?: BasicSoundBank } = {}
+): Promise<{ audio: TStereoAudio; loudness: TLoudness }> {
+	const { heard = project, sampleRate = SAMPLE_RATE, bank } = options;
+	const audio = await renderProjectAudio(heard, resolveSourceUrl, { sampleRate, bank, mixedAs: project });
+	return { audio, loudness: normalizeLoudness(audio) };
+}
+
+function recordingsOf(project: Pick<TProject, 'songs'>): TSong[] {
+	return project.songs.filter((song) => song.kind === 'audio' && song.path != null);
+}
+
+/** The recordings the soundtrack would play without, as their file doesn't load. One already in memory still plays */
+export async function missingRecordings(project: Pick<TProject, 'songs'>, resolveSourceUrl: TResolveSourceUrl): Promise<TSong[]> {
+	const recordings = recordingsOf(project);
+	const loaded = await Promise.all(recordings.map((song) => loadSource(resolveSourceUrl(song))));
+	return recordings.filter((_song, index) => loaded[index] == null);
+}
+
+// Stable key of everything `renderProjectAudio` reads
+export function createAudioSignature(
+	project: TProject,
+	resolveSourceUrl: TResolveSourceUrl,
+	mixedAs: TProject = project
+): string {
+	const audioSources = recordingsOf(project).map((song) => ({ url: resolveSourceUrl(song), offset: song.start }));
+	const marbles = soundingMarbles(project).filter((marble) => marble.hits.length > 0).map((marble) => ({
+		instrument: marble.sound,
+		hits: marble.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null])
+	}));
+	const backing = backingVoices(project).map((voice) => ({ instrument: voice.instrument, hits: voice.hits.map((hit) => [hit.time, hit.pitch ?? null, hit.velocity ?? null, hit.duration ?? null]) }));
+	return JSON.stringify({ end: project.length, audioSources, marbles, backing, levels: levelSignature(project, melodyMarbleId(mixedAs)) });
+}
+
+let bankPromise: Promise<BasicSoundBank> | null = null;
+
+export function loadInstrumentBank(): Promise<BasicSoundBank> {
+	bankPromise ??= (async () => {
+		const response = await fetch(BANK_URL);
+		if (!response.ok) throw new Error(`Failed to load ${BANK_URL}: ${response.status}`);
+		SpessaLog.setLogLevel(false, false, false);
+		return SoundBankLoader.fromArrayBuffer(await response.arrayBuffer());
+	})();
+	bankPromise.catch(() => {
+		bankPromise = null;
+	});
+	return bankPromise;
+}
+
+const sourceCache = new Map<string, Promise<TDecodedAudio | null>>();
+
+/** Null for a file that doesn't load or decode. Only what loaded is kept, so a file put back loads the next time it's asked for */
+function loadSource(url: string | null): Promise<TDecodedAudio | null> {
+	if (url == null) return Promise.resolve(null);
+	let decoded = sourceCache.get(url);
+	if (decoded == null) {
+		decoded = (async () => {
+			try {
+				const response = await fetch(url);
+				return response.ok ? await decodeAudioFile(await response.arrayBuffer()) : null;
+			} catch {
+				return null;
+			}
+		})();
+		sourceCache.set(url, decoded);
+		void decoded.then((audio) => {
+			if (audio == null) sourceCache.delete(url);
+		});
+	}
+	return decoded;
+}
+
+function silentAudio(seconds: number, sampleRate: number): TStereoAudio {
+	const length = Math.max(1, Math.ceil(seconds * sampleRate));
+	return { sampleRate, left: new Float32Array(length), right: new Float32Array(length) };
+}
+
+function fadeOut(audio: TStereoAudio, seconds: number): void {
+	const length = audio.left.length;
+	const fadeLength = Math.min(length, Math.round(audio.sampleRate * seconds));
+	for (let index = length - fadeLength; index < length; index++) {
+		const gain = (length - index - 1) / fadeLength;
+		audio.left[index] = (audio.left[index] ?? 0) * gain;
+		audio.right[index] = (audio.right[index] ?? 0) * gain;
+	}
+}
+
+// 16-bit PCM stereo WAV
+export function encodeWav(left: Float32Array, right: Float32Array, sampleRate: number): Uint8Array {
+	const frames = Math.min(left.length, right.length);
+	const dataSize = frames * 4;
+	const bytes = new Uint8Array(44 + dataSize);
+	const view = new DataView(bytes.buffer);
+	const writeText = (offset: number, text: string): void => {
+		for (let index = 0; index < text.length; index++)
+			view.setUint8(offset + index, text.charCodeAt(index));
+	};
+	writeText(0, 'RIFF');
+	view.setUint32(4, 36 + dataSize, true);
+	writeText(8, 'WAVE');
+	writeText(12, 'fmt ');
+	view.setUint32(16, 16, true);
+	view.setUint16(20, 1, true);
+	view.setUint16(22, 2, true);
+	view.setUint32(24, sampleRate, true);
+	view.setUint32(28, sampleRate * 4, true);
+	view.setUint16(32, 4, true);
+	view.setUint16(34, 16, true);
+	writeText(36, 'data');
+	view.setUint32(40, dataSize, true);
+	for (let frame = 0; frame < frames; frame++) {
+		view.setInt16(44 + frame * 4, toInt16(left[frame] ?? 0), true);
+		view.setInt16(46 + frame * 4, toInt16(right[frame] ?? 0), true);
+	}
+	return bytes;
+}
+
+function toInt16(sample: number): number {
+	const clamped = Math.max(-1, Math.min(1, sample));
+	return Math.round(clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff);
+}

@@ -1,0 +1,8741 @@
+{
+	"$schema": "marble-project@6",
+	"id": "jingle-bells",
+	"title": "Jingle Bells",
+	"revision": 190,
+	"format": {
+		"width": 9,
+		"height": 16
+	},
+	"length": 34,
+	"gravity": 0.25,
+	"songs": [
+		{
+			"id": "source-1",
+			"name": "jingle-bells.mid",
+			"kind": "midi",
+			"path": "audio/jingle-bells.mid",
+			"start": 1,
+			"tempo": {
+				"bpm": 120,
+				"beatsPerBar": 4
+			},
+			"backing": []
+		}
+	],
+	"marbles": [
+		{
+			"id": "marble-1",
+			"name": "Melody",
+			"labelColor": "#c8102e",
+			"sound": 9,
+			"radius": 0.012,
+			"start": {
+				"position": {
+					"x": -0.304,
+					"y": 0.6
+				},
+				"time": 0.0559
+			},
+			"hits": [
+				{
+					"id": "hit-1-1",
+					"time": 1,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-2",
+					"time": 1.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-3",
+					"time": 2,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.95,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-4",
+					"time": 3,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-5",
+					"time": 3.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-6",
+					"time": 4,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.95,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-7",
+					"time": 5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-8",
+					"time": 5.5,
+					"pitch": 74,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-9",
+					"time": 6,
+					"pitch": 67,
+					"velocity": 0.8425,
+					"duration": 0.7125,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-10",
+					"time": 6.75,
+					"pitch": 69,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-11",
+					"time": 7,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 1.9,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-12",
+					"time": 9,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-13",
+					"time": 9.5,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-14",
+					"time": 10,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.7125,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-15",
+					"time": 10.75,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-16",
+					"time": 11,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-17",
+					"time": 11.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-18",
+					"time": 12,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-19",
+					"time": 12.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-20",
+					"time": 12.75,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-21",
+					"time": 13,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-22",
+					"time": 13.5,
+					"pitch": 69,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-23",
+					"time": 14,
+					"pitch": 69,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-24",
+					"time": 14.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-25",
+					"time": 15,
+					"pitch": 69,
+					"velocity": 0.8425,
+					"duration": 0.95,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-26",
+					"time": 16,
+					"pitch": 74,
+					"velocity": 0.8425,
+					"duration": 0.95,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-27",
+					"time": 17,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-28",
+					"time": 17.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-29",
+					"time": 18,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.95,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-30",
+					"time": 19,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-31",
+					"time": 19.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-32",
+					"time": 20,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.95,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-33",
+					"time": 21,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-34",
+					"time": 21.5,
+					"pitch": 74,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-35",
+					"time": 22,
+					"pitch": 67,
+					"velocity": 0.8425,
+					"duration": 0.7125,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-36",
+					"time": 22.75,
+					"pitch": 69,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-37",
+					"time": 23,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 1.9,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-38",
+					"time": 25,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-39",
+					"time": 25.5,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-40",
+					"time": 26,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.7125,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-41",
+					"time": 26.75,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-42",
+					"time": 27,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-43",
+					"time": 27.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-44",
+					"time": 28,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-45",
+					"time": 28.5,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-46",
+					"time": 28.75,
+					"pitch": 71,
+					"velocity": 0.8425,
+					"duration": 0.2375,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-47",
+					"time": 29,
+					"pitch": 74,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-48",
+					"time": 29.5,
+					"pitch": 74,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-49",
+					"time": 30,
+					"pitch": 72,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-50",
+					"time": 30.5,
+					"pitch": 69,
+					"velocity": 0.8425,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-1-51",
+					"time": 31,
+					"pitch": 67,
+					"velocity": 0.8425,
+					"duration": 1.9,
+					"songId": "source-1"
+				}
+			]
+		},
+		{
+			"id": "marble-2",
+			"name": "Bass",
+			"labelColor": "#0c8a3a",
+			"sound": 8,
+			"radius": 0.012,
+			"start": {
+				"position": {
+					"x": -0.044,
+					"y": 0.6
+				},
+				"time": 0.0559
+			},
+			"hits": [
+				{
+					"id": "hit-2-1",
+					"time": 1,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-2",
+					"time": 1.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-3",
+					"time": 2,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-4",
+					"time": 2.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-5",
+					"time": 3,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-6",
+					"time": 3.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-7",
+					"time": 4,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-8",
+					"time": 4.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-9",
+					"time": 5,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-10",
+					"time": 5.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-11",
+					"time": 6,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-12",
+					"time": 6.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-13",
+					"time": 7,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-14",
+					"time": 7.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-15",
+					"time": 8,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-16",
+					"time": 8.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-17",
+					"time": 9,
+					"pitch": 48,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-18",
+					"time": 9.5,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-19",
+					"time": 10,
+					"pitch": 48,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-20",
+					"time": 10.5,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-21",
+					"time": 11,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-22",
+					"time": 11.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-23",
+					"time": 12,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-24",
+					"time": 12.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-25",
+					"time": 13,
+					"pitch": 57,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-26",
+					"time": 13.5,
+					"pitch": 52,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-27",
+					"time": 14,
+					"pitch": 57,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-28",
+					"time": 14.5,
+					"pitch": 52,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-29",
+					"time": 15,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-30",
+					"time": 15.5,
+					"pitch": 57,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-31",
+					"time": 16,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-32",
+					"time": 16.5,
+					"pitch": 57,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-33",
+					"time": 17,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-34",
+					"time": 17.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-35",
+					"time": 18,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-36",
+					"time": 18.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-37",
+					"time": 19,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-38",
+					"time": 19.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-39",
+					"time": 20,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-40",
+					"time": 20.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-41",
+					"time": 21,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-42",
+					"time": 21.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-43",
+					"time": 22,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-44",
+					"time": 22.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-45",
+					"time": 23,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-46",
+					"time": 23.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-47",
+					"time": 24,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-48",
+					"time": 24.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-49",
+					"time": 25,
+					"pitch": 48,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-50",
+					"time": 25.5,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-51",
+					"time": 26,
+					"pitch": 48,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-52",
+					"time": 26.5,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-53",
+					"time": 27,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-54",
+					"time": 27.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-55",
+					"time": 28,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-56",
+					"time": 28.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-57",
+					"time": 29,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-58",
+					"time": 29.5,
+					"pitch": 57,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-59",
+					"time": 30,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-60",
+					"time": 30.5,
+					"pitch": 57,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-61",
+					"time": 31,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-62",
+					"time": 31.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-63",
+					"time": 32,
+					"pitch": 55,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				},
+				{
+					"id": "hit-2-64",
+					"time": 32.5,
+					"pitch": 50,
+					"velocity": 0.6929,
+					"duration": 0.475,
+					"songId": "source-1"
+				}
+			]
+		}
+	],
+	"track": {
+		"pieces": [
+			{
+				"id": "start-rail-marble-1",
+				"name": "Rail 1",
+				"type": "rail",
+				"params": {
+					"radius": 0.00375,
+					"gap": 0.015,
+					"landingOffset": 0.05802
+				},
+				"angle": -0.17453,
+				"place": {
+					"kind": "free",
+					"position": {
+						"x": -0.30682,
+						"y": 0.584
+					}
+				},
+				"path": {
+					"points": [
+						{
+							"x": -0.012,
+							"y": 0
+						},
+						{
+							"x": 0,
+							"y": 0
+						},
+						{
+							"x": 0.06,
+							"y": 0
+						}
+					],
+					"paths": [
+						[
+							{
+								"x": 0.09146,
+								"y": 0.03753
+							},
+							{
+								"x": 0.1011,
+								"y": -0.01712
+							}
+						]
+					]
+				}
+			},
+			{
+				"id": "start-rail-marble-2",
+				"name": "Rail 2",
+				"type": "rail",
+				"params": {
+					"radius": 0.00375,
+					"gap": 0.015,
+					"landingOffset": 0.05802
+				},
+				"angle": -0.17453,
+				"place": {
+					"kind": "free",
+					"position": {
+						"x": -0.04682,
+						"y": 0.584
+					}
+				},
+				"path": {
+					"points": [
+						{
+							"x": -0.012,
+							"y": 0
+						},
+						{
+							"x": 0,
+							"y": 0
+						},
+						{
+							"x": 0.06,
+							"y": 0
+						}
+					],
+					"paths": [
+						[
+							{
+								"x": 0.09146,
+								"y": 0.03753
+							},
+							{
+								"x": 0.1011,
+								"y": -0.01712
+							}
+						]
+					]
+				}
+			},
+			{
+				"id": "piece-1-1",
+				"name": "Platform 1",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-1",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.1976286768913269,
+							"y": 0.41080740094184875
+						},
+						"spin": 3.540014871149068,
+						"angle": 0.20943951023931956,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-1",
+				"name": "Platform 2",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.20943951023931956,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-1",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.19762961566448212,
+							"y": 0.41080695390701294
+						},
+						"spin": 3.5401234344961807,
+						"angle": 0.20943951023931956,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-2",
+				"name": "Platform 3",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-2",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.24780255556106567,
+							"y": 0.3895949721336365
+						},
+						"spin": -6.7983154560138805,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-2",
+				"name": "Platform 4",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-2",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2474042922258377,
+							"y": 0.3897606134414673
+						},
+						"spin": -6.88774330110995,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-3",
+				"name": "Platform 5",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.76,
+					"entryDelay": 0
+				},
+				"angle": 0.35779249665883756,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-3",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22471565008163452,
+							"y": 0.5425488948822021
+						},
+						"spin": 1.6207459220546383,
+						"angle": 0.35779249665883756,
+						"bounce": 0.76
+					}
+				}
+			},
+			{
+				"id": "piece-2-3",
+				"name": "Platform 6",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-3",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22128917276859283,
+							"y": 0.42682597041130066
+						},
+						"spin": 3.619050761062308,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-4",
+				"name": "Platform 7",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-4",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.22888551652431488,
+							"y": 0.39351314306259155
+						},
+						"spin": -4.841342583957982,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-5",
+				"name": "Platform 8",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-5",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.23601892590522766,
+							"y": 0.4135280251502991
+						},
+						"spin": 5.035550156919872,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-6",
+				"name": "Platform 9",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-6",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2227243334054947,
+							"y": 0.4082868993282318
+						},
+						"spin": -4.013612911061094,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-7",
+				"name": "Platform 10",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-7",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.23524263501167297,
+							"y": 0.4029342532157898
+						},
+						"spin": 5.176180176300774,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-8",
+				"name": "Platform 11",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-8",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.22743143141269684,
+							"y": 0.41280871629714966
+						},
+						"spin": -4.3215156514046535,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-9",
+				"name": "Platform 12",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-9",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22978739440441132,
+							"y": 0.4035734534263611
+						},
+						"spin": 4.702699770800933,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-10",
+				"name": "Platform 13",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-10",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.23131558299064636,
+							"y": 0.40937355160713196
+						},
+						"spin": -4.772657612433235,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-11",
+				"name": "Platform 14",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-11",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2276894450187683,
+							"y": 0.40762031078338623
+						},
+						"spin": 4.504238009961696,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-12",
+				"name": "Platform 15",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-12",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.23118367791175842,
+							"y": 0.40633124113082886
+						},
+						"spin": -4.835088542913262,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-13",
+				"name": "Platform 16",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-13",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22890423238277435,
+							"y": 0.4089992344379425
+						},
+						"spin": 4.585901199174892,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-14",
+				"name": "Platform 17",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-14",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.22968509793281555,
+							"y": 0.4064001739025116
+						},
+						"spin": -4.703631738875913,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-15",
+				"name": "Platform 18",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-15",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2302391231060028,
+							"y": 0.4080118238925934
+						},
+						"spin": 4.664880085451442,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-16",
+				"name": "Platform 19",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-16",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.229227676987648,
+							"y": 0.4075601398944855
+						},
+						"spin": -4.626835846609723,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-17",
+				"name": "Platform 20",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-17",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.23003913462162018,
+							"y": 0.4072445333003998
+						},
+						"spin": 4.714339370822724,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-18",
+				"name": "Platform 21",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-18",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.22964370250701904,
+							"y": 0.40781888365745544
+						},
+						"spin": -4.617940570116623,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-19",
+				"name": "Platform 22",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-19",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22974932193756104,
+							"y": 0.40731024742126465
+						},
+						"spin": 4.683530603771065,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "switchback-1-1",
+				"name": "Rail 3",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.0975,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.558
+				},
+				"angle": -0.29671,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-3",
+					"contactAt": 0.5
+				},
+				"ride": {
+					"key": "sy3teq",
+					"entry": {
+						"x": -0.22471565008163452,
+						"y": -0.7654535174369812
+					},
+					"exit": {
+						"position": {
+							"x": 0.018419384956359863,
+							"y": -0.06561669707298279
+						},
+						"velocity": {
+							"x": 0.13709767162799835,
+							"y": -0.2540345788002014
+						},
+						"angle": -2.3094666391275145,
+						"spin": -12.625351255890003
+					},
+					"touches": [],
+					"frames": [
+						-936,
+						-3216,
+						68,
+						-1873,
+						-6475,
+						135,
+						-2809,
+						-9776,
+						203,
+						-3745,
+						-13119,
+						270,
+						-4681,
+						-16506,
+						338,
+						-5618,
+						-19935,
+						405,
+						-6554,
+						-23406,
+						473,
+						-7490,
+						-26920,
+						540,
+						-8426,
+						-30477,
+						608,
+						-9363,
+						-34076,
+						675,
+						-10299,
+						-37718,
+						743,
+						-11235,
+						-41402,
+						810,
+						-12172,
+						-45129,
+						878,
+						-13108,
+						-48899,
+						946,
+						-12899,
+						-48862,
+						794,
+						-12560,
+						-48381,
+						634,
+						-12220,
+						-47943,
+						475,
+						-11881,
+						-47548,
+						316,
+						-11541,
+						-47196,
+						157,
+						-11201,
+						-46886,
+						-2,
+						-10861,
+						-46618,
+						-161,
+						-10522,
+						-46394,
+						-320,
+						-10182,
+						-46211,
+						-479,
+						-9842,
+						-46072,
+						-637,
+						-9502,
+						-45975,
+						-796,
+						-9163,
+						-45920,
+						-955,
+						-8823,
+						-45908,
+						-1114,
+						-8483,
+						-45939,
+						-1273,
+						-8143,
+						-46012,
+						-1432,
+						-7804,
+						-46128,
+						-1591,
+						-7464,
+						-46286,
+						-1750,
+						-7124,
+						-46487,
+						-1909,
+						-6784,
+						-46731,
+						-2067,
+						-6445,
+						-47017,
+						-2226,
+						-6105,
+						-47346,
+						-2385,
+						-5765,
+						-47717,
+						-2544,
+						-5425,
+						-48131,
+						-2703,
+						-5086,
+						-48587,
+						-2862,
+						-4746,
+						-49086,
+						-3021,
+						-4324,
+						-49187,
+						-3291,
+						-3888,
+						-49313,
+						-3545,
+						-3451,
+						-49442,
+						-3818,
+						-3010,
+						-49573,
+						-4110,
+						-2567,
+						-49706,
+						-4421,
+						-2121,
+						-49843,
+						-4751,
+						-1675,
+						-50006,
+						-5089,
+						-1228,
+						-50212,
+						-5426,
+						-770,
+						-50343,
+						-5811,
+						-306,
+						-50474,
+						-6211,
+						164,
+						-50611,
+						-6622,
+						641,
+						-50753,
+						-7040,
+						1123,
+						-50913,
+						-7466,
+						1619,
+						-51055,
+						-7898,
+						2123,
+						-51201,
+						-8339,
+						2635,
+						-51352,
+						-8786,
+						3154,
+						-51510,
+						-9242,
+						3676,
+						-51696,
+						-9700,
+						4214,
+						-51851,
+						-10170,
+						4761,
+						-52010,
+						-10647,
+						5315,
+						-52174,
+						-11132,
+						5876,
+						-52346,
+						-11624,
+						6440,
+						-52545,
+						-12120,
+						7005,
+						-52787,
+						-12615,
+						7572,
+						-53058,
+						-13115,
+						8139,
+						-53367,
+						-13622,
+						8708,
+						-53685,
+						-14152,
+						9279,
+						-54046,
+						-14678,
+						9851,
+						-54450,
+						-15204,
+						10422,
+						-54896,
+						-15730,
+						10993,
+						-55385,
+						-16256,
+						11564,
+						-55917,
+						-16782,
+						12136,
+						-56491,
+						-17308,
+						12707,
+						-57108,
+						-17834,
+						13278,
+						-57767,
+						-18360,
+						13849,
+						-58469,
+						-18886,
+						14421,
+						-59213,
+						-19412,
+						14992,
+						-60000,
+						-19938,
+						15563,
+						-60830,
+						-20464,
+						16134,
+						-61702,
+						-20990,
+						16706,
+						-62617,
+						-21516,
+						17277,
+						-63574,
+						-22043,
+						17848,
+						-64574,
+						-22569,
+						18419,
+						-65617,
+						-23095
+					]
+				}
+			},
+			{
+				"id": "piece-1-4",
+				"name": "Platform 23",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.72,
+					"entryDelay": 0
+				},
+				"angle": 0.0262,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-4",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.12791214883327484,
+							"y": 0.12300720810890198
+						},
+						"spin": -14.128164630784035,
+						"angle": -0.09599310885968812,
+						"bounce": 0.72
+					}
+				}
+			},
+			{
+				"id": "piece-1-5",
+				"name": "Platform 24",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.68,
+					"entryDelay": 0
+				},
+				"angle": -0.4188790204786391,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-5",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.25893476605415344,
+							"y": 0.3102250397205353
+						},
+						"spin": -7.832371163441252,
+						"angle": -0.4188790204786391,
+						"bounce": 0.68
+					}
+				}
+			},
+			{
+				"id": "piece-1-6",
+				"name": "Platform 25",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.7,
+					"entryDelay": 0
+				},
+				"angle": 0.30543261909900765,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-6",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.17238639295101166,
+							"y": 0.567374587059021
+						},
+						"spin": -0.6017004617407373,
+						"angle": 0.30543261909900765,
+						"bounce": 0.7
+					}
+				}
+			},
+			{
+				"id": "switchback-1-2",
+				"name": "Rail 4",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.12,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.563
+				},
+				"angle": -0.13963,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-6",
+					"contactAt": 0.25
+				},
+				"ride": {
+					"key": "169fgcd",
+					"entry": {
+						"x": -0.17238639295101166,
+						"y": -0.7610655426979065
+					},
+					"exit": {
+						"position": {
+							"x": 0.07172596454620361,
+							"y": -0.06841392815113068
+						},
+						"velocity": {
+							"x": -0.05949763208627701,
+							"y": -0.35144299268722534
+						},
+						"angle": -7.2487986210391275,
+						"spin": -29.89252691439461
+					},
+					"touches": [],
+					"frames": [
+						-718,
+						-3198,
+						-25,
+						-1436,
+						-6438,
+						-50,
+						-2155,
+						-9721,
+						-75,
+						-2873,
+						-13046,
+						-100,
+						-3591,
+						-16414,
+						-125,
+						-4309,
+						-19825,
+						-150,
+						-5028,
+						-23278,
+						-175,
+						-5746,
+						-26774,
+						-201,
+						-4240,
+						-28460,
+						-1583,
+						-2695,
+						-30249,
+						-2693,
+						-1150,
+						-32080,
+						-3804,
+						394,
+						-33954,
+						-4915,
+						1939,
+						-35870,
+						-6025,
+						3482,
+						-37531,
+						-7168,
+						5092,
+						-37337,
+						-8321,
+						6700,
+						-37186,
+						-9479,
+						8308,
+						-37078,
+						-10636,
+						9916,
+						-37012,
+						-11793,
+						11524,
+						-36988,
+						-12950,
+						13132,
+						-37007,
+						-14107,
+						14740,
+						-37069,
+						-15265,
+						16348,
+						-37173,
+						-16422,
+						17957,
+						-37320,
+						-17579,
+						19565,
+						-37510,
+						-18736,
+						21173,
+						-37742,
+						-19894,
+						22781,
+						-38016,
+						-21051,
+						24389,
+						-38334,
+						-22208,
+						25997,
+						-38694,
+						-23365,
+						27605,
+						-39096,
+						-24523,
+						29214,
+						-39541,
+						-25680,
+						30822,
+						-40028,
+						-26837,
+						32430,
+						-40558,
+						-27994,
+						34038,
+						-41131,
+						-29151,
+						35646,
+						-41746,
+						-30309,
+						37254,
+						-42404,
+						-31466,
+						38858,
+						-43044,
+						-32650,
+						40505,
+						-43235,
+						-33890,
+						42154,
+						-43469,
+						-35124,
+						43806,
+						-43698,
+						-36368,
+						45458,
+						-43954,
+						-37613,
+						47111,
+						-44253,
+						-38859,
+						48764,
+						-44594,
+						-40104,
+						50417,
+						-44978,
+						-41350,
+						52069,
+						-45404,
+						-42595,
+						53722,
+						-45873,
+						-43841,
+						55375,
+						-46385,
+						-45086,
+						57027,
+						-46939,
+						-46332,
+						58680,
+						-47536,
+						-47578,
+						60333,
+						-48176,
+						-48823,
+						61986,
+						-48858,
+						-50069,
+						63638,
+						-49582,
+						-51314,
+						65291,
+						-50349,
+						-52560,
+						66944,
+						-51159,
+						-53805,
+						68596,
+						-52011,
+						-55051,
+						70249,
+						-52906,
+						-56296,
+						71902,
+						-53844,
+						-57542,
+						73555,
+						-54824,
+						-58787,
+						74206,
+						-55846,
+						-60033,
+						73958,
+						-56911,
+						-61278,
+						73710,
+						-58019,
+						-62524,
+						73462,
+						-59169,
+						-63769,
+						73214,
+						-60362,
+						-65015,
+						72966,
+						-61598,
+						-66260,
+						72718,
+						-62876,
+						-67506,
+						72470,
+						-64197,
+						-68751,
+						72222,
+						-65560,
+						-69997,
+						71974,
+						-66966,
+						-71242,
+						71726,
+						-68414,
+						-72488
+					]
+				}
+			},
+			{
+				"id": "piece-1-7",
+				"name": "Platform 26",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.64,
+					"entryDelay": 0
+				},
+				"angle": -0.15707963267948966,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-7",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.1970832496881485,
+							"y": 0.40084603428840637
+						},
+						"spin": -15.603641890505155,
+						"angle": -0.15707963267948966,
+						"bounce": 0.64
+					}
+				}
+			},
+			{
+				"id": "piece-1-8",
+				"name": "Platform 27",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.66,
+					"entryDelay": 0
+				},
+				"angle": 0.3839724354387525,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-8",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.20910237729549408,
+							"y": 0.43824195861816406
+						},
+						"spin": 4.554112702576489,
+						"angle": 0.3839724354387525,
+						"bounce": 0.66
+					}
+				}
+			},
+			{
+				"id": "piece-1-9",
+				"name": "Platform 28",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.81,
+					"entryDelay": 0
+				},
+				"angle": -0.27052603405912107,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-9",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.14883340895175934,
+							"y": 0.5617223978042603
+						},
+						"spin": 1.2665572438307395,
+						"angle": -0.27052603405912107,
+						"bounce": 0.81
+					}
+				}
+			},
+			{
+				"id": "piece-1-10",
+				"name": "Platform 29",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.48,
+					"entryDelay": 0
+				},
+				"angle": 0.5585053606381855,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-10",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.59025639295578,
+							"y": 0.22368258237838745
+						},
+						"spin": 36.42944156677583,
+						"angle": 0.5585053606381855,
+						"bounce": 0.48
+					}
+				}
+			},
+			{
+				"id": "piece-1-11",
+				"name": "Platform 30",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.92,
+					"entryDelay": 0
+				},
+				"angle": -0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-11",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.1521676480770111,
+							"y": 0.5983816981315613
+						},
+						"spin": 22.636057114328665,
+						"angle": -0.6981317007977318,
+						"bounce": 0.92
+					}
+				}
+			},
+			{
+				"id": "switchback-1-3",
+				"name": "Rail 5",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 4,
+					"width": 0.0975,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.588
+				},
+				"angle": 0.05236,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-11",
+					"contactAt": 0.25
+				},
+				"ride": {
+					"key": "d9z4vt",
+					"entry": {
+						"x": 0.1521676480770111,
+						"y": -0.7913715839385986
+					},
+					"exit": {
+						"position": {
+							"x": 0.006841540336608887,
+							"y": -0.2510942220687866
+						},
+						"velocity": {
+							"x": -0.03266415372490883,
+							"y": -0.4924183189868927
+						},
+						"angle": 13.751496276398637,
+						"spin": -17.31552491427429
+					},
+					"touches": [],
+					"frames": [
+						634,
+						-3324,
+						943,
+						1268,
+						-6691,
+						1886,
+						1902,
+						-10100,
+						2830,
+						2536,
+						-13551,
+						3773,
+						3170,
+						-17046,
+						4716,
+						3804,
+						-20583,
+						5659,
+						4438,
+						-24162,
+						6602,
+						2364,
+						-25419,
+						8117,
+						269,
+						-26766,
+						9518,
+						-1826,
+						-28155,
+						10918,
+						-3921,
+						-29586,
+						12318,
+						-6016,
+						-31061,
+						13719,
+						-8112,
+						-32578,
+						15119,
+						-10207,
+						-34137,
+						16520,
+						-12289,
+						-35205,
+						18071,
+						-14425,
+						-35157,
+						19707,
+						-16478,
+						-34724,
+						21346,
+						-18531,
+						-34334,
+						22985,
+						-20584,
+						-33986,
+						24624,
+						-22638,
+						-33681,
+						26263,
+						-24691,
+						-33419,
+						27902,
+						-26744,
+						-33199,
+						29541,
+						-28797,
+						-33022,
+						31181,
+						-30850,
+						-32887,
+						32820,
+						-32903,
+						-32795,
+						34459,
+						-34956,
+						-32745,
+						36098,
+						-37009,
+						-32738,
+						37737,
+						-39062,
+						-32774,
+						39376,
+						-41116,
+						-32852,
+						41015,
+						-43169,
+						-32973,
+						42654,
+						-45222,
+						-33136,
+						44293,
+						-47275,
+						-33342,
+						45932,
+						-49328,
+						-33591,
+						47571,
+						-51381,
+						-33882,
+						49211,
+						-53434,
+						-34216,
+						50850,
+						-55488,
+						-34592,
+						52489,
+						-57396,
+						-35011,
+						54128,
+						-57088,
+						-35472,
+						55767,
+						-56780,
+						-35976,
+						57406,
+						-56473,
+						-36523,
+						59045,
+						-56165,
+						-37112,
+						60684,
+						-55857,
+						-37743,
+						62323,
+						-55549,
+						-38418,
+						63962,
+						-55241,
+						-39135,
+						65602,
+						-54933,
+						-39894,
+						67241,
+						-54625,
+						-40696,
+						68880,
+						-54317,
+						-41541,
+						70519,
+						-54009,
+						-42428,
+						72158,
+						-53701,
+						-43357,
+						73797,
+						-53393,
+						-44330,
+						75436,
+						-53085,
+						-45345,
+						77075,
+						-52778,
+						-46402,
+						78714,
+						-52470,
+						-47502,
+						80353,
+						-52162,
+						-48645,
+						81993,
+						-51854,
+						-49830,
+						83632,
+						-51546,
+						-51058,
+						85271,
+						-51238,
+						-52328,
+						86910,
+						-50930,
+						-53641,
+						88549,
+						-50622,
+						-54997,
+						90188,
+						-50314,
+						-56395,
+						91827,
+						-50006,
+						-57836,
+						93466,
+						-49698,
+						-59319,
+						95105,
+						-49390,
+						-60845,
+						96745,
+						-49083,
+						-62413,
+						98384,
+						-48775,
+						-64024,
+						100023,
+						-48467,
+						-65678,
+						101662,
+						-48159,
+						-67374,
+						103301,
+						-47851,
+						-69113,
+						104940,
+						-47543,
+						-70894,
+						106579,
+						-47235,
+						-72718,
+						108218,
+						-46927,
+						-74584,
+						109857,
+						-46619,
+						-76493,
+						111497,
+						-46311,
+						-78445,
+						113136,
+						-46003,
+						-80439,
+						114775,
+						-45695,
+						-82476,
+						116414,
+						-45388,
+						-84555,
+						118053,
+						-45080,
+						-86677,
+						119692,
+						-44711,
+						-87657,
+						120225,
+						-43995,
+						-87556,
+						120568,
+						-43279,
+						-87499,
+						120912,
+						-42563,
+						-87484,
+						121257,
+						-41846,
+						-87512,
+						121601,
+						-41130,
+						-87582,
+						121945,
+						-40414,
+						-87695,
+						122290,
+						-39698,
+						-87850,
+						122634,
+						-38981,
+						-88048,
+						122979,
+						-38265,
+						-88289,
+						123323,
+						-37549,
+						-88572,
+						123667,
+						-36833,
+						-88898,
+						124012,
+						-36117,
+						-89266,
+						124356,
+						-35400,
+						-89677,
+						124700,
+						-34684,
+						-90131,
+						125045,
+						-33996,
+						-90417,
+						125355,
+						-33340,
+						-90330,
+						125645,
+						-32685,
+						-90285,
+						125935,
+						-32030,
+						-90282,
+						126225,
+						-31375,
+						-90322,
+						126515,
+						-30719,
+						-90405,
+						126805,
+						-30064,
+						-90530,
+						127094,
+						-29409,
+						-90698,
+						127384,
+						-28754,
+						-90838,
+						127665,
+						-28095,
+						-90877,
+						127938,
+						-27437,
+						-90958,
+						128212,
+						-26778,
+						-91069,
+						128484,
+						-26118,
+						-91121,
+						128748,
+						-25456,
+						-91145,
+						129008,
+						-24793,
+						-91169,
+						129264,
+						-24130,
+						-91194,
+						129517,
+						-23466,
+						-91222,
+						129767,
+						-22803,
+						-91251,
+						130012,
+						-22139,
+						-91284,
+						130254,
+						-21474,
+						-91319,
+						130493,
+						-20810,
+						-91381,
+						130729,
+						-20146,
+						-91478,
+						130966,
+						-19480,
+						-91533,
+						131194,
+						-18814,
+						-91631,
+						131425,
+						-18148,
+						-91771,
+						131655,
+						-17482,
+						-91954,
+						131885,
+						-16816,
+						-92180,
+						132115,
+						-16152,
+						-92424,
+						132331,
+						-15478,
+						-92586,
+						132511,
+						-14801,
+						-92789,
+						132696,
+						-14122,
+						-92962,
+						132852,
+						-13441,
+						-93161,
+						133004,
+						-12755,
+						-93334,
+						133136,
+						-12068,
+						-93550,
+						133271,
+						-11381,
+						-93808,
+						133405,
+						-10694,
+						-94109,
+						133540,
+						-10006,
+						-94452,
+						133674,
+						-9319,
+						-94838,
+						133808,
+						-8632,
+						-95267,
+						133943,
+						-7945,
+						-95738,
+						134077,
+						-7258,
+						-96252,
+						134212,
+						-6571,
+						-96808,
+						134346,
+						-5884,
+						-97407,
+						134481,
+						-5197,
+						-98049,
+						134615,
+						-4509,
+						-98733,
+						134749,
+						-3822,
+						-99459,
+						134884,
+						-3135,
+						-100229,
+						135018,
+						-2448,
+						-101040,
+						135153,
+						-1761,
+						-101895,
+						135287,
+						-1074,
+						-102792,
+						135422,
+						-387,
+						-103731,
+						135556,
+						300,
+						-104713,
+						135691,
+						988,
+						-105738,
+						135825,
+						1675,
+						-106806,
+						135959,
+						2362,
+						-107915,
+						136094,
+						3049,
+						-109068,
+						136228,
+						3736,
+						-110263,
+						136363,
+						4423,
+						-111501,
+						136497,
+						5110,
+						-112781,
+						136632,
+						5797,
+						-114103,
+						136766,
+						6485,
+						-115469,
+						136900,
+						7172,
+						-116877,
+						137035,
+						7859,
+						-118327,
+						137169,
+						8091,
+						-119473,
+						137642,
+						7544,
+						-120278,
+						138202,
+						6997,
+						-121126,
+						138760,
+						6450,
+						-122017,
+						139318,
+						5903,
+						-122951,
+						139875,
+						5356,
+						-123927,
+						140433,
+						4809,
+						-124946,
+						140990,
+						4262,
+						-126007,
+						141548,
+						3715,
+						-127111,
+						142106,
+						3168,
+						-128257,
+						142663,
+						2620,
+						-129446,
+						143221,
+						2073,
+						-130678,
+						143778,
+						1526,
+						-131952,
+						144336,
+						979,
+						-133269,
+						144894,
+						432,
+						-134628,
+						145451,
+						-115,
+						-136030,
+						146009,
+						-662,
+						-137474,
+						146566,
+						-1209,
+						-138961,
+						147124,
+						-1756,
+						-140491,
+						147682,
+						-2450,
+						-141472,
+						148311,
+						-3411,
+						-141578,
+						148957,
+						-4372,
+						-141728,
+						149602,
+						-5332,
+						-141920,
+						150248,
+						-6293,
+						-142154,
+						150894,
+						-7254,
+						-142431,
+						151540,
+						-8215,
+						-142751,
+						152185,
+						-9176,
+						-143113,
+						152831,
+						-10137,
+						-143518,
+						153477,
+						-11097,
+						-143965,
+						154123,
+						-12058,
+						-144455,
+						154768,
+						-13019,
+						-144987,
+						155414,
+						-13961,
+						-145450,
+						156056,
+						-14766,
+						-145217,
+						156694,
+						-15572,
+						-145027,
+						157333,
+						-16377,
+						-144879,
+						157971,
+						-17183,
+						-144774,
+						158610,
+						-17988,
+						-144712,
+						159248,
+						-18794,
+						-144692,
+						159886,
+						-19600,
+						-144715,
+						160525,
+						-20405,
+						-144780,
+						161163,
+						-21211,
+						-144888,
+						161802,
+						-22016,
+						-145039,
+						162440,
+						-22822,
+						-145232,
+						163079,
+						-23627,
+						-145467,
+						163717,
+						-24433,
+						-145746,
+						164356,
+						-25238,
+						-146067,
+						164994,
+						-26043,
+						-146321,
+						165646,
+						-26858,
+						-146347,
+						166307,
+						-27673,
+						-146414,
+						166968,
+						-28489,
+						-146513,
+						167631,
+						-29304,
+						-146656,
+						168294,
+						-30119,
+						-146841,
+						168957,
+						-30934,
+						-147069,
+						169620,
+						-31749,
+						-147339,
+						170282,
+						-32564,
+						-147652,
+						170945,
+						-33379,
+						-148007,
+						171608,
+						-34195,
+						-148405,
+						172271,
+						-35010,
+						-148846,
+						172934,
+						-35825,
+						-149329,
+						173597,
+						-36640,
+						-149855,
+						174260,
+						-37455,
+						-150423,
+						174923,
+						-38270,
+						-151034,
+						175586,
+						-39086,
+						-151688,
+						176249,
+						-39901,
+						-152384,
+						176912,
+						-40716,
+						-153122,
+						177575,
+						-41531,
+						-153904,
+						178238,
+						-42346,
+						-154727,
+						178901,
+						-43161,
+						-155594,
+						179564,
+						-43976,
+						-156503,
+						180227,
+						-44792,
+						-157454,
+						180889,
+						-45607,
+						-158448,
+						181552,
+						-46422,
+						-159485,
+						182215,
+						-47237,
+						-160564,
+						182878,
+						-48052,
+						-161686,
+						183541,
+						-48867,
+						-162851,
+						184204,
+						-49682,
+						-164058,
+						184867,
+						-50498,
+						-165307,
+						185530,
+						-51313,
+						-166599,
+						186193,
+						-52128,
+						-167934,
+						186856,
+						-52943,
+						-169311,
+						187519,
+						-53758,
+						-170731,
+						188182,
+						-54573,
+						-172194,
+						188845,
+						-55389,
+						-173699,
+						189508,
+						-56204,
+						-175246,
+						190171,
+						-57019,
+						-176837,
+						190834,
+						-57129,
+						-178339,
+						191343,
+						-56470,
+						-179539,
+						191589,
+						-55804,
+						-180800,
+						191881,
+						-55138,
+						-182104,
+						192172,
+						-54472,
+						-183450,
+						192464,
+						-53806,
+						-184839,
+						192755,
+						-53140,
+						-186270,
+						193046,
+						-52474,
+						-187744,
+						193338,
+						-51808,
+						-189261,
+						193629,
+						-51151,
+						-190639,
+						193662,
+						-50210,
+						-191112,
+						193014,
+						-49240,
+						-191647,
+						192451,
+						-48270,
+						-192224,
+						191887,
+						-47300,
+						-192707,
+						191202,
+						-46282,
+						-193074,
+						190489,
+						-45264,
+						-193484,
+						189776,
+						-44246,
+						-193937,
+						189064,
+						-43228,
+						-194432,
+						188351,
+						-42210,
+						-194969,
+						187638,
+						-41192,
+						-195550,
+						186925,
+						-40174,
+						-196172,
+						186212,
+						-39156,
+						-196838,
+						185499,
+						-38138,
+						-197546,
+						184787,
+						-37120,
+						-198296,
+						184074,
+						-36102,
+						-199089,
+						183361,
+						-35085,
+						-199925,
+						182648,
+						-34085,
+						-200598,
+						181944,
+						-33186,
+						-200382,
+						181244,
+						-32286,
+						-200208,
+						180545,
+						-31386,
+						-200077,
+						179846,
+						-30486,
+						-199989,
+						179147,
+						-29587,
+						-199943,
+						178447,
+						-28687,
+						-199940,
+						177748,
+						-27787,
+						-199979,
+						177049,
+						-26887,
+						-200062,
+						176350,
+						-25988,
+						-200186,
+						175651,
+						-25088,
+						-200353,
+						174951,
+						-24188,
+						-200563,
+						174252,
+						-23289,
+						-200815,
+						173553,
+						-22389,
+						-201110,
+						172854,
+						-21490,
+						-201405,
+						172148,
+						-20584,
+						-201440,
+						171424,
+						-19676,
+						-201517,
+						170703,
+						-18769,
+						-201637,
+						169981,
+						-17862,
+						-201799,
+						169260,
+						-16954,
+						-202004,
+						168538,
+						-16047,
+						-202251,
+						167817,
+						-15140,
+						-202541,
+						167095,
+						-14232,
+						-202874,
+						166374,
+						-13325,
+						-203249,
+						165652,
+						-12418,
+						-203667,
+						164931,
+						-11510,
+						-204128,
+						164209,
+						-10603,
+						-204631,
+						163488,
+						-9695,
+						-205176,
+						162767,
+						-8788,
+						-205764,
+						162045,
+						-7881,
+						-206395,
+						161324,
+						-6973,
+						-207068,
+						160602,
+						-6066,
+						-207784,
+						159881,
+						-5159,
+						-208542,
+						159159,
+						-4251,
+						-209343,
+						158438,
+						-3344,
+						-210187,
+						157716,
+						-2437,
+						-211073,
+						156995,
+						-1529,
+						-212002,
+						156273,
+						-622,
+						-212973,
+						155552,
+						286,
+						-213987,
+						154830,
+						1193,
+						-215044,
+						154109,
+						2100,
+						-216143,
+						153387,
+						3008,
+						-217284,
+						152666,
+						3915,
+						-218469,
+						151944,
+						4822,
+						-219695,
+						151223,
+						5730,
+						-220965,
+						150502,
+						6637,
+						-222277,
+						149780,
+						7544,
+						-223631,
+						149059,
+						8452,
+						-225028,
+						148337,
+						8747,
+						-226468,
+						147616,
+						8611,
+						-227950,
+						146894,
+						8474,
+						-229475,
+						146173,
+						8338,
+						-231043,
+						145451,
+						8202,
+						-232652,
+						144730,
+						8066,
+						-234305,
+						144008,
+						7930,
+						-236000,
+						143287,
+						7794,
+						-237738,
+						142565,
+						7658,
+						-239518,
+						141844,
+						7522,
+						-241341,
+						141122,
+						7386,
+						-243207,
+						140401,
+						7250,
+						-245115,
+						139679,
+						7114,
+						-247065,
+						138958,
+						6978,
+						-249058,
+						138236,
+						6842,
+						-251094,
+						137515
+					]
+				}
+			},
+			{
+				"id": "piece-1-12",
+				"name": "Platform 31",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.95,
+					"entryDelay": 0
+				},
+				"angle": 0.3141592653589793,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-12",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2755734920501709,
+							"y": 0.42437973618507385
+						},
+						"spin": 3.445036480204351,
+						"angle": 0.3141592653589793,
+						"bounce": 0.95
+					}
+				}
+			},
+			{
+				"id": "piece-1-13",
+				"name": "Platform 32",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.54,
+					"entryDelay": 0
+				},
+				"angle": -0.30543261909900765,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-13",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.26915037631988525,
+							"y": 0.4443579614162445
+						},
+						"spin": -9.750248015988419,
+						"angle": -0.30543261909900765,
+						"bounce": 0.54
+					}
+				}
+			},
+			{
+				"id": "piece-1-14",
+				"name": "Platform 33",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.82,
+					"entryDelay": 0
+				},
+				"angle": 0.3490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-14",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.1842174381017685,
+							"y": 0.5716601014137268
+						},
+						"spin": -2.0603071031741043,
+						"angle": 0.3490658503988659,
+						"bounce": 0.82
+					}
+				}
+			},
+			{
+				"id": "piece-2-20",
+				"name": "Platform 34",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-20",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2298646718263626,
+							"y": 0.40761038661003113
+						},
+						"spin": -4.639644633715463,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-15",
+				"name": "Platform 35",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.45,
+					"entryDelay": 0
+				},
+				"angle": -0.5585053606381855,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-15",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.5581746101379395,
+							"y": 0.2096187025308609
+						},
+						"spin": -33.991882869046734,
+						"angle": -0.5585053606381855,
+						"bounce": 0.45
+					}
+				}
+			},
+			{
+				"id": "piece-1-16",
+				"name": "Platform 36",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.73,
+					"entryDelay": 0
+				},
+				"angle": 0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-16",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.0943666398525238,
+							"y": 0.4791059195995331
+						},
+						"spin": -19.941788576805237,
+						"angle": 0.6981317007977318,
+						"bounce": 0.73
+					}
+				}
+			},
+			{
+				"id": "piece-2-21",
+				"name": "Platform 37",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-21",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22983436286449432,
+							"y": 0.407463937997818
+						},
+						"spin": 4.631595673957349,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-17",
+				"name": "Platform 38",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.73,
+					"entryDelay": 0
+				},
+				"angle": 0.09599310885968812,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-17",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.1691829264163971,
+							"y": 0.4443190395832062
+						},
+						"spin": -11.667060156672802,
+						"angle": 0.09599310885968812,
+						"bounce": 0.73
+					}
+				}
+			},
+			{
+				"id": "piece-2-22",
+				"name": "Platform 39",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-22",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.22994568943977356,
+							"y": 0.4075022041797638
+						},
+						"spin": -4.638754271025647,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-18",
+				"name": "Platform 40",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": -0.2007128639793479,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-18",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.13076192140579224,
+							"y": 0.429939866065979
+						},
+						"spin": -0.7690087020000825,
+						"angle": -0.2007128639793479,
+						"bounce": 0.65
+					}
+				}
+			},
+			{
+				"id": "piece-2-23",
+				"name": "Platform 41",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-23",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22984836995601654,
+							"y": 0.4075475335121155
+						},
+						"spin": 4.629354330333264,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-19",
+				"name": "Platform 42",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4188790204786391,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-19",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.41680842638015747,
+							"y": 0.18574970960617065
+						},
+						"spin": -29.542619667771117,
+						"angle": -0.4188790204786391,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-24",
+				"name": "Platform 43",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-24",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2299090027809143,
+							"y": 0.40746843814849854
+						},
+						"spin": -4.636015237202855,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-20",
+				"name": "Platform 44",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 1.0507,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-20",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2768889367580414,
+							"y": 0.17311951518058777
+						},
+						"spin": 0.6234404257219238,
+						"angle": 1.0157816246606999,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-21",
+				"name": "Platform 45",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.8753630072869851,
+					"entryDelay": 0
+				},
+				"angle": -0.43322358553113727,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-21",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.11931298673152924,
+							"y": 0.3564848005771637
+						},
+						"spin": 5.880720120257976,
+						"angle": -0.43322358553113727,
+						"bounce": 0.8753630072869851
+					}
+				}
+			},
+			{
+				"id": "piece-2-25",
+				"name": "Platform 46",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-25",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22989165782928467,
+							"y": 0.40754127502441406
+						},
+						"spin": 4.633092632372362,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-22",
+				"name": "Platform 47",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": 0.3490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-22",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.31343138217926025,
+							"y": 0.4067503809928894
+						},
+						"spin": 12.579400561309235,
+						"angle": 0.3490658503988659,
+						"bounce": 0.65
+					}
+				}
+			},
+			{
+				"id": "piece-2-26",
+				"name": "Platform 48",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-26",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2298772782087326,
+							"y": 0.40749675035476685
+						},
+						"spin": -4.632788747200004,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-23",
+				"name": "Platform 49",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.4886921905584123,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-23",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.254573255777359,
+							"y": 0.41285526752471924
+						},
+						"spin": -3.4693047547728284,
+						"angle": -0.4886921905584123,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-2-27",
+				"name": "Platform 50",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": 0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-27",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.22990581393241882,
+							"y": 0.4075091779232025
+						},
+						"spin": 4.634928040578634,
+						"angle": 0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-24",
+				"name": "Platform 51",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.61,
+					"entryDelay": 0
+				},
+				"angle": 0.44505895925855404,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-24",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.26093387603759766,
+							"y": 0.37374013662338257
+						},
+						"spin": 6.0697985089363895,
+						"angle": 0.44505895925855404,
+						"bounce": 0.61
+					}
+				}
+			},
+			{
+				"id": "piece-2-28",
+				"name": "Platform 52",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.63,
+					"entryDelay": 0
+				},
+				"angle": -0.39269908169872414,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-28",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2298784703016281,
+							"y": 0.40752023458480835
+						},
+						"spin": -4.632426390881187,
+						"angle": -0.39269908169872414,
+						"bounce": 0.63
+					}
+				}
+			},
+			{
+				"id": "piece-1-25",
+				"name": "Platform 53",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.76,
+					"entryDelay": 0
+				},
+				"angle": -0.33161255787892263,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-25",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.1986984759569168,
+							"y": 0.5680689215660095
+						},
+						"spin": 0.25631678747259906,
+						"angle": -0.33161255787892263,
+						"bounce": 0.76
+					}
+				}
+			},
+			{
+				"id": "piece-2-29",
+				"name": "Platform 54",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.21,
+					"entryDelay": 0
+				},
+				"angle": 0.6632251157578453,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-29",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2395627498626709,
+							"y": -0.029121428728103638
+						},
+						"spin": 19.57653964318041,
+						"angle": 0.6632251157578453,
+						"bounce": 0.21
+					}
+				}
+			},
+			{
+				"id": "piece-2-30",
+				"name": "Platform 55",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.38,
+					"entryDelay": 0
+				},
+				"angle": -0.4363323129985824,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-30",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.30048397183418274,
+							"y": 0.3190832734107971
+						},
+						"spin": -17.076861947616063,
+						"angle": -0.4363323129985824,
+						"bounce": 0.38
+					}
+				}
+			},
+			{
+				"id": "switchback-1-4",
+				"name": "Rail 6",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.12,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.563
+				},
+				"angle": 0.03491,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-25",
+					"contactAt": 0.25
+				},
+				"ride": {
+					"key": "flhlgb",
+					"entry": {
+						"x": 0.19869685173034668,
+						"y": -0.7603703141212463
+					},
+					"exit": {
+						"position": {
+							"x": -0.07181680202484131,
+							"y": -0.05517888069152832
+						},
+						"velocity": {
+							"x": 0.05969206243753433,
+							"y": -0.305131733417511
+						},
+						"angle": 7.268743914671344,
+						"spin": 30.10134973265334
+					},
+					"touches": [],
+					"frames": [
+						828,
+						-3195,
+						11,
+						1656,
+						-6432,
+						21,
+						2484,
+						-9712,
+						32,
+						3312,
+						-13035,
+						43,
+						4140,
+						-16400,
+						53,
+						4967,
+						-19808,
+						64,
+						5795,
+						-23258,
+						75,
+						5705,
+						-25867,
+						785,
+						4138,
+						-27387,
+						1717,
+						2571,
+						-28951,
+						2645,
+						1003,
+						-30558,
+						3572,
+						-565,
+						-32207,
+						4499,
+						-2184,
+						-32194,
+						5763,
+						-3830,
+						-32233,
+						6967,
+						-5475,
+						-32315,
+						8172,
+						-7121,
+						-32439,
+						9376,
+						-8767,
+						-32606,
+						10581,
+						-10412,
+						-32815,
+						11786,
+						-12058,
+						-33068,
+						12990,
+						-13703,
+						-33362,
+						14195,
+						-15349,
+						-33700,
+						15399,
+						-16994,
+						-34079,
+						16604,
+						-18640,
+						-34502,
+						17808,
+						-20285,
+						-34966,
+						19013,
+						-21929,
+						-35326,
+						20231,
+						-23584,
+						-35347,
+						21456,
+						-25238,
+						-35410,
+						22681,
+						-26893,
+						-35464,
+						23908,
+						-28548,
+						-35535,
+						25137,
+						-30204,
+						-35588,
+						26370,
+						-31860,
+						-35656,
+						27604,
+						-33516,
+						-35709,
+						28841,
+						-35172,
+						-35773,
+						30080,
+						-36829,
+						-35826,
+						31322,
+						-38486,
+						-35889,
+						32567,
+						-40144,
+						-35942,
+						33814,
+						-41801,
+						-36005,
+						35063,
+						-43459,
+						-36058,
+						36315,
+						-45117,
+						-36122,
+						37569,
+						-46776,
+						-36228,
+						38823,
+						-48434,
+						-36376,
+						40078,
+						-50092,
+						-36567,
+						41332,
+						-51750,
+						-36800,
+						42586,
+						-53408,
+						-37076,
+						43840,
+						-55066,
+						-37395,
+						45095,
+						-56724,
+						-37756,
+						46349,
+						-58382,
+						-38160,
+						47603,
+						-60040,
+						-38607,
+						48857,
+						-61698,
+						-39096,
+						50111,
+						-63357,
+						-39628,
+						51366,
+						-65015,
+						-40202,
+						52620,
+						-66673,
+						-40818,
+						53874,
+						-68331,
+						-41478,
+						55128,
+						-69989,
+						-42180,
+						56383,
+						-71647,
+						-42924,
+						57637,
+						-73305,
+						-43711,
+						58891,
+						-74304,
+						-44541,
+						60145,
+						-74055,
+						-45413,
+						61399,
+						-73806,
+						-46328,
+						62654,
+						-73557,
+						-47285,
+						63908,
+						-73309,
+						-48285,
+						65162,
+						-73060,
+						-49328,
+						66416,
+						-72811,
+						-50413,
+						67671,
+						-72563,
+						-51540,
+						68925,
+						-72314,
+						-52711,
+						70179,
+						-72065,
+						-53923,
+						71433,
+						-71817,
+						-55179,
+						72687
+					]
+				}
+			},
+			{
+				"id": "piece-1-26",
+				"name": "Platform 56",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.9,
+					"entryDelay": 0
+				},
+				"angle": -0.10471975511965978,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-26",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.15345855057239532,
+							"y": 0.5614508390426636
+						},
+						"spin": 21.087862150499248,
+						"angle": -0.10471975511965978,
+						"bounce": 0.9
+					}
+				}
+			},
+			{
+				"id": "piece-2-31",
+				"name": "Platform 57",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-31",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2529107928276062,
+							"y": 0.4365636706352234
+						},
+						"spin": 4.655152336494446,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-32",
+				"name": "Platform 58",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-32",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.25697919726371765,
+							"y": 0.3498145341873169
+						},
+						"spin": -6.204215268153845,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "switchback-1-5",
+				"name": "Rail 7",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.15,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.496
+				},
+				"angle": 0.10472,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-26",
+					"contactAt": 0.25
+				},
+				"ride": {
+					"key": "3s0tqb",
+					"entry": {
+						"x": 0.16454288363456726,
+						"y": -0.7975808382034302
+					},
+					"exit": {
+						"position": {
+							"x": -0.09443339705467224,
+							"y": -0.06971144676208496
+						},
+						"velocity": {
+							"x": 0.05216479301452637,
+							"y": -0.35333260893821716
+						},
+						"angle": 8.453610032523091,
+						"spin": 24.542572567902745
+					},
+					"touches": [],
+					"frames": [
+						686,
+						-3350,
+						841,
+						1371,
+						-6742,
+						1681,
+						2057,
+						-10177,
+						2522,
+						2742,
+						-13655,
+						3363,
+						3428,
+						-17175,
+						4204,
+						4113,
+						-20738,
+						5044,
+						4799,
+						-24343,
+						5885,
+						5485,
+						-27991,
+						6726,
+						6170,
+						-31682,
+						7566,
+						6840,
+						-35402,
+						8379,
+						5445,
+						-35434,
+						9056,
+						4057,
+						-35506,
+						9748,
+						2669,
+						-35620,
+						10441,
+						1281,
+						-35777,
+						11133,
+						-106,
+						-35977,
+						11826,
+						-1494,
+						-36219,
+						12518,
+						-2882,
+						-36504,
+						13211,
+						-4270,
+						-36831,
+						13903,
+						-5658,
+						-37201,
+						14596,
+						-7046,
+						-37614,
+						15288,
+						-8432,
+						-37895,
+						16022,
+						-9835,
+						-38027,
+						16763,
+						-11238,
+						-38201,
+						17504,
+						-12643,
+						-38349,
+						18256,
+						-14049,
+						-38517,
+						19010,
+						-15455,
+						-38728,
+						19764,
+						-16865,
+						-38872,
+						20535,
+						-18275,
+						-39017,
+						21312,
+						-19686,
+						-39192,
+						22093,
+						-21099,
+						-39334,
+						22884,
+						-22514,
+						-39479,
+						23682,
+						-23928,
+						-39654,
+						24483,
+						-25344,
+						-39796,
+						25295,
+						-26762,
+						-39940,
+						26114,
+						-28179,
+						-40115,
+						26936,
+						-29599,
+						-40257,
+						27769,
+						-31020,
+						-40400,
+						28608,
+						-32441,
+						-40576,
+						29451,
+						-33864,
+						-40717,
+						30304,
+						-35289,
+						-40860,
+						31165,
+						-36713,
+						-41036,
+						32028,
+						-38140,
+						-41177,
+						32903,
+						-39567,
+						-41319,
+						33784,
+						-40995,
+						-41496,
+						34668,
+						-42425,
+						-41636,
+						35563,
+						-43856,
+						-41779,
+						36465,
+						-45286,
+						-41956,
+						37370,
+						-46720,
+						-42096,
+						38285,
+						-48154,
+						-42238,
+						39208,
+						-49588,
+						-42416,
+						40133,
+						-51025,
+						-42556,
+						41070,
+						-52463,
+						-42699,
+						42013,
+						-53900,
+						-42876,
+						42960,
+						-55340,
+						-43016,
+						43917,
+						-56781,
+						-43159,
+						44881,
+						-58221,
+						-43337,
+						45848,
+						-59665,
+						-43476,
+						46826,
+						-61109,
+						-43620,
+						47811,
+						-62553,
+						-43798,
+						48798,
+						-64000,
+						-43937,
+						49797,
+						-65448,
+						-44081,
+						50802,
+						-66897,
+						-44221,
+						51815,
+						-68346,
+						-44366,
+						52835,
+						-69795,
+						-44545,
+						53858,
+						-71244,
+						-44767,
+						54881,
+						-72693,
+						-45031,
+						55903,
+						-74142,
+						-45337,
+						56926,
+						-75591,
+						-45687,
+						57948,
+						-77040,
+						-46078,
+						58971,
+						-78489,
+						-46513,
+						59994,
+						-79938,
+						-46990,
+						61016,
+						-81387,
+						-47509,
+						62039,
+						-82836,
+						-48072,
+						63061,
+						-84285,
+						-48676,
+						64084,
+						-85734,
+						-49323,
+						65107,
+						-87183,
+						-50013,
+						66129,
+						-88632,
+						-50746,
+						67152,
+						-90081,
+						-51521,
+						68174,
+						-91530,
+						-52338,
+						69197,
+						-92979,
+						-53199,
+						70220,
+						-94428,
+						-54101,
+						71242,
+						-95877,
+						-55047,
+						72265,
+						-96824,
+						-56034,
+						73287,
+						-96607,
+						-57065,
+						74310,
+						-96389,
+						-58138,
+						75333,
+						-96172,
+						-59253,
+						76355,
+						-95955,
+						-60412,
+						77378,
+						-95737,
+						-61613,
+						78400,
+						-95520,
+						-62856,
+						79423,
+						-95303,
+						-64142,
+						80446,
+						-95085,
+						-65470,
+						81468,
+						-94868,
+						-66841,
+						82491,
+						-94651,
+						-68255,
+						83513,
+						-94433,
+						-69711,
+						84536
+					]
+				}
+			},
+			{
+				"id": "piece-1-27",
+				"name": "Platform 59",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.79,
+					"entryDelay": 0
+				},
+				"angle": -0.2007128639793479,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-27",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.1997148096561432,
+							"y": 0.4072082042694092
+						},
+						"spin": 9.494007813607638,
+						"angle": -0.2007128639793479,
+						"bounce": 0.79
+					}
+				}
+			},
+			{
+				"id": "piece-2-33",
+				"name": "Platform 60",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-33",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2933364510536194,
+							"y": 0.3849545121192932
+						},
+						"spin": 8.448442047732849,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-34",
+				"name": "Platform 61",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-34",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2529439926147461,
+							"y": 0.3948856294155121
+						},
+						"spin": -4.613099266820555,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-35",
+				"name": "Platform 62",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-35",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2779870331287384,
+							"y": 0.36435747146606445
+						},
+						"spin": 7.549425880742859,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-36",
+				"name": "Platform 63",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-36",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2727556526660919,
+							"y": 0.3927745223045349
+						},
+						"spin": -6.398703784134624,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-37",
+				"name": "Platform 64",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-37",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.26464807987213135,
+							"y": 0.37820130586624146
+						},
+						"spin": 6.040087926187852,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-1-28",
+				"name": "Platform 65",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.62,
+					"entryDelay": 0
+				},
+				"angle": 0.3752457891787809,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-28",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27548712491989136,
+							"y": 0.37551143765449524
+						},
+						"spin": 8.593271647724734,
+						"angle": 0.3752457891787809,
+						"bounce": 0.62
+					}
+				}
+			},
+			{
+				"id": "piece-1-29",
+				"name": "Platform 66",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.76,
+					"entryDelay": 0
+				},
+				"angle": -0.3490658503988659,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-29",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.20098896324634552,
+							"y": 0.5699073076248169
+						},
+						"spin": 0.6449940265103392,
+						"angle": -0.3490658503988659,
+						"bounce": 0.76
+					}
+				}
+			},
+			{
+				"id": "switchback-1-6",
+				"name": "Rail 8",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.12,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.563
+				},
+				"angle": 0.03491,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-29",
+					"contactAt": 0.25
+				},
+				"ride": {
+					"key": "flhlgb",
+					"entry": {
+						"x": 0.2009844183921814,
+						"y": -0.7585283517837524
+					},
+					"exit": {
+						"position": {
+							"x": -0.07167366147041321,
+							"y": -0.0540618896484375
+						},
+						"velocity": {
+							"x": 0.06305541843175888,
+							"y": -0.29587405920028687
+						},
+						"angle": 7.315481404721285,
+						"spin": 31.407702121407866
+					},
+					"touches": [],
+					"frames": [
+						837,
+						-3187,
+						27,
+						1675,
+						-6417,
+						54,
+						2512,
+						-9689,
+						81,
+						3350,
+						-13004,
+						108,
+						4187,
+						-16361,
+						135,
+						5025,
+						-19762,
+						161,
+						5862,
+						-23204,
+						188,
+						5761,
+						-25794,
+						903,
+						4198,
+						-27308,
+						1835,
+						2634,
+						-28866,
+						2762,
+						1070,
+						-30467,
+						3690,
+						-493,
+						-32110,
+						4617,
+						-2090,
+						-32965,
+						5859,
+						-3828,
+						-33149,
+						7112,
+						-5567,
+						-33374,
+						8365,
+						-7305,
+						-33643,
+						9618,
+						-9044,
+						-33954,
+						10871,
+						-10782,
+						-34307,
+						12125,
+						-12521,
+						-34703,
+						13378,
+						-14258,
+						-35068,
+						14639,
+						-16005,
+						-35102,
+						15907,
+						-17751,
+						-35168,
+						17177,
+						-19499,
+						-35224,
+						18449,
+						-21246,
+						-35290,
+						19723,
+						-22994,
+						-35346,
+						21000,
+						-24742,
+						-35413,
+						22279,
+						-26491,
+						-35469,
+						23561,
+						-28239,
+						-35537,
+						24845,
+						-29988,
+						-35592,
+						26131,
+						-31737,
+						-35659,
+						27420,
+						-33487,
+						-35715,
+						28712,
+						-35237,
+						-35784,
+						30006,
+						-36987,
+						-35839,
+						31302,
+						-38738,
+						-35906,
+						32601,
+						-40489,
+						-35961,
+						33903,
+						-42240,
+						-36030,
+						35206,
+						-43991,
+						-36085,
+						36513,
+						-45743,
+						-36152,
+						37821,
+						-47494,
+						-36262,
+						39130,
+						-49246,
+						-36414,
+						40438,
+						-50997,
+						-36609,
+						41747,
+						-52749,
+						-36847,
+						43056,
+						-54500,
+						-37127,
+						44364,
+						-56252,
+						-37450,
+						45673,
+						-58004,
+						-37815,
+						46982,
+						-59755,
+						-38223,
+						48290,
+						-61507,
+						-38673,
+						49599,
+						-63258,
+						-39166,
+						50908,
+						-65010,
+						-39702,
+						52216,
+						-66761,
+						-40280,
+						53525,
+						-68513,
+						-40901,
+						54834,
+						-70264,
+						-41564,
+						56142,
+						-72016,
+						-42270,
+						57451,
+						-73767,
+						-43018,
+						58760,
+						-74301,
+						-43809,
+						60068,
+						-74038,
+						-44643,
+						61377,
+						-73776,
+						-45519,
+						62686,
+						-73513,
+						-46438,
+						63994,
+						-73250,
+						-47400,
+						65303,
+						-72987,
+						-48403,
+						66612,
+						-72725,
+						-49450,
+						67920,
+						-72462,
+						-50539,
+						69229,
+						-72199,
+						-51671,
+						70538,
+						-71936,
+						-52845,
+						71846,
+						-71674,
+						-54062,
+						73155
+					]
+				}
+			},
+			{
+				"id": "piece-1-30",
+				"name": "Platform 67",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.7,
+					"entryDelay": 0
+				},
+				"angle": -0.17453292519943295,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-30",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.19638819992542267,
+							"y": 0.4099518358707428
+						},
+						"spin": 16.592769088332734,
+						"angle": -0.17453292519943295,
+						"bounce": 0.7
+					}
+				}
+			},
+			{
+				"id": "piece-1-31",
+				"name": "Platform 68",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.61,
+					"entryDelay": 0
+				},
+				"angle": 0.35779249665883756,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-31",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.28420305252075195,
+							"y": 0.364431768655777
+						},
+						"spin": 8.957712584993658,
+						"angle": 0.35779249665883756,
+						"bounce": 0.61
+					}
+				}
+			},
+			{
+				"id": "piece-2-38",
+				"name": "Platform 69",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-38",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2765812277793884,
+							"y": 0.37857040762901306
+						},
+						"spin": -7.074549527901084,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-39",
+				"name": "Platform 70",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-39",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2678811550140381,
+							"y": 0.3862564265727997
+						},
+						"spin": 6.117390482639742,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-40",
+				"name": "Platform 71",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-40",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2709416449069977,
+							"y": 0.3775162100791931
+						},
+						"spin": -6.599057839663871,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-41",
+				"name": "Platform 72",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-41",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27239105105400085,
+							"y": 0.38295337557792664
+						},
+						"spin": 6.594476415592929,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-42",
+				"name": "Platform 73",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-42",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2691012918949127,
+							"y": 0.3817647099494934
+						},
+						"spin": -6.326231483285909,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-43",
+				"name": "Platform 74",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-43",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2719876766204834,
+							"y": 0.38005468249320984
+						},
+						"spin": 6.621231684169793,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-44",
+				"name": "Platform 75",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-44",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.27064046263694763,
+							"y": 0.3826160132884979
+						},
+						"spin": -6.4362538183878115,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-45",
+				"name": "Platform 76",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-45",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27045097947120667,
+							"y": 0.38077065348625183
+						},
+						"spin": 6.4980653841082505,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-46",
+				"name": "Platform 77",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-46",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2713156044483185,
+							"y": 0.3813899755477905
+						},
+						"spin": -6.539598841312824,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-47",
+				"name": "Platform 78",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-47",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27049675583839417,
+							"y": 0.38168519735336304
+						},
+						"spin": 6.4593786685113495,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-48",
+				"name": "Platform 79",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-48",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2709362804889679,
+							"y": 0.38104408979415894
+						},
+						"spin": -6.523282752395757,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-49",
+				"name": "Platform 80",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-49",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2708604633808136,
+							"y": 0.38159802556037903
+						},
+						"spin": 6.502690939993236,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-50",
+				"name": "Platform 81",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-50",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2707321047782898,
+							"y": 0.38130706548690796
+						},
+						"spin": -6.482765963130461,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-51",
+				"name": "Platform 82",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-51",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27094802260398865,
+							"y": 0.38133570551872253
+						},
+						"spin": 6.5151126333452325,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-52",
+				"name": "Platform 83",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-52",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2706751823425293,
+							"y": 0.381519079208374
+						},
+						"spin": -6.507775153044121,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-53",
+				"name": "Platform 84",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-53",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27080318331718445,
+							"y": 0.3812636137008667
+						},
+						"spin": 6.501331979522043,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-1-32",
+				"name": "Platform 85",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.74,
+					"entryDelay": 0
+				},
+				"angle": -0.34033920413889424,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-32",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.18437695503234863,
+							"y": 0.5682457089424133
+						},
+						"spin": 1.5292435473377353,
+						"angle": -0.34033920413889424,
+						"bounce": 0.74
+					}
+				}
+			},
+			{
+				"id": "switchback-1-7",
+				"name": "Rail 9",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 1,
+					"width": 0.0975,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.588
+				},
+				"angle": 0.29671,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-32",
+					"contactAt": 0.5
+				},
+				"ride": {
+					"key": "12057pd",
+					"entry": {
+						"x": 0.18437163531780243,
+						"y": -0.8215000033378601
+					},
+					"exit": {
+						"position": {
+							"x": -0.03275133669376373,
+							"y": -0.10076737403869629
+						},
+						"velocity": {
+							"x": 0.012294859625399113,
+							"y": -0.5000320672988892
+						},
+						"angle": 3.317089625327057,
+						"spin": 11.343596966451413
+					},
+					"touches": [],
+					"frames": [
+						768,
+						-3450,
+						64,
+						1536,
+						-6942,
+						127,
+						2305,
+						-10476,
+						191,
+						3073,
+						-14054,
+						255,
+						3841,
+						-17673,
+						319,
+						4609,
+						-21336,
+						382,
+						5378,
+						-25041,
+						446,
+						6146,
+						-28788,
+						510,
+						6914,
+						-32579,
+						574,
+						7682,
+						-36411,
+						637,
+						8451,
+						-40287,
+						701,
+						9219,
+						-44204,
+						765,
+						9086,
+						-44850,
+						1057,
+						8600,
+						-44399,
+						1342,
+						8116,
+						-43991,
+						1628,
+						7631,
+						-43626,
+						1913,
+						7147,
+						-43303,
+						2199,
+						6662,
+						-43023,
+						2484,
+						6177,
+						-42785,
+						2770,
+						5693,
+						-42590,
+						3056,
+						5208,
+						-42438,
+						3341,
+						4723,
+						-42328,
+						3627,
+						4239,
+						-42260,
+						3913,
+						3754,
+						-42236,
+						4198,
+						3269,
+						-42253,
+						4484,
+						2785,
+						-42314,
+						4769,
+						2300,
+						-42417,
+						5055,
+						1815,
+						-42562,
+						5341,
+						1331,
+						-42751,
+						5626,
+						846,
+						-42981,
+						5912,
+						362,
+						-43255,
+						6198,
+						-123,
+						-43571,
+						6483,
+						-608,
+						-43929,
+						6769,
+						-1092,
+						-44330,
+						7054,
+						-1577,
+						-44774,
+						7340,
+						-2062,
+						-45260,
+						7626,
+						-2546,
+						-45789,
+						7911,
+						-3031,
+						-46360,
+						8197,
+						-3516,
+						-46974,
+						8483,
+						-4000,
+						-47630,
+						8768,
+						-4485,
+						-48329,
+						9054,
+						-4970,
+						-49071,
+						9339,
+						-5485,
+						-49558,
+						9761,
+						-6106,
+						-49683,
+						10222,
+						-6728,
+						-49851,
+						10683,
+						-7351,
+						-50049,
+						11148,
+						-7977,
+						-50255,
+						11632,
+						-8603,
+						-50487,
+						12124,
+						-9229,
+						-50761,
+						12616,
+						-9856,
+						-51079,
+						13107,
+						-10483,
+						-51439,
+						13598,
+						-11110,
+						-51841,
+						14090,
+						-11736,
+						-52286,
+						14581,
+						-12363,
+						-52774,
+						15072,
+						-12990,
+						-53304,
+						15564,
+						-13616,
+						-53877,
+						16055,
+						-14243,
+						-54493,
+						16547,
+						-14870,
+						-55151,
+						17038,
+						-15496,
+						-55851,
+						17529,
+						-16123,
+						-56595,
+						18021,
+						-16750,
+						-57380,
+						18512,
+						-17376,
+						-58208,
+						19003,
+						-18003,
+						-59079,
+						19495,
+						-18630,
+						-59993,
+						19986,
+						-19256,
+						-60949,
+						20478,
+						-19883,
+						-61948,
+						20969,
+						-20510,
+						-62989,
+						21460,
+						-21136,
+						-64073,
+						21952,
+						-21763,
+						-65199,
+						22443,
+						-22390,
+						-66368,
+						22934,
+						-23017,
+						-67580,
+						23426,
+						-23643,
+						-68834,
+						23917,
+						-24270,
+						-70130,
+						24409,
+						-24897,
+						-71470,
+						24900,
+						-25523,
+						-72851,
+						25391,
+						-26150,
+						-74276,
+						25883,
+						-26777,
+						-75743,
+						26374,
+						-27403,
+						-77252,
+						26865,
+						-28030,
+						-78804,
+						27357,
+						-28657,
+						-80399,
+						27848,
+						-29283,
+						-82036,
+						28340,
+						-29910,
+						-83716,
+						28831,
+						-30537,
+						-85439,
+						29322,
+						-31163,
+						-87204,
+						29814,
+						-31790,
+						-89012,
+						30305,
+						-32417,
+						-90862,
+						30796,
+						-32956,
+						-92753,
+						31282,
+						-32905,
+						-94692,
+						31753,
+						-32854,
+						-96675,
+						32226,
+						-32803,
+						-98700,
+						32698,
+						-32751,
+						-100767,
+						33171
+					]
+				}
+			},
+			{
+				"id": "piece-1-33",
+				"name": "Platform 86",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": 0.15707963267948966,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-33",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.1561255306005478,
+							"y": 0.3138217628002167
+						},
+						"spin": 7.541459413286054,
+						"angle": 0.15707963267948966,
+						"bounce": 0.65
+					}
+				}
+			},
+			{
+				"id": "piece-1-34",
+				"name": "Platform 87",
+				"type": "platform",
+				"params": {
+					"length": 0.02,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.95,
+					"entryDelay": 0
+				},
+				"angle": -0.017453292519943295,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-34",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.12424259632825851,
+							"y": 0.17876596748828888
+						},
+						"spin": 7.883807928519211,
+						"angle": -0.017453292519943295,
+						"bounce": 0.95
+					}
+				}
+			},
+			{
+				"id": "piece-1-35",
+				"name": "Platform 88",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": -0.23561944901923448,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-35",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.19633500277996063,
+							"y": 0.5790337324142456
+						},
+						"spin": -6.279589480101819,
+						"angle": -0.23561944901923448,
+						"bounce": 0.65
+					}
+				}
+			},
+			{
+				"id": "piece-1-36",
+				"name": "Platform 89",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.46,
+					"entryDelay": 0
+				},
+				"angle": 0.5672320068981571,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-36",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.5334157347679138,
+							"y": 0.23309186100959778
+						},
+						"spin": 32.66712207200068,
+						"angle": 0.5672320068981571,
+						"bounce": 0.46
+					}
+				}
+			},
+			{
+				"id": "piece-1-37",
+				"name": "Platform 90",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.95,
+					"entryDelay": 0
+				},
+				"angle": -0.6981317007977318,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-37",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.16838262975215912,
+							"y": 0.5555383563041687
+						},
+						"spin": 19.384649093593964,
+						"angle": -0.6981317007977318,
+						"bounce": 0.95
+					}
+				}
+			},
+			{
+				"id": "switchback-1-8",
+				"name": "Rail 10",
+				"type": "rail",
+				"layout": "switchback",
+				"params": {
+					"turns": 3,
+					"width": 0.12,
+					"drop": 0.0525,
+					"opening": 0.048,
+					"lip": 0.06,
+					"bend": 0.04,
+					"radius": 0.00375,
+					"gap": 0.015,
+					"entryDelay": 0.554
+				},
+				"angle": -0.08727,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-37",
+					"contactAt": 0.25
+				},
+				"ride": {
+					"key": "nwdqbt",
+					"entry": {
+						"x": 0.16838183999061584,
+						"y": -0.7422441840171814
+					},
+					"exit": {
+						"position": {
+							"x": 0.07262124121189117,
+							"y": -0.20021939277648926
+						},
+						"velocity": {
+							"x": -0.04000018537044525,
+							"y": -0.4422995448112488
+						},
+						"angle": -0.11703188595178117,
+						"spin": -22.506154815128916
+					},
+					"touches": [],
+					"frames": [
+						702,
+						-3119,
+						808,
+						1403,
+						-6281,
+						1615,
+						2105,
+						-9486,
+						2423,
+						2806,
+						-12733,
+						3231,
+						3508,
+						-16022,
+						4039,
+						4210,
+						-19355,
+						4846,
+						4911,
+						-22729,
+						5654,
+						5613,
+						-26147,
+						6462,
+						6314,
+						-29607,
+						7270,
+						7016,
+						-33109,
+						8077,
+						7718,
+						-36654,
+						8885,
+						8378,
+						-39415,
+						9363,
+						9184,
+						-38987,
+						9451,
+						9994,
+						-38602,
+						9548,
+						10805,
+						-38260,
+						9645,
+						11615,
+						-37960,
+						9742,
+						12426,
+						-37703,
+						9839,
+						13237,
+						-37488,
+						9936,
+						14047,
+						-37316,
+						10033,
+						14858,
+						-37187,
+						10130,
+						15668,
+						-37100,
+						10227,
+						16479,
+						-37056,
+						10324,
+						17289,
+						-37055,
+						10421,
+						18100,
+						-37096,
+						10518,
+						18910,
+						-37179,
+						10615,
+						19721,
+						-37305,
+						10712,
+						20532,
+						-37474,
+						10809,
+						21342,
+						-37685,
+						10906,
+						22153,
+						-37939,
+						11003,
+						22963,
+						-38235,
+						11100,
+						23774,
+						-38574,
+						11197,
+						24584,
+						-38956,
+						11294,
+						25395,
+						-39380,
+						11391,
+						26206,
+						-39847,
+						11488,
+						27016,
+						-40356,
+						11585,
+						27827,
+						-40908,
+						11682,
+						28652,
+						-40938,
+						11703,
+						29484,
+						-41012,
+						11740,
+						30316,
+						-41129,
+						11776,
+						31148,
+						-41229,
+						11801,
+						31983,
+						-41303,
+						11819,
+						32819,
+						-41378,
+						11830,
+						33655,
+						-41452,
+						11835,
+						34492,
+						-41527,
+						11834,
+						35330,
+						-41601,
+						11826,
+						36169,
+						-41675,
+						11812,
+						37009,
+						-41750,
+						11791,
+						37849,
+						-41824,
+						11763,
+						38690,
+						-41898,
+						11730,
+						39532,
+						-41973,
+						11689,
+						40374,
+						-42047,
+						11642,
+						41218,
+						-42121,
+						11589,
+						42062,
+						-42194,
+						11529,
+						42907,
+						-42268,
+						11463,
+						43752,
+						-42341,
+						11391,
+						44599,
+						-42416,
+						11311,
+						45446,
+						-42490,
+						11226,
+						46294,
+						-42564,
+						11134,
+						47143,
+						-42639,
+						11035,
+						47992,
+						-42713,
+						10930,
+						48842,
+						-42789,
+						10818,
+						49693,
+						-42864,
+						10700,
+						50545,
+						-42946,
+						10576,
+						51397,
+						-43032,
+						10446,
+						52249,
+						-43120,
+						10310,
+						53103,
+						-43212,
+						10168,
+						53957,
+						-43306,
+						10019,
+						54812,
+						-43404,
+						9865,
+						55667,
+						-43506,
+						9705,
+						56523,
+						-43610,
+						9538,
+						57380,
+						-43722,
+						9366,
+						58237,
+						-43828,
+						9186,
+						59095,
+						-43977,
+						9008,
+						59953,
+						-44170,
+						8830,
+						60811,
+						-44404,
+						8652,
+						61669,
+						-44681,
+						8474,
+						62528,
+						-45001,
+						8296,
+						63386,
+						-45364,
+						8118,
+						64244,
+						-45768,
+						7940,
+						65102,
+						-46216,
+						7762,
+						65960,
+						-46706,
+						7584,
+						66818,
+						-47239,
+						7406,
+						67676,
+						-47814,
+						7228,
+						68534,
+						-48432,
+						7050,
+						69392,
+						-49092,
+						6872,
+						70250,
+						-49795,
+						6694,
+						71108,
+						-50541,
+						6516,
+						71966,
+						-51329,
+						6338,
+						72824,
+						-52160,
+						6160,
+						73682,
+						-53033,
+						5982,
+						74541,
+						-53949,
+						5804,
+						74955,
+						-54907,
+						5626,
+						74826,
+						-55908,
+						5448,
+						74698,
+						-56952,
+						5270,
+						74569,
+						-58038,
+						5092,
+						74440,
+						-59167,
+						4914,
+						74311,
+						-60338,
+						4736,
+						74183,
+						-61552,
+						4558,
+						74054,
+						-62809,
+						4380,
+						73925,
+						-64108,
+						4202,
+						73797,
+						-65449,
+						4024,
+						73668,
+						-66834,
+						3846,
+						73539,
+						-68261,
+						3668,
+						73394,
+						-69635,
+						3645,
+						72732,
+						-70197,
+						4373,
+						72040,
+						-70834,
+						4982,
+						71348,
+						-71515,
+						5592,
+						70655,
+						-72237,
+						6201,
+						69963,
+						-73003,
+						6810,
+						69271,
+						-73811,
+						7419,
+						68578,
+						-74662,
+						8028,
+						67886,
+						-75555,
+						8637,
+						67193,
+						-76491,
+						9246,
+						66501,
+						-77469,
+						9855,
+						65809,
+						-78490,
+						10465,
+						65116,
+						-79553,
+						11074,
+						64424,
+						-80659,
+						11683,
+						63732,
+						-81808,
+						12292,
+						63039,
+						-82999,
+						12901,
+						62347,
+						-84233,
+						13510,
+						61654,
+						-85510,
+						14119,
+						60962,
+						-86828,
+						14728,
+						60270,
+						-88190,
+						15338,
+						59577,
+						-89594,
+						15947,
+						58885,
+						-91041,
+						16556,
+						58193,
+						-92530,
+						17165,
+						57500,
+						-94062,
+						17774,
+						56808,
+						-95636,
+						18383,
+						56116,
+						-97253,
+						18992,
+						55405,
+						-97048,
+						19589,
+						54695,
+						-96884,
+						20188,
+						53985,
+						-96763,
+						20788,
+						53275,
+						-96685,
+						21387,
+						52565,
+						-96649,
+						21986,
+						51855,
+						-96657,
+						22585,
+						51145,
+						-96706,
+						23184,
+						50435,
+						-96798,
+						23783,
+						49725,
+						-96933,
+						24382,
+						49015,
+						-97110,
+						24981,
+						48305,
+						-97330,
+						25580,
+						47595,
+						-97592,
+						26179,
+						46885,
+						-97897,
+						26778,
+						46175,
+						-98245,
+						27377,
+						45465,
+						-98635,
+						27976,
+						44736,
+						-98760,
+						28592,
+						43996,
+						-98799,
+						29207,
+						43256,
+						-98882,
+						29822,
+						42515,
+						-99007,
+						30437,
+						41771,
+						-99071,
+						31062,
+						41023,
+						-99135,
+						31688,
+						40275,
+						-99227,
+						32316,
+						39527,
+						-99361,
+						32944,
+						38771,
+						-99421,
+						33579,
+						38014,
+						-99479,
+						34216,
+						37254,
+						-99544,
+						34856,
+						36493,
+						-99637,
+						35497,
+						35728,
+						-99695,
+						36141,
+						34960,
+						-99755,
+						36787,
+						34189,
+						-99820,
+						37436,
+						33418,
+						-99914,
+						38086,
+						32642,
+						-99973,
+						38739,
+						31864,
+						-100033,
+						39394,
+						31083,
+						-100099,
+						40052,
+						30301,
+						-100194,
+						40711,
+						29515,
+						-100253,
+						41373,
+						28726,
+						-100314,
+						42038,
+						27934,
+						-100381,
+						42704,
+						27143,
+						-100477,
+						43372,
+						26346,
+						-100536,
+						44043,
+						25546,
+						-100597,
+						44717,
+						24744,
+						-100665,
+						45392,
+						23939,
+						-100726,
+						46070,
+						23132,
+						-100789,
+						46750,
+						22322,
+						-100859,
+						47432,
+						21509,
+						-100921,
+						48115,
+						20693,
+						-100987,
+						48801,
+						19876,
+						-101058,
+						49490,
+						19055,
+						-101123,
+						50180,
+						18231,
+						-101190,
+						50872,
+						17406,
+						-101268,
+						51566,
+						16577,
+						-101334,
+						52263,
+						15746,
+						-101402,
+						52962,
+						14913,
+						-101489,
+						53662,
+						14080,
+						-101621,
+						54362,
+						13248,
+						-101796,
+						55063,
+						12415,
+						-102013,
+						55763,
+						11583,
+						-102273,
+						56463,
+						10750,
+						-102576,
+						57163,
+						9918,
+						-102921,
+						57864,
+						9085,
+						-103308,
+						58564,
+						8252,
+						-103738,
+						59264,
+						7420,
+						-104211,
+						59964,
+						6587,
+						-104726,
+						60665,
+						5755,
+						-105284,
+						61365,
+						4922,
+						-105885,
+						62065,
+						4090,
+						-106528,
+						62765,
+						3257,
+						-107213,
+						63466,
+						2425,
+						-107942,
+						64166,
+						1592,
+						-108713,
+						64866,
+						759,
+						-109526,
+						65567,
+						-73,
+						-110382,
+						66267,
+						-906,
+						-111280,
+						66967,
+						-1738,
+						-112221,
+						67667,
+						-2571,
+						-113205,
+						68368,
+						-3403,
+						-114232,
+						69068,
+						-4236,
+						-115300,
+						69768,
+						-5068,
+						-116412,
+						70468,
+						-5901,
+						-117566,
+						71169,
+						-6734,
+						-118762,
+						71869,
+						-7566,
+						-120002,
+						72569,
+						-8399,
+						-121283,
+						73269,
+						-9231,
+						-122607,
+						73970,
+						-10064,
+						-123975,
+						74670,
+						-10896,
+						-125384,
+						75370,
+						-11729,
+						-126836,
+						76071,
+						-12561,
+						-128331,
+						76771,
+						-13394,
+						-129868,
+						77471,
+						-13502,
+						-131091,
+						77757,
+						-13039,
+						-132187,
+						77985,
+						-12576,
+						-133326,
+						78214,
+						-12113,
+						-134507,
+						78443,
+						-11650,
+						-135731,
+						78672,
+						-11186,
+						-136998,
+						78901,
+						-10723,
+						-138307,
+						79130,
+						-10260,
+						-139659,
+						79359,
+						-9797,
+						-141053,
+						79588,
+						-9334,
+						-142490,
+						79817,
+						-8870,
+						-143970,
+						80046,
+						-8372,
+						-145188,
+						79839,
+						-7514,
+						-145834,
+						79273,
+						-6655,
+						-146461,
+						78631,
+						-5734,
+						-146984,
+						77938,
+						-4815,
+						-147551,
+						77246,
+						-3895,
+						-148160,
+						76553,
+						-2975,
+						-148812,
+						75861,
+						-2055,
+						-149506,
+						75168,
+						-1135,
+						-150243,
+						74475,
+						-215,
+						-151023,
+						73783,
+						705,
+						-151845,
+						73090,
+						1625,
+						-152709,
+						72397,
+						2544,
+						-153617,
+						71705,
+						3464,
+						-154567,
+						71012,
+						4384,
+						-155559,
+						70319,
+						5315,
+						-156309,
+						69530,
+						6362,
+						-156336,
+						68729,
+						7408,
+						-156406,
+						67923,
+						8454,
+						-156519,
+						67118,
+						9500,
+						-156674,
+						66313,
+						10546,
+						-156871,
+						65508,
+						11592,
+						-157111,
+						64702,
+						12652,
+						-157212,
+						63893,
+						13712,
+						-157356,
+						63084,
+						14774,
+						-157448,
+						62262,
+						15837,
+						-157542,
+						61435,
+						16900,
+						-157679,
+						60609,
+						17966,
+						-157768,
+						59770,
+						19032,
+						-157859,
+						58926,
+						20098,
+						-157979,
+						58079,
+						21167,
+						-158067,
+						57223,
+						22236,
+						-158157,
+						56362,
+						23305,
+						-158277,
+						55498,
+						24376,
+						-158364,
+						54625,
+						25448,
+						-158453,
+						53746,
+						26520,
+						-158573,
+						52864,
+						27594,
+						-158659,
+						51974,
+						28668,
+						-158748,
+						51077,
+						29743,
+						-158869,
+						50179,
+						30820,
+						-158955,
+						49272,
+						31900,
+						-159043,
+						48363,
+						32980,
+						-159164,
+						47453,
+						34065,
+						-159250,
+						46539,
+						35152,
+						-159338,
+						45623,
+						36240,
+						-159460,
+						44706,
+						37333,
+						-159545,
+						43785,
+						38428,
+						-159634,
+						42862,
+						39524,
+						-159756,
+						41938,
+						40625,
+						-159842,
+						41010,
+						41728,
+						-159930,
+						40080,
+						42831,
+						-160054,
+						39149,
+						43940,
+						-160140,
+						38214,
+						45050,
+						-160229,
+						37278,
+						46161,
+						-160352,
+						36340,
+						47273,
+						-160519,
+						35402,
+						48384,
+						-160728,
+						34464,
+						49495,
+						-160980,
+						33526,
+						50606,
+						-161274,
+						32589,
+						51717,
+						-161610,
+						31651,
+						52828,
+						-161989,
+						30713,
+						53939,
+						-162411,
+						29775,
+						55050,
+						-162876,
+						28838,
+						56161,
+						-163383,
+						27900,
+						57272,
+						-163933,
+						26962,
+						58383,
+						-164525,
+						26024,
+						59495,
+						-165159,
+						25087,
+						60606,
+						-165837,
+						24149,
+						61717,
+						-166557,
+						23211,
+						62828,
+						-167319,
+						22274,
+						63939,
+						-168124,
+						21336,
+						65050,
+						-168972,
+						20398,
+						66161,
+						-169862,
+						19460,
+						67272,
+						-170795,
+						18522,
+						68383,
+						-171771,
+						17585,
+						69494,
+						-172789,
+						16647,
+						70605,
+						-173849,
+						15709,
+						71717,
+						-174952,
+						14771,
+						72828,
+						-176098,
+						13834,
+						73939,
+						-177286,
+						12896,
+						74954,
+						-178517,
+						11958,
+						74788,
+						-179790,
+						11020,
+						74621,
+						-181107,
+						10083,
+						74454,
+						-182465,
+						9145,
+						74288,
+						-183866,
+						8207,
+						74121,
+						-185310,
+						7269,
+						73954,
+						-186796,
+						6332,
+						73788,
+						-188325,
+						5394,
+						73621,
+						-189897,
+						4456,
+						73455,
+						-191511,
+						3518,
+						73288,
+						-193167,
+						2581,
+						73121,
+						-194866,
+						1643,
+						72955,
+						-196608,
+						705,
+						72788,
+						-198393,
+						-233,
+						72621,
+						-200219,
+						-1170
+					]
+				}
+			},
+			{
+				"id": "piece-1-38",
+				"name": "Platform 91",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.89,
+					"entryDelay": 0
+				},
+				"angle": 0.32288591161895097,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-38",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.3236674666404724,
+							"y": 0.469025582075119
+						},
+						"spin": 2.6340179424254018,
+						"angle": 0.32288591161895097,
+						"bounce": 0.89
+					}
+				}
+			},
+			{
+				"id": "piece-1-39",
+				"name": "Platform 92",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.66,
+					"entryDelay": 0
+				},
+				"angle": -0.4799655442984406,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-39",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.25543662905693054,
+							"y": 0.40340420603752136
+						},
+						"spin": -1.9998176492081403,
+						"angle": -0.4799655442984406,
+						"bounce": 0.66
+					}
+				}
+			},
+			{
+				"id": "piece-1-40",
+				"name": "Platform 93",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.78,
+					"entryDelay": 0
+				},
+				"angle": 0.32288591161895097,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-40",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.19858145713806152,
+							"y": 0.5613133311271667
+						},
+						"spin": -0.1996082766699914,
+						"angle": 0.32288591161895097,
+						"bounce": 0.78
+					}
+				}
+			},
+			{
+				"id": "piece-1-41",
+				"name": "Platform 94",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.5,
+					"entryDelay": 0
+				},
+				"angle": -0.5934119456780721,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-41",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.609655499458313,
+							"y": 0.22835969924926758
+						},
+						"spin": -36.09891740179649,
+						"angle": -0.5934119456780721,
+						"bounce": 0.5
+					}
+				}
+			},
+			{
+				"id": "piece-1-42",
+				"name": "Platform 95",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.73,
+					"entryDelay": 0
+				},
+				"angle": 0.7853981633974483,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-42",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.15603157877922058,
+							"y": 0.4917188882827759
+						},
+						"spin": -19.782565197269726,
+						"angle": 0.7853981633974483,
+						"bounce": 0.73
+					}
+				}
+			},
+			{
+				"id": "piece-1-43",
+				"name": "Platform 96",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.55,
+					"entryDelay": 0
+				},
+				"angle": -0.2181661564992912,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-43",
+					"contactAt": 0.5
+				}
+			},
+			{
+				"id": "piece-2-54",
+				"name": "Platform 97",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-54",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.27089565992355347,
+							"y": 0.38140904903411865
+						},
+						"spin": -6.50396655703787,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-55",
+				"name": "Platform 98",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-55",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.270689457654953,
+							"y": 0.381452351808548
+						},
+						"spin": 6.5130237255690915,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-56",
+				"name": "Platform 99",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-56",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.27084946632385254,
+							"y": 0.38128480315208435
+						},
+						"spin": -6.492978792857116,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-57",
+				"name": "Platform 100",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-57",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2709833085536957,
+							"y": 0.381366491317749
+						},
+						"spin": 6.481422610094185,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-58",
+				"name": "Platform 101",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-58",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.270904541015625,
+							"y": 0.3813967704772949
+						},
+						"spin": -6.477908768085996,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-59",
+				"name": "Platform 102",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-59",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2709343433380127,
+							"y": 0.38134023547172546
+						},
+						"spin": 6.48244699650391,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-60",
+				"name": "Platform 103",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-60",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.27093955874443054,
+							"y": 0.381380558013916
+						},
+						"spin": -6.480249937290097,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-61",
+				"name": "Platform 104",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-61",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27092039585113525,
+							"y": 0.3813672661781311
+						},
+						"spin": 6.480228309843382,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-62",
+				"name": "Platform 105",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": -0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-62",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.27093684673309326,
+							"y": 0.3813614249229431
+						},
+						"spin": -6.481274792086751,
+						"angle": -0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-2-63",
+				"name": "Platform 106",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.4625122517784973,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-63",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.27093037962913513,
+							"y": 0.3813730478286743
+						},
+						"spin": 6.480193170833601,
+						"angle": 0.4625122517784973,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-1-44",
+				"name": "Platform 107",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.6,
+					"entryDelay": 0
+				},
+				"angle": 0.24434609527920614,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-44",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.14676566421985626,
+							"y": 0.41628730297088623
+						},
+						"spin": 3.8069557276452315,
+						"angle": 0.24434609527920614,
+						"bounce": 0.6
+					}
+				}
+			},
+			{
+				"id": "piece-1-45",
+				"name": "Platform 108",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.54,
+					"entryDelay": 0
+				},
+				"angle": -0.6283185307179586,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-45",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.3923473656177521,
+							"y": 0.1414443552494049
+						},
+						"spin": -21.82847896865188,
+						"angle": -0.6283185307179586,
+						"bounce": 0.54
+					}
+				}
+			},
+			{
+				"id": "piece-1-46",
+				"name": "Platform 109",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.48,
+					"entryDelay": 0
+				},
+				"angle": 0.9599310885968813,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-46",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2224024087190628,
+							"y": 0.11233960092067719
+						},
+						"spin": 4.375483784046068,
+						"angle": 0.9599310885968813,
+						"bounce": 0.48
+					}
+				}
+			},
+			{
+				"id": "piece-1-47",
+				"name": "Platform 110",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.41,
+					"entryDelay": 0
+				},
+				"angle": 0.10471975511965978,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-47",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2592621147632599,
+							"y": 0.10666489601135254
+						},
+						"spin": 9.966831769909277,
+						"angle": 0.10471975511965978,
+						"bounce": 0.41
+					}
+				}
+			},
+			{
+				"id": "piece-1-48",
+				"name": "Platform 111",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.54,
+					"entryDelay": 0
+				},
+				"angle": -0.4363323129985824,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-48",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.34577277302742004,
+							"y": 0.44015997648239136
+						},
+						"spin": -13.122396419095145,
+						"angle": -0.4363323129985824,
+						"bounce": 0.54
+					}
+				}
+			},
+			{
+				"id": "piece-1-49",
+				"name": "Platform 112",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.71,
+					"entryDelay": 0
+				},
+				"angle": 0.49741883681838395,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-49",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.2614545524120331,
+							"y": 0.47231045365333557
+						},
+						"spin": 0.7976295165084935,
+						"angle": 0.49741883681838395,
+						"bounce": 0.71
+					}
+				}
+			},
+			{
+				"id": "piece-1-50",
+				"name": "Platform 113",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.73,
+					"entryDelay": 0
+				},
+				"angle": -0.4188790204786391,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-50",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.2528524100780487,
+							"y": 0.4446033835411072
+						},
+						"spin": -2.8798912338641713,
+						"angle": -0.4188790204786391,
+						"bounce": 0.73
+					}
+				}
+			},
+			{
+				"id": "piece-1-51",
+				"name": "Platform 114",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": 0.3752457891787809,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-51",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": -0.19798807799816132,
+							"y": 0.4207366406917572
+						},
+						"spin": 1.5368485185862113,
+						"angle": 0.3752457891787809,
+						"bounce": 0.65
+					}
+				}
+			},
+			{
+				"id": "piece-2-64",
+				"name": "Platform 115",
+				"type": "platform",
+				"params": {
+					"length": 0.03,
+					"thickness": 0.012,
+					"depth": 0.15,
+					"bounce": 0.65,
+					"entryDelay": 0
+				},
+				"angle": -0.3752457891787809,
+				"place": {
+					"kind": "plays",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-64",
+					"contactAt": 0.5,
+					"leaves": {
+						"velocity": {
+							"x": 0.20412284135818481,
+							"y": 0.4640487730503082
+						},
+						"spin": -1.3779162589096927,
+						"angle": -0.3752457891787809,
+						"bounce": 0.65
+					}
+				}
+			},
+			{
+				"id": "bowl-marble-1",
+				"name": "Bowl 1",
+				"type": "bowl",
+				"params": {
+					"mirror": 1,
+					"size": 0.06,
+					"radius": 0.00375,
+					"entryDelay": 0.4958
+				},
+				"angle": 0,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-1",
+					"hitId": "hit-1-51"
+				}
+			},
+			{
+				"id": "bowl-marble-2",
+				"name": "Bowl 2",
+				"type": "bowl",
+				"params": {
+					"mirror": 0,
+					"size": 0.06,
+					"radius": 0.00375,
+					"entryDelay": 0.525
+				},
+				"angle": 0,
+				"place": {
+					"kind": "follows",
+					"marbleId": "marble-2",
+					"hitId": "hit-2-64"
+				}
+			}
+		],
+		"groups": []
+	},
+	"film": {
+		"theme": {
+			"base": "brass",
+			"parts": {
+				"platform": {
+					"skin": "platform:gift"
+				},
+				"rail": {
+					"skin": "rail:candy"
+				},
+				"marble": {
+					"skin": "marble:glass",
+					"colorSource": "marble"
+				}
+			},
+			"pack": {
+				"packId": "christmas",
+				"packName": "Christmas",
+				"version": "1.0",
+				"themeId": "theme-christmas",
+				"themeName": "Christmas"
+			}
+		},
+		"wall": {
+			"color": "#d6d8d6",
+			"backgroundColor": "#c8cdd2"
+		},
+		"lights": {
+			"key": {
+				"color": "#fff8f0",
+				"strength": 3,
+				"side": -0.26,
+				"height": 0.35,
+				"softness": 0.55,
+				"exposure": 1.25,
+				"bloom": 0.2,
+				"pool": 1
+			},
+			"added": []
+		},
+		"decor": [
+			{
+				"id": "decor-snowfall",
+				"name": "Particles",
+				"source": "decor:snowfall",
+				"position": {
+					"x": 0,
+					"y": 0
+				},
+				"scale": 1,
+				"rotation": 0,
+				"snowfall": {
+					"density": 0.5,
+					"size": 1,
+					"speed": 1,
+					"color": "#fff1d6"
+				}
+			},
+			{
+				"id": "decor-mw4xp6uu7j1k1kt7",
+				"name": "Red Bauble",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.361,
+					"y": 0.6597
+				},
+				"scale": 0.9604,
+				"rotation": -0.1454,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu758atskp",
+				"name": "Star",
+				"source": "decor:star",
+				"position": {
+					"x": 0.0199,
+					"y": 0.6792
+				},
+				"scale": 0.9636,
+				"rotation": 0.2975,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuoopt0qup",
+				"name": "Gold Snowflake",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.4194,
+					"y": 0.5687
+				},
+				"scale": 1.0685,
+				"rotation": 0.1474,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuqk5ihi0g",
+				"name": "Gold Bauble",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.5001,
+					"y": 0.4357
+				},
+				"scale": 1.0267,
+				"rotation": -0.054,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu9ipk7kga",
+				"name": "Gift Box",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3792,
+					"y": 0.4615
+				},
+				"scale": 1.1378,
+				"rotation": -0.2552,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuwzhhwb4q",
+				"name": "Fairy Light",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.4386,
+					"y": 0.3419
+				},
+				"scale": 0.9194,
+				"rotation": 0.0508,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uufjozdk0z",
+				"name": "Red Bauble 2",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.4748,
+					"y": 0.216
+				},
+				"scale": 1.037,
+				"rotation": 0.131,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu19c86eu9",
+				"name": "Star 2",
+				"source": "decor:star",
+				"position": {
+					"x": -0.4194,
+					"y": 0.099
+				},
+				"scale": 1.0692,
+				"rotation": 0.1828,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uukettbcvv",
+				"name": "Gold Snowflake 2",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.4871,
+					"y": -0.0157
+				},
+				"scale": 1.1475,
+				"rotation": 0.1295,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uughs5c79x",
+				"name": "Gold Bauble 2",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.4413,
+					"y": -0.1087
+				},
+				"scale": 0.9899,
+				"rotation": -0.1269,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuz387hj40",
+				"name": "Gift Box 2",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.5089,
+					"y": -0.2322
+				},
+				"scale": 1.144,
+				"rotation": -0.1969,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuirv04jh6",
+				"name": "Fairy Light 2",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3445,
+					"y": -0.2364
+				},
+				"scale": 1.126,
+				"rotation": 0.088,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uugyyi2bzf",
+				"name": "Red Bauble 3",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.4207,
+					"y": -0.36
+				},
+				"scale": 1.063,
+				"rotation": 0.0601,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uunc3ltzv6",
+				"name": "Star 3",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3665,
+					"y": -0.4999
+				},
+				"scale": 1.1287,
+				"rotation": 0.215,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu50gecdm0",
+				"name": "Gold Snowflake 3",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.4137,
+					"y": -0.587
+				},
+				"scale": 0.9044,
+				"rotation": 0.2497,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuzh00bm2p",
+				"name": "Gold Bauble 3",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3867,
+					"y": -0.697
+				},
+				"scale": 1.0807,
+				"rotation": 0.12,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uumcu3hmlf",
+				"name": "Gift Box 3",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.439,
+					"y": -0.8343
+				},
+				"scale": 1.0593,
+				"rotation": 0.1033,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuasfvsx6t",
+				"name": "Fairy Light 3",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.4215,
+					"y": -1.0683
+				},
+				"scale": 1.0233,
+				"rotation": 0.2851,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuwuucfwgf",
+				"name": "Red Bauble 4",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.4347,
+					"y": -1.3256
+				},
+				"scale": 1.0837,
+				"rotation": -0.2858,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uudvxwmd6v",
+				"name": "Star 4",
+				"source": "decor:star",
+				"position": {
+					"x": -0.409,
+					"y": -1.5313
+				},
+				"scale": 0.931,
+				"rotation": 0.0251,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uun2fql2o0",
+				"name": "Gold Snowflake 4",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.3359,
+					"y": -1.6674
+				},
+				"scale": 1.1287,
+				"rotation": -0.0853,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuowrlahjo",
+				"name": "Gold Bauble 4",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.4024,
+					"y": -1.7894
+				},
+				"scale": 1.1138,
+				"rotation": 0.0668,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uusxq1gph6",
+				"name": "Gift Box 4",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.028,
+					"y": -1.7658
+				},
+				"scale": 1.1032,
+				"rotation": 0.1386,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uudbs5d11e",
+				"name": "Fairy Light 4",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.3743,
+					"y": -1.9073
+				},
+				"scale": 1.0165,
+				"rotation": -0.1876,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uucd1527x1",
+				"name": "Red Bauble 5",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": 0.0523,
+					"y": -1.8927
+				},
+				"scale": 0.9968,
+				"rotation": -0.026,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuz50nig0j",
+				"name": "Star 5",
+				"source": "decor:star",
+				"position": {
+					"x": -0.4482,
+					"y": -2.0325
+				},
+				"scale": 1.0424,
+				"rotation": 0.1018,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu905zbdu9",
+				"name": "Gold Snowflake 5",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.3512,
+					"y": -2.142
+				},
+				"scale": 1.1068,
+				"rotation": -0.1533,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuynj94aql",
+				"name": "Gold Bauble 5",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.4221,
+					"y": -2.256
+				},
+				"scale": 0.9616,
+				"rotation": 0.0159,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uulccpjt7z",
+				"name": "Gift Box 5",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3444,
+					"y": -2.367
+				},
+				"scale": 0.9126,
+				"rotation": 0.1487,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu013n349w",
+				"name": "Fairy Light 5",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.4287,
+					"y": -2.4983
+				},
+				"scale": 1.0141,
+				"rotation": -0.2137,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuz4g5kfne",
+				"name": "Red Bauble 6",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.4233,
+					"y": -2.6814
+				},
+				"scale": 1.1043,
+				"rotation": 0.2398,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu1n1rpbcb",
+				"name": "Star 6",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3532,
+					"y": -2.7979
+				},
+				"scale": 1.0827,
+				"rotation": -0.277,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuvmsaepws",
+				"name": "Gold Snowflake 6",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.4084,
+					"y": -2.9468
+				},
+				"scale": 1.0844,
+				"rotation": -0.152,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uul9omkjlj",
+				"name": "Gold Bauble 6",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.3455,
+					"y": -3.0409
+				},
+				"scale": 0.9666,
+				"rotation": 0.1743,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu5cf1mi3t",
+				"name": "Gift Box 6",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.4091,
+					"y": -3.1901
+				},
+				"scale": 1.055,
+				"rotation": -0.208,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uujdn15byg",
+				"name": "Fairy Light 6",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.4055,
+					"y": -3.3955
+				},
+				"scale": 1.0057,
+				"rotation": 0.155,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uutxlpwekr",
+				"name": "Red Bauble 7",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.3146,
+					"y": -3.4182
+				},
+				"scale": 0.995,
+				"rotation": 0.093,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uukjrreuqk",
+				"name": "Star 7",
+				"source": "decor:star",
+				"position": {
+					"x": -0.4863,
+					"y": -3.5404
+				},
+				"scale": 1.0631,
+				"rotation": -0.2265,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uucq8g3avp",
+				"name": "Gold Snowflake 7",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.3851,
+					"y": -3.5173
+				},
+				"scale": 1.1227,
+				"rotation": -0.0918,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu5kmt0gpn",
+				"name": "Gold Bauble 7",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.4406,
+					"y": -3.6291
+				},
+				"scale": 1.0854,
+				"rotation": 0.0674,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu606293id",
+				"name": "Gift Box 7",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3848,
+					"y": -3.773
+				},
+				"scale": 0.9319,
+				"rotation": -0.1492,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uusvq1ryf5",
+				"name": "Fairy Light 7",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.4509,
+					"y": -3.8553
+				},
+				"scale": 1.0866,
+				"rotation": -0.2469,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uukksf7g81",
+				"name": "Red Bauble 8",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.4891,
+					"y": -4.0034
+				},
+				"scale": 0.9348,
+				"rotation": 0.2592,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuo7v0e71j",
+				"name": "Star 8",
+				"source": "decor:star",
+				"position": {
+					"x": -0.3845,
+					"y": -3.9766
+				},
+				"scale": 1.1341,
+				"rotation": -0.0949,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uukn4zrdrp",
+				"name": "Gold Snowflake 8",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.4248,
+					"y": -4.1178
+				},
+				"scale": 0.9584,
+				"rotation": 0.0601,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuesqk0lxm",
+				"name": "Gold Bauble 8",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.4333,
+					"y": -4.3264
+				},
+				"scale": 1.1412,
+				"rotation": -0.1169,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu82r22k73",
+				"name": "Gift Box 8",
+				"source": "decor:gift-box",
+				"position": {
+					"x": -0.3647,
+					"y": -4.4652
+				},
+				"scale": 1.0103,
+				"rotation": -0.243,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu5veami8y",
+				"name": "Fairy Light 8",
+				"source": "decor:fairy-light",
+				"position": {
+					"x": -0.4466,
+					"y": -4.5713
+				},
+				"scale": 0.9304,
+				"rotation": 0.0452,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uurqbnloux",
+				"name": "Red Bauble 9",
+				"source": "decor:bauble-red",
+				"position": {
+					"x": -0.4495,
+					"y": -4.8191
+				},
+				"scale": 0.9251,
+				"rotation": -0.2985,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uuultbsvzd",
+				"name": "Star 9",
+				"source": "decor:star",
+				"position": {
+					"x": -0.4303,
+					"y": -5.0603
+				},
+				"scale": 1.0852,
+				"rotation": 0.2258,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu7m7og9fm",
+				"name": "Gold Snowflake 9",
+				"source": "decor:snowflake-gold",
+				"position": {
+					"x": -0.3388,
+					"y": -5.1535
+				},
+				"scale": 1.1373,
+				"rotation": 0.2697,
+				"scattered": true
+			},
+			{
+				"id": "decor-mw4xp6uu1zi75rx5",
+				"name": "Gold Bauble 9",
+				"source": "decor:bauble-gold",
+				"position": {
+					"x": -0.2507,
+					"y": -5.1524
+				},
+				"scale": 0.9889,
+				"rotation": 0.1151,
+				"scattered": true
+			}
+		],
+		"madeInBlender": [],
+		"titles": [],
+		"quality": "final",
+		"camera": {
+			"auto": true,
+			"distance": 0.48,
+			"tilt": 0.54,
+			"sway": 1,
+			"shots": []
+		}
+	}
+}

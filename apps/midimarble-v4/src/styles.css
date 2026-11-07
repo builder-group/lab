@@ -1,0 +1,3368 @@
+@import 'tailwindcss';
+
+/* Native macOS tokens. The window background is Liquid Glass, so chrome stays translucent and content panels are opaque. */
+:root {
+	--font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+	/* Brand yellow from the MidiMarble logo, used like the highlight yellow of Photos and Final Cut Pro */
+	--brand: #fde200;
+	--accent: #f5c400;
+	--accent-strong: #c99c00;
+	--on-accent: #1d1d1f;
+	--text: rgb(0 0 0 / 0.85);
+	--text-secondary: rgb(0 0 0 / 0.5);
+	--text-tertiary: rgb(0 0 0 / 0.26);
+	--chrome: rgb(246 246 246 / 0.72);
+	--content: #ffffff;
+	--content-raised: #ffffff;
+	--canvas: #f2f1ee;
+	/* Track's wall, one surface in 2D, 3D and Camera */
+	--track-wall: #efeae1;
+	--track-wall-hole: rgb(72 56 40 / 0.38);
+	--separator: rgb(0 0 0 / 0.1);
+	--hover: rgb(0 0 0 / 0.05);
+	--pressed: rgb(0 0 0 / 0.09);
+	--selection: color-mix(in srgb, var(--accent) 26%, transparent);
+	/* Pieces inside a selected layer group, like Figma's lighter child highlight */
+	--layer-group-tint: color-mix(in srgb, var(--accent) 11%, transparent);
+	--control: rgb(255 255 255 / 0.9);
+	--control-border: rgb(0 0 0 / 0.12);
+	--shadow-popover: 0 0 0 0.5px rgb(0 0 0 / 0.15), 0 10px 30px rgb(0 0 0 / 0.18);
+	--good: #28a745;
+	/* Blender's logo orange */
+	--blender: #e87d0d;
+	--warn: #e8a100;
+	--bad: #e5484d;
+	--playhead: #ff3b30;
+	/* Window background behind the translucent chrome when no Liquid Glass is present, as in the browser */
+	--window: #ececec;
+	/* Opaque ruler and track header bands, a step off the content like Logic and Blender */
+	--band: #f6f6f6;
+	--band-selected: color-mix(in srgb, var(--accent) 16%, var(--band));
+	/* Timeline LCD and piano roll keyboard */
+	--lcd: rgb(0 0 0 / 0.045);
+	--key-white: #fbfbfb;
+	--key-black: #3a3a3c;
+	--menu: rgb(246 246 246 / 0.86);
+	/* Selected rows: the active row is filled with the accent, other selected rows are tinted */
+	--selection-active: var(--accent);
+	--on-selection-active: var(--on-accent);
+	/* Type scale: 13 px body, 11 px secondary, 15 px only for the command palette search field */
+	--text-body: 13px;
+	--text-small: 11px;
+	color-scheme: light dark;
+	font-family: var(--font);
+	font-size: var(--text-body);
+	color: var(--text);
+	-webkit-font-smoothing: antialiased;
+	font-synthesis: none;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--text: rgb(255 255 255 / 0.88);
+		--text-secondary: rgb(255 255 255 / 0.55);
+		--text-tertiary: rgb(255 255 255 / 0.28);
+		--chrome: rgb(40 40 42 / 0.7);
+		--content: #1e1e1f;
+		--content-raised: #2a2a2c;
+		--canvas: #19191a;
+		--track-wall: #19191a;
+		--track-wall-hole: rgb(255 255 255 / 0.14);
+		--separator: rgb(255 255 255 / 0.1);
+		--hover: rgb(255 255 255 / 0.06);
+		--pressed: rgb(255 255 255 / 0.11);
+		--control: rgb(255 255 255 / 0.08);
+		--control-border: rgb(255 255 255 / 0.1);
+		--shadow-popover: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 10px 30px rgb(0 0 0 / 0.5);
+		--accent: #ffd60a;
+		--accent-strong: #ffd60a;
+		/* Yellow over dark gray turns olive, so secondary selection stays neutral in dark mode */
+		--selection: rgb(255 255 255 / 0.1);
+		--layer-group-tint: rgb(255 255 255 / 0.045);
+		--playhead: #ff453a;
+		--window: #1c1c1e;
+		--band: #232325;
+		--band-selected: #303033;
+		--lcd: rgb(0 0 0 / 0.28);
+		--key-white: #3a3a3d;
+		--key-black: #161617;
+		--menu: rgb(40 40 42 / 0.86);
+	}
+}
+
+/* The browser development surface has no Liquid Glass behind the window */
+html[data-host='browser'] body {
+	background: var(--window);
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+	background: transparent;
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: default;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+	color: inherit;
+}
+
+input,
+textarea {
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/* In the base layer so utilities such as `outline-none` can turn it off for fields that draw their own */
+@layer base {
+	:focus-visible {
+		outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+		outline-offset: 1px;
+		border-radius: 5px;
+	}
+}
+
+/* MARK: - Controls */
+
+.mm-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 10px;
+	border-radius: 6px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.08);
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.mm-button:active {
+	background: var(--pressed);
+}
+
+/* A choice that is on, such as an item of a Decor set */
+.mm-button[data-applied='true'] {
+	color: var(--accent-strong);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-button[data-variant='primary'] {
+	background: var(--accent);
+	border-color: transparent;
+	color: var(--on-accent);
+	font-weight: 500;
+}
+
+.mm-button:disabled {
+	opacity: 0.4;
+}
+
+/* Dialog push buttons keep a minimum width like AppKit */
+.mm-button[data-size='dialog'] {
+	min-width: 76px;
+}
+
+.mm-icon-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 6px;
+	color: var(--text-secondary);
+}
+
+.mm-icon-button:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+
+.mm-icon-button:active,
+.mm-icon-button[data-active='true'] {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+.mm-icon-button:disabled {
+	opacity: 0.35;
+	background: none;
+}
+
+.mm-segmented {
+	display: inline-flex;
+	padding: 2px;
+	border-radius: 7px;
+	background: var(--hover);
+}
+
+.mm-segmented button {
+	height: 22px;
+	padding: 0 14px;
+	border-radius: 5px;
+	color: var(--text-secondary);
+	font-weight: 500;
+}
+
+.mm-segmented button[data-active='true'] {
+	background: var(--content-raised);
+	color: var(--text);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.08),
+		0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.mm-input {
+	width: 100%;
+	height: 22px;
+	padding: 0 6px;
+	border-radius: 5px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 0.5px rgb(0 0 0 / 0.04);
+	font-variant-numeric: tabular-nums;
+	outline: none;
+}
+
+.mm-input:focus {
+	border-color: var(--accent-strong);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.mm-input::placeholder {
+	color: var(--text-tertiary);
+}
+
+/* Pop-up button: drawn like an AppKit pop-up with the double chevron on the right */
+.mm-select {
+	position: relative;
+	display: block;
+	width: 100%;
+}
+
+.mm-select > button {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	text-align: left;
+	width: 100%;
+	height: 22px;
+	padding: 0 22px 0 7px;
+	border-radius: 5px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.08);
+	outline: none;
+}
+
+.mm-select > button:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.mm-select svg {
+	position: absolute;
+	top: 50%;
+	right: 5px;
+	transform: translateY(-50%);
+	pointer-events: none;
+	color: var(--text-secondary);
+}
+
+/* AppKit-sized checkbox: 14 px with a 3.5 px radius, accent fill and a dark check */
+.mm-checkbox {
+	appearance: none;
+	-webkit-appearance: none;
+	display: inline-grid;
+	place-content: center;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	margin: 0;
+	border-radius: 3.5px;
+	border: 0.5px solid var(--control-border);
+	background: var(--control);
+	box-shadow: 0 0.5px 1px rgb(0 0 0 / 0.1);
+}
+
+.mm-checkbox::after {
+	content: '';
+	width: 8px;
+	height: 5px;
+	margin-top: -2px;
+	border-left: 1.75px solid var(--on-accent);
+	border-bottom: 1.75px solid var(--on-accent);
+	transform: rotate(-45deg);
+	opacity: 0;
+}
+
+.mm-checkbox:checked {
+	background: var(--accent);
+	border-color: transparent;
+}
+
+.mm-checkbox:checked::after {
+	opacity: 1;
+}
+
+.mm-checkbox:focus-visible {
+	outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+	outline-offset: 0;
+}
+
+/* Section header in a source list, like Finder's sidebar */
+.mm-section-title {
+	padding: 10px 12px 4px 16px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+/* MARK: - Lists */
+
+.mm-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	margin: 0 8px;
+	padding: 0 8px;
+	border-radius: 5px;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+.mm-row:hover {
+	background: var(--hover);
+}
+
+.mm-row[data-selected='true'] {
+	background: var(--selection);
+}
+
+.mm-row[data-active='true'] {
+	background: var(--selection-active);
+	color: var(--on-selection-active);
+}
+
+.mm-row[data-active='true'] .mm-row-secondary {
+	color: color-mix(in srgb, var(--on-selection-active) 65%, transparent);
+}
+
+.mm-row-secondary {
+	color: var(--text-tertiary);
+	font-size: var(--text-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-row-input {
+	min-width: 0;
+	flex: 1;
+	height: 18px;
+	margin-left: -3px;
+	padding: 0 3px;
+	border: 0;
+	border-radius: 3px;
+	background: var(--content);
+	color: var(--text);
+	box-shadow: 0 0 0 2px var(--accent-strong);
+	outline: none;
+}
+
+.mm-disclosure {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	margin-left: -4px;
+	border-radius: 3px;
+	color: var(--text-tertiary);
+	transition: transform 0.12s;
+}
+
+.mm-disclosure[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+/* MARK: - Inspector panels */
+
+.mm-caption {
+	font-size: var(--text-small);
+	line-height: 1.35;
+	color: var(--text-secondary);
+}
+
+.mm-placeholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	height: 100%;
+	padding: 24px;
+	text-align: center;
+	color: var(--text-secondary);
+}
+
+.mm-placeholder-title {
+	color: var(--text);
+	font-size: var(--text-body);
+	font-weight: 600;
+}
+
+.mm-placeholder-body {
+	max-width: 300px;
+	font-size: var(--text-small);
+	line-height: 1.4;
+}
+
+.mm-tabular {
+	font-variant-numeric: tabular-nums;
+}
+
+/* MARK: - Timeline */
+
+.mm-track-header,
+.mm-ruler {
+	background-color: var(--band);
+}
+
+.mm-ruler {
+	background-size: 100% 4px;
+	background-position: 0 100%;
+	background-repeat: repeat-x;
+}
+
+.mm-track-header[data-selected='true'] {
+	background-color: var(--band-selected);
+}
+
+/* Film's render bar: the separator under the ruler fills green where Blender's preview is rendered. Taller than its line, so its tooltip can be reached. */
+.mm-render-bar {
+	position: absolute;
+	bottom: -1px;
+	height: 6px;
+}
+
+.mm-render-span {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+}
+
+.mm-render-span::after {
+	content: '';
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: var(--good);
+}
+
+.mm-out-of-range {
+	background: color-mix(in srgb, var(--text) 5%, transparent);
+	border-left: 1px solid var(--separator);
+}
+
+/* The ruler past the project end: the marbles' shade over its ticks and times, so the film visibly stops at the end bracket */
+.mm-ruler-past-end {
+	background:
+		linear-gradient(color-mix(in srgb, var(--text) 5%, transparent), color-mix(in srgb, var(--text) 5%, transparent)),
+		color-mix(in srgb, var(--content) 55%, transparent);
+}
+
+/* GarageBand-style track toggles: a speaker for Mute that turns gray and crossed out, headphones for Solo that light up in the accent */
+.mm-track-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 22px;
+	height: 20px;
+	border-radius: 5px;
+	color: var(--text-tertiary);
+}
+
+.mm-track-header:hover .mm-track-toggle,
+.mm-track-header[data-selected='true'] .mm-track-toggle {
+	color: var(--text-secondary);
+}
+
+.mm-track-toggle:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+
+.mm-track-toggle[data-on='true'][data-tone='mute'] {
+	background: var(--pressed);
+	color: var(--text);
+}
+
+.mm-track-toggle[data-on='true'][data-tone='solo'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+/* A tall expanded header takes a lighter tint, so selection does not turn into a block of yellow */
+.mm-track-header[data-expanded='true'][data-selected='true'] {
+	background-color: color-mix(in srgb, var(--band-selected) 50%, var(--band));
+}
+
+.mm-track-chip:hover {
+	box-shadow: 0 0 0 2px var(--control-border);
+}
+
+/* A muted track dims its name and its color */
+.mm-track-header[data-muted='true'] .mm-track-title,
+.mm-track-header[data-muted='true'] .mm-track-chip {
+	opacity: 0.45;
+}
+
+/* Disclosure triangle like a Finder outline; it turns down when the track is expanded */
+.mm-disclosure {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+	transition: transform 0.12s ease-out;
+}
+
+.mm-disclosure:hover {
+	color: var(--text-secondary);
+}
+
+.mm-disclosure[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+.mm-track-chip {
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	border-radius: 5px;
+	box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.18);
+}
+
+/* Song track: a small icon tile beside the file name */
+.mm-song-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	background: var(--pressed);
+	color: var(--text-secondary);
+}
+
+/* A song on the timeline, like a clip under a Final Cut storyline: quiet until hovered, and it drags */
+.mm-song-clip {
+	top: 3px;
+	bottom: 3px;
+	border-radius: 5px;
+	background: color-mix(in srgb, var(--song-tint) 10%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--song-tint) 22%, transparent);
+	cursor: grab;
+}
+
+.mm-song-clip:hover,
+.mm-song-clip[data-selected='true'] {
+	background: color-mix(in srgb, var(--song-tint) 16%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--song-tint) 45%, transparent);
+}
+
+.mm-song-clip[data-moving='true'] {
+	cursor: grabbing;
+}
+
+/* When a marble starts: the ring it has on the wall, at its time on the row */
+.mm-start-marker {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	transform: translate(-50%, -50%);
+	cursor: ew-resize;
+}
+
+.mm-start-marker > span {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	border: 2px solid var(--row-color);
+	background: var(--content);
+}
+
+.mm-start-marker[data-selected='true'] > span,
+.mm-start-marker:hover > span,
+.mm-start-marker[data-dragging='true'] > span {
+	box-shadow: 0 0 0 1.5px var(--accent-strong);
+}
+
+.mm-start-chip {
+	position: absolute;
+	z-index: 12;
+	transform: translateY(-50%);
+	padding: 0 6px;
+	border-radius: 4px;
+	background: var(--content-raised);
+	box-shadow: 0 0 0 0.5px var(--separator), 0 1px 3px rgb(0 0 0 / 0.15);
+	font-size: 11px;
+	line-height: 18px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.mm-start-chip[data-bad='true'] {
+	color: var(--bad);
+}
+
+/* The hairline under a marble's hits that are tied to a song; hits of its own have none */
+.mm-tie-line {
+	position: absolute;
+	bottom: 2px;
+	height: 2px;
+	border-radius: 1px;
+	opacity: 0.55;
+	pointer-events: none;
+}
+
+.mm-tie-line[data-selected='true'] {
+	opacity: 1;
+}
+
+.mm-song-row {
+	background: color-mix(in srgb, var(--text) 2.5%, transparent);
+}
+
+/* The Song roll's keyboard, like Logic's: black keys reach in from the left, C keys carry their octave */
+.mm-keyboard {
+	border-left: 1px solid var(--separator);
+	background: var(--key-white);
+}
+
+.mm-key {
+	position: absolute;
+	right: 0;
+	left: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	padding-right: 4px;
+	border-bottom: 0.5px solid var(--separator);
+}
+
+.mm-key[data-black='true']::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 58%;
+	border-radius: 0 2px 2px 0;
+	background: var(--key-black);
+}
+
+.mm-key:active {
+	background: var(--selection);
+}
+
+.mm-key[data-black='true']:active::before {
+	background: var(--accent-strong);
+}
+
+/* A key takes a soft tint of the marble playing it, set per note (useSoundingKeys): on at once, off with a short fade */
+.mm-key {
+	transition: background-color 140ms ease-out;
+}
+
+.mm-key[data-black='true']::before {
+	transition: background-color 140ms ease-out;
+}
+
+.mm-key[data-sounding] {
+	transition: none;
+}
+
+.mm-key[data-sounding]:not([data-black='true']) {
+	background: color-mix(in srgb, var(--sounding) 40%, transparent);
+}
+
+.mm-key[data-black='true'][data-sounding]::before {
+	transition: none;
+	background: color-mix(in srgb, var(--sounding) 40%, var(--key-black));
+}
+
+.mm-key-label {
+	font-size: 9px;
+	line-height: 1;
+	font-weight: 500;
+	color: var(--text-secondary);
+}
+
+.mm-piano-row {
+	position: absolute;
+	right: 0;
+	left: 0;
+}
+
+.mm-piano-row[data-black='true'] {
+	background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+/* Octave lines below each C, like the stronger grid lines of Logic's piano roll */
+.mm-piano-row[data-c='true'] {
+	border-bottom: 1px solid var(--separator);
+}
+
+/* Hit diamonds use Blender's keyframe vocabulary: selected keys turn the accent color */
+.mm-hit {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	transform: translate(-50%, -50%);
+}
+
+.mm-hit > span {
+	width: 8px;
+	height: 8px;
+	border-radius: 1.5px;
+	transform: rotate(45deg);
+	background: var(--row-color);
+	border: 1px solid color-mix(in srgb, var(--row-color) 70%, black);
+}
+
+/* A marble landing the hit: a brief swell and glow in the status color, large enough to catch at normal playback */
+.mm-hit[data-flash] > span {
+	animation: mm-hit-flash 420ms ease-out;
+}
+
+.mm-hit[data-flash='good'] {
+	--flash: var(--good);
+}
+
+.mm-hit[data-flash='warn'] {
+	--flash: var(--warn);
+}
+
+.mm-hit[data-flash='bad'] {
+	--flash: var(--bad);
+}
+
+@keyframes mm-hit-flash {
+	0% {
+		scale: 2.1;
+		background: var(--flash);
+		box-shadow: 0 0 0 5px color-mix(in srgb, var(--flash) 45%, transparent);
+	}
+	100% {
+		scale: 1;
+		box-shadow: 0 0 0 0 transparent;
+	}
+}
+
+.mm-wall-flash {
+	pointer-events: none;
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: mm-wall-flash 420ms ease-out forwards;
+}
+
+.mm-wall-flash[data-tone='good'] {
+	stroke: var(--good);
+}
+
+.mm-wall-flash[data-tone='warn'] {
+	stroke: var(--warn);
+}
+
+.mm-wall-flash[data-tone='bad'] {
+	stroke: var(--bad);
+}
+
+@keyframes mm-wall-flash {
+	0% {
+		opacity: 1;
+		transform: scale(0.7);
+	}
+	100% {
+		opacity: 0;
+		transform: scale(2);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-hit[data-flash] > span {
+		animation-name: mm-hit-flash-still;
+	}
+}
+
+@keyframes mm-hit-flash-still {
+	0%,
+	100% {
+		background: var(--flash);
+	}
+}
+
+.mm-hit[data-state='open'] > span {
+	background: var(--content);
+	border: 1.5px solid var(--row-color);
+}
+
+.mm-hit[data-state='drifting'] > span {
+	border: 1.5px solid var(--warn);
+}
+
+.mm-hit[data-state='missed'] > span {
+	background: var(--bad);
+	border-color: color-mix(in srgb, var(--bad) 70%, black);
+}
+
+.mm-hit[data-conflict='true'] > span {
+	box-shadow:
+		0 0 0 1.5px var(--content),
+		0 0 0 3px var(--bad);
+}
+
+.mm-hit[data-linked='true'] > span {
+	box-shadow:
+		0 0 0 1px var(--content),
+		0 0 0 2px color-mix(in srgb, var(--accent-strong) 55%, transparent);
+}
+
+.mm-hit[data-selected='true'] > span {
+	width: 10px;
+	height: 10px;
+	background: var(--accent);
+	border: 1px solid var(--accent-strong);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-hit[data-selected='true'] > span {
+		border-color: white;
+	}
+}
+
+/* A marble track's flat row shows each hit's timing status by color and shape: a green diamond On Time, an
+   amber circle Early or Late, a red square Missed, Blocked or Stopped, a hollow diamond Open */
+.mm-hit[data-state='onTime'] > span {
+	background: var(--good);
+	border-color: color-mix(in srgb, var(--good) 70%, black);
+}
+
+.mm-hit[data-state='drifting'] > span {
+	border-radius: 50%;
+	transform: none;
+	background: var(--warn);
+	border: 1px solid color-mix(in srgb, var(--warn) 70%, black);
+}
+
+.mm-hit[data-state='missed'] > span {
+	border-radius: 1px;
+	transform: none;
+}
+
+/* Notes of the expanded Song track: blocks as long as the note, in the color of the marble that plays it */
+.mm-song-note {
+	position: absolute;
+	z-index: 1;
+	border-radius: 2.5px;
+	background: var(--row-color);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--row-color) 65%, black);
+	cursor: move;
+}
+
+.mm-song-note[data-backing='true'] {
+	background: color-mix(in srgb, var(--row-color) 45%, var(--content));
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--row-color) 80%, transparent);
+}
+
+.mm-song-note[data-selected='true'] {
+	z-index: 2;
+	outline: 1.5px solid var(--accent-strong);
+	outline-offset: 1px;
+}
+
+.mm-song-note-end {
+	position: absolute;
+	top: 0;
+	right: -2px;
+	bottom: 0;
+	width: 6px;
+	cursor: ew-resize;
+}
+
+/* Hit summary at the left of the timeline header, like Xcode's issue count */
+.mm-hit-summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 22px;
+	max-width: 100%;
+	min-width: 0;
+	overflow: hidden;
+	padding: 0 8px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--text-secondary);
+	white-space: nowrap;
+}
+
+.mm-hit-summary[data-tone='good'] {
+	color: var(--good);
+}
+
+.mm-hit-summary[data-tone='warn'] {
+	color: var(--text);
+}
+
+/* Checking… or Fixing…: dimmed, never a stale count */
+.mm-hit-summary[data-tone='pending'] {
+	opacity: 0.6;
+}
+
+/* Framing problems on the Camera track: amber spans under the shot markers */
+.mm-camera-issue {
+	position: absolute;
+	bottom: 3px;
+	height: 5px;
+	min-width: 6px;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--warn) 55%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 80%, transparent);
+	cursor: pointer;
+}
+
+.mm-camera-issue:hover {
+	background: var(--warn);
+}
+
+button.mm-hit-summary:hover,
+.mm-hit-summary-chevron[data-active='true'] {
+	background: var(--hover);
+}
+
+/* The summary and the chevron of its problem list, like Xcode's issue count */
+.mm-hit-summary-group {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	min-width: 0;
+}
+
+.mm-hit-summary-chevron {
+	flex-shrink: 0;
+	padding: 0 4px;
+	color: var(--text-secondary);
+}
+
+.mm-hit-summary-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--warn);
+}
+
+/* Red once a note is Blocked, Missed or Stopped, as its mark in the bar and its pill are */
+.mm-hit-summary-dot[data-tone='bad'] {
+	background: var(--bad);
+}
+
+/* Hits that cannot get a platform (Too Soon, Out of Reach): hollow like Open, with an amber dashed outline */
+.mm-hit[data-state='unreachable'] > span {
+	background: var(--content);
+	border: 1.5px dashed var(--warn);
+}
+
+/* Notice actions such as Undo and Fix Hits, plain text buttons like Mail's undo toast */
+.mm-notice-action {
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text);
+	white-space: nowrap;
+}
+
+.mm-notice-action:hover {
+	background: var(--hover);
+}
+
+.mm-notice-action[data-variant='primary'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+/* A Fix-it beside a status pill, such as Place Again in a Blocked platform's inspector header */
+.mm-fix-it {
+	display: inline-grid;
+	place-items: center;
+	width: 22px;
+	height: 20px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	color: var(--text);
+	background: var(--control);
+	box-shadow: inset 0 0 0 0.5px var(--control-border);
+}
+
+.mm-fix-it:hover {
+	background: var(--hover);
+}
+
+.mm-fix-it:disabled {
+	opacity: 0.5;
+}
+
+/* A Fix-it with a word, such as Move Clear */
+.mm-fix-it.mm-fix-it-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	width: auto;
+	padding: 0 8px;
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+/* MARK: - Menus */
+
+/* Context and pull-down menus drawn like macOS menus: translucent material, 22 px items, glyph shortcuts */
+.mm-menu {
+	position: fixed;
+	z-index: 100;
+	min-width: 200px;
+	max-width: 400px;
+	/* A long menu, such as every problem of the run, scrolls inside the window */
+	max-height: calc(100vh - 12px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 5px;
+	border-radius: 8px;
+	background: var(--menu);
+	box-shadow: var(--shadow-popover);
+	-webkit-backdrop-filter: blur(30px) saturate(1.6);
+	backdrop-filter: blur(30px) saturate(1.6);
+	outline: none;
+}
+
+.mm-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	height: 22px;
+	padding: 0 10px 0 4px;
+	border-radius: 4px;
+	text-align: left;
+	white-space: nowrap;
+}
+
+.mm-menu-item[data-highlighted='true'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.mm-menu-item:disabled {
+	color: var(--text-tertiary);
+}
+
+.mm-menu-check {
+	width: 12px;
+	flex-shrink: 0;
+	text-align: center;
+	font-size: var(--text-small);
+}
+
+.mm-menu-shortcut {
+	margin-left: auto;
+	padding-left: 24px;
+	color: var(--text-secondary);
+	letter-spacing: 0.5px;
+}
+
+.mm-menu-item[data-highlighted='true'] .mm-menu-shortcut {
+	color: color-mix(in srgb, var(--on-accent) 60%, transparent);
+}
+
+.mm-menu-separator {
+	height: 1px;
+	margin: 5px 10px;
+	background: var(--separator);
+}
+
+.mm-menu-section {
+	padding: 4px 10px 2px 22px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+/* Track's wall shows through WebGL; this is the same color until the first frame and for what sits on the wall */
+.mm-pegboard {
+	--canvas: var(--track-wall);
+	background-color: var(--canvas);
+}
+
+/* A newly opened project shows its wall once the first run has framed it, so the zoom never jumps */
+.mm-pegboard[data-opening='true'] > * {
+	visibility: hidden;
+}
+
+/* MARK: - Floating canvas UI */
+
+.mm-floating {
+	border-radius: 12px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.12),
+		0 2px 6px rgb(0 0 0 / 0.08),
+		0 8px 24px rgb(0 0 0 / 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-floating {
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.12),
+			0 2px 6px rgb(0 0 0 / 0.3),
+			0 8px 24px rgb(0 0 0 / 0.35);
+	}
+}
+
+.mm-tool-button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	color: var(--text);
+}
+
+.mm-tool-button:hover {
+	background: var(--hover);
+}
+
+.mm-tool-button:active {
+	background: var(--pressed);
+}
+
+.mm-tool-button[data-active='true'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+/* Figma-style tooltip with the shortcut, shown above the button after a short delay */
+.mm-tooltip {
+	position: absolute;
+	bottom: calc(100% + 8px);
+	left: 50%;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 7px;
+	border-radius: 5px;
+	background: rgb(30 30 30 / 0.94);
+	color: rgb(255 255 255 / 0.95);
+	font-size: 11px;
+	font-family: var(--font);
+	white-space: nowrap;
+	pointer-events: none;
+	opacity: 0;
+	transform: translateX(-50%);
+	transition: opacity 0.12s;
+}
+
+.mm-tooltip kbd {
+	font-family: var(--font);
+	color: rgb(255 255 255 / 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+	/* On the dark wall the tooltip keeps an edge and a shadow, so its text never floats loose */
+	.mm-tooltip {
+		background: rgb(58 58 60 / 0.97);
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.18),
+			0 4px 12px rgb(0 0 0 / 0.4);
+	}
+}
+
+.mm-tool-button:hover .mm-tooltip {
+	opacity: 1;
+	transition-delay: 0.45s;
+}
+
+/* 2D and 3D as words in the view switch, at the weight of a glyph */
+.mm-view-word {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+/* The canvas's one corner group. Its tooltips hang from the group's right edge, so a long one never runs under the tool rail */
+.mm-canvas-corner .mm-tool-button,
+.mm-canvas-corner .mm-zoom-button {
+	position: static;
+}
+
+.mm-canvas-corner .mm-tooltip {
+	top: calc(100% + 8px);
+	bottom: auto;
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+.mm-corner-divider {
+	flex: none;
+	width: 1px;
+	height: 16px;
+	margin: 0 4px;
+	background: var(--separator);
+}
+
+.mm-tooltip-below .mm-tooltip {
+	top: calc(100% + 8px);
+	bottom: auto;
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+.mm-delayed-fade {
+	opacity: 0;
+	animation: mm-fade-in 0.15s 0.25s forwards;
+}
+
+@keyframes mm-fade-in {
+	to {
+		opacity: 1;
+	}
+}
+
+/* Inline suggestion hint next to ghost pieces, like tab completion in a code editor */
+.mm-hint {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	padding: 0 4px 0 3px;
+	border-radius: 7px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.14),
+		0 2px 8px rgb(0 0 0 / 0.1);
+	font-size: 11px;
+	white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-hint {
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.14),
+			0 2px 8px rgb(0 0 0 / 0.4);
+	}
+}
+
+/* A suggested platform: dashed and see-through, never a solid bar */
+.mm-ghost-piece {
+	fill: var(--ghost-fill);
+	fill-opacity: 0.22;
+	stroke: var(--ghost-stroke);
+}
+
+.mm-ghost-piece[data-ok='false'] {
+	fill-opacity: 0.1;
+}
+
+@media (prefers-color-scheme: dark) {
+	/* On a dark wall a low fill and the darker shade read as a solid dark bar; a light outline and more fill keep it a suggestion */
+	.mm-ghost-piece {
+		fill: color-mix(in srgb, var(--ghost-fill) 60%, white);
+		fill-opacity: 0.4;
+		stroke: color-mix(in srgb, var(--ghost-fill) 50%, white);
+	}
+
+	.mm-ghost-piece[data-ok='false'] {
+		fill-opacity: 0.16;
+		stroke: var(--ghost-stroke);
+	}
+}
+
+.mm-keycap {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 15px;
+	padding: 0 4px;
+	border-radius: 4px;
+	background: var(--pressed);
+	box-shadow: inset 0 -0.5px 0 var(--control-border);
+	color: var(--text-secondary);
+	font-family: var(--font);
+	font-size: 10px;
+	font-weight: 500;
+	line-height: 1;
+}
+
+.mm-ghost-in {
+	animation: mm-ghost-in 0.12s ease-out;
+}
+
+/* Quiet words on the wall, such as a note past what's built: secondary text with a halo of the wall so dots never cut it */
+.mm-wall-mark {
+	fill: var(--text-secondary);
+	font-size: 11px;
+	font-weight: 500;
+	paint-order: stroke;
+	stroke: var(--canvas);
+	stroke-width: 3px;
+	stroke-linejoin: round;
+}
+
+@keyframes mm-ghost-in {
+	from {
+		opacity: 0;
+	}
+}
+
+/* The next dot to place breathes softly so the eye finds it */
+.mm-dot-pulse {
+	animation: mm-dot-pulse 1.6s ease-out infinite;
+}
+
+@keyframes mm-dot-pulse {
+	from {
+		transform: scale(1);
+		opacity: 0.55;
+	}
+	to {
+		transform: scale(2.6);
+		opacity: 0;
+	}
+}
+
+/* MARK: - Film */
+
+/* Thumbnail grid of Blender's asset browser, sized for the sidebar */
+.mm-tile-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 4px;
+	padding: 2px 10px 4px;
+}
+
+.mm-tile {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 1px;
+	min-width: 0;
+	padding: 4px 4px 5px;
+	border-radius: 8px;
+	text-align: left;
+}
+
+.mm-tile:hover {
+	background: var(--hover);
+}
+
+.mm-tile[data-selected='true'] {
+	background: var(--pressed);
+}
+
+.mm-tile[data-dimmed='true'] {
+	opacity: 0.45;
+}
+
+.mm-tile-thumb {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 4 / 3;
+	margin-bottom: 3px;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--canvas);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-tile-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mm-tile[data-selected='true'] .mm-tile-thumb,
+.mm-tile[data-applied='true'] .mm-tile-thumb {
+	box-shadow:
+		0 0 0 2px var(--accent-strong),
+		inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-tile-label {
+	overflow: hidden;
+	padding: 0 2px;
+	font-size: var(--text-small);
+	font-weight: 500;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mm-tile-secondary {
+	overflow: hidden;
+	padding: 0 2px;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* A tile with a star beside its main button, like Figma's asset favorites */
+.mm-tile-wrap {
+	position: relative;
+	min-width: 0;
+}
+
+.mm-tile-wrap > .mm-tile {
+	width: 100%;
+}
+
+/* Text button like a link in a macOS inspector */
+.mm-link {
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	font-weight: 500;
+}
+
+.mm-link:hover {
+	color: var(--text);
+	text-decoration: underline;
+}
+
+.mm-setup-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: var(--hover);
+}
+
+/* Current skin of a piece; library tiles can be dropped on it */
+.mm-color {
+	width: 34px;
+	height: 20px;
+	padding: 0;
+	border: 0.5px solid var(--control-border);
+	border-radius: 5px;
+	background: none;
+}
+
+.mm-color::-webkit-color-swatch-wrapper {
+	padding: 2px;
+}
+
+.mm-color::-webkit-color-swatch {
+	border: 0;
+	border-radius: 3px;
+}
+
+/* macOS sheet sliding from the toolbar */
+.mm-sheet {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	height: fit-content;
+	padding: 20px;
+	border-radius: 12px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	animation: mm-sheet-in 0.16s ease-out;
+}
+
+@keyframes mm-sheet-in {
+	from {
+		transform: translateY(-8px);
+		opacity: 0;
+	}
+}
+
+/* Form with right-aligned labels like AppKit dialogs */
+.mm-form {
+	display: grid;
+	grid-template-columns: 76px 1fr;
+	align-items: start;
+	gap: 10px 10px;
+}
+
+.mm-form > label,
+.mm-form > .mm-form-label {
+	padding-top: 3px;
+	color: var(--text-secondary);
+	text-align: right;
+	white-space: nowrap;
+}
+
+.mm-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 9px 12px;
+	border-radius: 8px;
+	background: var(--canvas);
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-summary .font-medium {
+	color: var(--text);
+	font-size: var(--text-body);
+}
+
+/* Export preflight: a summary line that discloses an issue list, like Xcode's issue navigator */
+.mm-preflight {
+	display: flex;
+	flex-direction: column;
+	border-radius: 8px;
+	background: var(--canvas);
+	overflow: hidden;
+}
+
+.mm-preflight-summary {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	min-height: 32px;
+	padding: 0 12px;
+	text-align: left;
+}
+
+.mm-preflight-summary:not(:disabled):hover {
+	background: var(--hover);
+}
+
+.mm-preflight-list {
+	max-height: 196px;
+	padding: 2px 0 4px;
+	border-top: 0.5px solid var(--separator);
+	overflow-y: auto;
+}
+
+.mm-preflight-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 7px;
+	width: 100%;
+	padding: 4px 12px;
+	text-align: left;
+}
+
+.mm-preflight-row[data-clickable]:hover {
+	background: var(--hover);
+}
+
+.mm-preflight-row[data-clickable]:focus-visible {
+	outline: 2px solid var(--accent-strong);
+	outline-offset: -2px;
+}
+
+.mm-preflight-detail {
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+}
+
+.mm-progress {
+	width: 100%;
+	height: 6px;
+	appearance: none;
+	-webkit-appearance: none;
+	overflow: hidden;
+	border: 0;
+	border-radius: 999px;
+	background: var(--pressed);
+}
+
+.mm-progress::-webkit-progress-bar {
+	background: var(--pressed);
+}
+
+.mm-progress::-webkit-progress-value {
+	border-radius: 999px;
+	background: var(--accent-strong);
+	transition: width 0.25s;
+}
+
+.mm-progress:indeterminate {
+	background: linear-gradient(90deg, var(--pressed) 30%, var(--accent) 50%, var(--pressed) 70%) 0 0 / 300% 100%;
+	animation: mm-indeterminate 1.4s linear infinite;
+}
+
+@keyframes mm-indeterminate {
+	to {
+		background-position: -150% 0;
+	}
+}
+
+.mm-film {
+	display: block;
+	max-height: 360px;
+	margin: 0 auto;
+	border-radius: 8px;
+	background: #000;
+}
+
+/* The film's first frame in the export sheet */
+.mm-opening-frame {
+	flex: none;
+	width: 72px;
+	margin: 0;
+	overflow: hidden;
+	border-radius: 6px;
+	background: var(--separator);
+}
+
+.mm-opening-frame img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mm-error-box {
+	max-height: 140px;
+	overflow-y: auto;
+	padding: 8px 10px;
+	border-radius: 8px;
+	background: color-mix(in srgb, var(--bad) 10%, transparent);
+	color: var(--bad);
+	font-size: var(--text-small);
+	line-height: 1.4;
+	white-space: pre-wrap;
+	user-select: text;
+}
+
+[data-orbit='true'] .mm-preview {
+	cursor: grab;
+}
+
+[data-orbit='true'] .mm-preview:active {
+	cursor: grabbing;
+}
+
+.mm-preview[data-placing='true'] {
+	cursor: crosshair;
+}
+
+/* Title clips on the Film timeline's Titles track, like Final Cut's title clips */
+.mm-title-clip {
+	background: color-mix(in srgb, var(--text) 12%, var(--content));
+	color: var(--text);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-title-clip[data-selected='true'] {
+	background: var(--accent);
+	color: #1d1d1f;
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-title-clip-edge {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 5px;
+	cursor: ew-resize;
+}
+
+.mm-title-clip-edge[data-edge='in'] {
+	left: 0;
+}
+
+.mm-title-clip-edge[data-edge='out'] {
+	right: 0;
+}
+
+.mm-preview[data-drop-target='true'] {
+	outline: 2px solid var(--accent-strong);
+	outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	* {
+		transition: none !important;
+		animation: none !important;
+	}
+
+	.mm-delayed-fade {
+		opacity: 1;
+	}
+}
+
+/* MARK: - Window shell (Paper layout, native surfaces) */
+
+/* Document title bar: tabs like Paper's, on the window background like a macOS unified toolbar */
+.mm-titlebar {
+	display: grid;
+	/* The sides never shrink below their controls; the title stays centered while there is room, then truncates */
+	grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
+	align-items: center;
+	background: var(--window);
+	border-bottom: 1px solid var(--separator);
+}
+
+/* Centered document title of a one-document window, like macOS: the name and an edited dot */
+.mm-titlebar-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	max-width: 100%;
+	height: 24px;
+	padding: 0 8px;
+	border-radius: 6px;
+	font-weight: 600;
+	color: var(--text);
+}
+
+.mm-titlebar-title .mm-row-input {
+	width: 220px;
+	font-weight: 500;
+}
+
+/* The workspace switch sits in the title bar like Blender's workspaces, at the height of the title bar's buttons */
+.mm-titlebar-workspace {
+	margin-left: 8px;
+}
+
+.mm-titlebar-workspace button {
+	position: relative;
+	padding: 0 11px;
+}
+
+/* Over the segment's corner, so it takes no room and the label stays put */
+.mm-titlebar-workspace-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 14px;
+	height: 14px;
+	margin-left: 4px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: var(--warn);
+	color: white;
+	font-size: 10px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
+}
+
+/* Blender and Agent: one secondary style, like Figma's secondary buttons and Xcode's neutral status display. Color is left to the Blender logo and to Export Film…, the one accent button */
+.mm-titlebar-chip {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	height: 26px;
+	padding: 0 9px 0 8px;
+	border: 1px solid var(--control-border);
+	border-radius: 6px;
+	background: var(--control);
+	color: var(--text);
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+.mm-titlebar-chip:hover {
+	background: var(--hover);
+}
+
+.mm-titlebar-chip:active,
+.mm-titlebar-chip[data-active='true'] {
+	background: var(--pressed);
+}
+
+.mm-titlebar-export {
+	height: 26px;
+	margin-left: 4px;
+	padding: 0 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-titlebar-export:hover {
+	filter: brightness(1.04);
+}
+
+.mm-titlebar-export:active {
+	background: var(--accent);
+	filter: brightness(0.94);
+}
+
+/* Failed while the sheet was closed; a ring on the accent so it reads on yellow */
+.mm-titlebar-export-dot {
+	width: 7px;
+	height: 7px;
+	flex-shrink: 0;
+	border-radius: 999px;
+	background: var(--bad);
+	box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--on-accent) 25%, transparent);
+}
+
+/* Final Cut's background-task ring, drawn in the button's text color */
+.mm-progress-ring {
+	flex-shrink: 0;
+}
+
+.mm-progress-ring-track {
+	stroke: color-mix(in srgb, var(--on-accent) 22%, transparent);
+}
+
+.mm-progress-ring-value {
+	stroke: var(--on-accent);
+	transition: stroke-dasharray 0.3s linear;
+}
+
+.mm-progress-ring[data-indeterminate='true'] {
+	animation: mm-ring-spin 1s linear infinite;
+}
+
+@keyframes mm-ring-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.mm-titlebar-chip {
+	gap: 6px;
+}
+
+/* The state word, only while Blender works; it slides open so the button never jumps. The negative margin takes back the gap while it is closed */
+.mm-titlebar-chip-state {
+	max-width: 0;
+	margin-left: -6px;
+	overflow: hidden;
+	opacity: 0;
+	color: var(--text-secondary);
+	transition:
+		max-width 0.2s ease,
+		margin-left 0.2s ease,
+		opacity 0.2s ease;
+}
+
+.mm-titlebar-chip-state[data-shown='true'] {
+	max-width: 120px;
+	margin-left: 0;
+	opacity: 1;
+}
+
+.mm-titlebar-chip-glyph {
+	flex-shrink: 0;
+	color: var(--text-secondary);
+}
+
+.mm-titlebar-chip-glyph[data-tone='ready'] {
+	color: var(--blender);
+}
+
+.mm-titlebar-chip-glyph[data-tone='bad'] {
+	color: var(--bad);
+}
+
+.mm-titlebar-chip-glyph[data-tone='busy'] {
+	color: var(--blender);
+	animation: mm-chip-pulse 1.6s ease-in-out infinite;
+}
+
+.mm-titlebar-chip-glyph[data-tone='off'] {
+	color: var(--text-tertiary);
+}
+
+.mm-titlebar-agent-glyph {
+	flex-shrink: 0;
+	color: var(--text-secondary);
+}
+
+.mm-titlebar-agent-glyph[data-connected='true'],
+.mm-titlebar-agent-glyph[data-working='true'] {
+	color: var(--accent-strong);
+}
+
+.mm-titlebar-agent-glyph[data-working='true'] {
+	animation: mm-chip-pulse 1.6s ease-in-out infinite;
+}
+
+/* What an agent's edit just changed: the selection's outline, then gone, on the wall and in Layers */
+.mm-agent-touched {
+	animation: mm-agent-touched 1s ease-out forwards;
+}
+
+@keyframes mm-agent-touched {
+	to {
+		opacity: 0;
+	}
+}
+
+.mm-layer[data-agent-touched] {
+	box-shadow: inset 0 0 0 1.5px var(--accent-strong);
+	animation: mm-agent-touched-row 1s ease-out forwards;
+}
+
+@keyframes mm-agent-touched-row {
+	to {
+		box-shadow: inset 0 0 0 1.5px transparent;
+	}
+}
+
+@keyframes mm-chip-pulse {
+	50% {
+		opacity: 0.45;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-titlebar-chip-glyph[data-tone='busy'],
+	.mm-titlebar-agent-glyph[data-working='true'],
+	.mm-agent-touched,
+	.mm-layer[data-agent-touched],
+	.mm-progress-ring[data-indeterminate='true'] {
+		animation: none;
+	}
+
+	.mm-titlebar-chip-state {
+		transition: none;
+	}
+}
+
+/* Full-height source list, translucent like Finder and Photos */
+.mm-sidebar {
+	background: var(--chrome);
+	border-right: 1px solid var(--separator);
+	-webkit-backdrop-filter: blur(20px);
+	backdrop-filter: blur(20px);
+}
+
+/* MARK: - Layers (Figma UI3 layer list) */
+
+/* Layers and Library tabs like Figma UI3's Layers and Assets: plain words, the open one in a quiet pill */
+/* Which build this is, at Layers' foot: small and tertiary, like Blender's status line */
+.mm-build-tag {
+	align-self: flex-start;
+	flex-shrink: 0;
+	margin: 4px 8px 6px;
+	padding: 1px 8px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-build-tag:hover {
+	background: var(--hover);
+	color: var(--text-secondary);
+}
+
+.mm-sidebar-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 36px;
+	flex-shrink: 0;
+	padding: 0 8px 0 16px;
+	font-size: var(--text-small);
+	font-weight: 600;
+	color: var(--text-secondary);
+}
+
+.mm-layers {
+	outline: none;
+}
+
+.mm-layer {
+	display: flex;
+	align-items: center;
+	height: 28px;
+	margin: 0 8px;
+	padding-right: 6px;
+	border-radius: 5px;
+	white-space: nowrap;
+	cursor: default;
+}
+
+.mm-layer:hover {
+	box-shadow: inset 0 0 0 1px var(--control-border);
+}
+
+.mm-layer[data-selected='true'] {
+	background: var(--selection);
+}
+
+.mm-layer[data-in-selection='true'] {
+	background: var(--layer-group-tint);
+}
+
+.mm-layer[data-selected='true']:hover,
+.mm-layer[data-in-selection='true']:hover {
+	box-shadow: none;
+}
+
+.mm-layer[data-join-top='true'] {
+	border-top-left-radius: 0;
+	border-top-right-radius: 0;
+}
+
+.mm-layer[data-join-bottom='true'] {
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+/* The focused list shows its selection a step stronger, like a key window */
+.mm-layers:focus-visible .mm-layer[data-selected='true'] {
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-layer-disclosure {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	color: var(--text-tertiary);
+	transition: transform 0.12s;
+}
+
+button.mm-layer-disclosure:hover {
+	color: var(--text);
+}
+
+.mm-layer-disclosure[data-open='true'] {
+	transform: rotate(90deg);
+}
+
+.mm-layer-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+	margin-right: 6px;
+	color: var(--text-secondary);
+}
+
+.mm-layer[data-selected='true'] .mm-layer-icon {
+	color: var(--text);
+}
+
+.mm-layer-icon[data-colorable='true'] {
+	position: relative;
+	cursor: pointer;
+	border-radius: 4px;
+}
+
+/* A click chooses the layer's color, so the icon says so on hover like a button */
+.mm-layer-icon[data-colorable='true']:hover {
+	background: var(--control);
+	box-shadow: 0 0 0 1px var(--control-border);
+}
+
+/* The system color picker over a layer's icon or dot, seen only through what it colors */
+.mm-label-color {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	opacity: 0;
+	cursor: pointer;
+}
+
+.mm-layer-chip {
+	display: block;
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.2);
+}
+
+.mm-layer-name {
+	min-width: 0;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mm-layer[data-dimmed='true'] .mm-layer-name,
+.mm-layer[data-dimmed='true'] .mm-layer-icon {
+	opacity: 0.4;
+}
+
+.mm-layer-meta {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+	padding-left: 6px;
+	color: var(--text-tertiary);
+	font-size: var(--text-small);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-layer-meta:empty {
+	display: none;
+}
+
+.mm-layer[data-selected='true'] .mm-layer-meta {
+	color: var(--text-secondary);
+}
+
+/* The eye and lock's slot at the row's right edge is always reserved, so the eye keeps one column down the list and hover moves and hides nothing */
+.mm-layer-actions {
+	display: inline-flex;
+	align-items: center;
+	flex-shrink: 0;
+	padding-left: 2px;
+}
+
+.mm-layer-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 22px;
+	border-radius: 4px;
+	color: var(--text-secondary);
+}
+
+.mm-layer:not(:hover) .mm-layer-toggle[data-on='false'] {
+	visibility: hidden;
+}
+
+.mm-layer-toggle:hover {
+	background: var(--hover);
+	color: var(--text);
+}
+
+/* Vertical tool rail after Paper */
+.mm-tool-rail {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	width: 48px;
+	flex-shrink: 0;
+	padding: 8px 0;
+	background: var(--content);
+	border-right: 1px solid var(--separator);
+}
+
+.mm-tool-rail .mm-tool-button {
+	width: 34px;
+	height: 34px;
+}
+
+.mm-tool-rail-divider {
+	width: 20px;
+	height: 1px;
+	margin: 4px 0;
+	background: var(--separator);
+}
+
+.mm-tooltip-right {
+	top: 50%;
+	bottom: auto;
+	left: calc(100% + 8px);
+	z-index: 50;
+	transform: translateY(-50%);
+}
+
+.mm-tool-button[data-open='true']:not([data-active='true']) {
+	background: var(--pressed);
+}
+
+/* Insert library popover beside the tool rail, after Figma's assets and Paper's insert panel */
+.mm-library,
+.mm-library-ghost {
+	--preview-marble: #3a3a3c;
+	--preview-well: var(--canvas);
+}
+
+.mm-library {
+	position: fixed;
+	z-index: 90;
+	display: flex;
+	flex-direction: column;
+	width: 268px;
+	padding: 4px 8px 10px;
+	border-radius: 12px;
+	background: var(--menu);
+	box-shadow: var(--shadow-popover);
+	-webkit-backdrop-filter: blur(30px) saturate(1.6);
+	backdrop-filter: blur(30px) saturate(1.6);
+}
+
+.mm-library[data-dense='true'] {
+	width: 304px;
+}
+
+/* The panel's list scrolls inside its frame; its head and foot stay */
+.mm-library-body {
+	flex: 1;
+	min-height: 0;
+	margin: 0 -8px;
+	padding: 0 8px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	scrollbar-width: none;
+}
+
+.mm-library-foot {
+	flex-shrink: 0;
+	padding-top: 8px;
+}
+
+.mm-picker-search {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: 6px;
+	height: 24px;
+	margin-bottom: 6px;
+	padding: 0 7px;
+	border-radius: 6px;
+	background: var(--field-fill);
+	font-size: var(--text-small);
+}
+
+/* A selection's skin or the theme as one row, opening its picker */
+.mm-picker-row-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+}
+
+.mm-picker-row {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	height: 32px;
+	padding: 0 8px 0 4px;
+	border-radius: 7px;
+	background: var(--field-fill);
+}
+
+.mm-picker-row:hover {
+	background: var(--hover);
+}
+
+.mm-picker-row-thumb {
+	position: relative;
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	overflow: hidden;
+	border-radius: 5px;
+	background: var(--preview-well);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-picker-row-thumb img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.mm-library[data-dense='true'] .mm-library-grid {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2px;
+}
+
+.mm-library[data-dense='true'] .mm-library-preview {
+	height: 56px;
+}
+
+.mm-library-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 36px;
+	padding: 0 4px;
+}
+
+.mm-library kbd,
+.mm-library-head kbd {
+	font-family: var(--font);
+	font-size: var(--text-small);
+	color: var(--text-tertiary);
+}
+
+.mm-library-section + .mm-library-section {
+	margin-top: 8px;
+}
+
+.mm-library-section-title {
+	padding: 0 4px 6px;
+	font-size: var(--text-small);
+	font-weight: 500;
+	color: var(--text-secondary);
+}
+
+.mm-library-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.mm-library-tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	padding: 4px 4px 5px;
+	border-radius: 9px;
+	text-align: left;
+	cursor: grab;
+	touch-action: none;
+}
+
+/* Film's tiles use the browser's drag, and Light and Shot only click */
+.mm-library-tile[data-film] {
+	width: 100%;
+	touch-action: auto;
+}
+
+.mm-library-tile[data-film][draggable='false'] {
+	cursor: default;
+}
+
+.mm-library-preview img {
+	max-width: 100%;
+	height: 48px;
+	border-radius: 3px;
+	object-fit: contain;
+	pointer-events: none;
+}
+
+/* A portrait frame with a bar at the size of the title: each style opens at the top of the frame */
+.mm-title-preview {
+	position: relative;
+	display: block;
+	width: 26px;
+	height: 46px;
+	border-radius: 3px;
+	background: var(--content);
+	box-shadow: 0 0 0 0.5px var(--control-border);
+}
+
+.mm-title-preview::after {
+	content: '';
+	position: absolute;
+	top: 7px;
+	left: 6px;
+	right: 6px;
+	height: 3px;
+	border-radius: 2px;
+	background: var(--text-secondary);
+}
+
+.mm-title-preview[data-style='songName']::after {
+	left: 4px;
+	right: 4px;
+	height: 4px;
+}
+
+.mm-title-preview[data-style='endCard']::after {
+	left: 3px;
+	right: 3px;
+	height: 6px;
+}
+
+.mm-library-tile:hover {
+	background: var(--hover);
+}
+
+.mm-library-tile:active {
+	cursor: grabbing;
+}
+
+.mm-library-tile:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -1px;
+}
+
+.mm-library-preview {
+	position: relative;
+	display: flex;
+	overflow: hidden;
+	align-items: center;
+	justify-content: center;
+	height: 64px;
+	border-radius: 6px;
+	background: var(--preview-well);
+	box-shadow: inset 0 0 0 0.5px var(--separator);
+}
+
+.mm-library-tile[data-armed='true'] .mm-library-preview {
+	box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.mm-library-label {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0 2px;
+	font-size: var(--text-small);
+	font-weight: 500;
+}
+
+/* Beside the panel, level with its tile: positioned against the panel, so the scrolling body can't clip it */
+.mm-library-tile:has(> .mm-tooltip) {
+	position: static;
+}
+
+.mm-library-tile .mm-tooltip {
+	top: auto;
+	bottom: auto;
+	left: calc(100% + 8px);
+	z-index: 2;
+	transform: none;
+}
+
+.mm-library-tile:hover .mm-tooltip {
+	opacity: 1;
+	transition-delay: 0.5s;
+}
+
+.mm-library-ghost {
+	position: fixed;
+	z-index: 120;
+	padding: 4px;
+	border-radius: 8px;
+	background: var(--preview-well);
+	box-shadow: var(--shadow-popover);
+	opacity: 0.92;
+	pointer-events: none;
+	transform: translate(-50%, -50%);
+}
+
+@media (prefers-color-scheme: dark) {
+	.mm-library,
+	.mm-library-ghost {
+		--preview-marble: rgb(255 255 255 / 0.86);
+	}
+}
+
+.mm-inspector {
+	display: flex;
+	flex-direction: column;
+	overflow-x: hidden;
+	width: 264px;
+	flex-shrink: 0;
+	background: var(--content);
+	border-left: 1px solid var(--separator);
+}
+
+.mm-zoom-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: space-between;
+	/* The width of "100%" and its chevron, so the pills beside it stay put from 1% to 100% */
+	min-width: 56px;
+	font-variant-numeric: tabular-nums;
+	gap: 3px;
+	height: 24px;
+	padding: 0 6px;
+	border-radius: 6px;
+	color: var(--text);
+}
+
+.mm-zoom-button:hover,
+.mm-zoom-button[data-active='true'] {
+	background: var(--hover);
+}
+
+/* Question mark that explains a control, with the explanation in a bubble */
+.mm-help {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 8px;
+	color: var(--text-tertiary);
+	cursor: help;
+}
+
+.mm-help:hover,
+.mm-help:focus-visible {
+	color: var(--text-secondary);
+}
+
+.mm-help-bubble {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: -6px;
+	z-index: 60;
+	width: 220px;
+	padding: 6px 8px;
+	border-radius: 7px;
+	background: rgb(30 30 30 / 0.95);
+	color: rgb(255 255 255 / 0.94);
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.4;
+	text-align: left;
+	white-space: normal;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.12s;
+}
+
+.mm-help[data-side='right'] .mm-help-bubble {
+	right: auto;
+	left: -6px;
+}
+
+/* In a scrolling Insert panel the bubble hangs off the panel, not its list, so the list neither clips nor scrolls it */
+.mm-library .mm-help {
+	position: static;
+}
+
+.mm-library .mm-help .mm-help-bubble,
+.mm-library .mm-help[data-side='right'] .mm-help-bubble {
+	top: auto;
+	right: auto;
+	left: 8px;
+	width: min(220px, calc(100% - 16px));
+	margin-top: 24px;
+}
+
+.mm-help:hover .mm-help-bubble,
+.mm-help:focus-visible .mm-help-bubble {
+	opacity: 1;
+	transition-delay: 0.2s;
+}
+
+/* Native-looking slider with the accent fill up to the value */
+.mm-slider {
+	appearance: none;
+	-webkit-appearance: none;
+	height: 4px;
+	border-radius: 2px;
+	background: linear-gradient(to right, var(--accent) var(--fill, 50%), var(--pressed) var(--fill, 50%));
+	outline: none;
+}
+
+.mm-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 16px;
+	height: 16px;
+	border-radius: 8px;
+	background: #fff;
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.2),
+		0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+/* MARK: - Timeline transport */
+
+.mm-transport {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	height: 40px;
+	flex-shrink: 0;
+	padding: 0 10px;
+	border-bottom: 1px solid var(--separator);
+	background: var(--band);
+	container: transport / inline-size;
+}
+
+/* A narrow timeline keeps the summary readable: the slider goes first, as pinch and Zoom to Fit still zoom */
+@container transport (max-width: 760px) {
+	.mm-zoom-range {
+		display: none;
+	}
+
+	.mm-transport-end {
+		flex: none;
+	}
+}
+
+/* Plain glyph buttons like Logic's control bar; Play has no circle and only fills while playing */
+.mm-transport-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 26px;
+	border-radius: 6px;
+	color: var(--text);
+	opacity: 0.78;
+}
+
+.mm-transport-button:hover {
+	background: var(--hover);
+	opacity: 1;
+}
+
+.mm-transport-button:active {
+	background: var(--pressed);
+	opacity: 1;
+}
+
+/* Repeat on: a quiet fill and full-strength icon. Play has no color of its own: its icon says Play or Pause. */
+.mm-transport-button[data-repeat='true'] {
+	background: var(--selection);
+	color: var(--accent-strong);
+	opacity: 1;
+}
+
+/* The Repeat Range in the strip along the top of the ruler */
+.mm-repeat-range {
+	position: absolute;
+	top: 0;
+	z-index: 11;
+	height: 7px;
+	border-radius: 0 0 2px 2px;
+	cursor: grab;
+}
+
+.mm-repeat-range {
+	background: var(--accent);
+	box-shadow: inset 0 -1px 0 var(--accent-strong);
+}
+
+/* LCD time readout: a recessed display with the playhead time large and the length secondary */
+.mm-lcd {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 8px;
+	height: 28px;
+	padding: 0 10px 0 4px;
+	border-radius: 7px;
+	background: var(--lcd);
+	box-shadow: inset 0 0 0 0.5px var(--control-border);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	line-height: 28px;
+}
+
+.mm-lcd-time,
+.mm-lcd-input {
+	width: 74px;
+	height: 22px;
+	align-self: center;
+	padding: 0 6px;
+	border-radius: 5px;
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 22px;
+	letter-spacing: 0.01em;
+	color: var(--text);
+	text-align: left;
+}
+
+.mm-lcd-time {
+	cursor: text;
+}
+
+.mm-lcd-time:hover {
+	background: var(--hover);
+}
+
+.mm-lcd-input {
+	border: 0;
+	outline: none;
+	background: var(--content);
+	box-shadow: 0 0 0 2px var(--accent);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-lcd[data-invalid='true'] .mm-lcd-input {
+	box-shadow: 0 0 0 2px var(--bad);
+}
+
+.mm-lcd-length {
+	padding: 0 3px;
+	border-radius: 4px;
+	font-size: var(--text-small);
+	color: var(--text-secondary);
+	cursor: text;
+}
+
+button.mm-lcd-length:hover {
+	background: var(--hover);
+}
+
+.mm-lcd-length-input {
+	width: 58px;
+	border: 0;
+	outline: none;
+	background: var(--content);
+}
+
+.mm-zoom-slider {
+	width: 96px;
+	background: var(--pressed);
+}
+
+.mm-zoom-slider::-webkit-slider-thumb {
+	width: 14px;
+	height: 14px;
+	border-radius: 7px;
+}
+
+/* MARK: - Canvas feedback */
+
+/* What a drop will do, next to the dragged piece */
+.mm-snap-chip {
+	position: absolute;
+	z-index: 15;
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	height: 20px;
+	padding: 0 7px;
+	border-radius: 6px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	font-size: 11px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.mm-snap-chip[data-snapped='true'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+/* Why a moved Pattern doesn't fit, in the bar's place while dragging: the one red line on the wall */
+.mm-move-reason {
+	bottom: 18px;
+	left: 50%;
+	transform: translateX(-50%);
+	height: auto;
+	width: max-content;
+	max-width: min(440px, calc(100% - 32px));
+	padding: 3px 7px;
+	color: var(--bad);
+	line-height: 15px;
+	white-space: normal;
+}
+
+.mm-snap-chip kbd {
+	font-family: var(--font);
+}
+
+/* A dragged platform's live timing, in its own light pill on the accent chip */
+.mm-chip-timing {
+	padding: 0 5px;
+	border-radius: 4px;
+	background: var(--content-raised);
+	font-variant-numeric: tabular-nums;
+	font-weight: 500;
+	line-height: 16px;
+}
+
+.mm-chip-timing[data-tone='good'] {
+	color: var(--good);
+}
+
+.mm-chip-timing[data-tone='warn'] {
+	color: var(--warn);
+}
+
+.mm-chip-timing[data-tone='bad'] {
+	color: var(--bad);
+}
+
+.mm-chip-timing[data-tone='neutral'] {
+	color: var(--text-secondary);
+}
+
+/* What a what-if does to the run, after the hover tooltip or the drag chip: "Breaks 86 hits" */
+.mm-whatif-count {
+	margin-left: 6px;
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-whatif-count[data-first='true'] {
+	margin-left: 0;
+}
+
+.mm-whatif-count[data-bad='true'] {
+	color: var(--bad);
+	font-weight: 500;
+}
+
+/* On the accent chip of a snapped drag the count sits in its own light pill so red stays readable */
+.mm-whatif-count[data-chip='true'] {
+	margin: 0 -4px 0 2px;
+	padding: 0 5px;
+	border-radius: 4px;
+	background: var(--content-raised);
+	line-height: 16px;
+}
+
+/* Contextual build bar under the piece or dot it acts on, like Figma's selection toolbar */
+/* It hugs what it holds, like Figma's, yet holds steady: Where has a fixed width and What a stable minimum, so stepping
+   through notes never jumps between very different sizes. No animation, which is calmer than a moving edge */
+.mm-bar {
+	position: relative;
+	pointer-events: auto;
+	width: max-content;
+	max-width: 100%;
+	border-radius: 10px;
+	background: var(--content-raised);
+	box-shadow:
+		0 0 0 0.5px rgb(0 0 0 / 0.12),
+		0 4px 14px rgb(0 0 0 / 0.14);
+	font-size: 13px;
+}
+
+.mm-bar-row {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	height: 36px;
+	padding: 0 5px;
+	white-space: nowrap;
+}
+
+.mm-bar-arrow {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 26px;
+	border-radius: 6px;
+	color: var(--text-secondary);
+}
+
+.mm-bar-arrow:hover:not(:disabled) {
+	background: var(--hover);
+	color: var(--text);
+}
+
+.mm-bar-arrow:disabled {
+	color: var(--text-tertiary);
+	opacity: 0.5;
+}
+
+.mm-bar-where {
+	flex: none;
+	width: 84px;
+	overflow: hidden;
+	font-weight: 500;
+	text-align: center;
+	text-overflow: ellipsis;
+}
+
+.mm-bar-what {
+	display: flex;
+	flex: 0 1 auto;
+	align-items: center;
+	gap: 2px;
+	min-width: 116px;
+	max-width: 240px;
+}
+
+.mm-bar-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mm-bar-divider {
+	flex: none;
+	width: 1px;
+	height: 18px;
+	margin: 0 5px;
+	background: var(--separator);
+}
+
+.mm-bar-what-text {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	padding: 0 4px 0 6px;
+	font-weight: 500;
+}
+
+.mm-group-icon,
+.mm-bar-what-text > svg,
+.mm-pattern-block > svg {
+	flex: none;
+}
+
+.mm-bar-split {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+	min-width: 0;
+}
+
+.mm-bar-accept {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	min-width: 0;
+	height: 26px;
+	padding: 0 6px 0 9px;
+	border-radius: 7px 0 0 7px;
+	font-weight: 500;
+}
+
+.mm-bar-accept[data-tone='go'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.mm-bar-accept[data-tone='go'] .mm-keycap {
+	background: rgb(0 0 0 / 0.1);
+	color: var(--on-accent);
+	box-shadow: none;
+}
+
+.mm-bar-accept[data-tone='bad'] {
+	box-shadow: inset 0 0 0 1px var(--bad);
+	color: var(--bad);
+}
+
+.mm-bar-accept[data-tone='none'] {
+	background: var(--field-fill);
+	color: var(--text-secondary);
+}
+
+.mm-bar-accept[aria-busy='true'] .mm-keycap {
+	opacity: 0.5;
+}
+
+.mm-bar-chevron,
+.mm-bar-type {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 26px;
+	border-radius: 0 7px 7px 0;
+}
+
+.mm-bar-chevron {
+	gap: 3px;
+	padding: 0 4px 0 5px;
+	justify-content: center;
+	background: var(--field-fill);
+}
+
+.mm-bar-type {
+	min-width: 0;
+	padding: 0 5px 0 8px;
+	border-radius: 7px;
+	font-weight: 500;
+}
+
+.mm-bar-chevron:hover,
+.mm-bar-chevron[data-open='true'],
+.mm-bar-type:hover,
+.mm-bar-type[data-open='true'] {
+	background: var(--hover);
+}
+
+.mm-bar-mark {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 6px;
+}
+
+button.mm-bar-mark:hover,
+.mm-bar-mark[data-open='true'] {
+	background: var(--hover);
+}
+
+/* Once, when an accept lands a new problem: the eye goes to the mark, nothing else moves */
+.mm-bar-mark[data-pulse='true'] svg {
+	animation: mm-bar-pulse 0.6s ease-out;
+}
+
+@keyframes mm-bar-pulse {
+	50% {
+		transform: scale(1.6);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-bar-mark[data-pulse='true'] svg {
+		animation: none;
+	}
+}
+
+.mm-bar-details {
+	position: absolute;
+	right: 0;
+	bottom: calc(100% + 6px);
+	width: min(300px, calc(100vw - 32px));
+	padding: 10px 12px;
+	font-size: 12px;
+}
+
+.mm-bar-details-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.mm-bar-details-words {
+	margin: 4px 0 0 18px;
+	color: var(--text-secondary);
+	line-height: 1.4;
+}
+
+.mm-bar-details-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 8px 0 0 12px;
+}
+
+.mm-bar-menu {
+	position: absolute;
+	right: 0;
+	bottom: calc(100% + 6px);
+	width: max-content;
+	max-width: min(420px, calc(100vw - 32px));
+}
+
+.mm-bar-menu .mm-menu-item {
+	height: 24px;
+	padding-left: 8px;
+}
+
+.mm-bar-row-icon {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	opacity: 0.8;
+}
+
+/* What doesn't fit, greyed out with its reason like a macOS menu item: it never highlights */
+.mm-bar-menu .mm-menu-item[aria-disabled='true'] {
+	color: var(--text-tertiary);
+	cursor: default;
+}
+
+.mm-bar-menu .mm-menu-item[aria-disabled='true'] .mm-bar-row-note {
+	color: var(--text-tertiary);
+}
+
+.mm-bar-row-note {
+	margin-left: auto;
+	padding-left: 24px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--text-secondary);
+	font-size: 12px;
+}
+
+
+.mm-menu-item[data-highlighted='true'] .mm-bar-row-note {
+	color: color-mix(in srgb, var(--on-accent) 70%, transparent);
+}
+
+
+@media (prefers-color-scheme: dark) {
+	.mm-bar {
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.14),
+			0 4px 14px rgb(0 0 0 / 0.45);
+	}
+
+
+	.mm-slider::-webkit-slider-thumb {
+		background: #d8d8da;
+	}
+}
+
+/* MARK: - Quick Help and first-run hints */
+
+/* Quick Help, like GarageBand's: each region outlined with a label card beside it; nothing takes the pointer */
+.mm-qh-region {
+	position: fixed;
+	border-radius: 6px;
+	box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--accent-strong) 70%, transparent);
+	pointer-events: none;
+}
+
+.mm-qh-label {
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	width: max-content;
+	max-width: 220px;
+	padding: 5px 8px 6px;
+	border-radius: 7px;
+	border-left: 3px solid var(--accent);
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	line-height: 1.35;
+	pointer-events: none;
+	animation: mm-fade-in 0.12s ease-out;
+}
+
+.mm-qh-label-title {
+	color: var(--text);
+	font-weight: 600;
+}
+
+/* Logic's Quick Help panel: what the control under the pointer does, from its own tooltip */
+.mm-qh-panel {
+	position: fixed;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 260px;
+	min-height: 76px;
+	padding: 8px 8px 10px 12px;
+	border-radius: 10px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+}
+
+/* A first-run hint: one calm line where the next step is, with a caret toward it and a dismiss button */
+.mm-first-hint {
+	position: fixed;
+	z-index: 44;
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	height: 30px;
+	padding: 0 5px 0 10px;
+	border-radius: 8px;
+	background: var(--content-raised);
+	box-shadow: var(--shadow-popover);
+	white-space: nowrap;
+	animation: mm-fade-in 0.16s ease-out;
+}
+
+.mm-first-hint-dot {
+	width: 7px;
+	height: 7px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: var(--accent);
+}
+
+.mm-first-hint-caret {
+	position: absolute;
+	width: 10px;
+	height: 10px;
+	background: var(--content-raised);
+	transform: translateX(-50%) rotate(45deg);
+}
+
+.mm-first-hint[data-side='above'] .mm-first-hint-caret {
+	bottom: -4px;
+	box-shadow: 0.5px 0.5px 0 0 var(--control-border);
+}
+
+.mm-first-hint[data-side='below'] .mm-first-hint-caret {
+	top: -4px;
+	box-shadow: -0.5px -0.5px 0 0 var(--control-border);
+}
+
+.mm-first-hint[data-side='right'] .mm-first-hint-caret {
+	top: 50%;
+	left: 0;
+	transform: translate(-50%, -50%) rotate(45deg);
+	box-shadow: -0.5px 0.5px 0 0 var(--control-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-qh-label,
+	.mm-first-hint {
+		animation: none;
+	}
+}
+
+/* The Pattern strip: slim, above a marble's hits */
+.mm-pattern-strip {
+	position: absolute;
+	top: 0;
+	right: 0;
+	left: 0;
+	z-index: 1;
+	cursor: crosshair;
+}
+
+/* The row's hover shows the band a range starts in, so a drag has somewhere clear to begin */
+.mm-marble-track:hover .mm-pattern-strip {
+	background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.mm-marble-track .mm-pattern-strip:hover {
+	background: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+.mm-pattern-hint {
+	position: absolute;
+	top: 50%;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	white-space: nowrap;
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+
+.mm-pattern-range {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	border-radius: 3px;
+	background: var(--selection);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+	pointer-events: none;
+}
+
+.mm-pattern-block {
+	position: absolute;
+	top: 2px;
+	bottom: 1px;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	overflow: hidden;
+	padding: 0 6px;
+	border-radius: 3px;
+	background: color-mix(in srgb, var(--row-color) 26%, transparent);
+	box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--row-color) 55%, transparent);
+	cursor: default;
+}
+
+.mm-pattern-block:hover {
+	background: color-mix(in srgb, var(--row-color) 36%, transparent);
+}
+
+.mm-pattern-block[data-selected='true'] {
+	background: color-mix(in srgb, var(--row-color) 48%, transparent);
+	box-shadow: inset 0 0 0 1px var(--accent-strong);
+}
+
+.mm-pattern-block[data-problem='true'] {
+	box-shadow: inset 0 0 0 1px var(--warn);
+}
+
+.mm-pattern-block-name {
+	overflow: hidden;
+	color: var(--text);
+	font-size: 10px;
+	line-height: 1;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.mm-pattern-edge {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 6px;
+	cursor: ew-resize;
+}
+
+.mm-pattern-edge[data-edge='from'] {
+	left: 0;
+}
+
+.mm-pattern-edge[data-edge='to'] {
+	right: 0;
+}
+
+.mm-pattern-edge:hover {
+	background: color-mix(in srgb, var(--accent-strong) 45%, transparent);
+}
+
+/* A taller bar, so the shape says it as well as the color */
+.mm-pattern-fields {
+	margin-top: 4px;
+}
+
+.mm-pattern-note {
+	margin: 6px 12px 0;
+	color: var(--text-secondary);
+	font-size: var(--text-small);
+	line-height: 1.4;
+}
+
+.mm-pattern-problems {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 6px 12px 0;
+	color: var(--warn);
+	font-size: var(--text-small);
+	line-height: 1.4;
+}
+
+/* The film end's handle on the ruler: a small flag past the end line, so the playhead never covers all of it */
+.mm-ruler-end {
+	border-radius: 0 3px 3px 0;
+	background: var(--text-secondary);
+}
+
+.mm-ruler-end:hover {
+	background: var(--text);
+}

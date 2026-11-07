@@ -1,0 +1,1037 @@
+import { createState } from 'feature-state';
+import { Err, Ok, type TResult } from 'tuple-result';
+import { builtRunCommands } from './group-commands';
+import { applyProjectCommands, createId, type TPiece, type TProject, type TProjectCommand, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
+import { isSuperseded, layoutOf, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { acceptProposal, findStepTarget, nextStepOf, propose, type TPatternKind, type TProposal, type TProposeAsk, type TProposeDeps, focusedMarbleId, gapPieceReads, hitOwners, release, changedPieces, editCommands, withEditAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, reachMessage, releaseFixFor, newlyBroken } from '@/modules/building';
+import type { StudioCx } from '@/modules/studio';
+import { unreachableActions } from './unreachable-fixes';
+import { ghostReducer, initialGhostState, type TGhostAction, type TGhostState } from './ghosts';
+import { commitAtHit, pieceForHit, selectedPieceIds } from './step-loop';
+
+/** How long Fix tries to bring a marble back to pieces waiting behind a break, before it says it can't */
+const FIX_HELD_BUDGET_MS = 10000;
+
+const DEGREE = Math.PI / 180;
+/** Proposals kept for an agent to accept */
+const KEPT_PROPOSALS = 16;
+
+/** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterward */
+
+/**
+ * Owns the assists of the step loop: Next, Auto place and rail suggestions for long
+ * gaps. Every question goes to the assist worker with the newest project, so the canvas never waits on
+ * a search, and answers for an older revision are dropped.
+ */
+export class AssistCx {
+	readonly $ghosts = createState<TGhostState>(initialGhostState);
+	/** Wall time of the latest answer per assist, in milliseconds, for the status readout and checks */
+
+	/** Next presses made while a placement or its run was still on the way, shown on the build bar as "Next ×5" */
+	readonly $queuedNext = createState(0);
+
+	/** What the verdict said of the gap piece on offer, said when it lands */
+	private gapWords: string | null = null;
+	/** What the verdict said of what Next placed last, for an agent's reply */
+	private placedWords: string | null = null;
+	/** What an agent was offered, which it may accept while the track stands */
+	private readonly proposals = new Map<string, TProposal>();
+	/** The gap Next found no way past, for the revision it asked at; the next press places at the note after it */
+	private stuckGap: string | null = null;
+	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
+	private queuedNext: { type: string; at: number } | null = null;
+
+	constructor(private readonly studio: StudioCx) {}
+
+	mount(): () => void {
+		this.forget();
+		let projectId = this.studio.project?.id;
+		const unlisten = [
+			this.studio.simulation.$result.listen(() => {
+				this.reportBroken();
+				this.runQueuedNext();
+			}),
+			this.studio.$history.listen(({ value }) => {
+				// What was offered belongs to the project that asked, whatever its revision
+				if (value?.present.id !== projectId) {
+					projectId = value?.present.id;
+					this.forget();
+				}
+				if (value != null) this.dispatch({ type: 'revision', revision: value.present.revision });
+			})
+		];
+		if (this.studio.project != null) this.dispatch({ type: 'revision', revision: this.studio.project.revision });
+		// The run shown at mount is what the first edit is compared with
+		this.reportBroken();
+		return () => {
+			for (const stop of unlisten) stop();
+			this.forget();
+		};
+	}
+
+	/** What the canvas's edits built up, which the next time Track opens starts without. A run under way goes on */
+	private forget(): void {
+		this.$ghosts.set(initialGhostState);
+		this.$queuedNext.set(0);
+		this.$lastBuild.set(null);
+		this.stuckGap = null;
+		this.queuedNext = null;
+		this.baseline = null;
+		this.lastGood.clear();
+		this.lastGoodProjectId = null;
+		this.lastFixRevision = null;
+	}
+
+	get hasGhosts(): boolean {
+		const state = this.$ghosts.get();
+		return state.ghost != null || state.pendingGap != null;
+	}
+
+	// MARK: - Next and Auto place
+
+	/**
+	 * Return and N. Accepts ghosts when some are shown; otherwise acts on the focused marble's next open
+	 * hit: a long gap asks for a rail, with the Switchback layout when a straight one won't do, and any other gap gets an
+	 * auto placed piece. Before a long gap Auto place launches the marble into the coming rail.
+	 */
+	next(type = 'platform'): void {
+		// A gap's bridge is what Next would add
+		if (this.$ghosts.get().ghost != null) {
+			this.acceptGhosts();
+			return;
+		}
+		const project = this.studio.project;
+		const result = this.currentResult();
+		if (project == null) return;
+		if (result == null || this.isPlacing) {
+			// Pressing Next quickly in a row must not lose a press while the run re-simulates
+			this.queuedNext = { type, at: performance.now() };
+			this.$queuedNext.set(this.$queuedNext.get() + 1);
+			return;
+		}
+		const step = nextStepOf(project, result, this.studio.$selection.get());
+		if (step.kind === 'gap') {
+			const { gap } = step;
+			// A suggestion waits for the user to accept it, so presses queued behind it end here
+			this.clearQueuedNext();
+			const key = `${project.revision}:${gap.marbleId}/${gap.toHitId}`;
+			if (this.stuckGap === key) {
+				this.placeAfterStuckGap(result, gap.marbleId, gap.toHitId, type);
+				return;
+			}
+			this.suggestGapPiece('rail', gap.marbleId, gap.fromHitId, gap.toHitId, {
+				fallback: 'switchback',
+				// An agent's Next places the bridge in the same call, so its reply says what happened
+				accept: this.studio.isInAgentStep,
+				onFailed: (message) => void this.stepPastGap(key, message)
+			});
+			return;
+		}
+		if (step.kind === 'unreachable') {
+			this.clearQueuedNext();
+			this.explainUnreachable(project, result, step.hit);
+			return;
+		}
+		if (step.kind === 'done') {
+			this.clearQueuedNext();
+			this.studio.notify(everyNotePlacedMessage(project, this.studio.$selection.get()));
+			return;
+		}
+		void this.place(step.hit, type);
+	}
+
+	/** N's message for an unreachable hit, with the fixes as actions: Move Release Earlier or Later and Make Backing */
+	explainUnreachable(project: TProject, result: TSimulationResult, hit: THitResult): void {
+		const reach = hitReach(project, result, hit);
+		const marble = project.marbles.find((item) => item.id === hit.marbleId);
+		const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
+		const fix = releaseFixFor(project, hit, reach);
+		const piece = reach.kind === 'resting' ? project.track.pieces.find((item) => item.id === reach.pieceId)?.name : undefined;
+		const message = reachMessage(reach, { hit: `Note ${index + 1}`, marble: marble?.name ?? 'The marble', piece }, fix, canMakeBacking(project));
+		if (message == null) return;
+		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
+		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
+		this.studio.notify(message, 'info', { actions: unreachableActions(this.studio, hit, fix) });
+	}
+
+	/**
+	 * No rail fits the gap, so Next takes the step Build Track would: another tilt before the gap, a turn
+	 * of what's in the way, or a platform for the note after it. When none works it says so and the next press puts a
+	 * platform at that note regardless, so N never repeats itself.
+	 */
+	private async stepPastGap(key: string, message: string): Promise<void> {
+		const project = this.studio.project;
+		const deps = this.buildDeps(() => this.studio.project !== project);
+		if (project == null || deps == null || this.isPlacing) return;
+		this.isPlacing = true;
+		try {
+			const step = await buildOneStep(project, deps);
+			if (this.studio.project !== project) return;
+			if (step != null && step.commands.length > 0 && this.studio.execute(step.commands)) {
+				const placed = step.project.track.pieces.find((piece) => tieOf(piece)?.hitId === step.target.hitId);
+				if (placed != null) this.studio.$selection.set([placed.id]);
+				if (!this.studio.$playing.get()) this.studio.$playhead.set(step.target.targetTime);
+				this.studio.notifyEdit(`${message} Next found another way past it.`);
+				return;
+			}
+			this.stuckGap = key;
+			this.studio.notify(`${message} Press N for a platform at the next note, or choose Build Entire Track.`, 'info', { actions: [this.buildAction()] });
+		} catch (error) {
+			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			this.isPlacing = false;
+			this.runQueuedNext();
+		}
+	}
+
+	/** The press after `stepPastGap` found nothing: a platform at the note after the gap, or what to do when it has no dot */
+	private placeAfterStuckGap(result: TSimulationResult, marbleId: string, hitId: string, type: string): void {
+		const hit = result.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
+		if (hit?.dot != null) {
+			void this.place(hit, type);
+			return;
+		}
+		this.studio.notify("The marble falls too far to reach the note after this gap. Turn the platform before the gap, or choose Build Entire Track.", 'info', { actions: [this.buildAction()] });
+	}
+
+	private runQueuedNext(): void {
+		const queued = this.queuedNext;
+		if (queued == null || this.currentResult() == null || this.isPlacing) return;
+		const count = this.$queuedNext.get() - 1;
+		this.queuedNext = count > 0 ? { ...queued, at: performance.now() } : null;
+		this.$queuedNext.set(Math.max(0, count));
+		// A press older than this belongs to a moment the user has moved on from; while the queue runs, each
+		// placement counts as the latest press
+		if (performance.now() - queued.at < 1500) this.next(queued.type);
+		else this.clearQueuedNext();
+	}
+
+	/** Drops Next presses still queued, when Next stops at something to read or accept, or on Escape */
+	clearQueuedNext(): void {
+		this.queuedNext = null;
+		if (this.$queuedNext.get() !== 0) this.$queuedNext.set(0);
+	}
+
+
+	/** Places a piece at an open hit, as one undo step. Platforms and windmills wait for Auto place's angle; with none it says why and places nothing. */
+	async place(hit: THitResult, type: string): Promise<void> {
+		this.isPlacing = true;
+		try {
+			await this.placeNow(hit, type);
+		} finally {
+			this.isPlacing = false;
+			this.runQueuedNext();
+		}
+	}
+
+	private isPlacing = false;
+
+	private async placeNow(hit: THitResult, type: string): Promise<void> {
+		const project = this.studio.project;
+		const client = this.studio.simulation.assists;
+		if (project == null || hit.dot == null) return;
+		const layout = layoutOf(type);
+		const id = createId('piece');
+		if (client == null || layout === 'path' || layout === 'tube') {
+			commitAtHit(this.studio, hit, pieceForHit(project, hit, type, 'default', id));
+			return;
+		}
+		const deps = this.proposeDeps();
+		if (deps == null) return;
+		const ask = { marbleId: hit.marbleId, hitIds: [hit.hitId], kind: type, settings: { pieceId: id } };
+		const known = this.currentResult();
+		const options = { isAnyDot: true, ...(known != null ? { result: known } : {}) };
+		const asked = (): Promise<TProposal | { failed: unknown }> => propose(project, ask, deps, options).catch((error: unknown) => ({ failed: error }));
+		let answer = await asked();
+		// A newer request replaced this one in the queue, not an answer about this hit
+		if ('failed' in answer && isSuperseded(answer.failed)) answer = await asked();
+		// Another edit since: this answer is about a track that no longer stands
+		if (this.studio.project !== project) return;
+		if ('failed' in answer) {
+			this.explainNoTilt(hit, type, answer.failed);
+			return;
+		}
+		const piece = answer.pieces[0];
+		if (piece == null) {
+			this.explainNoTilt(hit, type, new Error(answer.words ?? ''));
+			return;
+		}
+		const [isAccepted, , commands] = acceptProposal(project, answer);
+		if (!isAccepted || !commitAtHit(this.studio, hit, piece, commands)) return;
+		// It stays placed, as a person may want it: nothing lands without saying so
+		this.placedWords = answer.status === 'problems' ? answer.words : null;
+		if (this.placedWords != null) this.studio.notifyEdit(`Placed. ${this.placedWords}`);
+	}
+
+	/** Why what Next placed last has a fault, if it does */
+	get lastPlacedWords(): string | null {
+		return this.placedWords;
+	}
+
+	/** `propose` for an agent: its answer, and what it offers instead, stay to be accepted */
+	async proposeFor(ask: TProposeAsk): Promise<TProposal | null> {
+		const project = this.studio.project;
+		const deps = this.proposeDeps();
+		if (project == null || deps == null) return null;
+		const proposal = await propose(project, ask, deps, this.currentResult() != null ? { result: this.currentResult() as TSimulationResult } : {});
+		for (const kept of [proposal, ...(proposal.instead ?? [])]) this.proposals.set(kept.id, kept);
+		// The newest are what an agent is comparing
+		for (const id of [...this.proposals.keys()].slice(0, Math.max(0, this.proposals.size - KEPT_PROPOSALS))) this.proposals.delete(id);
+		return proposal;
+	}
+
+	/** Lands a proposal exactly as proposed, as one Undo step. Its commands already have later pieces taking up the change */
+	acceptProposalById(id: string): TResult<TProposal, Error> {
+		const project = this.studio.project;
+		const proposal = this.proposals.get(id);
+		if (project == null || proposal == null) return Err(new Error(`There is no proposal ${id}. Propose again.`));
+		const [isAccepted, refusal, commands] = acceptProposal(project, proposal);
+		if (!isAccepted) return Err(refusal);
+		if (!this.studio.simulation.landWorkedOut(commands, { label: 'Accept Proposal' })) return Err(new Error('That proposal could not be applied.'));
+		this.proposals.delete(id);
+		const [first] = proposal.pieces;
+		if (first != null) this.studio.$selection.set(proposal.pieces.map((piece) => piece.id));
+		return Ok(proposal);
+	}
+
+	/** The worker calls a proposal needs; `isCanceled` ends a search nobody waits for any more */
+	proposeDeps(options?: { isCanceled: () => boolean }): TProposeDeps | null {
+		const client = this.studio.simulation.assists;
+		if (client == null) return null;
+		// A Pattern asked of another track or of a Group already there, as moving one asks, fits on that track
+		const pattern: TProposeDeps['pattern'] = (project, ask) =>
+			project !== this.studio.project || ask.groupId != null ? this.studio.patterns.fitOn(project, ask) : this.studio.patterns.dryRun({ marbleId: ask.marbleId, from: ask.from, to: ask.to }, ask.kind as TPatternKind, { ...(ask.width != null ? { width: ask.width } : {}), ...(ask.bounce != null ? { bounce: ask.bounce } : {}), ...(ask.maxTilt != null ? { maxTilt: ask.maxTilt } : {}) });
+		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request, options), gapPiece: (request) => client.gapPiece(request, options), pattern, settle: (request) => client.settle(request) };
+	}
+
+	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */
+	private explainNoTilt(hit: THitResult, type: string, refused: unknown): void {
+		const project = this.studio.project;
+		if (project == null) return;
+		const why = refused instanceof Error && !isSuperseded(refused) ? refused.message : 'No tilt plays this note.';
+		this.clearQueuedNext();
+		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
+		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
+		const anyway = {
+			label: 'Place Anyway',
+			title: 'A platform at the default tilt, which may not play this note',
+			run: () => {
+				this.studio.dismissNotice();
+				const present = this.studio.project;
+				if (present != null) commitAtHit(this.studio, hit, pieceForHit(present, hit, type, 'default'));
+			}
+		};
+		this.studio.notify(`${why} Turn the platform before it, or:`, 'info', { actions: [anyway, ...unreachableActions(this.studio, hit, null)] });
+	}
+
+	// MARK: - Ghosts
+
+	/** Next on a gap's bridge: adds it as one edit */
+	acceptGhosts(): boolean {
+		const { ghost } = this.$ghosts.get();
+		const project = this.studio.project;
+		if (ghost == null || project == null || ghost.answer.revision !== project.revision) return false;
+		const commands = ghost.answer.commands;
+		if (!commands.length || !this.studio.execute(commands)) return false;
+		this.dispatch({ type: 'accepted' });
+		this.studio.$selection.set([ghost.answer.piece.id]);
+		if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());
+		// It stays placed, as a person may want it: nothing lands without saying so
+		this.placedWords = this.gapWords;
+		if (this.gapWords != null) this.studio.notifyEdit(`Placed. ${this.gapWords}`);
+		return true;
+	}
+
+	/** Escape: hides the ghosts until the next edit */
+	dismiss(): boolean {
+		if (!this.hasGhosts) return false;
+		this.dispatch({ type: 'dismiss' });
+		return true;
+	}
+
+	/**
+	 * Asks for a rail or tunnel across a long gap and shows it as a ghost to accept. With
+	 * `fallback`, a failed search asks for that type instead before telling the user.
+	 */
+	suggestGapPiece(type: TGapPieceType, marbleId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType; onFailed?: (message: string) => void } = {}): void {
+		const project = this.studio.project;
+		const deps = this.proposeDeps();
+		if (project == null || deps == null) return;
+		this.dispatch({ type: 'requestGap', revision: project.revision, marbleId, toHitId });
+		propose(project, { marbleId, hitIds: [toHitId], kind: type }, deps, { isAnyDot: true }).then(
+			(proposal) => {
+				const answer = proposal.gap;
+				if (answer == null) throw new Error(proposal.words ?? 'No rail fits here.');
+				// A rail the pace or the frame can't follow leaves the gap to the Switchback layout, like Build Track
+				if (options.fallback != null && options.fallback !== type && answer.check != null && !gapPieceReads(answer.check, this.currentResult()?.pace?.limit ?? Infinity)) {
+					this.suggestGapPiece(options.fallback, marbleId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
+					return;
+				}
+				this.gapWords = proposal.status === 'problems' ? proposal.words : null;
+				this.dispatch({ type: 'gapAnswer', answer });
+				if (options.accept === true) this.acceptGhosts();
+			}
+		).catch(
+			(error: unknown) => {
+				this.dispatch({ type: 'gapFailed', revision: project.revision });
+				if (isSuperseded(error)) return;
+				if (options.fallback != null && options.fallback !== type) {
+					this.suggestGapPiece(options.fallback, marbleId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
+					return;
+				}
+				const message = gapFailure(type, error instanceof Error ? error.message : String(error));
+				if (options.onFailed != null) options.onFailed(message);
+				else this.studio.notify(message);
+			}
+		);
+	}
+
+	// MARK: - Build Track
+
+	/** How far the running Build Track is, null when none runs */
+	readonly $building = createState<TBuildProgress | null>(null);
+	/** What the latest Build Track of this session left, for `get_state` */
+	readonly $lastBuild = createState<TBuildReport | null>(null);
+	private buildRun: { isCanceled: boolean } | null = null;
+
+	get isBuilding(): boolean {
+		return this.buildRun != null;
+	}
+
+	/** Some hit has no platform yet, so Build Track has work to do */
+	get hasOpenHits(): boolean {
+		const project = this.studio.project;
+		if (project == null) return false;
+		return project.marbles.some((marble) => {
+			const owners = hitOwners(project, marble.id);
+			return marble.hits.some((hit) => !owners.has(hit.id));
+		});
+	}
+
+	/** `build.stop` and Stop on an agent's pill: ends a running Build Track or Fix; what it did stays */
+	stopBuild(): void {
+		if (this.buildRun != null) this.buildRun.isCanceled = true;
+		if (this.fixRun != null) this.fixRun.isCanceled = true;
+	}
+
+	private buildAction(): { label: string; title: string; run: () => void } {
+		return { label: 'Build Entire Track', title: 'Build every open note, in time order', run: () => void this.buildTrack() };
+	}
+
+	/** The worker calls a build needs. Searches stop between their stages once `isCanceled` says so. */
+	private buildDeps(isCanceled: () => boolean): TBuildTrackDeps | null {
+		const client = this.studio.simulation.assists;
+		if (client == null) return null;
+		return {
+			// The assists worker, so its runs resume from the snapshots of the run before
+			simulate: (project) => client.simulateAssist(project),
+			autoPlace: (request) => client.autoPlace(request, { isCanceled }),
+			gapPiece: (request) => client.gapPiece(request, { isCanceled }),
+			continueRun: (request) => client.continueRun(request),
+			isCanceled
+		};
+	}
+
+	/**
+	 * Build Track: builds every open hit of every marble in time order and ends each marble in a Bowl, as one undo
+	 * step. Each piece shows on the wall as it is found, with progress and Stop in the notice. Another edit stops it,
+	 * like Fix, and what it built so far stays.
+	 */
+	async buildTrack(from?: { marbleId: string; hitId: string }, gapPiece?: TBuildGapPreference): Promise<TBuildOutcome | null> {
+		const project = this.studio.project;
+		if (project == null || this.buildRun != null || this.fixRun != null) return null;
+		if (!project.marbles.some((marble) => marble.hits.length > 0)) {
+			this.studio.notify('Build Entire Track needs notes. Import a song, or press T and tap along.');
+			return null;
+		}
+		if (from == null && !this.hasOpenHits) {
+			this.studio.notify('Every note already has a platform');
+			return null;
+		}
+		const run = { isCanceled: false };
+		let expected = project;
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project !== expected;
+		const deps = this.buildDeps(isCanceled);
+		if (deps == null) return null;
+		this.buildRun = run;
+		this.clearQueuedNext();
+		this.dispatch({ type: 'dismiss' });
+		this.studio.$selection.set([]);
+		const startedAt = performance.now();
+		// A build's first hits come fast and say little about the stuck ones to come
+		const estimate = createEstimate({ minElapsedMs: 10000 });
+		const stop = { label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCanceled = true) };
+		// A back-up undoes steps; what the bar and the count show never goes back with it
+		let furthest = { done: 0, fraction: 0 };
+		// Hits a rebuild keeps were done from the start: the rate counts only what this build plays
+		let doneAtStart: number | null = null;
+		const progressText = (progress: TBuildProgress): string => {
+			furthest = { done: Math.max(furthest.done, progress.done), fraction: Math.max(furthest.fraction, progress.fraction) };
+			if (progress !== firstProgress) doneAtStart ??= progress.done;
+			const kept = doneAtStart ?? 0;
+			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done - kept, progress.total - kept);
+			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'note' : 'notes'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
+		};
+		const total = project.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
+		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
+		this.$building.set(firstProgress);
+		const progressId = this.studio.notify(progressText(firstProgress), 'info', { progress: 0, actions: [stop] });
+		// A zoom at which the pieces read, as they land; the view then follows the newest
+		if (from == null) this.studio.$trackCx.get()?.fitFrame();
+		let outcome: TBuildOutcome | null = null;
+		try {
+			outcome = await buildTrack(project, {
+				...deps,
+				commit: (commands, isFirst, hit) => {
+					// Another edit since the last step stops the build rather than folding into it
+					if (this.studio.project !== expected) return false;
+					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Entire Track' })) return false;
+					expected = this.studio.project ?? expected;
+					if (hit != null && !this.studio.$playing.get()) {
+						this.studio.$playhead.set(hit.targetTime);
+						this.studio.$reveal.set({ ids: [toHitKey(hit.marbleId, hit.hitId)], isZoomKept: from != null });
+					}
+					return true;
+				},
+				onProgress: (progress) => {
+					this.$building.set(progress);
+					this.studio.updateNotice(progressId, { message: progressText(progress), progress: progress.fraction });
+				}
+			}, { ...(from != null ? { from } : {}), ...(gapPiece != null ? { gapPiece } : {}) });
+		} catch (error: unknown) {
+			this.studio.notifyFailed('Build Entire Track stopped. What it built stays; press ⇧N to go on.', error);
+		} finally {
+			this.buildRun = null;
+			this.$building.set(null);
+		}
+		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+		if (outcome == null) return null;
+		// With another project open, nothing of this build is about it
+		if (this.studio.project?.id !== project.id) return null;
+		// What it built shows as plain Groups on the strip, in the build's Undo step
+		if (this.studio.project === expected) {
+			const runs = builtRunCommands(project, this.studio.project, outcome.result.hits);
+			if (runs.length > 0) this.studio.execute(runs, { amend: true });
+			expected = this.studio.project ?? expected;
+		}
+		// The build's last run is about the project it built, so what an edit since then broke still offers Fix
+		this.baseline = { projectId: project.id, revision: expected.revision, hits: outcome.result.hits };
+		this.lastFixRevision = expected.revision;
+		// An edit stopped it, so its last run isn't this project's: the report reads the run as it stands now
+		const standing = this.studio.project === expected ? null : await this.runAsItStands(deps);
+		if (this.studio.project?.id !== project.id) return null;
+		const present = standing?.project ?? this.studio.project;
+		const shownResult = standing?.result ?? outcome.result;
+		const summary = problemSummary(checkRun(present ?? outcome.project, shownResult, this.studio.film.$blenderObjects.get()));
+		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
+		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'note' : 'notes'} on time`;
+		await this.studio.lengthenForCatch();
+		if (this.studio.project?.id !== project.id) return null;
+		const reported = standing != null ? { ...outcome, isStopped: true, attention: attentionOf(standing.project, standing.result) } : outcome;
+		const built = buildReport(project, reported, hitsLabel, summary.problems.length, Math.round(performance.now() - startedAt), from);
+		const end = this.studio.project?.length ?? project.length;
+		const report = end !== project.length ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
+		this.$lastBuild.set(report);
+		const changed = present?.revision !== project.revision;
+		// Fix lives on each problem, in the inspector's pill and the bar's popover, and in the Track menu for the whole run
+		if (changed) this.studio.notifyEdit(report.message, [], { details: report.details });
+		else this.studio.notify(report.message);
+		// A build, a person's or an agent's, ends from the top at a zoom that reads with Follow on, so Space shows what was
+		// built. A person's rebuild keeps the zoom, back at the hit it started from; an agent's leaves the view alone
+		if (!this.studio.$playing.get()) {
+			if (from == null) {
+				this.studio.$playhead.set(0);
+				this.studio.$trackCx.get()?.showBuilt();
+			} else if (!this.studio.isInAgentStep) {
+				const at = project.marbles.find((marble) => marble.id === from.marbleId)?.hits.find((hit) => hit.id === from.hitId)?.time;
+				if (at != null) this.studio.$playhead.set(at);
+				this.studio.$reveal.set({ ids: [toHitKey(from.marbleId, from.hitId)], isZoomKept: true });
+			}
+		}
+		return outcome;
+	}
+
+	/**
+	 * Build Up to Here: builds every marble's notes up to this time as one Undo step and leaves the rest open, with
+	 * progress and Stop in the notice like Build Track, ending where it started.
+	 */
+	async buildUpTo(time: number): Promise<void> {
+		const project = this.studio.project;
+		if (project == null || this.buildRun != null || this.fixRun != null) return;
+		const run = { isCanceled: false };
+		let expected = project;
+		const deps = this.buildDeps(() => run.isCanceled || this.studio.project !== expected);
+		if (deps == null) return;
+		this.buildRun = run;
+		const total = project.marbles.reduce((sum, marble) => sum + marble.hits.filter((hit) => hit.time <= time).length, 0);
+		const progress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
+		this.$building.set(progress);
+		const noticeId = this.studio.notify(`Building up to here · 0 of ${total} notes`, 'info', { progress: 0, actions: [{ label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCanceled = true) }] });
+		try {
+			await buildTrack(project, {
+				...deps,
+				commit: (commands, isFirst) => {
+					if (this.studio.project !== expected) return false;
+					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Up to Here' })) return false;
+					expected = this.studio.project ?? expected;
+					return true;
+				},
+				onProgress: (next) => {
+					this.$building.set(next);
+					this.studio.updateNotice(noticeId, { message: `Building up to here · ${next.done} of ${total} notes`, progress: next.fraction });
+				}
+			}, { until: time });
+			this.studio.dismissNotice(noticeId);
+		} catch (error) {
+			this.studio.notifyFailed('Building stopped. What it built stays.', error);
+		} finally {
+			this.buildRun = null;
+			this.$building.set(null);
+		}
+	}
+
+	/** The project once what's settling has landed, with its own run */
+	private async runAsItStands(deps: TBuildTrackDeps): Promise<{ project: TProject; result: TSimulationResult } | null> {
+		await this.studio.simulation.whenSettled();
+		const project = this.studio.project;
+		return project != null ? { project, result: await deps.simulate(project) } : null;
+	}
+
+	/** The hit Rebuild From Here starts at: the selected hit, or the one the selected piece belongs to */
+	get rebuildTarget(): { marbleId: string; hitId: string } | null {
+		const project = this.studio.project;
+		const [key] = this.studio.$selection.get();
+		if (project == null || key == null) return null;
+		const hit = parseHitKey(key);
+		if (hit != null) return hit;
+		const link = tieOf(project.track.pieces.find((piece) => piece.id === key));
+		return link != null ? { marbleId: link.marbleId, hitId: link.hitId } : null;
+	}
+
+	// MARK: - Fix
+
+	/** How far the running Fix is, null when none runs */
+	readonly $fixing = createState<{ done: number; total: number } | null>(null);
+	private fixRun: { isCanceled: boolean } | null = null;
+	/** Hits of the latest current result, to tell which hits an edit broke */
+	private baseline: { projectId: string; revision: number; hits: THitResult[] } | null = null;
+	/** Per marble, its hits from the latest result in which none of them was broken, for moving a release back */
+	private lastGood = new Map<string, THitResult[]>();
+	private lastGoodProjectId: string | null = null;
+	private lastFixRevision: number | null = null;
+
+	/**
+	 * After an edit, compares the new run with the one before it. When later hits became Blocked, Missed or Stopped, a
+	 * notice names which, with Undo; Fix lives on the problem itself, in the inspector's pill and the bar's popover. Undo,
+	 * redo and Fix itself say nothing.
+	 */
+	private reportBroken(): void {
+		const project = this.studio.project;
+		const result = this.currentResult();
+		if (project == null || result == null || this.studio.simulation.isSettling) return;
+		const previous = this.baseline;
+		if (previous?.projectId === project.id && previous.revision === result.revision) return;
+		this.baseline = { projectId: project.id, revision: result.revision, hits: result.hits };
+		// A run Fix made is not a reference for the next one: its release came from the reference itself
+		if (this.fixRun == null && this.buildRun == null && result.revision !== this.lastFixRevision) this.rememberGood(project, result);
+		if (previous == null || previous.projectId !== project.id || previous.revision > result.revision || this.fixRun != null || this.buildRun != null) return;
+		if (this.studio.$historyReveal.get()?.revision === result.revision) return;
+		// A note past the film's end has nothing Fix could do: it's the length, which the move that did this says
+		const broken = newlyBroken(previous.hits, result.hits).filter((hit) => hit.targetTime <= result.duration);
+		if (!broken.length) return;
+		const notice = this.studio.$notice.get();
+		// A run under way, such as Gravity's re-fit, keeps its progress and Stop; the edit's own notice already speaks for it
+		if (notice?.progress != null || (notice != null && notice.revision === result.revision)) return;
+		const first = [...broken].sort((a, b) => a.targetTime - b.targetTime)[0];
+		const cause = first != null ? strayCause(project, result, first.marbleId, first.targetTime) : null;
+		this.studio.notifyEdit(`${cause != null ? `${cause}: ` : ''}${brokenWords(broken)}`, [], { isUndoFirst: true });
+	}
+
+	private rememberGood(project: TProject, result: TSimulationResult): void {
+		if (this.lastGoodProjectId !== project.id) this.lastGood.clear();
+		this.lastGoodProjectId = project.id;
+		for (const marble of project.marbles) {
+			const hits = result.hits.filter((hit) => hit.marbleId === marble.id);
+			if (hits.some((hit) => hit.pieceId != null) && !brokenHits(hits).length) this.lastGood.set(marble.id, hits);
+		}
+	}
+
+	get isFixing(): boolean {
+		return this.fixRun != null;
+	}
+
+	/** An assist is still working on the latest edit: what it answers next can change the project or what Next does */
+	get isAnswering(): boolean {
+		return this.studio.simulation.isSettling || this.isPlacing || this.fixRun != null || this.buildRun != null || this.$ghosts.get().pendingGap != null;
+	}
+
+	/** The worker calls Fix and Add Bowl need: runs, Auto place and a new bridge for a long gap */
+	private fixDeps(isCanceled?: () => boolean): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'settle'> | null {
+		const client = this.studio.simulation.assists;
+		if (client == null) return null;
+		const options = isCanceled != null ? { isCanceled } : undefined;
+		return {
+			// The assists worker, so Auto place resumes from the run Fix just simulated
+			simulate: async (next) => client.simulateAssist(next),
+			autoPlace: async (next, hit, piece) => (await client.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: piece.type ?? 'platform', pieceId: piece.id }, options)).piece,
+			gapPiece: async (next, gap, type, pieceId) => (await client.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId }, options)).piece,
+			settle: async (before, after) => editCommands(await client.settle({ before, after }))
+		};
+	}
+
+	/**
+	 * A, and Fix on the Track menu: the one selected piece, or the whole run. Fix tries on a copy where it can, says why
+	 * when it can't and is one undo step. Pieces waiting behind a break come first, whatever is selected.
+	 */
+	fixSelection(): void {
+		const project = this.studio.project;
+		if (project == null) return;
+		const selected = this.studio.$selection.get();
+		const hit = selected.length === 1 && selected[0] != null ? parseHitKey(selected[0]) : null;
+		const ids = selectedPieceIds(project, selected);
+		const piece = hit != null ? pieceForHitKey(project, hit) : ids.length === 1 ? ids[0] : undefined;
+		void this.fix(piece);
+	}
+
+	/** Fix for one piece, or the whole run */
+	async fix(pieceId?: string): Promise<void> {
+		const project = this.studio.project;
+		const result = this.currentResult();
+		if (project == null || this.fixRun != null || this.buildRun != null) return;
+		if (result == null) {
+			this.studio.notify('The run is still being checked. Press Fix again in a moment.');
+			return;
+		}
+		if (project.marbles.some((marble) => marble.waitsFrom != null)) await this.fixHeld(project, result);
+		else if (pieceId != null) await this.fixOnePiece(project, result, pieceId);
+		else if (hasFixes(project, result)) await this.fixWholeRun(project, result);
+		else this.studio.notify(this.nothingToFixWords(project, result));
+	}
+
+	/** With problems Fix doesn't mend left, says which needs a hand instead of "Nothing to fix" */
+	private nothingToFixWords(project: TProject, result: TSimulationResult): string {
+		const [first] = problemSummary(checkRun(project, result, this.studio.film.$blenderObjects.get())).problems;
+		return first != null ? `Fix mends broken notes, double notes, rolls and touching pieces. ${first.title} needs moving by hand.` : 'Nothing to fix';
+	}
+
+	private async fixOnePiece(project: TProject, result: TSimulationResult, pieceId: string): Promise<void> {
+		const deps = this.fixDeps();
+		if (deps == null) return;
+		this.fixRun = { isCanceled: false };
+		this.$fixing.set({ done: 0, total: 1 });
+		try {
+			const fix = await fixPiece(project, result, pieceId, deps);
+			// Another edit while the what-if ran makes it stale
+			if (this.studio.project !== project) return;
+			const { rebuildFrom } = fix;
+			if (fix.commands != null) {
+				if (this.studio.simulation.landWorkedOut(fix.commands, {})) this.studio.notifyEdit(fix.message);
+			} else if (rebuildFrom != null) {
+				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this note and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
+			} else this.studio.notify(fix.message);
+		} catch (error) {
+			if (!isSuperseded(error)) this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
+		} finally {
+			this.fixRun = null;
+			this.$fixing.set(null);
+		}
+	}
+
+	/**
+	 * Runs Auto place again from the first broken hit onward, on a copy so nothing shows until it's known to help: as one
+	 * undo step when the run ends with fewer problems, or not at all, and the notice says so. Progress and Stop in the notice.
+	 */
+	private async fixWholeRun(project: TProject, result: TSimulationResult): Promise<void> {
+		const run = { isCanceled: false };
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project !== project;
+		const deps = this.fixDeps(isCanceled);
+		if (deps == null) return;
+		this.fixRun = run;
+		this.dispatch({ type: 'dismiss' });
+		const stop = { label: 'Stop', title: 'Keep the notes fixed so far', run: () => (run.isCanceled = true) };
+		const progressId = this.studio.notify('Fixing', 'info', { progress: 0, actions: [stop] });
+		const commands: TProjectCommand[] = [];
+		let furthest = 0;
+		let outcome: TFixOutcome | null = null;
+		try {
+			outcome = await fixTrack(
+				project,
+				result,
+				{
+					...deps,
+					commit: (next, step) => {
+						const [isOk, , applied] = applyProjectCommands(next, step);
+						if (!isOk) return null;
+						commands.push(...step);
+						return applied;
+					},
+					onProgress: (done, total, fraction) => {
+						this.$fixing.set({ done, total });
+						// A try that backs up never moves the bar back
+						furthest = Math.max(furthest, Math.min(1, Math.max(0, fraction)));
+						this.studio.updateNotice(progressId, { message: `Fixing · ${done} of ${total} notes`, progress: furthest });
+					},
+					isCanceled
+				},
+				[...this.lastGood.values()].flat()
+			);
+			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+			// Another edit while it ran makes the copy stale
+			if (outcome != null && this.studio.project === project) this.landWholeRun(project, result, outcome, commands, run.isCanceled);
+		} catch (error: unknown) {
+			this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+			this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
+		} finally {
+			this.fixRun = null;
+			this.$fixing.set(null);
+		}
+	}
+
+	/** Lands what Fix found on its copy if it leaves the run better, and says how the run stands */
+	private landWholeRun(project: TProject, result: TSimulationResult, outcome: TFixOutcome, commands: TProjectCommand[], isStopped: boolean): void {
+		if (!commands.length) {
+			this.studio.notify('No new tilt helps these pieces without adding a problem. Turn them by hand, or undo the edit that broke them.');
+			return;
+		}
+		// How the run stands comes from the one problem model, the same as the hit summary and the export sheet
+		const before = problemSummary(checkRun(project, result, this.studio.film.$blenderObjects.get()));
+		const summary = problemSummary(checkRun(outcome.project, outcome.result, this.studio.film.$blenderObjects.get()));
+		if (!fixHelps(before, summary)) {
+			this.studio.notifyEdit(fixWorseWords(before, summary), [], { isUndoFirst: true });
+			return;
+		}
+		const added = addedProblems(project, result, outcome.project, outcome.result, this.studio.film.$blenderObjects.get());
+		if (!this.studio.simulation.landWorkedOut(commands, {})) return;
+		const revision = this.studio.project?.revision ?? outcome.result.revision;
+		this.baseline = { projectId: project.id, revision, hits: outcome.result.hits };
+		this.lastFixRevision = revision;
+		const message = fixMessage(project, result.hits, outcome, { label: summary.label, hitProblems: summary.hitProblems, added });
+		this.studio.notifyEdit(outcome.isStopped && !isStopped ? `${message} · stopped by another edit` : message);
+	}
+
+	/**
+	 * Fix for pieces waiting behind a break. A note with no piece gets what Next gives it, at once. Then the marble is
+	 * brought back to the pieces, which moves nothing else. When no tilt reaches them, Fix tries on a copy from where they
+	 * wait, a limited time. Either way it lands only if the total of broken hits and problems falls, over every marble:
+	 * otherwise the pieces go on waiting, the notice gives the real counts and offers Rebuild From Here.
+	 */
+	private async fixHeld(project: TProject, result: TSimulationResult): Promise<void> {
+		const client = this.studio.simulation.assists;
+		if (client == null) return;
+		const open = findStepTarget(project, result, []);
+		const firstHeld = heldHit(project);
+		if (open?.dot != null && firstHeld != null && open.targetTime <= firstHeld.time) {
+			await this.place(open, this.studio.$trackCx.get()?.placementType() ?? 'platform');
+			const marble = project.marbles.find((item) => item.id === open.marbleId);
+			const number = (marble?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
+			if (this.studio.project?.id === project.id && this.studio.project !== project) this.studio.notifyEdit(`Placed a platform at Note ${number}. Fix again for the pieces still waiting.`);
+			return;
+		}
+		const run = { isCanceled: false };
+		const startedAt = performance.now();
+		const isCanceled = (): boolean => run.isCanceled || this.studio.project !== project || performance.now() - startedAt > FIX_HELD_BUDGET_MS;
+		const deps = this.fixDeps(isCanceled);
+		if (deps == null) return;
+		this.fixRun = run;
+		const stop = { label: 'Stop', title: 'Stop trying; the pieces go on waiting', run: () => (run.isCanceled = true) };
+		const progressId = this.studio.notify('Fixing the break', 'info', { progress: 0, actions: [stop] });
+		const verdict: { fixed: TProject | null; label: string; worse: string | null } = { fixed: null, label: '', worse: null };
+		const before = problemSummary(checkRun(project, result, this.studio.film.$blenderObjects.get()));
+		// Every way is tried on a copy and judged on the whole run, every marble's, by what the hit summary will say
+		const judge = (next: TProject, nextResult: TSimulationResult): void => {
+			const after = problemSummary(checkRun(next, nextResult, this.studio.film.$blenderObjects.get()));
+			if (fixHelps(before, after)) Object.assign(verdict, { fixed: next, label: after.label });
+			else verdict.worse = fixWorseWords(before, after);
+		};
+		try {
+			const back = await client.reconnect(project);
+			if (back != null) {
+				const next = withEditAnswer(project, back);
+				judge(next, await client.simulateAssist(next));
+			} else {
+				const released = release(project);
+				const outcome = await fixTrack(released, await client.simulateAssist(released), {
+					...deps,
+					commit: (next, commands) => {
+						const [isOk, , applied] = applyProjectCommands(next, commands);
+						return isOk ? applied : null;
+					},
+					onProgress: (done, total, fraction) => {
+						this.studio.updateNotice(progressId, { message: `Fixing the break · ${done} of ${total} notes`, progress: Math.min(1, Math.max(0, fraction)) });
+					},
+					isCanceled
+				});
+				if (!outcome.isStopped) {
+					if (!brokenHits(outcome.result.hits).length) judge(outcome.project, outcome.result);
+					// Hits still broken are no fix, whatever else got better: the notice gives the counts
+					else verdict.worse = fixWorseWords(before, problemSummary(checkRun(outcome.project, outcome.result, this.studio.film.$blenderObjects.get())));
+				}
+			}
+		} catch (error) {
+			if (!isSuperseded(error)) this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
+		} finally {
+			this.fixRun = null;
+		}
+		this.studio.updateNotice(progressId, { progress: undefined, actions: [] });
+		if (this.studio.project !== project) return;
+		const { fixed } = verdict;
+		if (fixed == null) {
+			const from = firstHeld != null ? { marbleId: firstHeld.marbleId, hitId: firstHeld.hitId } : null;
+			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this note and build the rest again', run: () => void this.buildTrack(from) }] : [];
+			const words = verdict.worse ?? (run.isCanceled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.');
+			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
+			return;
+		}
+		const changed = changedPieces(project, fixed);
+		// Fix may move a release too
+		const released = fixed.marbles.flatMap((marble): TProjectCommand[] => {
+			const was = project.marbles.find((item) => item.id === marble.id);
+			if (was == null || (JSON.stringify(was.start) === JSON.stringify(marble.start) && was.waitsFrom === marble.waitsFrom && was.handOvers === marble.handOvers)) return [];
+			return [{ type: 'updateMarble', marbleId: marble.id, patch: { start: marble.start, waitsFrom: marble.waitsFrom ?? null, handOvers: marble.handOvers ?? null } }];
+		});
+		this.studio.simulation.landWorkedOut([...changed.map((piece): TProjectCommand => ({ type: 'addPiece', piece })), ...released], { amend: false });
+		this.studio.notifyEdit(`${tiltChange(project, changed)}The marble is back on its run · ${verdict.label}`);
+	}
+
+	/** The marble Add Bowl is searching a Bowl for, while it runs */
+	readonly $addingBowl = createState<string | null>(null);
+
+	/**
+	 * Add Bowl: a Bowl on the marble's fall after its last note, which what-if runs found to catch it, break no
+	 * hit and touch no other marble or its pieces, as one undo step. A film that would end before the catch is lengthened.
+	 */
+	async addBowl(marbleId: string): Promise<void> {
+		const project = this.studio.project;
+		const deps = this.fixDeps();
+		if (project == null || deps == null || this.$addingBowl.get() != null) return;
+		this.$addingBowl.set(marbleId);
+		try {
+			const placed = await findBowl(project, marbleId, { simulate: deps.simulate });
+			// Another edit while the what-ifs ran makes them stale
+			if (this.studio.project !== project) return;
+			if ('error' in placed) {
+				this.studio.notify(placed.error);
+				return;
+			}
+			if (!this.studio.execute(placed.commands)) return;
+			this.studio.$selection.set([placed.piece.id]);
+			const lengthened = await this.studio.lengthenForCatch();
+			this.studio.notifyEdit(lengthened != null ? `${placed.message} The film now runs to ${formatTime(lengthened)}, to show the catch.` : placed.message);
+		} catch (error) {
+			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
+		} finally {
+			this.$addingBowl.set(null);
+		}
+	}
+
+	/** The result for the project as it is now, outside drag previews */
+	private currentResult(): TSimulationResult | null {
+		const simulation = this.studio.simulation;
+		const result = simulation.$result.get();
+		const project: TProject | null = this.studio.project;
+		if (result == null || project == null || simulation.isPreviewing || result.revision !== project.revision) return null;
+		return result;
+	}
+
+	private dispatch(action: TGhostAction): void {
+		const next = ghostReducer(this.$ghosts.get(), action);
+		if (next !== this.$ghosts.get()) this.$ghosts.set(next);
+	}
+
+}
+
+/**
+ * The notes an edit broke, named by their actual status, most first: "1 note is now Blocked", "2 notes are now
+ * Missed and 1 Stopped". Counts every hit the edit broke, the edited one included, so "later" would miscount
+ */
+export function brokenWords(hits: readonly THitResult[]): string {
+	const counts = new Map<string, number>();
+	for (const hit of hits) {
+		const label = hit.status === 'blocked' ? 'Blocked' : hit.reason === 'resting' ? 'Stopped' : 'Missed';
+		counts.set(label, (counts.get(label) ?? 0) + 1);
+	}
+	const [first, ...rest] = [...counts].sort((a, b) => b[1] - a[1]);
+	if (first == null) return '';
+	const lead = `${first[1] === 1 ? '1 note is' : `${first[1]} notes are`} now ${first[0]}`;
+	return [lead, ...rest.map(([label, count]) => `${count} ${label}`)].join(rest.length > 1 ? ', ' : ' and ').replace(/, ([^,]*)$/, ' and $1');
+}
+
+/** The earliest hit whose piece waits behind a break */
+function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {
+	const held = project.marbles.flatMap((marble) => {
+		const time = marble.hits.find((hit) => hit.id === marble.waitsFrom)?.time;
+		return marble.waitsFrom != null && time != null ? [{ marbleId: marble.id, hitId: marble.waitsFrom, time }] : [];
+	});
+	return held.sort((a, b) => a.time - b.time)[0] ?? null;
+}
+
+/** What a fix did to a person's tilts, so it never rewrites an edit quietly: "Platform 8 went from 22.9° to 40°. " */
+function tiltChange(project: TProject, changed: TPiece[]): string {
+	const tilts = changed.flatMap((piece) => {
+		const was = project.track.pieces.find((item) => item.id === piece.id);
+		const before = tieOf(was) != null ? was?.angle : undefined;
+		const after = tieOf(piece) != null ? piece.angle : undefined;
+		return before != null && after != null && Math.abs(after - before) > DEGREE / 10 && piece.type === 'platform' ? [{ name: piece.name ?? 'A platform', before, after }] : [];
+	});
+	const degrees = (angle: number): string => `${Math.round((angle / DEGREE) * 10) / 10}°`;
+	const [first] = tilts;
+	if (first == null) return '';
+	if (tilts.length === 1) return `${first.name} went from ${degrees(first.before)} to ${degrees(first.after)}. `;
+	return `Tilted ${tilts.length} platforms again, from ${first.name}. `;
+}
+
+/** The piece that plays this hit, if any */
+function pieceForHitKey(project: TProject, hit: { marbleId: string; hitId: string }): string | undefined {
+	return project.track.pieces.find((piece) => tieOf(piece)?.marbleId === hit.marbleId && tieOf(piece)?.hitId === hit.hitId)?.id;
+}
+
+/** The simulation's reason a gap piece found no place, in the app's words, with what to do */
+function gapFailure(type: TGapPieceType, message: string): string {
+	const piece: string = type;
+	if (message.includes('fall freely')) return `No ${piece} fits this gap. Tilt the platform before the gap so the marble flies off it, then try again.`;
+	if (message.includes('fall below')) return `No ${piece} fits this gap. The marble doesn't fall far enough before the next note; try a rail or a tunnel.`;
+	if (message.includes('crosses the earlier trajectory')) return `No ${piece} fits this gap. Every spot crosses the marble's earlier fall or another marble's marble; move the pieces around the gap.`;
+	if (message.includes('does not reach the note')) return `No ${piece} fits this gap. The marble doesn't reach the note before the gap; fix that platform first.`;
+	return `No ${piece} fits this gap. ${message}.`;
+}
+
+/** Next's message when it has nothing left to place, naming the marble in focus */
+function everyNotePlacedMessage(project: TProject, selection: string[]): string {
+	const marbleId = focusedMarbleId(project, selection);
+	const marble = marbleId != null ? project.marbles.find((marble) => marble.id === marbleId)?.name : undefined;
+	if (marble != null) return `Every note ${marble} reaches already has a platform`;
+	return project.marbles.length === 1 ? `Every note ${project.marbles[0]?.name ?? 'the marble'} reaches already has a platform` : 'Every note the marbles reach already has a platform';
+}
+
+/** The marble of the selected hit or piece, if any */
+/** What a Build Track left, in the words of its notice and for `get_state` */
+export interface TBuildReport {
+	/** The two-line notice */
+	message: string;
+	/** Everything it did, behind Details */
+	details: string;
+	isStopped: boolean;
+	seconds: number;
+	added: number;
+	turned: string[];
+	releaseShift: number;
+	bowls: string[];
+	/** Hits that are not on time, as `marble`, 1-based `hit`, `time` and `status` */
+	attention: { marble: string; marbleId: string; hitId: string; hit: number; time: number; status: string }[];
+}
+
+function buildReport(project: TProject, outcome: TBuildOutcome, label: string, problems: number, ms: number, from?: { marbleId: string; hitId: string }): TBuildReport {
+	const nameOf = (marbleId: string): string => project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
+	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.marbleId), marbleId: hit.marbleId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
+	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
+	const named = attention.slice(0, 3).map((hit) => `${hit.marble} note ${hit.hit}`);
+	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 note needs' : `${attention.length} notes need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
+	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
+	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
+	const fromMarble = from != null ? project.marbles.find((marble) => marble.id === from.marbleId) : undefined;
+	const rebuilt = from != null ? `Rebuilt after Note ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
+	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
+	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
+	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} note ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join('\n');
+	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, bowls: outcome.bowls, attention };
+}

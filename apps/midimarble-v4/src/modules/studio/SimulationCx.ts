@@ -1,0 +1,539 @@
+import { createComputed, createState } from 'feature-state';
+import { checkRun, createProblemsClient, isSameProblemInput, pendingPreflight, strayCause, type TExportPreflight, type TPreflightIssue, type TProblemsClient, createSimulationClient, type TSimulationClient, editCommands, type TEditAnswer, withEditAnswer } from '@/modules/building';
+import { applyProjectCommands, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
+import { isSameRunInput, isSuperseded, type TRunInput, type TSimulationResult } from '@/modules/simulation';
+import type { TBlenderObject } from '@/modules/scene';
+import { onNextFrame } from './next-frame';
+import type { StudioCx } from './StudioCx';
+
+// Seconds past where an edit starts to change the run that a preview simulates while moving
+const PREVIEW_HORIZON = 5;
+// With no new preview for this long the pointer has paused, and the whole run follows
+const PREVIEW_PAUSE_MS = 150;
+
+/**
+ * Keeps a simulation result for the open project. Every history change re-simulates once per animation
+ * frame in the worker, on a timer when frames have stopped because the window is covered. Live drags send a temporary project through `preview` without touching history,
+ * so the trajectory follows the pointer and the drag commits one history entry on release. While a preview keeps
+ * moving only the stretch it changes is simulated, which later hops kept make whole; a pause or the release runs it whole in any case.
+ */
+export class SimulationCx {
+	readonly $result = createState<TSimulationResult | null>(null);
+	readonly $computing = createState(false);
+	/** True from `startPreview` to `endPreview` */
+	readonly $previewing = createState(false);
+	/** What a drag keeps showing, so no pointer move checks the whole run on the main thread */
+	private heldProblems: TExportPreflight | null = null;
+	private problems: ReturnType<SimulationCx['createProblems']> | null = null;
+
+	/**
+	 * The open project's problems, the one source for the hit summary, its menu, Layers, the inspectors, the export
+	 * sheet, the Camera track and an agent's replies. Pending until the run has caught up with the project and while
+	 * Build Track works, so no step checks the whole run. Made on first read, as the states it reads are made after this Cx.
+	 */
+	get $problems(): ReturnType<SimulationCx['createProblems']> {
+		this.problems ??= this.createProblems();
+		return this.problems;
+	}
+
+	private createProblems() {
+		const { $history, film, assist, sources } = this.studio;
+		return createComputed([$history, this.$result, this.$previewing, film.$blenderObjects, assist.$building, sources.$missingRecordings, this.$runIssues] as const, ([history, result, isPreviewing, blenderObjects, building, missingRecordings, runIssues]) => {
+			const project = history?.present ?? null;
+			if (project == null || building != null) return pendingPreflight(project);
+			if (isPreviewing && this.heldProblems != null) return this.heldProblems;
+			this.heldProblems = result != null && result.revision === project.revision ? this.checkRun(project, result, blenderObjects, missingRecordings, runIssues) : null;
+			return this.heldProblems ?? pendingPreflight(project);
+		});
+	}
+
+	/** The run problems the problems worker found, for the run and project it was asked about */
+	private readonly $runIssues = createState<TRunIssues | null>(null);
+	private problemsClient: TProblemsClient | null = null;
+	/** What the problems worker is working on */
+	private asking: Pick<TRunIssues, 'marbles' | 'project'> | null = null;
+
+	/**
+	 * The problems of a run current for `project`: with the run's own problems from the worker, or pending while it is
+	 * asked. With no worker, in a script or a test, they are found here.
+	 */
+	private checkRun(project: TProject, result: TSimulationResult, blenderObjects: readonly TBlenderObject[], missingRecordings: readonly string[], runIssues: TRunIssues | null): TExportPreflight | null {
+		const client = this.problemsClient;
+		if (client == null) return checkRun(project, result, blenderObjects, missingRecordings);
+		if (runIssues != null && runIssues.marbles === result.marbles && isSameProblemInput(runIssues.project, project)) return checkRun(project, result, blenderObjects, missingRecordings, runIssues.issues);
+		const asking = this.asking;
+		if (asking != null && asking.marbles === result.marbles && isSameProblemInput(asking.project, project)) return null;
+		this.asking = { marbles: result.marbles, project };
+		client.check(project, result).then(
+			(issues) => {
+				if (this.asking?.project !== project) return;
+				this.asking = null;
+				this.$runIssues.set({ marbles: result.marbles, project, issues });
+			},
+			(error: unknown) => {
+				if (isSuperseded(error) || this.asking?.project !== project) return;
+				this.asking = null;
+				this.studio.notify(`The track couldn't be checked: ${error instanceof Error ? error.message : String(error)}`, 'error');
+			}
+		);
+		return null;
+	}
+
+	/** Why the platform being dragged can't play its note where the pointer is, for its chip */
+	readonly $moveLimit = createState<TMoveLimit | null>(null);
+	/** Wall time from the newest request to its result, in milliseconds */
+
+	private client: TSimulationClient | null = null;
+	private preview: TProject | null = null;
+	private previewMove: { marbleId: string; hitId: string; dot: TVec2 } | null = null;
+	private isMoving = false;
+	private pauseTimer: ReturnType<typeof setTimeout> | null = null;
+	private cancelFrame: (() => void) | null = null;
+	private sent = 0;
+	private accepted = 0;
+	/** What the newest request runs, when it runs whole: a project with the same input needs no run of its own */
+	private wholeRun: TRunInput | null = null;
+	/** The latest whole runs, newest first, so Undo and Redo show theirs at once */
+	private recentRuns: { input: TRunInput; result: TSimulationResult }[] = [];
+
+	constructor(private readonly studio: StudioCx) {}
+
+	mount(): () => void {
+		this.client = createSimulationClient();
+		this.problemsClient = typeof Worker === 'undefined' ? null : createProblemsClient();
+		let projectId: string | null = null;
+		const unlisten = this.studio.$history.subscribe(({ value }) => {
+			if (value == null) {
+				projectId = null;
+				this.clearPreview();
+				this.$result.set(null);
+				this.wholeRun = null;
+				this.recentRuns = [];
+				this.settled = null;
+				return;
+			}
+			// Another project's result must not show while the new one simulates
+			if (value.present.id !== projectId) {
+				projectId = value.present.id;
+				this.clearPreview();
+				this.$result.set(null);
+				this.wholeRun = null;
+				this.recentRuns = [];
+			}
+			this.settleLatestEdit(value);
+			this.schedule();
+		});
+		return () => {
+			unlisten();
+			this.clearPreview();
+			this.cancelFrame?.();
+			this.cancelFrame = null;
+			this.client?.dispose();
+			this.client = null;
+			this.problemsClient?.dispose();
+			this.problemsClient = null;
+			this.asking = null;
+			this.wholeRun = null;
+		};
+	}
+
+	/** True when the shown result belongs to the project as it is now, rather than an older edit */
+	get isCurrent(): boolean {
+		const result = this.$result.get();
+		return result != null && result.revision === this.studio.project?.revision;
+	}
+
+	/**
+	 * Simulates `project` in place of the history's present until `endPreview`. The next platforms take up the change as
+	 * they will when the edit lands, so the preview is what the edit does; `move` is a dragged platform's new dot.
+	 */
+	startPreview(project: TProject, move: { marbleId: string; hitId: string; dot: TVec2 } | null = null): void {
+		this.previewMove = move;
+		// The first preview runs whole, so a hover's what-if counts every hit it breaks; only the next ones are moving
+		this.isMoving = this.preview != null;
+		this.preview = project;
+		this.$previewing.set(true);
+		this.schedule();
+		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
+		this.pauseTimer = !this.isMoving
+			? null
+			: setTimeout(() => {
+					this.pauseTimer = null;
+					this.isMoving = false;
+					this.schedule();
+				}, PREVIEW_PAUSE_MS);
+	}
+
+	/** Returns to the history's present, usually right after the drag committed its edit */
+	endPreview(): void {
+		if (this.preview == null) return;
+		this.clearPreview();
+		this.schedule();
+	}
+
+	private clearPreview(): void {
+		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
+		this.pauseTimer = null;
+		this.isMoving = false;
+		this.preview = null;
+		this.previewMove = null;
+		if (this.$moveLimit.get() != null) this.$moveLimit.set(null);
+		this.$previewing.set(false);
+	}
+
+	get isPreviewing(): boolean {
+		return this.preview != null;
+	}
+
+	/** The worker client for assists such as Auto place and Continue, while mounted */
+	get assists(): TSimulationClient | null {
+		return this.client;
+	}
+
+	/** The project the shown trajectory is computed for: the drag preview or the history's present */
+	get previewProject(): TProject | null {
+		return this.preview;
+	}
+
+	// MARK: - Local edits
+
+	/** The history whose present has settled: what the next edit is compared with */
+	private settled: TProjectHistory | null = null;
+	private settleRun = 0;
+	private isLanding = false;
+	/** True from an edit until the platforms taking up its change have landed; its own run waits until then */
+	isSettling = false;
+
+	/**
+	 * After an edit, the next platform takes up the change and the later hops shift along, folded into the edit's undo step
+	 * (`answerEdit`). Until the answer lands the edit's own run stays back, so a marble's first wild moment never shows. Undo,
+	 * redo and what Build Track and Fix commit themselves are left alone. This is the one way edits reach the run, a
+	 * person's or an agent's.
+	 */
+	private settleLatestEdit(history: TProjectHistory): void {
+		if (this.isLanding) return;
+		const known = this.settled;
+		if (known == null || this.client == null || known.present.id !== history.present.id || history.isStep === true) {
+			this.settleRun++;
+			this.settled = history;
+			this.stopSettling();
+			return;
+		}
+		const before = known.present;
+		const after = history.present;
+		if (isSameRun(before, after)) {
+			if (!this.isSettling) this.settled = history;
+			return;
+		}
+		const run = ++this.settleRun;
+		this.isSettling = true;
+		this.client.settle({ before, after }).then(
+			(answer) => {
+				if (run !== this.settleRun || this.studio.project?.revision !== after.revision) return;
+				this.landSettled(answer, true);
+				this.sayTakers(answer, after);
+				this.sayBreak(answer, after);
+			},
+			(error: unknown) => {
+				if (run !== this.settleRun || isSuperseded(error)) return;
+				this.landSettled({ pieces: [], marbles: [] }, true);
+				this.studio.notifyFailed("The rest of the run couldn't be kept. Undo the edit, or Fix what it broke.", error);
+			}
+		);
+	}
+
+	/** Lands what an edit's answer found, in the edit's undo step or as its own */
+	landSettled(answer: Pick<TEditAnswer, 'pieces' | 'marbles'>, isAmend: boolean): void {
+		this.landWorkedOut(editCommands(answer), { amend: isAmend });
+	}
+
+	/** Lands an edit that already worked out how the run goes on, so nothing folds into it: a settle would decide again */
+	landWorkedOut(commands: TProjectCommand[], options: { amend?: boolean; label?: string }): boolean {
+		this.isLanding = true;
+		let isDone = false;
+		try {
+			isDone = commands.length > 0 && this.studio.execute(commands, options);
+		} finally {
+			this.isLanding = false;
+		}
+		this.settled = this.studio.$history.get();
+		this.stopSettling();
+		return isDone;
+	}
+
+	/**
+	 * An edit that lands only when the later pieces can take it up. One that would leave a note no longer playing lands
+	 * nothing and says which note first, with `anyway` to land it as it is. False when nothing landed now
+	 */
+	async landChecked(commands: TProjectCommand[], options: { label: string; anyway: string }): Promise<boolean> {
+		const before = this.studio.project;
+		const client = this.client;
+		if (before == null || client == null) return this.studio.execute(commands, { label: options.label });
+		const [isApplied, , after] = applyProjectCommands(before, commands);
+		if (!isApplied) return false;
+		const run = ++this.settleRun;
+		let answer: TEditAnswer;
+		try {
+			answer = await client.settle({ before, after });
+		} catch (error) {
+			if (run !== this.settleRun || isSuperseded(error)) return false;
+			return this.studio.execute(commands, { label: options.label });
+		}
+		if (run !== this.settleRun || this.studio.project !== before) return false;
+		const all = [...commands, ...editCommands(answer)];
+		// Only a note that plays now counts: an edit made to mend one already broken lands
+		const was = this.$result.get();
+		const first = answer.heldFrom.find((held) => {
+			const hit = was?.revision === before.revision ? was.hits.find((item) => item.marbleId === held.marbleId && item.hitId === held.hitId) : undefined;
+			return hit == null || hit.status === 'onTime' || hit.status === 'drifting';
+		});
+		if (first == null) {
+			if (!this.landWorkedOut(all, { label: options.label })) return false;
+			this.sayTakers(answer, after);
+			this.sayBreak(answer, after);
+			return true;
+		}
+		const marble = before.marbles.find((item) => item.id === first.marbleId);
+		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
+		this.studio.notify(`${options.label} would stop Note ${number} of ${marble?.name ?? 'the marble'} playing: the pieces after it can't take it up. Nothing changed.`, 'error', {
+			actions: [{ label: options.anyway, title: `${options.label} even though Note ${number} stops playing`, run: () => void this.landHeld(before, all, options.label, answer, after) }]
+		});
+		return false;
+	}
+
+	/** Lands an edit that was said to stop a note playing, if the track is still the one it was worked out for */
+	private landHeld(before: TProject, commands: TProjectCommand[], label: string, answer: TEditAnswer, after: TProject): void {
+		if (this.studio.project !== before || !this.landWorkedOut(commands, { label })) return;
+		this.sayBreak(answer, after);
+	}
+
+	private stopSettling(): void {
+		if (!this.isSettling) return;
+		this.isSettling = false;
+		for (const resolve of this.settleWaiters.splice(0)) resolve();
+		this.schedule();
+	}
+
+	private settleWaiters: (() => void)[] = [];
+
+	/** Resolves once no edit is waiting for its settle, for work that has to start from what it lands */
+	async whenSettled(): Promise<void> {
+		while (this.isSettling) await new Promise<void>((resolve) => this.settleWaiters.push(resolve));
+	}
+
+	/**
+	 * A platform dragged off its dot: the platform before it sends the marble to the new spot and the next ones bring it
+	 * back on the old run, as one undo step. A spot it can't send the marble to takes the platform as far as it can; one
+	 * that fixes the spot (a ride, or the first note) leaves it where it was. Either way a notice says why.
+	 */
+	async moveDot(move: { marbleId: string; hitId: string; dot: TVec2 }): Promise<void> {
+		const project = this.studio.project;
+		if (project == null || this.client == null) return;
+		const run = ++this.settleRun;
+		this.isSettling = true;
+		this.dropsLanding++;
+		// The drag's last preview must not take this drop's place in the worker's queue, which left a quick drop where it began
+		this.cancelFrame?.();
+		this.cancelFrame = null;
+		if (this.pauseTimer != null) clearTimeout(this.pauseTimer);
+		this.pauseTimer = null;
+		try {
+			const answer = await this.client.settle({ before: project, after: project, movedDot: move });
+			if (run !== this.settleRun || this.studio.project?.revision !== project.revision) return;
+			const limit = moveLimit(project, move, answer);
+			// Nothing moved, so nothing lands: no undo step for a drop that didn't happen
+			this.landSettled(limit?.isStuck === true ? { pieces: [], marbles: [] } : answer, false);
+			if (limit?.isStuck === true) this.studio.notify(limit.notice);
+			else if (limit != null) this.studio.notifyEdit(limit.notice);
+			if (limit?.isStuck !== true) this.sayTakers(answer, project);
+			this.sayBreak(answer, project);
+		} catch (error) {
+			if (run !== this.settleRun) return;
+			if (isSuperseded(error)) {
+				if (this.studio.project?.revision === project.revision) await this.moveDot(move);
+				return;
+			}
+			this.landSettled({ pieces: [], marbles: [] }, false);
+			this.studio.notifyFailed("The platform couldn't be moved, so it stays where it was. Drag it again.", error);
+		} finally {
+			this.dropsLanding--;
+		}
+	}
+
+	/** Drops on their way to the worker, which the run of the drag's preview waits for */
+	private dropsLanding = 0;
+
+	/** A break to name, once the run of the edit shows the hit really is broken, so the notice agrees with the summary */
+	private pendingBreak: { first: TEditAnswer['heldFrom'][number]; project: TProject; revision: number } | null = null;
+
+	/** Says plainly when a bar the person didn't touch changed, and how far the later notes moved with it */
+	private sayTakers(answer: Pick<TEditAnswer, 'absorbedBy' | 'shifts' | 'heldFrom'>, project: TProject): void {
+		if (answer.heldFrom.length > 0) return;
+		const names = [...new Set(answer.absorbedBy.map((id) => project.track.pieces.find((piece) => piece.id === id)?.name ?? 'A platform'))];
+		const furthest = Math.max(0, ...answer.shifts.map((shift) => shift.distance));
+		const moved = furthest >= NOTICED_SHIFT ? ` The later notes moved ${(furthest * 100).toFixed(1)} cm with it.` : '';
+		if (names.length === 1) this.studio.notifyEdit(`${names[0] ?? ''} changed too, so the notes after it stay on time.${moved}`, [], { isUndoFirst: true });
+		else if (names.length > 1) this.studio.notifyEdit(`${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''} changed too, so the notes after them stay on time.${moved}`, [], { isUndoFirst: true });
+	}
+
+	/** Names what happened only when it matters: a marble the next platforms couldn't catch */
+	private sayBreak(answer: TEditAnswer, project: TProject): void {
+		const [first] = answer.heldFrom;
+		if (first == null) return;
+		this.pendingBreak = { first, project, revision: this.studio.project?.revision ?? 0 };
+	}
+
+	private sayPendingBreak(result: TSimulationResult): void {
+		const pending = this.pendingBreak;
+		if (pending == null || result.revision < pending.revision) return;
+		this.pendingBreak = null;
+		const { first, project } = pending;
+		const status = result.hits.find((hit) => hit.marbleId === first.marbleId && hit.hitId === first.hitId)?.status;
+		if (result.revision !== pending.revision || status == null || status === 'onTime' || status === 'drifting' || status === 'waiting') return;
+		const marble = project.marbles.find((item) => item.id === first.marbleId);
+		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
+		const waiting = project.track.pieces.filter((piece) => tieOf(piece)?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === tieOf(piece)?.hitId)?.time ?? -1) > first.time).length;
+		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
+		const cause = strayCause(project, result, first.marbleId, first.time);
+		const missed = cause != null ? `${cause} and misses Note ${number}.` : `${marble?.name ?? 'The marble'} misses Note ${number}.`;
+		this.studio.notifyEdit(`${missed} ${later}`, [], { isUndoFirst: true });
+	}
+
+	private schedule(): void {
+		if (this.cancelFrame != null) return;
+		this.cancelFrame = onNextFrame(() => {
+			this.cancelFrame = null;
+			this.run();
+		});
+	}
+
+	private run(): void {
+		const project = this.preview ?? this.studio.project;
+		const client = this.client;
+		if (project == null || client == null || this.dropsLanding > 0 || (this.isSettling && this.preview == null)) return;
+		const present = this.studio.project;
+		const preview = this.preview;
+		if (preview == null || present == null || (this.previewMove == null && isSameRun(present, preview))) {
+			this.send(client, project);
+			return;
+		}
+		const move = this.previewMove;
+		client.settle({ before: present, after: preview, movedDot: move }, { isPreview: true }).then(
+			(answer) => {
+				if (this.preview !== preview) return;
+				const limit = move != null ? moveLimit(present, move, answer) : null;
+				if (limit?.chip !== this.$moveLimit.get()?.chip) this.$moveLimit.set(limit);
+				this.send(client, withEditAnswer(preview, answer));
+			},
+			(error: unknown) => {
+				if (!isSuperseded(error) && this.preview === preview) this.send(client, preview);
+			}
+		);
+	}
+
+	private remember(input: TRunInput, result: TSimulationResult): void {
+		this.recentRuns = [{ input, result }, ...this.recentRuns.filter((run) => !isSameRunInput(run.input, input))].slice(0, RECENT_RUNS);
+	}
+
+	/** The revision a run shows under: a preview's never reads as the project's, whatever revision it carries */
+	private shownRevision(project: TProject): number {
+		return this.preview != null ? PREVIEW_REVISION : project.revision;
+	}
+
+	private send(client: TSimulationClient, project: TProject): void {
+		if (this.wholeRun != null && isSameRunInput(this.wholeRun, project)) {
+			// A film edit leaves the run as it was. A request on its way stamps its own result when it lands.
+			const shown = this.$result.get();
+			if (shown != null && !this.$computing.get()) this.$result.set(atRevision(shown, this.shownRevision(project)));
+			return;
+		}
+		const id = ++this.sent;
+		const horizon = this.isMoving ? PREVIEW_HORIZON : undefined;
+		this.wholeRun = horizon == null ? project : null;
+		// The run is still asked for, as the worker's snapshots should follow the project, but what shows needn't wait for it
+		const known = horizon == null ? this.recentRuns.find((run) => isSameRunInput(run.input, project)) : undefined;
+		const isPreview = this.preview != null;
+		if (known != null) {
+			this.accepted = id;
+			this.$result.set(atRevision(known.result, this.shownRevision(project)));
+			// What shows needs no run, so a film edit can stamp it, even with an older run still on its way
+			this.$computing.set(false);
+		} else this.$computing.set(true);
+		client.simulate(project, horizon).then(
+			(answer) => {
+				// Requests replaced while waiting resolve with the same newer result, oldest first
+				if (id < this.accepted || this.studio.project?.id !== project.id) return;
+				this.accepted = id;
+				// Only the newest request's answer is its own run, and what has changed since may be film alone
+				const latest = this.preview ?? this.studio.project;
+				const isLatest = id === this.sent && latest != null && isSameRunInput(project, latest);
+				const result = isLatest ? atRevision(answer, this.shownRevision(latest)) : isPreview ? atRevision(answer, PREVIEW_REVISION) : answer;
+				// Before the result goes out, so what it broke offers its Fix on this notice
+				if (this.preview == null) this.sayPendingBreak(result);
+				if (known == null && result !== this.$result.get()) this.$result.set(result);
+				if (horizon == null && id === this.sent && this.preview == null) this.remember(project, answer);
+				if (id === this.sent) this.$computing.set(false);
+			},
+			(error: unknown) => {
+				if (this.client == null) return;
+				if (id === this.sent) {
+					this.wholeRun = null;
+					this.$computing.set(false);
+				}
+				this.studio.notifyFailed("The run couldn't be worked out, so the wall shows the last one. Undo the edit, or make another.", error);
+			}
+		);
+	}
+}
+
+const RECENT_RUNS = 4;
+/** A shift of the later notes under this isn't worth a word */
+const NOTICED_SHIFT = 0.01;
+/** No project has it, so a preview's run is never taken for the project's */
+const PREVIEW_REVISION = -1;
+
+/** The same run input, by identity first: most edits copy what they don't change */
+function isSameRun(a: TRunInput, b: TRunInput): boolean {
+	return isSameRunInput(a, b) || (a.gravity === b.gravity && a.length === b.length && JSON.stringify(a.marbles) === JSON.stringify(b.marbles) && JSON.stringify(a.track.pieces) === JSON.stringify(b.track.pieces));
+}
+
+/** Run problems with the run, by its marbles, and the project they were found for */
+interface TRunIssues {
+	marbles: TSimulationResult['marbles'];
+	project: TProject;
+	issues: TPreflightIssue[];
+}
+
+/** A run under the revision it also answers for, since the edits after it left its input alone */
+function atRevision(result: TSimulationResult, revision: number): TSimulationResult {
+	return result.revision === revision ? result : { ...result, revision };
+}
+
+/** Why a dragged platform can't go all the way: `chip` beside the drag, `notice` after the drop */
+export interface TMoveLimit {
+	chip: string;
+	notice: string;
+	/** It stays where it was */
+	isStuck: boolean;
+}
+
+// How near a moved dot has to land to count as there, and how far to count as moved
+const MOVE_LANDED = 0.003;
+const MOVE_MOVED = 0.001;
+
+/** Null when the platform landed where it was dragged */
+export function moveLimit(project: TProject, move: { marbleId: string; hitId: string }, answer: Pick<TEditAnswer, 'move'>): TMoveLimit | null {
+	const outcome = answer.move;
+	if (outcome == null || outcome.missed <= MOVE_LANDED) return null;
+	const marble = project.marbles.find((item) => item.id === move.marbleId);
+	const name = project.track.pieces.find((piece) => tieOf(piece)?.marbleId === move.marbleId && tieOf(piece)?.hitId === move.hitId)?.name ?? 'The platform';
+	const from = project.track.pieces.find((piece) => piece.id === outcome.fromId)?.name;
+	if (outcome.isFixed) {
+		if (from == null) return { chip: "Stays: it's the first note", notice: `${name} stays where it is: it plays ${marble?.name ?? 'the marble'}'s first note. Move the release to change its spot.`, isStuck: true };
+		return { chip: `Stays: the marble leaves ${from} here`, notice: `${name} stays where it is: the marble leaves ${from} here. Move ${from} to change its spot.`, isStuck: true };
+	}
+	const source = from ?? 'the piece before it';
+	if (outcome.moved < MOVE_MOVED) return { chip: `Stays: out of reach from ${source}`, notice: `${name} stays where it is: ${source} can't send the marble there on time.`, isStuck: true };
+	const cm = (meters: number): string => `${(meters * 100).toFixed(1)} cm`;
+	return { chip: `Goes ${cm(outcome.moved)}: the marble reaches no further`, notice: `${name} moved ${cm(outcome.moved)} of ${cm(outcome.moved + outcome.missed)}: ${source} can't send the marble further on time.`, isStuck: false };
+}
