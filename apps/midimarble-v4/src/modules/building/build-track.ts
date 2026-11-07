@@ -1,11 +1,9 @@
-import { applyProjectCommands, freePosition, type THit, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
+import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import { isPathPieceType, paceAt, createLinkedPiece, bandAlongGuide, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { changedPieces } from './edit-rule';
 import { columnOffset } from './build-track-defaults';
 import { gapPieceReads } from './gap-pieces';
-import { findLongGaps, hitOwners, mirrorPiece, openLongGaps, type TLongGap } from './assists';
-import { lineDistance } from './line-distance';
-import { checkPattern, type TPatternAsk, type TPatternCheck } from './patterns';
+import { findLongGaps, mirrorPiece, openLongGaps, type TLongGap } from './assists';
 import { gapTypeOf, restOrder } from './rest-order';
 import { addKnownFaults, hitKey, noKnownFaults, reasonWords, verdictWithRoom, type TKnownFaults } from './verdict';
 import { answerWorkerRequest, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
@@ -18,11 +16,9 @@ import { hitReach, openHits } from './reachability';
 // fallback and the fixture script. Marbles are built together in time order, so each keeps clear of what the others
 // have built so far. Each step takes the first of these that keeps every placed hit on time, every marble on its own
 // pieces and striking each platform once, every piece clear of the others on the wall, the next dot in
-// frame and near the shared pace. Of what passes, each step takes the one that keeps the marble closest to its guide line
-// (`buildStep`): at a rest whatever fills it (`restCandidates`) or a Platform at the note after it, at a note a Platform
-// (Continue and Mirror when the rhythm repeats and the next dot stays on its column, Auto place, which launches into a
-// coming gap and ranks its angles by how regular the track looks, a wider Auto place) or a Zigzag or Staircase over the
-// notes up to the next rest. When none does,
+// frame and near the shared pace: what fills a rest, in the order of `restOrder` (`fillRest`), Continue and Mirror when the rhythm repeats and
+// the next dot stays on its column, Auto place (which launches into a coming gap and ranks its angles by how regular the
+// track looks), a wider Auto place. When none does,
 // it does what a person tries next: turn the marble's previous platform, turn the other marble's platform in the way,
 // lean this platform by hand, then back up a few hits, turn the platform there and build forward again. A song that
 // still gets stuck, or whose finished run leaves the pace or the camera's frame, is started again with the releases a
@@ -70,16 +66,17 @@ const COLUMN_TOLERANCE = 0.6;
 const COPY_DROP_SHARE = 1.25;
 /** Steps show at most this often, in milliseconds: each one simulates and draws the whole window again */
 const SHOW_EVERY = 250;
-/** The Patterns a stretch of notes is offered, and a stretch's most notes: a phrase, as the bar's Pattern takes */
-const PATTERN_KINDS = ['zigzag', 'staircase'] as const;
-const PATTERN_NOTES = 8;
+/** How many hits ahead a choice between pieces is tried, and what each hit it can't reach counts for against its look */
+const LOOK_AHEAD_HITS = 3;
+const DEAD_END_COST = 100;
+/** What the Switchback layout costs against a straight rail that also works, and more when the marble just rode one, in units of `lookCost` */
+const SWITCHBACK_COST = 0.3;
+const SWITCHBACK_IN_A_ROW_COST = 0.3;
 
 export interface TBuildCounts {
 	next: number;
 	/** A single Curved Rail across a rest */
 	curve: number;
-	zigzag: number;
-	staircase: number;
 	switchback: number;
 	chain: number;
 	rail: number;
@@ -163,8 +160,6 @@ export interface TBuildTrackDeps {
 	/** Rejects when no piece fits */
 	gapPiece: (request: TBuildGapRequest) => Promise<TGapAnswer> | TGapAnswer;
 	continueRun: (request: { project: TProject; marbleId: string; canTurn?: boolean }) => Promise<TContinueAnswer | null> | TContinueAnswer | null;
-	/** A Pattern over a stretch of notes, checked as `propose` checks one; without it no stretch is offered a Pattern */
-	pattern?: (project: TProject, ask: TPatternAsk) => Promise<TPatternCheck | null> | TPatternCheck | null;
 	/** Shows a step: the first starts the undo step, later ones join it. False stops the build. */
 	commit?: (commands: TProjectCommand[], isFirst: boolean, hit: THitResult | null) => boolean;
 	onProgress?: (progress: TBuildProgress) => void;
@@ -187,9 +182,8 @@ export interface TBuildOptions {
 }
 
 /** Deps that answer in this thread with the same requests the assist workers answer, for scripts and tests */
-export function localBuildDeps(simulator: TSimulator): Pick<TBuildTrackDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'continueRun' | 'pattern'> {
+export function localBuildDeps(simulator: TSimulator): Pick<TBuildTrackDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'continueRun'> {
 	return {
-		pattern: (project, ask) => checkPattern(project, ask, { sim: simulator }),
 		simulate: (project) => simulator.simulate(project),
 		autoPlace: (request) => answerWorkerRequest(simulator, { kind: 'autoPlace', ...request }) as TAutoPlaceAnswer,
 		gapPiece: (request) => answerWorkerRequest(simulator, { kind: 'gapPiece', ...request }) as TGapAnswer,
@@ -223,6 +217,8 @@ interface TBuildState {
 	/** Whether a piece that was there before the build may be turned when nothing else solves a hit */
 	canTurnOwn: boolean;
 	gapPiece: TBuildGapPreference | null;
+	/** Trying a choice ahead, which doesn't try choices of its own */
+	isLooking: boolean;
 	/** Taking a gap piece that ends beyond the pace limit, once nothing else solves the hit: the run seldom recovers from one */
 	mayLeavePace: boolean;
 	/** Searches made and allowed, over every attempt */
@@ -236,11 +232,11 @@ interface TSearchBudget {
 }
 
 function emptyCounts(): TBuildCounts {
-	return { next: 0, curve: 0, zigzag: 0, staircase: 0, switchback: 0, chain: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
+	return { next: 0, curve: 0, switchback: 0, chain: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), known: noKnownFaults(), canTurnOwn, gapPiece, mayLeavePace: false, searches, runs: new WeakMap() };
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), known: noKnownFaults(), canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
 }
 
 /** A project is never changed once made, so one run answers for it */
@@ -353,35 +349,58 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 	return result.pace == null || previous == null || from.y - next.dot.y <= COPY_DROP_SHARE * result.pace.rate * (next.targetTime - previous.time);
 }
 
-/** A candidate for the stretch ahead: the project with it, and how far the marble stays from its line through it and up to the note after it */
-interface TCandidate {
-	project: TProject;
-	kind: string;
-	distance: number;
-	/** What the build counts when it takes this one */
-	counts: (keyof TBuildCounts)[];
-	continued?: number;
-	log: string;
+/** How regular the marble's last hits look, lower is better, per hit: how far each drop lies from the pace's for its interval, in piece lengths */
+function lookCost(result: TSimulationResult, marbleId: string): number {
+	const length = PLACEMENT_LENGTH;
+	const played = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null).sort((a, b) => a.targetTime - b.targetTime).slice(-1 - LOOK_AHEAD_HITS);
+	let cost = 0;
+	played.forEach((hit, index) => {
+		const before = played[index - 1];
+		if (before?.dot != null && hit.dot != null && result.pace != null) cost += Math.abs(before.dot.y - hit.dot.y - result.pace.rate * (hit.targetTime - before.targetTime)) / length;
+	});
+	return cost / Math.max(1, played.length);
 }
 
-/** How far the marble stays from its line between two times in this project's run, in meters (`lineDistance`) */
-async function distanceOf(state: TBuildState, project: TProject, marbleId: string, from: number, until: number): Promise<number> {
-	return lineDistance(project, await run(state, project), marbleId, from, until) ?? Infinity;
+/** Builds on from a candidate for a few hits, first choice each time, and says how that went; the build's counts stay as they were */
+async function lookAhead(state: TBuildState, start: TProject, marbleId: string): Promise<number> {
+	const counts = { ...state.counts };
+	const reasons = [...state.reasons];
+	const inTheWay = [...state.inTheWay];
+	state.isLooking = true;
+	let current = start;
+	let cost = 0;
+	for (let done = 0; done < LOOK_AHEAD_HITS && !shouldStopLooking(state); done++) {
+		const result = await run(state, current);
+		const target = nextTarget(state, current, result);
+		if (target == null) break;
+		const next = await buildStep(state, current, target, false);
+		if (next == null) {
+			cost += DEAD_END_COST * (LOOK_AHEAD_HITS - done);
+			break;
+		}
+		current = next;
+	}
+	state.isLooking = false;
+	Object.assign(state.counts, counts);
+	state.reasons.splice(0, state.reasons.length, ...reasons);
+	state.inTheWay.splice(0, state.inTheWay.length, ...inTheWay);
+	return cost + lookCost(await run(state, current), marbleId);
 }
 
-/** The candidate that keeps the marble closest to its line, the first of equals, counted */
-function closest(state: TBuildState, candidates: TCandidate[]): TCandidate | null {
-	let best: TCandidate | null = null;
-	for (const candidate of candidates) if (best == null || candidate.distance < best.distance - 1e-9) best = candidate;
-	if (best != null) {
-		for (const key of best.counts) state.counts[key]++;
-		state.counts.continued += best.continued ?? 0;
+/** The option that looks and goes on best over the next few hits, the first of equals */
+async function chooseAhead<T extends { project: TProject; cost?: number; label: string }>(state: TBuildState, options: T[], marbleId: string): Promise<T | null> {
+	let best: T | null = null;
+	let bestCost = Infinity;
+	for (const option of options) {
+		if (shouldStopLooking(state)) return best ?? options[0] ?? null;
+		const cost = (option.cost ?? 0) + (await lookAhead(state, option.project, marbleId));
+		state.deps.onLog?.(`  ahead: ${option.label} costs ${cost.toFixed(2)}`);
+		if (cost < bestCost - 1e-9) {
+			best = option;
+			bestCost = cost;
+		}
 	}
 	return best;
-}
-
-function centimeters(distance: number): string {
-	return `${(distance * 100).toFixed(1)} cm from the line`;
 }
 
 async function ask<T>(state: TBuildState, kind: string, question: () => Promise<T> | T): Promise<T | null> {
@@ -394,20 +413,23 @@ async function ask<T>(state: TBuildState, kind: string, question: () => Promise<
 }
 
 /**
- * The kinds that can fill the rest before a note, each asked of the workers and judged by `accept`: those of `restOrder`
- * that fit, each measured from the rest's start to the note after it. A piece that ends far from the pace gives way
- * unless it's the last kind. A gap piece asked for by name that fits is the only one.
+ * What fills the rest before a note, the whole decision in one place: the kinds of `restOrder` in turn, each asked of the
+ * workers and judged by `accept`. A piece that ends far from the pace leaves the rest to the next kind, except the last,
+ * which has to do. The first that fits wins when it's the Curved Rail, asked for by name, or tried while looking ahead;
+ * otherwise the plain Rail and the Switchback layout that both fit are each built on for a few notes (`chooseAhead`), the
+ * Switchback's hooks costing more. One log line says what each kind did. Null leaves the note to a Platform.
  */
-async function restCandidates(state: TBuildState, current: TProject, result: TSimulationResult, gap: TLongGap): Promise<{ candidates: TCandidate[]; said: string[] }> {
-	const { deps } = state;
+async function fillRest(state: TBuildState, current: TProject, result: TSimulationResult, gap: TLongGap): Promise<TProject | null> {
+	const { deps, counts } = state;
 	const { marbleId } = gap;
 	// One marble keeps no shared height, so a gap piece may land it anywhere it can go on from
 	const paceLimit = isShared(current) ? (result.pace?.limit ?? Infinity) : Infinity;
 	const order = restOrder(state.gapPiece).flatMap((kind) => gapTypeOf(kind) ?? []);
-	const candidates: TCandidate[] = [];
+	const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
 	const said: string[] = [];
+	const rodeSwitchback = current.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId && piece.type !== 'platform' && !state.own.has(piece.id)).at(-1)?.layout === 'switchback';
 	for (const type of order) {
-		if (isCanceled(state)) break;
+		if (isCanceled(state)) return null;
 		const reasonsBefore = state.reasons.length;
 		const passed = (): void => {
 			said.push(`${type} no (${state.reasons.slice(reasonsBefore).join('; ')})`);
@@ -429,101 +451,37 @@ async function restCandidates(state: TBuildState, current: TProject, result: TSi
 		const params = answer?.piece.params ?? {};
 		const pace = answer?.check?.paceError;
 		const log = `${type}${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.piece.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
-		const candidate: TCandidate = { project: accepted, kind: type, distance: await distanceOf(state, accepted, marbleId, gap.from, gap.to), counts: [type === 'switchback' || type === 'chain' || type === 'curve' ? type : 'rail'], log };
-		said.push(`${type} fits, ${centimeters(candidate.distance)}`);
-		if (state.gapPiece === type) return { candidates: [candidate], said };
-		candidates.push(candidate);
+		const isAsked = state.gapPiece === type;
+		options.push({ project: accepted, type, log, label: type, cost: isAsked || type !== 'switchback' ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
+		said.push(`${type} fits`);
+		if (isAsked || state.isLooking || type === 'curve') break;
 	}
-	return { candidates, said };
-}
-
-/** The notes a Pattern may cover from this one: the open ones after it, up to the note that launches into a rest and at most a phrase */
-function stretchFrom(project: TProject, marbleId: string, hitId: string): THit[] {
-	const hits = project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
-	const owners = hitOwners(project, marbleId);
-	const launches = new Set(findLongGaps(project, marbleId).map((gap) => gap.fromHitId));
-	const index = hits.findIndex((hit) => hit.id === hitId);
-	const stretch: THit[] = [];
-	for (const hit of index >= 0 ? hits.slice(index, index + PATTERN_NOTES) : []) {
-		// A rest and the note that launches into it stay plain
-		if (owners.has(hit.id) || launches.has(hit.id)) break;
-		stretch.push(hit);
+	const chosen = options.length > 1 ? await chooseAhead(state, options, marbleId) : options[0];
+	const rest = `  ${gap.fromHitId} -> ${gap.toHitId}, a rest of ${gap.duration.toFixed(2)} s: ${said.join('; ')}`;
+	if (chosen == null) {
+		deps.onLog?.(`${rest}; a Platform at ${gap.toHitId} instead`);
+		return null;
 	}
-	return stretch;
-}
-
-/** Each Pattern over the stretch from this note that fits and passes `accept`, measured from its first note to the note after its last */
-async function patternCandidates(state: TBuildState, current: TProject, target: THitResult): Promise<TCandidate[]> {
-	const { deps } = state;
-	const { marbleId, hitId } = target;
-	const pattern = deps.pattern;
-	const stretch = stretchFrom(current, marbleId, hitId);
-	const [first, last] = [stretch[0], stretch.at(-1)];
-	if (pattern == null || first == null || last == null || stretch.length < 2) return [];
-	const hits = current.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
-	const until = hits[hits.findIndex((hit) => hit.id === last.id) + 1]?.time ?? last.time;
-	const candidates: TCandidate[] = [];
-	for (const kind of PATTERN_KINDS) {
-		if (shouldStopLooking(state)) break;
-		const answer = await ask(state, 'pattern', () => pattern(current, { marbleId, kind, from: first.time, to: last.time }));
-		if (answer == null) continue;
-		if (answer.refusal != null || !answer.commands.length) {
-			reject(state, `${kind}: ${answer.refusal?.words ?? answer.ending?.words ?? "it doesn't fit"}`);
-			continue;
-		}
-		const accepted = await accept(state, current, answer.commands, marbleId);
-		if (accepted == null) continue;
-		candidates.push({ project: accepted, kind, distance: await distanceOf(state, accepted, marbleId, first.time, until), counts: [kind], log: `${kind} over ${stretch.length} notes` });
-	}
-	return candidates;
+	counts[chosen.type === 'switchback' || chosen.type === 'chain' || chosen.type === 'curve' ? chosen.type : 'rail']++;
+	deps.onLog?.(`${rest}; ${chosen.log}`);
+	return chosen.project;
 }
 
 /**
- * One step: every kind that can apply to what comes next, those that break a requirement dropped by `accept`, and of the
- * rest the one that keeps the marble closest to its line through its stretch and up to the note after it
- * (`lineDistance`). At a rest those are what can fill it (`restCandidates`) and a Platform at the note after it, measured
- * over the rest; at a note a Platform and a Pattern over the notes from it (`patternCandidates`). Null when nothing fits.
+ * One option after another for the hit: what fills the rest when a long gap ends at it (`fillRest`), otherwise Continue,
+ * then Mirror when the rhythm repeats, then Auto place (which launches the marble into the coming gap piece before a long
+ * gap), then Auto place over a wider range. Each must pass `accept`; the first that does wins. With `canLean`, last the
+ * platform is leaned by hand until the next dot comes back as close to the marble's band as it gets.
  */
 async function buildStep(state: TBuildState, current: TProject, target: THitResult, canLean: boolean): Promise<TProject | null> {
-	const { deps } = state;
+	const { deps, counts } = state;
 	const { marbleId, hitId } = target;
 	const result = await run(state, current);
 	const gap = findLongGaps(current, marbleId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
-	if (gap != null) {
-		const { candidates, said } = await restCandidates(state, current, result, gap);
-		const isAsked = candidates.length === 1 && candidates[0]?.kind === state.gapPiece;
-		const platform = !isAsked && !isCanceled(state) ? await placeNote(state, current, target, canLean) : null;
-		if (platform != null) {
-			const distance = await distanceOf(state, platform.project, marbleId, gap.from, gap.to);
-			candidates.push({ ...platform, distance });
-			said.push(`a Platform at ${hitId} fits, ${centimeters(distance)}`);
-		}
-		const chosen = closest(state, candidates);
-		deps.onLog?.(`  ${gap.fromHitId} -> ${gap.toHitId}, a rest of ${gap.duration.toFixed(2)} s: ${said.join('; ')}; ${chosen == null ? 'nothing fits' : chosen.log}`);
-		return chosen?.project ?? null;
-	}
+	const filled = gap != null ? await fillRest(state, current, result, gap) : null;
+	if (filled != null) return filled;
 	if (isCanceled(state)) return null;
-	const plain = await placeNote(state, current, target, canLean);
-	const patterns = await patternCandidates(state, current, target);
-	if (!patterns.length) return closest(state, plain != null ? [{ ...plain, distance: 0 }] : [])?.project ?? null;
-	const hits = current.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
-	const after = hits[hits.findIndex((hit) => hit.id === hitId) + 1]?.time ?? target.targetTime;
-	const candidates = plain != null ? [{ ...plain, distance: await distanceOf(state, plain.project, marbleId, target.targetTime, after) }, ...patterns] : patterns;
-	const chosen = closest(state, candidates);
-	deps.onLog?.(`  ${hitId}: ${candidates.map((candidate) => `${candidate.kind} ${centimeters(candidate.distance)}`).join(', ')}; ${chosen?.log ?? 'nothing fits'}`);
-	return chosen?.project ?? null;
-}
 
-/**
- * A Platform for the note, the first of these that passes `accept`: Continue, then Mirror when the rhythm repeats, then
- * Auto place (which launches the marble into the coming gap piece before a long gap), then Auto place over a wider range.
- * With `canLean`, last the platform is leaned by hand until the next dot comes back as close to the marble's band as it
- * gets. Null when none does.
- */
-async function placeNote(state: TBuildState, current: TProject, target: THitResult, canLean: boolean): Promise<Omit<TCandidate, 'distance'> | null> {
-	const { deps } = state;
-	const { marbleId, hitId } = target;
-	const result = await run(state, current);
 	const isLaunch = findLongGaps(current, marbleId).some((item) => item.fromHitId === hitId && item.bridgedBy == null);
 	const continued = !isLaunch ? await ask(state, 'continue', () => deps.continueRun({ project: current, marbleId, canTurn: false })) : null;
 	// Ghosts get the build's IDs, so the track is the same on every run
@@ -537,7 +495,11 @@ async function placeNote(state: TBuildState, current: TProject, target: THitResu
 	});
 	if (ghosts.length > 0) {
 		const accepted = await accept(state, current, ghosts, marbleId);
-		if (accepted != null && staysOnColumn(state, accepted, await run(state, accepted), marbleId)) return { project: accepted, kind: 'platform', counts: ['continue'], continued: ghosts.length, log: 'continue' };
+		if (accepted != null && staysOnColumn(state, accepted, await run(state, accepted), marbleId)) {
+			counts.continue++;
+			counts.continued += ghosts.length;
+			return accepted;
+		}
 	}
 
 	const marble = current.marbles.find((item) => item.id === marbleId);
@@ -550,19 +512,29 @@ async function placeNote(state: TBuildState, current: TProject, target: THitResu
 	if (!isLaunch && !isLast && !isBeforeLaunch && repeatsInterval(current, marbleId, hitId)) {
 		const [isMirrorOk, , mirrored] = mirrorPiece(current, result, marbleId, { id });
 		const accepted = isMirrorOk && mirrored.hitId === hitId ? await accept(state, current, mirrored.commands, marbleId) : null;
-		if (accepted != null && staysOnColumn(state, accepted, await run(state, accepted), marbleId)) return { project: accepted, kind: 'platform', counts: ['mirror'], log: 'mirror' };
+		if (accepted != null && staysOnColumn(state, accepted, await run(state, accepted), marbleId)) {
+			counts.mirror++;
+			return accepted;
+		}
 	}
 	if (isCanceled(state)) return null;
 
 	const placed = await ask(state, 'autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', pieceId: id }));
 	const accepted = placed != null ? await accept(state, current, [{ type: 'addPiece', piece: placed.piece }], marbleId) : null;
-	if (accepted != null) return { project: accepted, kind: 'platform', counts: [isLaunch ? 'launch' : 'autoPlace'], log: 'Auto place' };
+	if (accepted != null) {
+		if (isLaunch) counts.launch++;
+		else counts.autoPlace++;
+		return accepted;
+	}
 	if (isCanceled(state)) return null;
 	// What a person tries next: turning further than Auto place searches. A search that found nothing already tried these.
 	if (placed != null) {
 		const wide = await ask(state, 'wide autoPlace', () => deps.autoPlace({ project: current, marbleId, hitId, type: 'platform', pieceId: id, range: [-60 * DEGREE, 60 * DEGREE] }));
 		const widened = wide != null ? await accept(state, current, [{ type: 'addPiece', piece: wide.piece }], marbleId) : null;
-		if (widened != null) return { project: widened, kind: 'platform', counts: ['wide'], log: 'wide Auto place' };
+		if (widened != null) {
+			counts.wide++;
+			return widened;
+		}
 	}
 	if (!canLean) return null;
 	const bandAt = bandAlongGuide(current, marbleId);
@@ -580,8 +552,9 @@ async function placeNote(state: TBuildState, current: TProject, target: THitResu
 		if (best == null || offset < best.offset - 1e-6) best = { project: leaned, angle: degrees, offset };
 	}
 	if (best == null) return null;
+	counts.lean++;
 	deps.onLog?.(`  ${hitId}: rotated by hand to ${best.angle}°, next dot ${best.offset.toFixed(2)} m from its band center (${state.reasons.at(-1) ?? ''})`);
-	return { project: best.project, kind: 'platform', counts: ['lean'], log: `leaned to ${best.angle}°` };
+	return best.project;
 }
 
 /** The marble's previous platform turned a little so the marble arrives differently, then the step again */
@@ -915,9 +888,8 @@ function withSkinsOf(was: TProject, built: TProject): TProject {
  * there as it is. Null when nothing works.
  */
 export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Promise<{ project: TProject; commands: TProjectCommand[]; target: THitResult } | null> {
-	// Continue and a Pattern would add several pieces, where a press adds one
-	const { pattern: _pattern, ...single } = deps;
-	const state = createState({ ...single, continueRun: () => null }, project, false);
+	// Continue would add several pieces, where a press adds one
+	const state = createState({ ...deps, continueRun: () => null }, project, false);
 	await tolerate(state, project);
 	const target = nextTarget(state, project, await run(state, project));
 	if (target == null) return null;
