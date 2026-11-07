@@ -1,9 +1,10 @@
 import { createState } from 'feature-state';
-import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, propose, type TProposal, type TProposeDeps } from '@/modules/building';
-import { type TProject, tieOf } from '@/modules/project';
+import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, patternOfPiece, propose, type TProposal, type TProposeDeps } from '@/modules/building';
+import { type TProject, tieOf, toHitKey } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx, TNotice } from '@/modules/studio';
 import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, effectWords, frontierStop, isBadProposal, isOverBuilt, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { pastBuiltMark } from './past-built';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -259,10 +260,15 @@ export class BarCx {
 		this.ask(kind, true);
 	}
 
-	/** Flip at the end of what's built, with its own key: a hint like any other choice */
-	flip(): boolean {
+	/** Whether Flip applies: a plain platform at the end of what's built, where no later note depends on its direction */
+	get canFlip(): boolean {
 		const { target } = this.$state.get();
-		if (target?.kind !== 'note' || !target.isLastBuilt || target.group != null) return false;
+		return target?.kind === 'note' && target.isLastBuilt && target.group == null && target.piece?.type === 'platform';
+	}
+
+	/** Flip, from M, the right-click menu or the inspector: a hint in the bar like any other choice, landed on accept */
+	flip(): boolean {
+		if (!this.canFlip) return false;
 		this.choose('flip');
 		return true;
 	}
@@ -289,6 +295,24 @@ export class BarCx {
 		const state = this.$state.get();
 		if (state.menu != null) this.closeMenu();
 		this.$state.set({ ...this.$state.get(), isDetailsOpen: !state.isDetailsOpen });
+	}
+
+	/**
+	 * What going to a problem selects: a live Pattern's piece by its note, as stepping onto it in the bar does, so Layers,
+	 * the bar and the inspector all stand on that note rather than on the piece, its note and its Pattern at once
+	 */
+	issueSelection(ids: readonly string[]): string[] {
+		const project = this.studio.project;
+		const piece = ids.length === 1 ? project?.track.pieces.find((item) => item.id === ids[0]) : undefined;
+		const tie = tieOf(piece);
+		if (project == null || piece == null || tie?.kind !== 'plays' || patternOfPiece(project, piece.id) == null) return [...ids];
+		return [toHitKey(tie.marbleId, tie.hitId)];
+	}
+
+	/** Opens the status popover on what the bar now stands on, as going to a problem from the summary does */
+	openDetails(): void {
+		const state = this.$state.get();
+		if (state.target != null && !state.isDetailsOpen) this.$state.set({ ...state, menu: null, isDetailsOpen: true });
 	}
 
 	closeDetails(): void {
@@ -363,6 +387,8 @@ export class BarCx {
 
 	runRow(row: TBarRow | undefined): void {
 		if (row == null) return;
+		// A row that doesn't fit is greyed out: it says why and does nothing
+		if (row.isChoice && isRowRefused(this.$state.get().answers[row.id])) return;
 		if (row.isChoice) {
 			this.choose(row.id);
 			return;
@@ -378,11 +404,19 @@ export class BarCx {
 
 	/** Arrow keys and Enter go to the open dropdown before anything else */
 	handleMenuKey(event: KeyboardEvent): boolean {
-		const { menu } = this.$state.get();
+		const { menu, answers } = this.$state.get();
 		if (menu == null) return false;
 		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 			const step = event.key === 'ArrowDown' ? 1 : -1;
-			this.hoverRow((menu.index + step + menu.rows.length) % menu.rows.length);
+			const count = menu.rows.length;
+			// Arrows pass over greyed-out rows, as in a macOS menu
+			let index = menu.index;
+			for (let tried = 0; tried < count; tried++) {
+				index = (index + step + count) % count;
+				const row = menu.rows[index];
+				if (row != null && !(row.isChoice && isRowRefused(answers[row.id]))) break;
+			}
+			this.hoverRow(index);
 			return true;
 		}
 		if (event.key === 'Enter') {
@@ -449,11 +483,18 @@ export class BarCx {
 		this.$state.set(EMPTY);
 	}
 
-	/** Brings the note above the bar, as soon as this track's run says where it is. A press never pans again */
+	/**
+	 * Brings the note above the bar, as soon as this track's run says where it is. Past what's built, the last built piece,
+	 * with the note's mark when both fit. A press never pans again
+	 */
 	private revealOnce(session: TBarSession, target: TBarTarget): void {
-		if (session.isRevealed || this.currentResult(session.project) == null) return;
+		const result = this.currentResult(session.project);
+		if (session.isRevealed || result == null) return;
 		session.isRevealed = true;
-		this.studio.$reveal.set({ ids: targetHitKeys(target), isZoomKept: true });
+		const mark = pastBuiltMark(session.project, result, target);
+		// With nothing built yet, where building starts is the marble's release
+		if (mark != null) this.studio.$reveal.set({ ids: [mark.lastPieceId ?? target.marbleId], also: [mark.point], isZoomKept: true });
+		else this.studio.$reveal.set({ ids: targetHitKeys(target), isZoomKept: true });
 	}
 
 	/** A new track with nothing built starts on its first note, so the bar is there at once */
@@ -567,6 +608,11 @@ export class BarCx {
 			}
 		}
 	}
+}
+
+/** Whether a dropdown row's answer says it doesn't fit here, so the row is greyed out with its reason */
+export function isRowRefused(answer: TBarAnswer | undefined): boolean {
+	return answer?.proposal?.status === 'refused';
 }
 
 /** The selection after the very last stop: what landed, so its Adjust is there */

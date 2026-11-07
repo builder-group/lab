@@ -8,7 +8,7 @@ import packageJson from './package.json';
 // eslint-disable-next-line turbo/no-undeclared-env-vars
 const host = process.env['TAURI_DEV_HOST'];
 
-/** The commit this build came from, for the start window; a build outside git says so */
+/** The commit this build came from, read once, for the start window and Layers' foot; a build outside git says so */
 function buildCommit(): string {
 	try {
 		return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();

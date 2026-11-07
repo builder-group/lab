@@ -1,7 +1,7 @@
-import { isPatternGroup, parseGroupKey, parseHitKey, parseRangeKey, tieOf, toHitKey, toRangeKey, type TPatternGroup, type TPiece, type TProject } from '@/modules/project';
+import { isPatternGroup, parseGroupKey, parseHitKey, parseRangeKey, tieOf, toHitKey, toRangeKey, type TGroup, type TPatternGroup, type TPiece, type TProject } from '@/modules/project';
 import { findLongGaps, hitOwners, patternOfPiece, restOffers, type TLongGap, type TProposal, type TProposeAsk } from '@/modules/building';
 import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
-import { patternPhrase } from './PatternsCx';
+import { groupSelection, patternPhrase } from './PatternsCx';
 
 // What the floating bar is about and what it offers, as pure functions of the track and the selection.
 
@@ -138,9 +138,17 @@ function restTarget(project: TProject, marbleId: string, from: number, to: numbe
 	return { kind: 'rest', marbleId, gap: found, total: marble.hits.length, stage, piece };
 }
 
-/** The selection that puts the bar on a stop: a built note's platform, so it's there to adjust, or the note or rest itself */
+/**
+ * The selection that puts the bar on a stop: a built note's platform, so it's there to adjust, a filled rest's piece or
+ * its Pattern, so it's selected on the wall, in Layers and in the inspector alike, or the note or empty rest itself
+ */
 export function selectionOfStop(project: TProject, stop: TBarStop): string[] {
-	if (stop.kind === 'rest') return [toRangeKey(stop.marbleId, stop.gap.from, stop.gap.to)];
+	if (stop.kind === 'rest') {
+		const held = stop.gap.bridgedBy;
+		if (held == null || !project.track.pieces.some((piece) => piece.id === held)) return [toRangeKey(stop.marbleId, stop.gap.from, stop.gap.to)];
+		const pattern = patternOfPiece(project, held);
+		return pattern != null ? groupSelection(pattern) : [held];
+	}
 	const piece = hitOwners(project, stop.marbleId).get(stop.hitId);
 	return [piece != null && patternOfPiece(project, piece.id) == null ? piece.id : toHitKey(stop.marbleId, stop.hitId)];
 }
@@ -206,9 +214,14 @@ export function targetKey(target: TBarTarget): string {
 	return target.kind === 'rest' ? `rest:${target.marbleId}:${target.gap.toHitId}` : target.kind === 'note' ? `note:${target.marbleId}:${target.hitId}` : `notes:${target.marbleId}:${target.hitIds.join(',')}`;
 }
 
-/** What Where says, short enough for its fixed width: "12 / 149", "8 notes", "Rest 1.0 s" */
+/** A rest by its length, the same in the bar, the inspector and the timeline: "Rest · 2.0 s" */
+export function restWords(seconds: number): string {
+	return `Rest · ${seconds.toFixed(1)} s`;
+}
+
+/** What Where says, short enough for its fixed width: "12 / 149", "8 notes", "Rest · 1.0 s" */
 export function whereWords(target: TBarTarget): string {
-	if (target.kind === 'rest') return `Rest ${target.gap.duration.toFixed(1)} s`;
+	if (target.kind === 'rest') return restWords(target.gap.duration);
 	return target.kind === 'note' ? `${target.number} / ${target.total}` : `${target.hitIds.length} notes`;
 }
 
@@ -290,14 +303,11 @@ export interface TBarRow {
 	isSplit?: boolean;
 }
 
-/** The dropdown: only what fits the selection, with Build Entire Track last */
+/** The dropdown: only what fits the selection, with Build Entire Track last. None past what's built, where the bar offers only Build Up to Here */
 export function barRows(project: TProject, target: TBarTarget, openNotes: number): TBarRow[] {
 	const rows: TBarRow[] = [];
 	const buildEntire: TBarRow = { id: BUILD_ENTIRE, label: 'Build Entire Track', isChoice: false, note: `${openNotes} ${openNotes === 1 ? 'note' : 'notes'} left`, isSplit: true };
-	if (target.kind !== 'notes' && target.stage === 'pastBuilt') {
-		rows.push({ id: BUILD_UP_TO, label: 'Build Up to Here', isChoice: true });
-		return [...rows, buildEntire];
-	}
+	if (target.kind !== 'notes' && target.stage === 'pastBuilt') return rows;
 	const isBuilt = target.kind === 'notes' ? target.pieces.length > 0 : target.stage === 'built';
 	const prefix = isBuilt ? 'Change to ' : '';
 	if (target.kind === 'rest') {
@@ -334,6 +344,9 @@ const CURVED_LAYOUTS: ReadonlySet<string> = new Set(['curve', 'c']);
 export function standingWords(project: TProject, target: TBarTarget): string {
 	// Where already counts the notes: What says what stands on them
 	if (target.kind === 'notes') {
+		// A plain Group, as Flatten leaves it, reads by its name, as in Layers
+		const plain = plainGroupOf(project, target);
+		if (plain != null) return plain.name;
 		const labels = new Set(target.pieces.map((piece) => getPieceDefinition(piece.type)?.label ?? 'Piece'));
 		const [only] = labels;
 		return !target.pieces.length ? 'Notes' : labels.size === 1 && only != null ? `${only}s` : 'Pieces';
@@ -341,6 +354,13 @@ export function standingWords(project: TProject, target: TBarTarget): string {
 	if (target.piece == null) return target.kind === 'rest' ? 'Rest' : 'Note';
 	if (target.kind === 'rest') return restPieceWord(project, target.piece);
 	return getPieceDefinition(target.piece.type)?.label ?? 'Piece';
+}
+
+/** The plain Group that holds every piece on these notes, such as a Pattern after Flatten, or null */
+export function plainGroupOf(project: TProject, target: TBarTarget): TGroup | null {
+	if (target.kind !== 'notes' || !target.pieces.length) return null;
+	const group = project.track.groups.find((item) => !isPatternGroup(item) && item.pieceIds.includes(target.pieces[0]?.id ?? ''));
+	return group != null && target.pieces.every((piece) => group.pieceIds.includes(piece.id)) ? group : null;
 }
 
 /** The accept button's words for a choice */
@@ -353,7 +373,7 @@ export function acceptWords(project: TProject, target: TBarTarget, choice: TBarC
 	const name = KIND_NAMES[choice] ?? choice;
 	const isBuilt = target.kind === 'notes' ? target.pieces.length > 0 : target.stage === 'built';
 	const stretch = choice === 'zigzag' || choice === 'staircase' ? stretchOf(project, target).length : 0;
-	return `${isBuilt ? 'Change to' : 'Add'} ${name}${stretch > 1 ? ` · ${stretch} Notes` : ''}${anyway}`;
+	return `${isBuilt ? 'Change to' : 'Add'} ${name}${stretch > 1 ? ` · ${stretch} notes` : ''}${anyway}`;
 }
 
 // MARK: - What a proposal does
@@ -398,5 +418,12 @@ function laterWords(proposal: TProposal, isOverBuiltNotes: boolean): string | nu
 export function rowWords(target: TBarTarget, proposal: TProposal): string {
 	const words = effectWords(target, proposal) ?? (proposal.status === 'fits' ? '' : (proposal.words ?? ''));
 	// The row already names it, so it says why
-	return proposal.status === 'refused' ? words.replace(/^[^.]* doesn't fit [^.]*\. /, '') : words;
+	return oneLine(proposal.status === 'refused' ? words.replace(/^[^.]* doesn't fit [^.]*\. /, '') : words);
+}
+
+/** A reason shown as one line, at a row's end or in the bar's place, ends without a period, as `words.md` has labels and hints */
+export function oneLine(words: string): string {
+	const line = words.trim();
+	// One sentence: no period that ends one before the last, though "0.70 s" has a dot
+	return line.endsWith('.') && !/\.\s/.test(line.slice(0, -1)) ? line.slice(0, -1) : words;
 }

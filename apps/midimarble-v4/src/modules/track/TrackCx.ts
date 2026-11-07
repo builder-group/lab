@@ -43,8 +43,6 @@ export class TrackCx {
 	readonly $hover = createState<TPick | null>(null);
 	readonly $drag = createState<TTrackDrag | null>(null);
 	readonly $spaceHeld = createState(false);
-	/** Piece whose angle readout is being typed into */
-	readonly $editingAngle = createState<string | null>(null);
 	/** Rail being drawn with the path tool, in world coordinates */
 	readonly $pen = createState<TPen | null>(null);
 	/**
@@ -858,11 +856,14 @@ export class TrackCx {
 	/**
 	 * A typed time or a step to the previous or next hit glides the marble there into view, with Follow on or off:
 	 * the hit dots struck at that moment, or the focused marble between hits. Nothing moves when they are already in
-	 * view or while playing, when only Follow moves the view.
+	 * view or while playing, when only Follow moves the view. The bar on a note past what's built has framed where building
+	 * stands, and the marble's fall there leads nowhere
 	 */
 	private revealPlayhead(): void {
 		const result = this.result;
 		if (result == null || this.studio.$playing.get() || this.$drag.get() != null) return;
+		const target = this.studio.bar.$state.get().target;
+		if (target != null && target.kind !== 'notes' && target.stage === 'pastBuilt') return;
 		const time = this.studio.$playhead.get();
 		const struck = struckAt(result.hits, time);
 		const focus = struck.length ? undefined : (this.marbleFocus() ?? undefined);
@@ -874,17 +875,18 @@ export class TrackCx {
 		const pending = this.studio.$reveal.get();
 		if (pending == null || this.result == null || this.$viewport.get().width <= 1) return;
 		this.studio.$reveal.set(null);
-		this.reveal(pending.ids, pending.point, pending.isFramed === true, pending.isZoomKept === true);
+		this.reveal(pending.ids, pending.point, pending.isFramed === true, pending.isZoomKept === true, pending.also ?? []);
 	}
 
 	/**
 	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit and `isZoomKept` is off.
-	 * Hit keys reveal their dot.
+	 * Hit keys reveal their dot. `also`, and a marble's start already in view, come into view with them when all of it fits
+	 * at the zoom
 	 */
-	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false): void {
+	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false, also: readonly TVec2[] = []): void {
 		const result = this.result;
 		if (result == null) return;
-		const points: TVec2[] = point != null ? [point] : [];
+		const points: TVec2[] = [];
 		for (const id of ids) {
 			const key = parseHitKey(id);
 			const dot = key != null ? result.hits.find((hit) => hit.marbleId === key.marbleId && hit.hitId === key.hitId)?.dot : null;
@@ -893,18 +895,9 @@ export class TrackCx {
 			if (release != null) points.push(release.position);
 		}
 		const margin = 0.03;
-		const bounds = [
-			boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.pieceId))),
-			...points.map((item) => ({ minX: item.x - margin, minY: item.y - margin, maxX: item.x + margin, maxY: item.y + margin }))
-		].reduce<TBounds | null>(
-			(union, item) =>
-				item == null
-					? union
-					: union == null
-						? item
-						: { minX: Math.min(union.minX, item.minX), minY: Math.min(union.minY, item.minY), maxX: Math.max(union.maxX, item.maxX), maxY: Math.max(union.maxY, item.maxY) },
-			null
-		);
+		// What's asked about itself, then with the point, such as where the hint sends the marble next
+		const core = [boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.pieceId))), ...points.map((item) => boundsAround(item, margin))].reduce<TBounds | null>((union, item) => (item == null ? union : union == null ? item : unionBounds(union, item)), null);
+		const bounds = point != null ? (core != null ? unionBounds(core, boundsAround(point, margin)) : boundsAround(point, margin)) : core;
 		if (bounds == null) return;
 		const viewport = this.$viewport.get();
 		const camera = this.$camera.get();
@@ -917,10 +910,24 @@ export class TrackCx {
 			return;
 		}
 		// Where a glide under way ends is what counts, or it would carry on past this
-		const goal = this.isNavigating ? this.motion?.state.goal : null;
-		if (isBoundsVisible(goal ?? camera.view, viewport, bounds, 40)) return;
-		const fitted = fitBounds(bounds, viewport, canvasPadding);
-		this.navigateTo(fitted.scale < camera.view.scale && !isZoomKept ? fitted : { scale: camera.view.scale, center: fitted.center });
+		const view = (this.isNavigating ? this.motion?.state.goal : null) ?? camera.view;
+		const { scale } = camera.view;
+		// A marble's start in view stays there when it can, so a pan along a new track never slides it under the corner group
+		const starts = (this.project?.marbles ?? []).map((marble) => marble.start.position).filter((start) => isBoundsVisible(view, viewport, boundsAround(start, 0)));
+		const withAlso = [...also, ...starts].reduce((union, item) => unionBounds(union, boundsAround(item, margin)), bounds);
+		// In view means clear of the corner group and the bar, not merely on the canvas
+		if (withAlso !== bounds && isInFrame(view, viewport, withAlso)) return;
+		if (withAlso !== bounds && fitsAt(withAlso, scale, viewport)) {
+			this.navigateTo({ scale, center: centerAt(withAlso, scale) });
+			return;
+		}
+		if (isInFrame(view, viewport, bounds)) return;
+		if (!fitsAt(bounds, scale, viewport) && !isZoomKept) {
+			this.navigateTo(fitBounds(bounds, viewport, canvasPadding));
+			return;
+		}
+		// At this zoom, what's asked about stays in view and the view leans toward the point as far as that allows
+		this.navigateTo({ scale, center: centerAt(core != null ? leanToward(core, bounds, scale, viewport) : bounds, scale) });
 	}
 
 	private onWheel(event: WheelEvent, container: HTMLElement): void {
@@ -951,7 +958,6 @@ export class TrackCx {
 		const isPan = event.button === 1 || tool === 'hand' || this.$spaceHeld.get();
 		if (event.button !== 0 && event.button !== 1) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
-		this.$editingAngle.set(null);
 
 		if (isPan) {
 			this.takeView();
@@ -2546,6 +2552,52 @@ const MIN_FIT_PLATFORM_PX = 24;
 
 // Keeps framed content clear of the corner controls and the contextual bar
 const canvasPadding: TPadding = { top: 56, right: 56, bottom: 96, left: 56 };
+
+function boundsAround(point: TVec2, margin: number): TBounds {
+	return { minX: point.x - margin, minY: point.y - margin, maxX: point.x + margin, maxY: point.y + margin };
+}
+
+function unionBounds(a: TBounds, b: TBounds): TBounds {
+	return { minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY), maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY) };
+}
+
+/** Whether `bounds` fits inside the padded canvas at this zoom */
+function fitsAt(bounds: TBounds, scale: number, viewport: TViewport): boolean {
+	const { top, right, bottom, left } = canvasPadding;
+	return (bounds.maxX - bounds.minX) * scale <= viewport.width - left - right && (bounds.maxY - bounds.minY) * scale <= viewport.height - top - bottom;
+}
+
+/** How far from the middle a lean may put what's asked about, as a share of half the padded canvas */
+const LEAN_REACH = 0.7;
+
+/** Whether `bounds` lies inside the padded canvas, clear of the corner group and the bar */
+function isInFrame(view: TView, viewport: TViewport, bounds: TBounds): boolean {
+	const { top, right, bottom, left } = canvasPadding;
+	const topLeft = worldToScreen(view, viewport, { x: bounds.minX, y: bounds.maxY });
+	const bottomRight = worldToScreen(view, viewport, { x: bounds.maxX, y: bounds.minY });
+	return topLeft.x >= left && topLeft.y >= top && bottomRight.x <= viewport.width - right && bottomRight.y <= viewport.height - bottom;
+}
+
+/**
+ * Where to center when `bounds` is too big for the padded canvas at this zoom: as near its middle as keeps all of `core`
+ * inside, as a point bounds
+ */
+function leanToward(core: TBounds, bounds: TBounds, scale: number, viewport: TViewport): TBounds {
+	const { top, right, bottom, left } = canvasPadding;
+	// Not quite to the edge, so a little of what comes before it shows too
+	const halfWidth = Math.max(0, ((viewport.width - left - right) / 2 / scale) * LEAN_REACH);
+	const halfHeight = Math.max(0, ((viewport.height - top - bottom) / 2 / scale) * LEAN_REACH);
+	const clamp = (value: number, low: number, high: number): number => (low > high ? (low + high) / 2 : Math.min(high, Math.max(low, value)));
+	const x = clamp((bounds.minX + bounds.maxX) / 2, core.maxX - halfWidth, core.minX + halfWidth);
+	const y = clamp((bounds.minY + bounds.maxY) / 2, core.maxY - halfHeight, core.minY + halfHeight);
+	return { minX: x, maxX: x, minY: y, maxY: y };
+}
+
+/** The view center that puts `bounds` in the middle of the padded canvas at this zoom */
+function centerAt(bounds: TBounds, scale: number): TVec2 {
+	const { top, right, bottom, left } = canvasPadding;
+	return { x: (bounds.minX + bounds.maxX) / 2 - (left - right) / 2 / scale, y: (bounds.minY + bounds.maxY) / 2 - (bottom - top) / 2 / scale };
+}
 
 /**
  * Each marble's release and where its free fall from there reaches its first note: what the run's first hits

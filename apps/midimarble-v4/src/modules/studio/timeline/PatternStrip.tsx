@@ -18,8 +18,14 @@ const MIN_DRAG_PX = 3;
  * a Group: a click selects it; a Pattern's edges resize it, which fits it again, and dragging its body moves it along the
  * row to other notes, with its hint on the wall, landed on release when it fits.
  */
-/** Pixels a block needs to show a short name whole, after its icon */
-const MIN_NAMED_BLOCK = 58;
+/** Pixels a block needs for its icon and padding before its name, and about what each character of the name takes */
+const NAME_ROOM = 24;
+const NAME_CHAR = 6.2;
+
+/** Whether a block this wide shows its name whole: "Curved Rail" needs more than "Zigzag" */
+function fitsName(name: string, width: number): boolean {
+	return width >= NAME_ROOM + name.length * NAME_CHAR;
+}
 /** Pixels a block needs to show its icon */
 const MIN_ICON_BLOCK = 22;
 
@@ -48,6 +54,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		event.currentTarget.setPointerCapture(event.pointerId);
 		const time = timeAt(event.clientX);
 		setRange({ from: time, to: time });
+		cx.$isStripDragging.set(true);
 	}
 
 	function onPointerMove(event: React.PointerEvent<HTMLDivElement>): void {
@@ -57,6 +64,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	}
 
 	function onPointerUp(): void {
+		cx.$isStripDragging.set(false);
 		if (range == null || project == null) return;
 		const from = Math.max(0, Math.min(range.from, range.to));
 		const to = Math.max(range.from, range.to);
@@ -109,7 +117,10 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
 			onPointerUp={onPointerUp}
-			onPointerCancel={() => setRange(null)}
+			onPointerCancel={() => {
+				setRange(null);
+				cx.$isStripDragging.set(false);
+			}}
 			onPointerLeave={() => setHoverX(null)}
 			onDoubleClick={(event) => event.stopPropagation()}
 			onContextMenu={(event) => event.stopPropagation()}
@@ -146,10 +157,14 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						onPointerDown={(event) => {
 							event.stopPropagation();
 							wasDraggedRef.current = false;
+							if (event.button !== 0) return;
+							// What's pressed is what's dragged, like Figma: it's selected now and stays so through the drag
+							if (!selectedGroupIds.has(group.id)) cx.$selection.set(groupSelection(group));
 							// A live Pattern's block drags along the row to other notes, asked of `propose` as it goes
-							if (event.button !== 0 || !isPatternGroup(group) || isSilence) return;
+							if (!isPatternGroup(group) || isSilence) return;
 							event.currentTarget.setPointerCapture(event.pointerId);
 							setShiftDrag({ groupId: group.id, startX: event.clientX, shift: 0 });
+							cx.$isStripDragging.set(true);
 						}}
 						onPointerEnter={() => setHoverX(null)}
 						onPointerMove={(event) => {
@@ -166,10 +181,12 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 							event.stopPropagation();
 							const drag = shiftDrag;
 							setShiftDrag(null);
+							cx.$isStripDragging.set(false);
 							if (drag?.groupId === group.id && drag.shift !== 0 && isPatternGroup(group)) void cx.patterns.endMove(group, { shift: drag.shift });
 						}}
 						onPointerCancel={() => {
 							setShiftDrag(null);
+							cx.$isStripDragging.set(false);
 							cx.patterns.cancelMove();
 						}}
 						onClick={() => {
@@ -182,7 +199,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 					>
 						{/* Its icon says Pattern or plain Group; a block too short for its name shows none, not "Zig…", and the tooltip has it */}
 						{(to - from) * zoom + 2 * pad >= MIN_ICON_BLOCK ? <GroupIcon group={group} size={10} /> : null}
-						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}
+						{fitsName(group.name, (to - from) * zoom + 2 * pad) ? <span className="mm-pattern-block-name">{group.name}</span> : null}
 						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
 						{isPatternGroup(group) && !isSilence
 							? (['from', 'to'] as const).map((edge) => (
@@ -196,12 +213,15 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 											event.stopPropagation();
 											event.currentTarget.setPointerCapture(event.pointerId);
 											setResize({ groupId: group.id, edge, time: edge === 'from' ? span.from : span.to });
+											if (!selectedGroupIds.has(group.id)) cx.$selection.set(groupSelection(group));
+											cx.$isStripDragging.set(true);
 										}}
 										onPointerMove={(event) => {
 											if (resize?.groupId === group.id) setResize({ ...resize, time: timeAt(event.clientX) });
 										}}
 										onPointerUp={(event) => {
 											event.stopPropagation();
+											cx.$isStripDragging.set(false);
 											endResize(group);
 										}}
 									/>

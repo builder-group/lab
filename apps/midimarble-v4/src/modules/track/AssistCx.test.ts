@@ -3,7 +3,7 @@ import { createHistory, createMarble, createProject, type TProject, type TProjec
 import { createLinkedPiece, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { type TAutoPlaceAnswer } from '@/modules/building';
 import { StudioCx } from '@/modules/studio';
-import { AssistCx } from './AssistCx';
+import { AssistCx, brokenWords } from './AssistCx';
 
 const stubs = vi.hoisted(() => ({ gate: Promise.resolve() as Promise<void>, builtHits: [] as unknown[] }));
 
@@ -195,5 +195,15 @@ describe('AssistCx class', () => {
 			expect(cx.project?.id).toBe('second');
 			expect(cx.project?.track.pieces).toEqual([]);
 		});
+	});
+});
+
+describe('brokenWords function', () => {
+	const hit = (status: THitResult['status'], reason?: string): THitResult => ({ status, ...(reason != null ? { reason } : {}) }) as THitResult;
+
+	it('should name the status the notes are in, not every status they might be in', () => {
+		expect(brokenWords([hit('blocked')])).toBe('1 note is now Blocked');
+		expect(brokenWords([hit('missed'), hit('missed'), hit('missed', 'resting')])).toBe('2 notes are now Missed and 1 Stopped');
+		expect(brokenWords([hit('blocked'), hit('blocked'), hit('missed'), hit('missed', 'resting')])).toBe('2 notes are now Blocked, 1 Missed and 1 Stopped');
 	});
 });

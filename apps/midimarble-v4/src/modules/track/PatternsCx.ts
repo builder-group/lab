@@ -137,7 +137,8 @@ export class PatternsCx {
 	/** Flatten Pattern: one Undo step, and the piece a person went for is selected, ready to drag, or else all of them */
 	flatten(group: TPatternGroup, pieceId?: string): void {
 		if (!this.studio.execute(flattenCommands(group), { label: 'Flatten' })) return;
-		this.studio.$selection.set(pieceId != null && group.pieceIds.includes(pieceId) ? [pieceId] : group.pieceIds);
+		// The plain Group it leaves stays selected as a whole, its row with its pieces, as Figma keeps a group selected
+		this.studio.$selection.set(pieceId != null && group.pieceIds.includes(pieceId) ? [pieceId] : groupSelection(group));
 		this.studio.notifyEdit(`Flattened ${group.name}`);
 	}
 
@@ -268,7 +269,7 @@ export class PatternsCx {
 			const estimate = createEstimate({ minElapsedMs: 3000 });
 			const answer = await this.clientNow().run(project, change, (progress: TGroupRunProgress) => {
 				const percent = Math.round(progress.fraction * 100);
-				const steps = progress.steps > 1 ? `${progress.step} of ${progress.steps} Groups` : `${percent}%`;
+				const steps = progress.steps > 1 ? `${progress.step} of ${progress.steps} groups` : `${percent}%`;
 				const left = estimate.update(performance.now() - startedAt, progress.fraction, percent, 100);
 				this.studio.updateNotice(noticeId, { message: [`Fitting ${progress.name}`, steps, left].filter(Boolean).join(' · '), progress: progress.fraction });
 			}, isChecked);
@@ -352,7 +353,7 @@ function madeWords(target: TPatternTarget, span: { from: number; to: number } | 
 	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERNS[kind].label}`;
 	if (settings.width != null) return `${name}: Width ${(settings.width * 100).toFixed(0)} cm`;
 	if (settings.bounce != null) return `${name}: Bounce ${settings.bounce.toFixed(2)}`;
-	if (settings.maxTilt != null) return `${name}: Tilt limit ${settings.maxTilt.toFixed(0)}°`;
+	if (settings.maxTilt != null) return `${name}: Tilt Limit ${settings.maxTilt.toFixed(0)}°`;
 	return span != null && (target.from !== span.from || target.to !== span.to) ? `${name}: new range` : `Fitted ${name} again`;
 }
 

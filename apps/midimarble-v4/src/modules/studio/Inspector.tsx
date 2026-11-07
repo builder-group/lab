@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Sparkles, Type } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
-import { PieceIcon } from '@/modules/canvas';
-import { unreachableActions, GroupInspector, PatternRangeInspector, FixButton, PieceInspector, timingStatus, auditionNote, handNotes } from '@/modules/track';
-import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, selectionProblems, unreachableStatus } from '@/modules/building';
+import { PieceIcon, useRunPreflight } from '@/modules/canvas';
+import { unreachableActions, GroupInspector, PatternRangeInspector, FixButton, lookStatus, PieceInspector, struckStatus, timingStatus, auditionNote, handNotes } from '@/modules/track';
+import { canMakeBacking, hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
 import { autoLevelLabel, DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, formatLevel, instruments, LEVEL_CHOICES, marbleSounds, melodyMarbleId, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
@@ -31,35 +31,11 @@ export const Inspector: React.FC<TInspectorProps> = (props) => {
 	return (
 		<aside className="mm-inspector" aria-label="Inspector" data-quick-help="inspector">
 			<div className="mm-insp-scroll">
-				<SelectionProblems cx={cx} selection={selection} />
 				<TargetInspector cx={cx} project={project} target={target} workspace={workspace} />
 			</div>
 		</aside>
 	);
 };
-
-/** What's wrong with what is selected, in words, above its inspector: a problem's click lands here */
-const SelectionProblems: React.FC<{ cx: StudioCx; selection: readonly string[] }> = (props) => {
-	const { cx, selection } = props;
-	const problems = useFeatureState(cx.simulation.$problems);
-	const shown = React.useMemo(() => selectionProblems(problems, selection).slice(0, MAX_SELECTION_PROBLEMS), [problems, selection]);
-	if (!shown.length) return null;
-	return (
-		<div className="mm-insp-problems" role="status">
-			{shown.map((issue) => (
-				<div key={issue.id} className="mm-insp-problem">
-					<span className="mm-hit-summary-dot mt-[4px] shrink-0" aria-hidden />
-					<span className="min-w-0">
-						<span className="mm-insp-problem-title">{issue.title}</span>
-						{issue.detail != null ? <span className="mm-insp-problem-detail">{issue.detail}</span> : null}
-					</span>
-				</div>
-			))}
-		</div>
-	);
-};
-
-const MAX_SELECTION_PROBLEMS = 3;
 
 /** The inspector of the selected layer; Track and Film differ only in what a piece shows (shape or skin) */
 const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInspectorTarget; workspace: TWorkspace }> = (props) => {
@@ -82,7 +58,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return title == null ? null : <WallTextInspector cx={cx} project={project} piece={title} />;
 		}
 		case 'titles':
-			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} Titles`} subtitle="Multiple selection" />;
+			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} titles`} subtitle="Multiple selection" />;
 		case 'shot': {
 			const shot = project.film.camera.shots.find((item) => item.id === target.id);
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
@@ -302,6 +278,10 @@ type THitOwner = Pick<TMarble, 'id' | 'name' | 'labelColor' | 'sound' | 'hits'>;
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
+	// What the run says of pieces beyond timing, struck twice, rolled on or touching, so the pill says what the bar's mark does
+	const preflight = useRunPreflight(cx);
+	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
 	// Backing joins the marbles so a Backing note shows like a hit without a marble
 	const backing: THitOwner = { id: BACKING_ID, name: 'Backing', labelColor: BACKING_COLOR, sound: backingSong(project)?.backingSound ?? 0, hits: backingOf(project) };
 	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
@@ -338,7 +318,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			<>
 				<InspectorHeader
 					icon={<HitGlyph />}
-					title={`${hits.length} Notes`}
+					title={`${hits.length} notes`}
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
 				/>
 				<Panel id="hit.playedBy" title="Played By">
@@ -361,10 +341,13 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.type)?.label ?? 'Piece');
 	const timing =
 		piece == null
-			? unreachable == null
-				? null
-				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
-			: timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
+			? unreachable != null
+				? { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
+				: // An open note says so, as the bar's hollow mark does
+					isBacking
+					? null
+					: { tone: 'neutral' as const, label: 'Open', detail: 'No platform plays this note yet' }
+			: lookStatus(struckStatus(timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel }), struck?.get(piece.id)), looks?.get(piece.id));
 
 	function setHit(patch: Partial<THit>): void {
 		cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [{ ...hit, ...patch }] }]);

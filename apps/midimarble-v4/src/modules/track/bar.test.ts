@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, standingWords, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
+import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, oneLine, passedWords, selectionOfStop, senderOf, standingWords, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -68,7 +68,7 @@ describe('stops', () => {
 		const selection = selectionOfStop(project, stop);
 		const rest = targetOf(project, selection);
 		expect(rest.kind).toBe('rest');
-		expect(whereWords(rest)).toBe('Rest 3.5 s');
+		expect(whereWords(rest)).toBe('Rest · 3.5 s');
 		expect(stopBeside(project, rest, -1)).toMatchObject({ kind: 'note', number: 2 });
 		expect(stopBeside(project, rest, 1)).toMatchObject({ kind: 'note', number: 3 });
 	});
@@ -163,8 +163,14 @@ describe('barRows', () => {
 		expect(rows.map((row) => row.label)).toEqual(['Change to Zigzag', 'Change to Staircase', 'Rebuild From Here', 'Remove']);
 	});
 
-	it('offers past the built notes only building', () => {
-		expect(ids(track(EVEN, 1), [hit('h3')])).toEqual(['buildUpTo', 'buildEntire']);
+	it('says a one-sentence reason without its period, and keeps longer ones as they are', () => {
+		expect(oneLine('Note 12 of Melody lies outside the frame.')).toBe('Note 12 of Melody lies outside the frame');
+		expect(oneLine('The rail lets go 0.70 s early for the note at 0:09.')).toBe('The rail lets go 0.70 s early for the note at 0:09');
+		expect(oneLine('Zigzag doesn\'t fit. Try a higher Bounce.')).toBe('Zigzag doesn\'t fit. Try a higher Bounce.');
+	});
+
+	it('has no dropdown past the built notes, where the bar offers only Build Up to Here', () => {
+		expect(ids(track(EVEN, 1), [hit('h3')])).toEqual([]);
 	});
 });
 
@@ -173,8 +179,8 @@ describe('acceptWords', () => {
 		const project = track(EVEN, 1);
 		const open = targetOf(project, [hit('h2')]);
 		expect(acceptWords(project, open, 'platform', false)).toBe('Add Platform');
-		expect(acceptWords(project, open, 'zigzag', false)).toBe('Add Zigzag · 3 Notes');
-		expect(acceptWords(project, targetOf(project, ['p1']), 'staircase', false)).toBe('Change to Staircase · 4 Notes');
+		expect(acceptWords(project, open, 'zigzag', false)).toBe('Add Zigzag · 3 notes');
+		expect(acceptWords(project, targetOf(project, ['p1']), 'staircase', false)).toBe('Change to Staircase · 4 notes');
 		expect(acceptWords(project, targetOf(project, ['p1']), 'remove', true)).toBe('Remove Anyway');
 	});
 });

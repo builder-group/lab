@@ -98,6 +98,8 @@ export class StudioCx {
 	/** What ⌘C kept, for ⌘V; it lasts while the app runs, also into another project */
 	readonly $clipboard = createState<TClipboard | null>(null);
 	readonly $locked = createState<string[]>([]);
+	/** A drag in the timeline's Pattern strip is under way: the bar steps aside until release, as for a drag on the wall */
+	readonly $isStripDragging = createState(false);
 	/** Dropping an element links it to a hit dot or anchors it to a trajectory, like Figma's snapping */
 	readonly $snapping = createState(true);
 	/** Film outlines every piece's hitbox, like Unity's collider gizmos; a selected piece always shows its own */
@@ -343,8 +345,10 @@ export class StudioCx {
 		this.$workspace.set(target.workspace ?? 'track');
 		if (target.workspace === 'film') this.$selection.set(target.ids);
 		else {
-			this.$selection.set(target.ids);
+			this.$selection.set(this.bar.issueSelection(target.ids));
 			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
+			// Going to a problem means wanting its details: the bar's popover opens on it at once
+			this.bar.openDetails();
 		}
 		if (target.time != null) this.$playhead.set(target.time);
 	}
@@ -359,7 +363,8 @@ export class StudioCx {
 			this.notify('Checking the track…');
 			return;
 		}
-		const first = summary.problems[0];
+		// What the red count names comes first: a note that needs attention, then any other problem, each in time order
+		const first = summary.problems.find((problem) => problem.kind === 'hit') ?? summary.problems[0];
 		if (first?.target == null) {
 			this.notify(summary.problems.length > 0 ? (first?.title ?? summary.label) : `No problems: ${summary.label}`);
 			return;
@@ -1255,6 +1260,8 @@ export interface TReveal {
 	isFramed?: boolean;
 	/** Pans to it only, as a range chosen for a Pattern does: what doesn't fit in view stays cut off rather than the wall zooming out */
 	isZoomKept?: boolean;
+	/** Points that come into view with the rest only when all of it fits at the zoom, such as where a note past what's built would be */
+	also?: TVec2[];
 }
 
 export interface TNotice extends TNoticeOptions {

@@ -89,33 +89,6 @@
 	border-bottom: 1px solid var(--separator);
 }
 
-/* What's wrong with the selection, in words: Xcode's issue beside the code */
-.mm-insp-problems {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	padding: 8px var(--insp-pad);
-	border-bottom: 1px solid var(--separator);
-}
-
-.mm-insp-problem {
-	display: flex;
-	gap: 8px;
-	font-size: 11px;
-	line-height: 15px;
-}
-
-.mm-insp-problem-title {
-	display: block;
-	font-weight: 600;
-	overflow-wrap: break-word;
-}
-
-.mm-insp-problem-detail {
-	display: block;
-	color: var(--text-secondary);
-	overflow-wrap: break-word;
-}
 
 .mm-insp-tile {
 	display: flex;
@@ -144,11 +117,11 @@
 	margin-left: auto;
 }
 
-/* The Fix-it takes a row of its own under the title and the pill, so the title keeps its width */
+/* The Fix wand sits right after the pill, so a problem's header stays one row like any other */
 .mm-insp-fix {
 	display: flex;
-	flex-basis: 100%;
-	justify-content: flex-end;
+	flex-shrink: 0;
+	margin-left: -4px;
 }
 
 /* The name renames in place like Figma's layer name; the hover fill shows that it can be edited */
@@ -397,6 +370,11 @@ input.mm-insp-name {
 
 .mm-ifield[data-disabled='true'] .mm-ifield-label {
 	cursor: default;
+}
+
+/* A disabled input takes no pointer, so the field's tooltip says why it can't change */
+.mm-ifield[data-disabled='true'] input {
+	pointer-events: none;
 }
 
 .mm-ifield input,

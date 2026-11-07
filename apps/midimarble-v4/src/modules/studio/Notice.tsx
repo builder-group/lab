@@ -18,6 +18,7 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	useFeatureState(cx.$history);
 	useFeatureState(cx.$selection);
 	const { isDetailsOpen } = useFeatureState(cx.bar.$state);
+	const move = useFeatureState(cx.patterns.$move);
 	const [openDetails, setOpenDetails] = React.useState<number | null>(null);
 	// Text past its two lines stays readable behind Details, as it's often the sentence that says what to do
 	const textRef = React.useRef<HTMLSpanElement>(null);
@@ -35,8 +36,9 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 		observer.observe(text);
 		return () => observer.disconnect();
 	}, [noticeId, message]);
-	// The bar's status popover stands where the notice does: one thing above the bar at a time
-	if ((notice == null && presence == null) || isDetailsOpen) return null;
+	// The bar's status popover, and why a Pattern being moved doesn't fit, stand where the notice does: one thing there at a time
+	const isMoveRefused = move?.proposal != null && move.proposal.status !== 'fits';
+	if ((notice == null && presence == null) || isDetailsOpen || isMoveRefused) return null;
 	// An agent's line wins over passing notices, but not over a failure the person should read
 	if (presence != null && notice?.tone !== 'error') {
 		const doing = presence.isStopping ? 'Stopping' : notice?.progress != null ? notice.message : presence.label;

@@ -52,7 +52,9 @@ export function selectedPattern(cx: StudioCx): TPatternGroup | null {
 
 /** The plain Group selected as a whole, as a click on its block or its row does */
 export function selectedPlainGroup(project: TProject, selection: readonly string[]): TGroup | null {
-	return project.track.groups.find((group) => !isPatternGroup(group) && selection.includes(toGroupKey(group.id))) ?? null;
+	// Its key, or exactly its pieces, as a click on its folder or Flatten leaves them, so it reads by the name Layers gives it
+	const isWhole = (group: TGroup): boolean => selection.includes(toGroupKey(group.id)) || (selection.length === group.pieceIds.length && group.pieceIds.every((id) => selection.includes(id)));
+	return project.track.groups.find((group) => !isPatternGroup(group) && isWhole(group)) ?? null;
 }
 
 export function canGroup(cx: StudioCx): boolean {

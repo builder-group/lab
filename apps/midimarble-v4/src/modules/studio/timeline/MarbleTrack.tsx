@@ -26,7 +26,7 @@ const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TMarble; top: number }> 
 	const suggested = suggestedHits(cx, marble).length;
 	return (
 		<span className="pointer-events-none absolute left-3 -translate-y-1/2 truncate text-[11px] text-[var(--text-tertiary)]" style={{ top }} data-hint-anchor="tap">
-			No hits yet
+			No notes yet
 			{suggested > 0 ? (
 				<>
 					{' · '}

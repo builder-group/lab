@@ -990,6 +990,11 @@ button.mm-hit-summary:hover,
 	background: var(--warn);
 }
 
+/* Red once a note is Blocked, Missed or Stopped, as its mark in the bar and its pill are */
+.mm-hit-summary-dot[data-tone='bad'] {
+	background: var(--bad);
+}
+
 /* Hits that cannot get a platform (Too Soon, Out of Reach): hollow like Open, with an amber dashed outline */
 .mm-hit[data-state='unreachable'] > span {
 	background: var(--content);
@@ -1203,9 +1208,48 @@ button.mm-hit-summary:hover,
 	color: rgb(255 255 255 / 0.55);
 }
 
+@media (prefers-color-scheme: dark) {
+	/* On the dark wall the tooltip keeps an edge and a shadow, so its text never floats loose */
+	.mm-tooltip {
+		background: rgb(58 58 60 / 0.97);
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.18),
+			0 4px 12px rgb(0 0 0 / 0.4);
+	}
+}
+
 .mm-tool-button:hover .mm-tooltip {
 	opacity: 1;
 	transition-delay: 0.45s;
+}
+
+/* 2D and 3D as words in the view switch, at the weight of a glyph */
+.mm-view-word {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+}
+
+/* The canvas's one corner group. Its tooltips hang from the group's right edge, so a long one never runs under the tool rail */
+.mm-canvas-corner .mm-tool-button,
+.mm-canvas-corner .mm-zoom-button {
+	position: static;
+}
+
+.mm-canvas-corner .mm-tooltip {
+	top: calc(100% + 8px);
+	bottom: auto;
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+.mm-corner-divider {
+	flex: none;
+	width: 1px;
+	height: 16px;
+	margin: 0 4px;
+	background: var(--separator);
 }
 
 .mm-tooltip-below .mm-tooltip {
@@ -1295,6 +1339,17 @@ button.mm-hit-summary:hover,
 
 .mm-ghost-in {
 	animation: mm-ghost-in 0.12s ease-out;
+}
+
+/* Quiet words on the wall, such as a note past what's built: secondary text with a halo of the wall so dots never cut it */
+.mm-wall-mark {
+	fill: var(--text-secondary);
+	font-size: 11px;
+	font-weight: 500;
+	paint-order: stroke;
+	stroke: var(--canvas);
+	stroke-width: 3px;
+	stroke-linejoin: round;
 }
 
 @keyframes mm-ghost-in {
@@ -1719,14 +1774,21 @@ button.mm-hit-summary:hover,
 }
 
 /* Over the segment's corner, so it takes no room and the label stays put */
-.mm-titlebar-workspace-dot {
-	position: absolute;
-	top: 4px;
-	right: 4px;
-	width: 5px;
-	height: 5px;
+.mm-titlebar-workspace-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 14px;
+	height: 14px;
+	margin-left: 4px;
+	padding: 0 4px;
 	border-radius: 999px;
 	background: var(--warn);
+	color: white;
+	font-size: 10px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
 }
 
 /* Blender and Agent: one secondary style, like Figma's secondary buttons and Xcode's neutral status display. Color is left to the Blender logo and to Export Film…, the one accent button */
@@ -1915,6 +1977,23 @@ button.mm-hit-summary:hover,
 /* MARK: - Layers (Figma UI3 layer list) */
 
 /* Layers and Library tabs like Figma UI3's Layers and Assets: plain words, the open one in a quiet pill */
+/* Which build this is, at Layers' foot: small and tertiary, like Blender's status line */
+.mm-build-tag {
+	align-self: flex-start;
+	flex-shrink: 0;
+	margin: 4px 8px 6px;
+	padding: 1px 8px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-build-tag:hover {
+	background: var(--hover);
+	color: var(--text-secondary);
+}
+
 .mm-sidebar-head {
 	display: flex;
 	align-items: center;
@@ -2701,6 +2780,20 @@ button.mm-lcd-length:hover {
 	color: var(--on-accent);
 }
 
+/* Why a moved Pattern doesn't fit, in the bar's place while dragging: the one red line on the wall */
+.mm-move-reason {
+	bottom: 18px;
+	left: 50%;
+	transform: translateX(-50%);
+	height: auto;
+	width: max-content;
+	max-width: min(440px, calc(100% - 32px));
+	padding: 3px 7px;
+	color: var(--bad);
+	line-height: 15px;
+	white-space: normal;
+}
+
 .mm-snap-chip kbd {
 	font-family: var(--font);
 }
@@ -2757,11 +2850,13 @@ button.mm-lcd-length:hover {
 }
 
 /* Contextual build bar under the piece or dot it acts on, like Figma's selection toolbar */
-/* One fixed width, so nothing in it shifts as what it says changes: Where on the left, the status mark at the end */
+/* It hugs what it holds, like Figma's, yet holds steady: Where has a fixed width and What a stable minimum, so stepping
+   through notes never jumps between very different sizes. No animation, which is calmer than a moving edge */
 .mm-bar {
 	position: relative;
 	pointer-events: auto;
-	width: min(400px, 100%);
+	width: max-content;
+	max-width: 100%;
 	border-radius: 10px;
 	background: var(--content-raised);
 	box-shadow:
@@ -2801,7 +2896,7 @@ button.mm-lcd-length:hover {
 
 .mm-bar-where {
 	flex: none;
-	width: 72px;
+	width: 84px;
 	overflow: hidden;
 	font-weight: 500;
 	text-align: center;
@@ -2810,10 +2905,11 @@ button.mm-lcd-length:hover {
 
 .mm-bar-what {
 	display: flex;
-	flex: 1;
+	flex: 0 1 auto;
 	align-items: center;
 	gap: 2px;
-	min-width: 0;
+	min-width: 116px;
+	max-width: 240px;
 }
 
 .mm-bar-label {
@@ -2927,7 +3023,7 @@ button.mm-lcd-length:hover {
 	border-radius: 6px;
 }
 
-.mm-bar-mark:hover,
+button.mm-bar-mark:hover,
 .mm-bar-mark[data-open='true'] {
 	background: var(--hover);
 }
@@ -2979,12 +3075,6 @@ button.mm-lcd-length:hover {
 	margin: 8px 0 0 12px;
 }
 
-.mm-bar-tilt {
-	display: block;
-	flex: none;
-	width: 76px;
-}
-
 .mm-bar-menu {
 	position: absolute;
 	right: 0;
@@ -2995,6 +3085,26 @@ button.mm-lcd-length:hover {
 
 .mm-bar-menu .mm-menu-item {
 	height: 24px;
+	padding-left: 8px;
+}
+
+.mm-bar-row-icon {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	opacity: 0.8;
+}
+
+/* What doesn't fit, greyed out with its reason like a macOS menu item: it never highlights */
+.mm-bar-menu .mm-menu-item[aria-disabled='true'] {
+	color: var(--text-tertiary);
+	cursor: default;
+}
+
+.mm-bar-menu .mm-menu-item[aria-disabled='true'] .mm-bar-row-note {
+	color: var(--text-tertiary);
 }
 
 .mm-bar-row-note {
@@ -3006,9 +3116,6 @@ button.mm-lcd-length:hover {
 	font-size: 12px;
 }
 
-.mm-bar-row-note[data-bad='true'] {
-	color: var(--bad);
-}
 
 .mm-menu-item[data-highlighted='true'] .mm-bar-row-note {
 	color: color-mix(in srgb, var(--on-accent) 70%, transparent);

@@ -1,11 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, ChevronDown, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
+import { Anchor, ChevronDown, LocateFixed, Magnet, Music, Unplug } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey } from '@/modules/project';
 import { stageAlongGuide, stageBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { formatDegrees, parseDegrees, toDegrees } from './angles';
+import { formatDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
 import { mapNodes, nodesPathData } from '@/modules/building';
 import { TrackCx, noteLabel, type TTrackDrag } from './TrackCx';
@@ -13,15 +13,15 @@ import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@
 import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
 import { followKey } from './keys';
-import { BarHint } from './FloatingBar';
+import { BarHint, PastBuiltMarkLayer } from './FloatingBar';
 import { GuideLayer } from './GuideLayer';
 import { HitFlashLayer } from './HitFlashLayer';
-import { PatternMoveHint } from './PatternMoveHint';
+import { PatternMoveHint, PatternMoveReason } from './PatternMoveHint';
 import { canvasMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
-import { nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
+import { nextOpenHitPerMarble, selectedPieceIds } from './step-loop';
 
 /** The Track wall: the wall and its content in WebGL, with screen-space handles on top */
 export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
@@ -64,6 +64,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 				<GuideLayer trackCx={trackCx} />
 				<PieceLayer trackCx={trackCx} />
 				<BarHint trackCx={trackCx} />
+				<PastBuiltMarkLayer trackCx={trackCx} />
 				<PatternMoveHint trackCx={trackCx} />
 			</svg>
 			<div
@@ -81,7 +82,8 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 			<PlayNoteHint trackCx={trackCx} />
 			<EmptyWall cx={cx} />
 			<Track3DView trackCx={trackCx} />
-			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+			{/* One group at the corner, as design-language.md has it: Snap and Follow, the zoom, then the view */}
+			<div className="mm-floating mm-canvas-corner absolute top-3 right-3 z-30 flex items-center p-[3px]">
 				<CornerControls trackCx={trackCx} />
 				<TrackViewSwitch cx={cx} />
 			</div>
@@ -140,8 +142,10 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 const EmptyWall: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
+	// The import sheet is the step it asks for: it doesn't ask again behind it
+	const isImporting = useFeatureState(cx.sources.$midiImport) != null;
 	const project = history?.present;
-	if (project == null || !isEmptyProject(project)) return null;
+	if (project == null || !isEmptyProject(project) || isImporting) return null;
 	const hasMarble = project.marbles.length > 0;
 	return (
 		<div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-4">
@@ -208,7 +212,6 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const hoveredPiece = hover?.kind === 'piece' ? hover.pieceId : null;
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
-	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.pieceId) : undefined;
 
 	return (
 		<>
@@ -325,15 +328,9 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 					<SnapChip trackCx={trackCx} project={project} position={drag.current.position} snap={drag.snap} />
 				)
 			) : null}
+			<PatternMoveReason trackCx={trackCx} />
 			{insertSnap != null && drag == null ? <SnapChip trackCx={trackCx} project={project} position={insertSnap.position} snap={insertSnap.snap} /> : null}
-			{single != null && grip != null && singlePiece != null ? (
-				<AngleReadout
-					trackCx={trackCx}
-					piece={single}
-					position={drag?.kind === 'rotate' ? { x: drag.pointer.x + 14, y: drag.pointer.y + 14 } : { x: grip.grip.x + 10, y: grip.grip.y + 8 }}
-					angle={drag?.kind === 'rotate' ? drag.angle : pieceAngle(singlePiece)}
-				/>
-			) : null}
+			{drag?.kind === 'rotate' ? <AngleReadout position={{ x: drag.pointer.x + 14, y: drag.pointer.y + 14 }} angle={drag.angle} /> : null}
 			{drag?.kind === 'path' && pathHandles != null && single != null ? <PathReadout piece={single} points={drag.points} position={pathHandles.end} /> : null}
 		</>
 	);
@@ -464,7 +461,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 	if (drag.playsDrop === 'frees') {
 		return (
 			<div className="mm-snap-chip" data-snapped={false} style={place}>
-				<Unlink2 size={11} strokeWidth={2.2} />
+				<Unplug size={11} strokeWidth={2.2} />
 				<span className="font-medium">Detaches {label}</span>
 				<WhatIfCount trackCx={trackCx} result={result} isInChip />
 			</div>
@@ -475,7 +472,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 	const status = timingStatus(undefined, hit);
 	return (
 		<div className="mm-snap-chip" data-snapped style={place}>
-			<Link2 size={11} strokeWidth={2.2} />
+			<Music size={11} strokeWidth={2.2} />
 			<span className="font-medium">Plays {label}</span>
 			<span className="mm-chip-timing" data-tone={status.tone}>
 				{status.label}
@@ -497,7 +494,7 @@ const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2;
 		const pitch = marble?.hits[index]?.pitch;
 		content = (
 			<>
-				<Link2 size={11} strokeWidth={2.2} />
+				<Music size={11} strokeWidth={2.2} />
 				<span className="font-medium">Note {index + 1}</span>
 				{pitch != null ? <span className="opacity-70">{noteName(pitch)}</span> : null}
 			</>
@@ -811,56 +808,22 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	);
 };
 
-/** Live angle next to the grip or the pointer. Double-click to type an exact angle. */
-const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position: TVec2; angle: number }> = (props) => {
-	const { trackCx, piece, position, angle } = props;
-	const editing = useFeatureState(trackCx.$editingAngle) === piece.pieceId;
-	const [draft, setDraft] = React.useState('');
-
-	function commit(): void {
-		const value = parseDegrees(draft);
-		const project = trackCx.project;
-		trackCx.$editingAngle.set(null);
-		if (value == null || project == null) return;
-		trackCx.studio.execute(pieceAngleCommands(project, new Map([[piece.pieceId, value]])));
-	}
-
+/**
+ * The angle beside the pointer while a piece is turned, like Figma's rotation readout: only during the drag, since the
+ * bar's Tilt and the inspector show it the rest of the time
+ */
+const AngleReadout: React.FC<{ position: TVec2; angle: number }> = (props) => {
+	const { position, angle } = props;
 	return (
-		<div className="absolute z-10" style={{ left: position.x, top: position.y }}>
-			{editing ? (
-				<input
-					autoFocus
-					className="mm-tabular h-[18px] w-[56px] rounded-[4px] border-0 bg-[var(--content-raised)] px-1 text-[11px] outline-none"
-					style={{ boxShadow: '0 0 0 1.5px var(--accent-strong)' }}
-					value={draft}
-					onChange={(event) => setDraft(event.target.value)}
-					onBlur={commit}
-					onKeyDown={(event) => {
-						event.stopPropagation();
-						if (event.key === 'Enter') event.currentTarget.blur();
-						if (event.key === 'Escape') trackCx.$editingAngle.set(null);
-					}}
-				/>
-			) : (
-				<button
-					className="mm-tabular rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]"
-					title="Double-click to type an angle"
-					onDoubleClick={() => {
-						setDraft(formatDegrees(angle).replace('°', ''));
-						trackCx.$editingAngle.set(piece.pieceId);
-					}}
-					type="button"
-				>
-					{formatDegrees(angle)}
-				</button>
-			)}
+		<div className="mm-tabular pointer-events-none absolute z-10 rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]" style={{ left: position.x, top: position.y }}>
+			{formatDegrees(angle)}
 		</div>
 	);
 };
 
 // MARK: - Canvas chrome
 
-/** The pills beside the view icons change with the view: Snap and Follow in 2D, Follow in 3D, each with the zoom; nothing in Camera */
+/** What comes before the view switch changes with the view: Snap and Follow in 2D, Follow in 3D, each with the zoom; nothing in Camera */
 const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const { trackCx } = props;
 	const follow = useFeatureState(trackCx.$follow);
@@ -869,7 +832,7 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 	if (trackView === 'camera') return null;
 	return (
 		<>
-			<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
+			<div className="flex items-center gap-0.5">
 				{trackView === '2d' ? (
 					<button
 						className="mm-tool-button !h-7 !w-7"
@@ -880,7 +843,7 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 						type="button"
 					>
 						<Magnet size={14} strokeWidth={1.7} />
-						<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
+						<span className="mm-tooltip">Snap to notes and marbles · hold ⌥ to skip</span>
 					</button>
 				) : null}
 				<button
@@ -891,15 +854,15 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 					onClick={() => trackCx.toggleFollow()}
 					type="button"
 				>
-					<Focus size={14} strokeWidth={1.7} />
+					<LocateFixed size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">
 						Follow the marble at the playhead · panning turns it off <kbd>{followKey.key}</kbd>
 					</span>
 				</button>
 			</div>
-			<div className="mm-floating flex items-center p-[3px]">
-				<ZoomMenu trackCx={trackCx} />
-			</div>
+			<span className="mm-corner-divider" aria-hidden />
+			<ZoomMenu trackCx={trackCx} />
+			<span className="mm-corner-divider" aria-hidden />
 		</>
 	);
 };
