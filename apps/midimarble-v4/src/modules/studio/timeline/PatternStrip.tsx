@@ -18,8 +18,14 @@ const MIN_DRAG_PX = 3;
  * a Group: a click selects it; a Pattern's edges resize it, which fits it again, and dragging its body moves it along the
  * row to other notes, with its hint on the wall, landed on release when it fits.
  */
-/** Pixels a block needs to show a short name whole, after its icon */
-const MIN_NAMED_BLOCK = 58;
+/** Pixels a block needs for its icon and padding before its name, and about what each character of the name takes */
+const NAME_ROOM = 24;
+const NAME_CHAR = 6.2;
+
+/** Whether a block this wide shows its name whole: "Curved Rail" needs more than "Zigzag" */
+function fitsName(name: string, width: number): boolean {
+	return width >= NAME_ROOM + name.length * NAME_CHAR;
+}
 /** Pixels a block needs to show its icon */
 const MIN_ICON_BLOCK = 22;
 
@@ -193,7 +199,7 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 					>
 						{/* Its icon says Pattern or plain Group; a block too short for its name shows none, not "Zig…", and the tooltip has it */}
 						{(to - from) * zoom + 2 * pad >= MIN_ICON_BLOCK ? <GroupIcon group={group} size={10} /> : null}
-						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}
+						{fitsName(group.name, (to - from) * zoom + 2 * pad) ? <span className="mm-pattern-block-name">{group.name}</span> : null}
 						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
 						{isPatternGroup(group) && !isSilence
 							? (['from', 'to'] as const).map((edge) => (

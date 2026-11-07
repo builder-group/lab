@@ -142,8 +142,10 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 const EmptyWall: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const history = useFeatureState(cx.$history);
+	// The import sheet is the step it asks for: it doesn't ask again behind it
+	const isImporting = useFeatureState(cx.sources.$midiImport) != null;
 	const project = history?.present;
-	if (project == null || !isEmptyProject(project)) return null;
+	if (project == null || !isEmptyProject(project) || isImporting) return null;
 	const hasMarble = project.marbles.length > 0;
 	return (
 		<div className="pointer-events-none absolute inset-x-0 bottom-6 z-10 flex justify-center px-4">
