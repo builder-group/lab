@@ -4,7 +4,7 @@ import React from 'react';
 import { InspectorHeader, Panel, ScrubField, SliderField, StatusPill } from '@/components';
 import { isPatternGroup, type TGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf } from '@/modules/project';
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, patternOfKind, patternSpan, type TPatternProblem } from '@/modules/building';
-import { platformDefinition } from '@/modules/simulation';
+import { getPieceDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { restWords } from './bar';
 import { GroupIcon } from './GroupIcon';
@@ -48,7 +48,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const subtitle = `${isRail ? restWords(span.to - span.from) : `${count} ${count === 1 ? 'note' : 'notes'}`} on ${marble.name}`;
 	const widthRange = pattern?.widthRange;
 	const hasFields = isPatternKind(kind) && widthRange != null;
-	// A Curved Rail has nothing to set: no empty Pattern section under it
+	// A Curved Rail has nothing to set in its Pattern: no empty Pattern section under it, only its Shape's Spread
 	const hasPanel = hasFields || problems.length > 0 || !isRail;
 	// A Curved Rail has nothing to set, so its header says what the marble does on it, as a piece's does: Rides 1.0 s
 	const rail = isRail ? project.track.pieces.find((piece) => group.pieceIds.includes(piece.id)) : undefined;
@@ -79,34 +79,40 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 					<GroupProblems problems={problems} />
 				</Panel>
 			) : null}
-			{!isRail ? <BarDepthPanel cx={cx} project={project} group={group} /> : null}
+			<FreeShapePanel cx={cx} project={project} group={group} isRail={isRail} />
 		</>
 	);
 };
 
-/** The one part of a live Pattern's Shape that's free: Width and the fit own the rest, and fitting again keeps a Depth set here */
-const BarDepthPanel: React.FC<{ cx: StudioCx; project: TProject; group: TPatternGroup }> = (props) => {
-	const { cx, project, group } = props;
-	const spec = platformDefinition.params['depth'];
-	const bars = project.track.pieces.filter((piece) => piece.type === 'platform' && group.pieceIds.includes(piece.id));
-	const [first] = bars;
+/**
+ * The one part of a live Pattern's Shape that's free, as no hitbox reads it: a Zigzag's or Staircase's bar Depth, a Curved
+ * Rail's Spread between its two rails in the film. Width and the fit own the rest, and fitting again keeps what's set here
+ */
+const FreeShapePanel: React.FC<{ cx: StudioCx; project: TProject; group: TPatternGroup; isRail: boolean }> = (props) => {
+	const { cx, project, group, isRail } = props;
+	const type = isRail ? 'rail' : 'platform';
+	const key = isRail ? 'gap' : 'depth';
+	const spec = getPieceDefinition(type)?.params[key];
+	const pieces = project.track.pieces.filter((piece) => piece.type === type && group.pieceIds.includes(piece.id));
+	const [first] = pieces;
 	if (first == null || spec == null) return null;
-	const depthOf = (bar: TPiece): number => bar.params['depth'] ?? spec.default;
-	const isShared = bars.every((bar) => Math.abs(depthOf(bar) - depthOf(first)) < 1e-9);
-	const withDepth = (bar: TPiece, depth: number): TProjectCommand => ({ type: 'updatePiece', pieceId: bar.id, patch: { params: { ...bar.params, depth } } });
+	const name = spec.short ?? spec.label;
+	const valueOf = (piece: TPiece): number => piece.params[key] ?? spec.default;
+	const isShared = pieces.every((piece) => Math.abs(valueOf(piece) - valueOf(first)) < 1e-9);
+	const withValue = (piece: TPiece, value: number): TProjectCommand => ({ type: 'updatePiece', pieceId: piece.id, patch: { params: { ...piece.params, [key]: value } } });
 	return (
 		<Panel id="pattern.shape" title="Shape" isDense>
 			<ScrubField
-				id="pattern-depth"
-				label="Depth"
-				name="Depth"
-				value={isShared ? Math.round(depthOf(first) * 1000) / 10 : null}
+				id={`pattern-${key}`}
+				label={name}
+				name={name}
+				value={isShared ? Math.round(valueOf(first) * 1000) / 10 : null}
 				unit="cm"
 				step={0.1}
 				precision={1}
 				min={spec.min * 100}
 				max={spec.max * 100}
-				onCommit={(value) => cx.execute(bars.map((bar) => withDepth(bar, value / 100)))}
+				onCommit={(value) => cx.execute(pieces.map((piece) => withValue(piece, value / 100)))}
 			/>
 		</Panel>
 	);

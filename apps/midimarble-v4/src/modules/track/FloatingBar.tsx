@@ -2,8 +2,8 @@ import { useFeatureState } from 'feature-react/state';
 import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft, FlipHorizontal2 } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
-import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
-import type { TPiece, TProject, TVec2 } from '@/modules/project';
+import { hitReach, isUnreachable, patternOfPiece, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
+import type { TPatternGroup, TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { bandAlongGuide } from '@/modules/simulation';
@@ -45,7 +45,8 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 	const status = useBarStatus(cx, project, target);
 	if (drag != null || pen != null || tool === 'path') return null;
 	const piece = target.kind === 'note' ? target.piece : null;
-	const group = target.kind === 'rest' ? null : target.group;
+	// A rest filled by a Pattern, such as a Curved Rail, flattens from the bar like a note's Zigzag
+	const group = target.kind === 'rest' ? restPattern(project, target) : target.group;
 	const canAdjust = target.kind === 'note' && piece?.type === 'platform' && target.group == null;
 	return (
 		<div className="mm-bar mm-ghost-in" role="toolbar" aria-label="Note" onPointerDown={(event) => event.stopPropagation()}>
@@ -280,15 +281,21 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 			</span>
 		);
 	}
-	const plain = plainGroupOf(project, target);
+	// A plain Group's folder, or the shape of the Pattern that fills a rest, as in Layers
+	const shown = plainGroupOf(project, target) ?? (target.kind === 'rest' ? restPattern(project, target) : null);
 	return (
 		<button className="mm-bar-type" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Change what stands here (⇥)" type="button">
-			{plain != null ? <GroupIcon group={plain} /> : null}
+			{shown != null ? <GroupIcon group={shown} /> : null}
 			<span className="mm-bar-label">{standingWords(project, target)}</span>
 			<ChevronDown size={13} strokeWidth={1.8} />
 		</button>
 	);
 };
+
+/** The live Pattern that fills a rest, or null */
+function restPattern(project: TProject, target: TBarTarget): TPatternGroup | null {
+	return target.kind === 'rest' && target.piece != null ? patternOfPiece(project, target.piece.id) : null;
+}
 
 const BarAdjust: React.FC<{ cx: StudioCx; piece: TPiece; isLastBuilt: boolean }> = (props) => {
 	const { cx, piece, isLastBuilt } = props;
