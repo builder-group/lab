@@ -283,7 +283,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							style={{ width: HEADER_WIDTH }}
 							data-quick-help="timelineLayers"
 						>
-							<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Layers</span>
+							{/* No title: the sidebar is Layers, and Logic's track headers have none either. The + stays */}
+							<span className="flex-1" />
 							<AddLayerButton cx={cx} workspace={workspace} place="timeline" />
 						</div>
 						<TimeGutter isRuler />

@@ -101,6 +101,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 							step={0.1}
 							precision={1}
 							disabled={!isFree}
+							disabledReason={FOLLOWS_REASON}
 							onPreview={(value) => preview(positionEdit('x', value))}
 							onCommit={(value) => commit(positionEdit('x', value))}
 							onCancel={cancel}
@@ -114,6 +115,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 							step={0.1}
 							precision={1}
 							disabled={!isFree}
+							disabledReason={FOLLOWS_REASON}
 							onPreview={(value) => preview(positionEdit('y', value))}
 							onCommit={(value) => commit(positionEdit('y', value))}
 							onCancel={cancel}
@@ -158,6 +160,9 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 		</>
 	);
 };
+
+/** Why X and Y are greyed out on a tied piece */
+const FOLLOWS_REASON = 'Follows its note: drag it on the wall to move it, or Detach it to place it freely';
 
 interface TPieceInspectorProps {
 	cx: StudioCx;

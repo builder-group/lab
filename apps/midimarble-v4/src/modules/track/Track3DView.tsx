@@ -19,12 +19,12 @@ const views: { id: TTrackView; label: string; Icon?: LucideIcon; tooltip: string
 	{ id: 'camera', label: 'Camera', Icon: Video, tooltip: "Camera: through the film's camera" }
 ];
 
-/** Track's 2D, 3D or Camera view, as icons at the canvas's top right beside the pills that change with the view */
+/** Track's 2D, 3D or Camera view, at the end of the canvas's corner group */
 export const TrackViewSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const view = useFeatureState(cx.$trackView);
 	return (
-		<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]" role="radiogroup" aria-label="Track view">
+		<div className="flex items-center gap-0.5" role="radiogroup" aria-label="Track view">
 			{views.map((item) => (
 				<button key={item.id} className="mm-tool-button !h-7 !w-7" role="radio" aria-checked={view === item.id} aria-label={item.label} data-active={view === item.id} onClick={() => cx.$trackView.set(item.id)} type="button">
 					{item.Icon != null ? <item.Icon size={14} strokeWidth={1.7} /> : <span className="mm-view-word">{item.label}</span>}

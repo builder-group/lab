@@ -81,7 +81,8 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 			<PlayNoteHint trackCx={trackCx} />
 			<EmptyWall cx={cx} />
 			<Track3DView trackCx={trackCx} />
-			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
+			{/* One group at the corner, as design-language.md has it: Snap and Follow, the zoom, then the view */}
+			<div className="mm-floating mm-canvas-corner absolute top-3 right-3 z-30 flex items-center p-[3px]">
 				<CornerControls trackCx={trackCx} />
 				<TrackViewSwitch cx={cx} />
 			</div>
@@ -819,7 +820,7 @@ const AngleReadout: React.FC<{ position: TVec2; angle: number }> = (props) => {
 
 // MARK: - Canvas chrome
 
-/** The pills beside the view icons change with the view: Snap and Follow in 2D, Follow in 3D, each with the zoom; nothing in Camera */
+/** What comes before the view switch changes with the view: Snap and Follow in 2D, Follow in 3D, each with the zoom; nothing in Camera */
 const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const { trackCx } = props;
 	const follow = useFeatureState(trackCx.$follow);
@@ -828,7 +829,7 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 	if (trackView === 'camera') return null;
 	return (
 		<>
-			<div className="mm-floating mm-tooltip-below flex items-center gap-0.5 p-[3px]">
+			<div className="flex items-center gap-0.5">
 				{trackView === '2d' ? (
 					<button
 						className="mm-tool-button !h-7 !w-7"
@@ -839,7 +840,7 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 						type="button"
 					>
 						<Magnet size={14} strokeWidth={1.7} />
-						<span className="mm-tooltip">Snap pieces to notes and marbles · hold ⌥ to skip</span>
+						<span className="mm-tooltip">Snap to notes and marbles · hold ⌥ to skip</span>
 					</button>
 				) : null}
 				<button
@@ -856,9 +857,9 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 					</span>
 				</button>
 			</div>
-			<div className="mm-floating flex items-center p-[3px]">
-				<ZoomMenu trackCx={trackCx} />
-			</div>
+			<span className="mm-corner-divider" aria-hidden />
+			<ZoomMenu trackCx={trackCx} />
+			<span className="mm-corner-divider" aria-hidden />
 		</>
 	);
 };

@@ -65,7 +65,7 @@ function problemsLabel(workspace: TWorkspace, count: number): string {
 	return count === 1 ? '1 problem needs attention' : `${count} problems need attention`;
 }
 
-/** Track and Film, the window's two workspaces; a quiet amber dot says the other one has problems */
+/** Track and Film, the window's two workspaces; an amber count, like Xcode's and Mail's badges, says how many problems the other one has */
 const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const workspace = useFeatureState(cx.$workspace);
@@ -89,7 +89,11 @@ const WorkspaceSwitch: React.FC<{ cx: StudioCx }> = (props) => {
 						type="button"
 					>
 						{item.label}
-						{attention != null ? <span className="mm-titlebar-workspace-dot" role="img" aria-label={attention} /> : null}
+						{attention != null ? (
+							<span className="mm-titlebar-workspace-count" role="img" aria-label={attention}>
+								{count}
+							</span>
+						) : null}
 					</button>
 				);
 			})}

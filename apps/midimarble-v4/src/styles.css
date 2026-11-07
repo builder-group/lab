@@ -1215,6 +1215,28 @@ button.mm-hit-summary:hover,
 	letter-spacing: 0.01em;
 }
 
+/* The canvas's one corner group. Its tooltips hang from the group's right edge, so a long one never runs under the tool rail */
+.mm-canvas-corner .mm-tool-button,
+.mm-canvas-corner .mm-zoom-button {
+	position: static;
+}
+
+.mm-canvas-corner .mm-tooltip {
+	top: calc(100% + 8px);
+	bottom: auto;
+	left: auto;
+	right: 0;
+	transform: none;
+}
+
+.mm-corner-divider {
+	flex: none;
+	width: 1px;
+	height: 16px;
+	margin: 0 4px;
+	background: var(--separator);
+}
+
 .mm-tooltip-below .mm-tooltip {
 	top: calc(100% + 8px);
 	bottom: auto;
@@ -1726,14 +1748,21 @@ button.mm-hit-summary:hover,
 }
 
 /* Over the segment's corner, so it takes no room and the label stays put */
-.mm-titlebar-workspace-dot {
-	position: absolute;
-	top: 4px;
-	right: 4px;
-	width: 5px;
-	height: 5px;
+.mm-titlebar-workspace-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 14px;
+	height: 14px;
+	margin-left: 4px;
+	padding: 0 4px;
 	border-radius: 999px;
 	background: var(--warn);
+	color: white;
+	font-size: 10px;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	line-height: 1;
 }
 
 /* Blender and Agent: one secondary style, like Figma's secondary buttons and Xcode's neutral status display. Color is left to the Blender logo and to Export Film…, the one accent button */

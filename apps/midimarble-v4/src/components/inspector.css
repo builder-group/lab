@@ -372,6 +372,11 @@ input.mm-insp-name {
 	cursor: default;
 }
 
+/* A disabled input takes no pointer, so the field's tooltip says why it can't change */
+.mm-ifield[data-disabled='true'] input {
+	pointer-events: none;
+}
+
 .mm-ifield input,
 .mm-ifield-popup {
 	flex: 1;
