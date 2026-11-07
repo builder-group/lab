@@ -418,5 +418,12 @@ function laterWords(proposal: TProposal, isOverBuiltNotes: boolean): string | nu
 export function rowWords(target: TBarTarget, proposal: TProposal): string {
 	const words = effectWords(target, proposal) ?? (proposal.status === 'fits' ? '' : (proposal.words ?? ''));
 	// The row already names it, so it says why
-	return proposal.status === 'refused' ? words.replace(/^[^.]* doesn't fit [^.]*\. /, '') : words;
+	return oneLine(proposal.status === 'refused' ? words.replace(/^[^.]* doesn't fit [^.]*\. /, '') : words);
+}
+
+/** A reason shown as one line, at a row's end or in the bar's place, ends without a period, as `words.md` has labels and hints */
+export function oneLine(words: string): string {
+	const line = words.trim();
+	// One sentence: no period that ends one before the last, though "0.70 s" has a dot
+	return line.endsWith('.') && !/\.\s/.test(line.slice(0, -1)) ? line.slice(0, -1) : words;
 }

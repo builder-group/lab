@@ -353,7 +353,7 @@ function madeWords(target: TPatternTarget, span: { from: number; to: number } | 
 	if (group.pattern.kind !== kind) return `${group.name} is now ${PATTERNS[kind].label}`;
 	if (settings.width != null) return `${name}: Width ${(settings.width * 100).toFixed(0)} cm`;
 	if (settings.bounce != null) return `${name}: Bounce ${settings.bounce.toFixed(2)}`;
-	if (settings.maxTilt != null) return `${name}: Tilt limit ${settings.maxTilt.toFixed(0)}°`;
+	if (settings.maxTilt != null) return `${name}: Tilt Limit ${settings.maxTilt.toFixed(0)}°`;
 	return span != null && (target.from !== span.from || target.to !== span.to) ? `${name}: new range` : `Fitted ${name} again`;
 }
 

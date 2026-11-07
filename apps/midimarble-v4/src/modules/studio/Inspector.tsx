@@ -337,9 +337,12 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	const pieceLabel = piece == null ? '' : (piece.name ?? getPieceDefinition(piece.type)?.label ?? 'Piece');
 	const timing =
 		piece == null
-			? unreachable == null
-				? null
-				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
+			? unreachable != null
+				? { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
+				: // An open note says so, as the bar's hollow mark does
+					isBacking
+					? null
+					: { tone: 'neutral' as const, label: 'Open', detail: 'No platform plays this note yet' }
 			: timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
 
 	function setHit(patch: Partial<THit>): void {

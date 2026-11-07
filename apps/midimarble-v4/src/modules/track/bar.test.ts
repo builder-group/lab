@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, standingWords, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
+import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, oneLine, passedWords, selectionOfStop, senderOf, standingWords, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -161,6 +161,12 @@ describe('barRows', () => {
 		const project = track(EVEN, 4);
 		const rows = barRows(project, targetOf(project, [hit('h2'), hit('h3')]), 0);
 		expect(rows.map((row) => row.label)).toEqual(['Change to Zigzag', 'Change to Staircase', 'Rebuild From Here', 'Remove']);
+	});
+
+	it('says a one-sentence reason without its period, and keeps longer ones as they are', () => {
+		expect(oneLine('Note 12 of Melody lies outside the frame.')).toBe('Note 12 of Melody lies outside the frame');
+		expect(oneLine('The rail lets go 0.70 s early for the note at 0:09.')).toBe('The rail lets go 0.70 s early for the note at 0:09');
+		expect(oneLine('Zigzag doesn\'t fit. Try a higher Bounce.')).toBe('Zigzag doesn\'t fit. Try a higher Bounce.');
 	});
 
 	it('has no dropdown past the built notes, where the bar offers only Build Up to Here', () => {

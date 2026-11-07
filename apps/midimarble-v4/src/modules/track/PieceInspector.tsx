@@ -69,7 +69,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const group = selectedPlainGroup(project, selection);
 	const groupNotes = group != null ? plainGroupNotes(project, group) : null;
 	const title = group?.name ?? (isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label.toLowerCase()}s` : `${pieces.length} pieces`);
-	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} notes` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
+	// The same as a Pattern's, so Flatten changes only the icon: what it plays, else how many pieces it holds
+	const subtitle = group != null ? (groupNotes != null ? `${groupNotes.count} notes` : `${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}`) : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = free ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
 	const look = isSingle ? looks.get(first.id) : undefined;

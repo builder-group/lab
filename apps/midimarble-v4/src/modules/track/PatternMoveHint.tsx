@@ -1,5 +1,6 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { oneLine } from './bar';
 import { GhostPiece } from './GhostLayer';
 import type { TrackCx } from './TrackCx';
 
@@ -36,7 +37,7 @@ export const PatternMoveReason: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const move = useFeatureState(trackCx.studio.patterns.$move);
 	const proposal = move?.proposal;
 	if (proposal == null || proposal.status === 'fits') return null;
-	const words = proposal.words?.replace(/ Nothing changed\.$/, '') ?? "Doesn't fit here";
+	const words = oneLine(proposal.words?.replace(/ Nothing changed\.$/, '') ?? "Doesn't fit here");
 	return (
 		<div className="mm-snap-chip mm-move-reason" data-snapped={false} role="status">
 			{words}

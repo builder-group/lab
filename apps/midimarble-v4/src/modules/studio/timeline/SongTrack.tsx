@@ -29,8 +29,8 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const { cx, project, song, tint, name, analysis, zoom, width, range, isExpanded, isFirst, height, selection, drag, onDragStart, move, onMove, onAddHit, timeAt } = props;
 	const isAudio = song.kind === 'audio';
 	const backingCount = song.backing.length;
-	// With several songs the row already leads with the file's name
-	const file = name === song.name ? (isAudio ? 'Recording' : 'MIDI') : song.name;
+	// The kind, as the file's name is in Layers and the inspector, and with several songs leads the row
+	const file = isAudio ? 'Recording' : 'MIDI';
 	const details =
 		song.path == null
 			? ['Backing', backingCount === 1 ? '1 note' : `${backingCount} notes`]

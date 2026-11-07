@@ -117,11 +117,11 @@
 	margin-left: auto;
 }
 
-/* The Fix-it takes a row of its own under the title and the pill, so the title keeps its width */
+/* The Fix wand sits right after the pill, so a problem's header stays one row like any other */
 .mm-insp-fix {
 	display: flex;
-	flex-basis: 100%;
-	justify-content: flex-end;
+	flex-shrink: 0;
+	margin-left: -4px;
 }
 
 /* The name renames in place like Figma's layer name; the hover fill shows that it can be edited */
