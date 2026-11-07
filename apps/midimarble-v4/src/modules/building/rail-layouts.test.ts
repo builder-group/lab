@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { TPiece } from '@/modules/project';
 import { chainGeometry, createSimulator, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, RAIL_LAYOUTS, switchbackGeometry, type TLayoutInput, type TRailLayout } from '@/modules/simulation';
 import { createBareRunProject } from '@/modules/simulation/fixture-projects';
-import { gapPieceOrder, gapPieceTypeOf, gapSearch, type TGapSearchPlan, type TGapTry } from './gap-pieces';
+import { gapPieceTypeOf, gapSearch, type TGapSearchPlan, type TGapTry } from './gap-pieces';
+import { gapTypeOf, restOffers, restOrder } from './rest-order';
 
 function input(layout: TRailLayout, params: Record<string, number> = {}): TLayoutInput {
 	return { type: 'rail', layout, params: resolvePieceParams('rail', { ...railLayoutInfo[layout].defaults, ...params }), path: [], angle: -0.14, contactAt: 0.5, marbleRadius: 0.012 };
@@ -57,10 +58,12 @@ describe('Rail layouts', () => {
 });
 
 describe('asking for a gap piece', () => {
-	it('should fall back from a Chain to the Switchback layout, and try a single Curved Rail first by default', () => {
-		expect(gapPieceOrder('chain')).toEqual(['chain', 'switchback']);
-		expect(gapPieceOrder()).toEqual(['curve', 'rail', 'switchback']);
-		expect(gapPieceOrder('rail')).toEqual(['rail', 'switchback']);
+	it('should fill a rest in one order: a single Curved Rail, the gap pieces, then a Platform, and offer no plain Rail in the bar', () => {
+		expect(restOrder()).toEqual(['longRail', 'rail', 'switchback', 'platform']);
+		expect(restOffers()).toEqual(['longRail', 'switchback', 'platform']);
+		expect(restOrder().flatMap((kind) => gapTypeOf(kind) ?? [])).toEqual(['curve', 'rail', 'switchback']);
+		expect(restOrder('chain')).toEqual(['chain', 'switchback', 'platform']);
+		expect(restOrder('rail')).toEqual(['rail', 'switchback', 'platform']);
 		expect(gapPieceTypeOf({ type: 'rail', layout: 'chain' })).toBe('chain');
 		expect(gapPieceTypeOf({ type: 'rail' })).toBe('rail');
 		expect(gapPieceTypeOf({ type: 'tunnel' })).toBe('tunnel');

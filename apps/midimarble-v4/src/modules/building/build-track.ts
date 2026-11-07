@@ -2,8 +2,9 @@ import { applyProjectCommands, freePosition, type TPiece, type TProject, type TP
 import { isPathPieceType, paceAt, createLinkedPiece, bandAlongGuide, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { changedPieces } from './edit-rule';
 import { columnOffset } from './build-track-defaults';
-import { gapPieceOrder, gapPieceReads } from './gap-pieces';
-import { findLongGaps, mirrorPiece, openLongGaps } from './assists';
+import { gapPieceReads } from './gap-pieces';
+import { findLongGaps, mirrorPiece, openLongGaps, type TLongGap } from './assists';
+import { gapTypeOf, restOrder } from './rest-order';
 import { addKnownFaults, hitKey, noKnownFaults, reasonWords, verdictWithRoom, type TKnownFaults } from './verdict';
 import { answerWorkerRequest, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 import { checkFraming } from './export-preflight';
@@ -15,7 +16,7 @@ import { hitReach, openHits } from './reachability';
 // fallback and the fixture script. Marbles are built together in time order, so each keeps clear of what the others
 // have built so far. Each step takes the first of these that keeps every placed hit on time, every marble on its own
 // pieces and striking each platform once, every piece clear of the others on the wall, the next dot in
-// frame and near the shared pace: a rail across a long gap, or its Switchback layout where a straight one won't do, Continue and Mirror when the rhythm repeats and
+// frame and near the shared pace: what fills a rest, in the order of `restOrder` (`fillRest`), Continue and Mirror when the rhythm repeats and
 // the next dot stays on its column, Auto place (which launches into a coming gap and ranks its angles by how regular the
 // track looks), a wider Auto place. When none does,
 // it does what a person tries next: turn the marble's previous platform, turn the other marble's platform in the way,
@@ -174,7 +175,7 @@ export interface TBuildOptions {
 	 * already has, and what plays after it is built again. Nothing kept is ever turned and no release moves.
 	 */
 	from?: { marbleId: string; hitId: string };
-	/** What is tried first across a long gap, the other when it doesn't fit: a straight rail unless asked otherwise; a Chain falls back to the Switchback layout */
+	/** A gap piece asked for by name, tried first at every rest with the one it falls back to (`restOrder`) */
 	gapPiece?: TBuildGapPreference;
 	/** Build Up to Here: builds the notes up to this time on every marble and leaves the rest open, with no Bowl */
 	until?: number;
@@ -412,55 +413,73 @@ async function ask<T>(state: TBuildState, kind: string, question: () => Promise<
 }
 
 /**
- * One option after another for the hit: a rail, or a switchback, when a long gap ends at it, otherwise Continue, then
- * Mirror when the rhythm repeats, then Auto place (which launches the marble into the coming gap piece before a long
- * gap), then Auto place over a wider range. Each must pass `accept`; the first that does wins, except that a rail and a
- * switchback that both pass are each built on for a few hits (`chooseAhead`), since a rail that reads well can leave the
- * marble nowhere to go. With `canLean`, last the platform is leaned by hand until the next dot comes back as close to the
- * marble's band as it gets.
+ * What fills the rest before a note, the whole decision in one place: the kinds of `restOrder` in turn, each asked of the
+ * workers and judged by `accept`. A piece that ends far from the pace leaves the rest to the next kind, except the last,
+ * which has to do. The first that fits wins when it's the Curved Rail, asked for by name, or tried while looking ahead;
+ * otherwise the plain Rail and the Switchback layout that both fit are each built on for a few notes (`chooseAhead`), the
+ * Switchback's hooks costing more. One log line says what each kind did. Null leaves the note to a Platform.
+ */
+async function fillRest(state: TBuildState, current: TProject, result: TSimulationResult, gap: TLongGap): Promise<TProject | null> {
+	const { deps, counts } = state;
+	const { marbleId } = gap;
+	// One marble keeps no shared height, so a gap piece may land it anywhere it can go on from
+	const paceLimit = isShared(current) ? (result.pace?.limit ?? Infinity) : Infinity;
+	const order = restOrder(state.gapPiece).flatMap((kind) => gapTypeOf(kind) ?? []);
+	const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
+	const said: string[] = [];
+	const rodeSwitchback = current.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId && piece.type !== 'platform' && !state.own.has(piece.id)).at(-1)?.layout === 'switchback';
+	for (const type of order) {
+		if (isCanceled(state)) return null;
+		const reasonsBefore = state.reasons.length;
+		const passed = (): void => {
+			said.push(`${type} no (${state.reasons.slice(reasonsBefore).join('; ')})`);
+		};
+		const pieceId = gapPieceId(state, current, type, marbleId);
+		const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId }));
+		const paceError = Math.abs(answer?.check?.paceError ?? 0);
+		if ((type !== order.at(-1) && answer?.check != null && !gapPieceReads(answer.check, paceLimit)) || (!state.mayLeavePace && paceError > paceLimit)) {
+			reject(state, `the ${type} ends ${paceError.toFixed(2)} m from the pace`);
+			passed();
+			continue;
+		}
+		// The note after the gap piece is placed by construction wherever the marble arrives
+		const accepted = answer != null ? await accept(state, current, answer.commands, marbleId, false) : null;
+		if (accepted == null) {
+			passed();
+			continue;
+		}
+		const params = answer?.piece.params ?? {};
+		const pace = answer?.check?.paceError;
+		const log = `${type}${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.piece.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
+		const isAsked = state.gapPiece === type;
+		options.push({ project: accepted, type, log, label: type, cost: isAsked || type !== 'switchback' ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
+		said.push(`${type} fits`);
+		if (isAsked || state.isLooking || type === 'curve') break;
+	}
+	const chosen = options.length > 1 ? await chooseAhead(state, options, marbleId) : options[0];
+	const rest = `  ${gap.fromHitId} -> ${gap.toHitId}, a rest of ${gap.duration.toFixed(2)} s: ${said.join('; ')}`;
+	if (chosen == null) {
+		deps.onLog?.(`${rest}; a Platform at ${gap.toHitId} instead`);
+		return null;
+	}
+	counts[chosen.type === 'switchback' || chosen.type === 'chain' || chosen.type === 'curve' ? chosen.type : 'rail']++;
+	deps.onLog?.(`${rest}; ${chosen.log}`);
+	return chosen.project;
+}
+
+/**
+ * One option after another for the hit: what fills the rest when a long gap ends at it (`fillRest`), otherwise Continue,
+ * then Mirror when the rhythm repeats, then Auto place (which launches the marble into the coming gap piece before a long
+ * gap), then Auto place over a wider range. Each must pass `accept`; the first that does wins. With `canLean`, last the
+ * platform is leaned by hand until the next dot comes back as close to the marble's band as it gets.
  */
 async function buildStep(state: TBuildState, current: TProject, target: THitResult, canLean: boolean): Promise<TProject | null> {
 	const { deps, counts } = state;
 	const { marbleId, hitId } = target;
 	const result = await run(state, current);
 	const gap = findLongGaps(current, marbleId).find((item) => item.toHitId === hitId && item.bridgedBy == null);
-	if (gap != null) {
-		// One marble keeps no shared height, so a gap piece may land it anywhere it can go on from
-		const paceLimit = isShared(current) ? (result.pace?.limit ?? Infinity) : Infinity;
-		const options: { project: TProject; type: TGapPieceType; cost: number; log: string; label: string }[] = [];
-		const rodeSwitchback = current.track.pieces.filter((piece) => tieOf(piece)?.marbleId === marbleId && piece.type !== 'platform' && !state.own.has(piece.id)).at(-1)?.layout === 'switchback';
-		for (const type of gapPieceOrder(state.gapPiece)) {
-			if (isCanceled(state)) return null;
-			const pieceId = gapPieceId(state, current, type, marbleId);
-			const answer = await ask(state, 'gapPiece', () => deps.gapPiece({ type, project: current, marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId }));
-			// A piece that ends far from the pace or the marble leaves the gap to the other, which has to do
-			if (type !== gapPieceOrder(state.gapPiece).at(-1) && answer?.check != null && !gapPieceReads(answer.check, paceLimit)) {
-				reject(state, `the ${type} ends ${Math.abs(answer.check.paceError ?? 0).toFixed(2)} m from the pace`);
-				continue;
-			}
-			if (!state.mayLeavePace && Math.abs(answer?.check?.paceError ?? 0) > paceLimit) {
-				reject(state, `the ${type} ends ${Math.abs(answer?.check?.paceError ?? 0).toFixed(2)} m from the pace`);
-				continue;
-			}
-			// The hit after the gap piece is placed by construction wherever the marble arrives
-			const accepted = answer != null ? await accept(state, current, answer.commands, marbleId, false) : null;
-			if (accepted == null) continue;
-			const params = answer?.piece.params ?? {};
-			const pace = answer?.check?.paceError;
-			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.piece.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
-			const isAsked = state.gapPiece === type;
-			options.push({ project: accepted, type, log, label: type, cost: isAsked || (type !== 'switchback') ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
-			// Asked for by name, or trying ahead already: the first that fits. A single Curved Rail that fits goes before any hook
-			if (isAsked || state.isLooking || type === 'curve') break;
-		}
-		const chosen = options.length > 1 ? await chooseAhead(state, options, marbleId) : options[0];
-		if (chosen != null) {
-			counts[chosen.type === 'switchback' || chosen.type === 'chain' || chosen.type === 'curve' ? chosen.type : 'rail']++;
-			deps.onLog?.(chosen.log);
-			return chosen.project;
-		}
-		deps.onLog?.(`  ${gap.fromHitId} -> ${gap.toHitId}: no gap piece fits the ${gap.duration.toFixed(2)} s gap (${state.reasons.at(-1) ?? ''})`);
-	}
+	const filled = gap != null ? await fillRest(state, current, result, gap) : null;
+	if (filled != null) return filled;
 	if (isCanceled(state)) return null;
 
 	const isLaunch = findLongGaps(current, marbleId).some((item) => item.fromHitId === hitId && item.bridgedBy == null);

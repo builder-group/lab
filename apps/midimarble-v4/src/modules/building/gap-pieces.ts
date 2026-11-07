@@ -6,16 +6,6 @@ import { extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-problems';
 import { columnOffset } from './build-track-defaults';
 import type { TGapPieceType } from '@/modules/building';
 
-/**
- * What a long gap gets first: a straight Rail, since the Switchback layout is only for what nothing else bridges, or the
- * one asked for. A Chain falls back to the Switchback layout, which it is measured against.
- */
-export function gapPieceOrder(preferred?: 'rail' | 'switchback' | 'chain' | null): TGapPieceType[] {
-	if (preferred === 'chain') return ['chain', 'switchback'];
-	if (preferred === 'switchback') return ['switchback', 'rail'];
-	return preferred === 'rail' ? ['rail', 'switchback'] : ['curve', 'rail', 'switchback'];
-}
-
 /** What a gap search asks for to make a piece like this one again */
 export function gapPieceTypeOf(piece: { type: string; layout?: TRailLayout | undefined }): TGapPieceType {
 	if (piece.type === 'tunnel') return 'tunnel';

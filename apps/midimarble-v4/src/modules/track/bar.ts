@@ -1,5 +1,5 @@
 import { isPatternGroup, parseGroupKey, parseHitKey, parseRangeKey, tieOf, toHitKey, toRangeKey, type TPatternGroup, type TPiece, type TProject } from '@/modules/project';
-import { findLongGaps, hitOwners, patternOfPiece, type TLongGap, type TProposal, type TProposeAsk } from '@/modules/building';
+import { findLongGaps, hitOwners, patternOfPiece, restOffers, type TLongGap, type TProposal, type TProposeAsk } from '@/modules/building';
 import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
 import { patternPhrase } from './PatternsCx';
 
@@ -215,8 +215,8 @@ function stretchOf(project: TProject, target: TBarTarget): string[] {
 	return patternPhrase(project, target.marbleId, target.hitId).flatMap((key) => parseHitKey(key)?.hitId ?? []);
 }
 
-/** What an empty rest offers by default, in this order: a refused one gives way to the next, a rule and not a judgment. The plain piece comes last */
-const REST_ORDER: readonly TBarChoice[] = ['longRail', 'switchback', 'platform'];
+/** What an empty rest offers by default, in the order Build fills one (`restOffers`): a refused one gives way to the next, a rule and not a judgment. The plain piece comes last */
+const REST_ORDER: readonly TBarChoice[] = restOffers();
 
 /**
  * What a press does when nothing was chosen: the plain piece here, what comes first past the built notes, nothing on
