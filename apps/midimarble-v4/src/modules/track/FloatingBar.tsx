@@ -27,9 +27,10 @@ export const FloatingBar: React.FC<{ cx: StudioCx }> = (props) => {
 	const building = useFeatureState(cx.assist.$building);
 	const trackView = useFeatureState(cx.$trackView);
 	const workspace = useFeatureState(cx.$workspace);
-	// A drag or a drawn rail has the wall to itself
+	const isStripDragging = useFeatureState(cx.$isStripDragging);
+	// A drag, on the wall or in the strip, or a drawn rail has the wall to itself until release
 	const { target } = state;
-	if (target == null || project == null || trackCx == null || workspace !== 'track' || trackView !== '2d' || isPlaying || building != null) return null;
+	if (target == null || project == null || trackCx == null || workspace !== 'track' || trackView !== '2d' || isPlaying || building != null || isStripDragging) return null;
 	return <BarBody cx={cx} trackCx={trackCx} project={project} target={target} />;
 };
 
@@ -358,7 +359,11 @@ export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const state = useFeatureState(cx.bar.$state);
 	const camera = useFeatureState(trackCx.$camera);
 	useFeatureState(trackCx.$viewport);
-	const isDragging = useFeatureState(trackCx.$override) != null;
+	const override = useFeatureState(trackCx.$override);
+	const drag = useFeatureState(trackCx.$drag);
+	const isStripDragging = useFeatureState(cx.$isStripDragging);
+	// Any drag has the wall to itself: the hint of what's selected waits for the release
+	const isDragging = override != null || (drag != null && drag.kind !== 'pan') || isStripDragging;
 	const answer = cx.bar.shownAnswer;
 	if (answer == null || isDragging || state.target == null) return null;
 	const { proposal, shape } = answer;

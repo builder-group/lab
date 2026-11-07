@@ -98,6 +98,8 @@ export class StudioCx {
 	/** What ⌘C kept, for ⌘V; it lasts while the app runs, also into another project */
 	readonly $clipboard = createState<TClipboard | null>(null);
 	readonly $locked = createState<string[]>([]);
+	/** A drag in the timeline's Pattern strip is under way: the bar steps aside until release, as for a drag on the wall */
+	readonly $isStripDragging = createState(false);
 	/** Dropping an element links it to a hit dot or anchors it to a trajectory, like Figma's snapping */
 	readonly $snapping = createState(true);
 	/** Film outlines every piece's hitbox, like Unity's collider gizmos; a selected piece always shows its own */
