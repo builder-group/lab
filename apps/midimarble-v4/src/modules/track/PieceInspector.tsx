@@ -11,6 +11,7 @@ import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from '@/modules/scene';
 import { selectedPlainGroup } from './group-commands';
+import { GroupIcon } from './GroupIcon';
 import { plainGroupNotes } from './PatternInspector';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
@@ -68,7 +69,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const group = selectedPlainGroup(project, selection);
 	const groupNotes = group != null ? plainGroupNotes(project, group) : null;
 	const title = group?.name ?? (isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label}s` : `${pieces.length} Pieces`);
-	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} hits` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
+	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} notes` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = free ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
 	const look = isSingle ? looks.get(first.id) : undefined;
@@ -79,7 +80,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	return (
 		<>
 			<InspectorHeader
-				icon={<PieceIcon type={isSameType ? type : 'platform'} size={16} />}
+				icon={group != null ? <GroupIcon group={group} size={16} /> : <PieceIcon type={isSameType ? type : 'platform'} size={16} />}
 				title={title}
 				subtitle={subtitle}
 				onRename={isSingle ? (name) => cx.execute([{ type: 'addPiece', piece: { ...first, name } }]) : undefined}

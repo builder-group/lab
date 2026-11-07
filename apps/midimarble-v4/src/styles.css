@@ -2737,10 +2737,14 @@ button.mm-lcd-length:hover {
 	color: var(--on-accent);
 }
 
-/* Why a moved Pattern doesn't fit, beside it while dragging: the one red word on the wall */
+/* Why a moved Pattern doesn't fit, in the bar's place while dragging: the one red line on the wall */
 .mm-move-reason {
+	bottom: 18px;
+	left: 50%;
+	transform: translateX(-50%);
 	height: auto;
-	max-width: 280px;
+	width: max-content;
+	max-width: min(440px, calc(100% - 32px));
 	padding: 3px 7px;
 	color: var(--bad);
 	line-height: 15px;

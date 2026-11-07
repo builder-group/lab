@@ -27,20 +27,19 @@ export const PatternMoveHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 	);
 };
 
-/** Why a moved Pattern doesn't fit where it is, beside its first piece while the drag goes on */
+/**
+ * Why a moved Pattern doesn't fit where it is, in the bar's place at the bottom of the wall while the drag goes on, as
+ * the bar steps aside until release and the ghost may stand out of view
+ */
 export const PatternMoveReason: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const { trackCx } = props;
 	const move = useFeatureState(trackCx.studio.patterns.$move);
-	useFeatureState(trackCx.$camera);
-	useFeatureState(trackCx.$viewport);
 	const proposal = move?.proposal;
-	const [first] = move?.shape ?? [];
-	if (proposal == null || proposal.status === 'fits' || first == null) return null;
+	if (proposal == null || proposal.status === 'fits') return null;
 	const words = proposal.words?.replace(/ Nothing changed\.$/, '') ?? "Doesn't fit here";
-	const position = trackCx.toScreen(first.position);
 	return (
-		<div className="mm-snap-chip mm-move-reason" data-snapped={false} style={{ left: position.x + 18, top: position.y + 14 }} role="status">
-			<span>{words}</span>
+		<div className="mm-snap-chip mm-move-reason" data-snapped={false} role="status">
+			{words}
 		</div>
 	);
 };
