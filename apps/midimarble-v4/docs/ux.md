@@ -174,6 +174,8 @@ Its groups, with separators:
 - **Adjust,** on a single platform: Tilt as a scrub field, which ↑ ↓ also turn, and Flip only at the end of what's built, where it chooses a direction and no later note depends on it. M is its key.
 - **Status,** at the bar's end, always in the same place: one mark in the shape and color the note has on its row. A click opens its popover: what's wrong, why, said from its cause ("Platform 1 sends Melody past Platform 2"), and what to do: **Fix**, **Go to Platform 1**, or a reachability fix. With a choice it says what the choice would do. Esc or another click closes it.
 
+**The guide line.** Each marble's line, the direction the builder follows, shows on the wall as a quiet dashed line in its color under the pieces: straight down from its release by default, through the points an agent set otherwise. It only shows; nothing on the wall edits it yet.
+
 **The hint.** The wall shows the current choice from `propose`: a platform's shape at once from the note, then its answer just after, with where the marble goes and its next dot. Moving on cancels it. Nothing changes until it's accepted, and accepting applies exactly what it showed.
 
 **Enter accepts and moves on,** as one Undo step; a press before the answer waits for it, and takes it if it fits. ◀ goes back to adjust. On something built with nothing chosen, Enter just moves on. N is the same as Enter, and with nothing selected opens the bar where building goes on. ⌘Z is the normal Undo, and an Undo of what the bar landed goes back to where it stood. Esc takes back a choice, then the selection.

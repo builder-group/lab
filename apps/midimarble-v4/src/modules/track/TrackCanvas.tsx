@@ -14,6 +14,7 @@ import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
 import { followKey } from './keys';
 import { BarHint } from './FloatingBar';
+import { GuideLayer } from './GuideLayer';
 import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
@@ -59,6 +60,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 		<div ref={containerRef} className="mm-pegboard relative h-full w-full overflow-hidden" style={wallColor != null ? ({ '--canvas': wallColor } as React.CSSProperties) : undefined}>
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+				<GuideLayer trackCx={trackCx} />
 				<PieceLayer trackCx={trackCx} />
 				<BarHint trackCx={trackCx} />
 			</svg>
