@@ -298,7 +298,10 @@ export class AssistCx {
 	proposeDeps(options?: { isCanceled: () => boolean }): TProposeDeps | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
-		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request, options), gapPiece: (request) => client.gapPiece(request, options), pattern: (_project, ask) => this.studio.patterns.dryRun({ marbleId: ask.marbleId, from: ask.from, to: ask.to }, ask.kind as TPatternKind, { ...(ask.width != null ? { width: ask.width } : {}), ...(ask.bounce != null ? { bounce: ask.bounce } : {}), ...(ask.maxTilt != null ? { maxTilt: ask.maxTilt } : {}) }), settle: (request) => client.settle(request) };
+		// A Pattern asked of another track or of a Group already there, as moving one asks, fits on that track
+		const pattern: TProposeDeps['pattern'] = (project, ask) =>
+			project !== this.studio.project || ask.groupId != null ? this.studio.patterns.fitOn(project, ask) : this.studio.patterns.dryRun({ marbleId: ask.marbleId, from: ask.from, to: ask.to }, ask.kind as TPatternKind, { ...(ask.width != null ? { width: ask.width } : {}), ...(ask.bounce != null ? { bounce: ask.bounce } : {}), ...(ask.maxTilt != null ? { maxTilt: ask.maxTilt } : {}) });
+		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request, options), gapPiece: (request) => client.gapPiece(request, options), pattern, settle: (request) => client.settle(request) };
 	}
 
 	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */

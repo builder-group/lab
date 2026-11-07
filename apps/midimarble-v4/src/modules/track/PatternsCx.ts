@@ -192,9 +192,7 @@ export class PatternsCx {
 		const base = this.studio.assist.proposeDeps({ isCanceled: () => !isCurrent() });
 		const [first] = group.pattern.hitIds;
 		if (project == null || base == null || first == null) return null;
-		this.moveClient ??= createPatternClient();
-		const client = this.moveClient;
-		const deps: TProposeDeps = { ...base, pattern: (asked, change) => client.preview(asked, change, () => undefined) };
+		const deps: TProposeDeps = { ...base, pattern: (asked, change) => this.fitOn(asked, change) };
 		const result = this.studio.simulation.$result.get();
 		try {
 			const proposal = await propose(project, { marbleId: group.marbleId, hitIds: [first], kind: MOVE_PATTERN, settings: { groupId: group.id, ...move } }, deps, result?.revision === project.revision ? { result } : {});
@@ -205,6 +203,12 @@ export class PatternsCx {
 			if (isCurrent() && !isSuperseded(error) && !(error instanceof PatternCanceledError)) console.warn(error);
 			return null;
 		}
+	}
+
+	/** A Pattern's whole-song check on a track that isn't the one on show, such as one with a moved Pattern's first dot, in the move's own worker */
+	fitOn(project: TProject, change: TPatternAsk): Promise<TPatternAnswer> {
+		this.moveClient ??= createPatternClient();
+		return this.moveClient.preview(project, change, () => undefined);
 	}
 
 	/** The release: lands where it was moved, as one Undo step, if that fits; otherwise nothing changes and the notice says why */

@@ -443,7 +443,11 @@ const SPropose = z.strictObject({
 	kind: z.string(),
 	width: z.number().positive().optional(),
 	bounce: z.number().min(0).max(1).optional(),
-	maxTilt: z.number().positive().optional()
+	maxTilt: z.number().positive().optional(),
+	/** `movePattern`: the live Pattern, and its first note's new dot on the wall or how many notes along the row */
+	groupId: z.string().optional(),
+	dot: z.strictObject({ x: z.number(), y: z.number() }).optional(),
+	shift: z.number().int().optional()
 });
 
 /** What an agent reads of a proposal: everything but the track it's about */
@@ -465,13 +469,13 @@ function proposalReply(proposal: TProposal): Record<string, unknown> {
 
 /** `propose`: what would be placed and what would come of it. Nothing changes and no Undo step comes of it */
 async function runPropose(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
-	const { marbleId, hitIds, kind, width, bounce, maxTilt } = SPropose.parse(args);
+	const { marbleId, hitIds, kind, width, bounce, maxTilt, groupId, dot, shift } = SPropose.parse(args);
 	if (cx.project == null) return noProject(cx);
 	await settled(cx);
 	if (!cx.project.marbles.some((marble) => marble.id === marbleId)) return fail(cx, `There is no marble ${marbleId}. get_state lists them.`);
 	let proposal: TProposal | null = null;
 	await cx.runAgentStep('Agent: Propose', async () => {
-		proposal = await cx.assist.proposeFor({ marbleId, hitIds, kind, settings: { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) } });
+		proposal = await cx.assist.proposeFor({ marbleId, hitIds, kind, settings: { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}), ...(groupId != null ? { groupId } : {}), ...(dot != null ? { dot } : {}), ...(shift != null ? { shift } : {}) } });
 	});
 	if (proposal == null) return fail(cx, "The app can't answer that yet. Try again in a moment.");
 	return text(cx, { changed: false, ...proposalReply(proposal) });
