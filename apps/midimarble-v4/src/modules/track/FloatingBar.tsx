@@ -7,7 +7,7 @@ import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { acceptWords, defaultChoice, effectWords, hasStopBeside, passedWords, rowWords, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
+import { acceptWords, defaultChoice, effectWords, hasStopBeside, passedWords, rowWords, senderOf, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import type { TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { FLATTEN_HELP } from './PatternsCx';
@@ -106,6 +106,7 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		const hit = target.kind === 'note' && proposal?.status === 'refused' ? result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId) : undefined;
 		const reach = hit != null ? hitReach(project, result, hit) : null;
 		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, releaseFixFor(project, hit, reach)) : [];
+		const isBad = proposal != null && (proposal.status === 'refused' || proposal.status === 'problems');
 		return (
 			<div className="mm-bar-line" data-tone={proposal == null || proposal.status === 'fits' ? undefined : 'bad'}>
 				<span title={words}>
@@ -116,6 +117,7 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 						{action.label}
 					</button>
 				))}
+				{isBad && !EDITS.has(proposal.ask.kind) ? <SenderAction cx={cx} project={project} target={target} /> : null}
 			</div>
 		);
 	}
@@ -126,7 +128,25 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 			<span title={status.detail}>
 				{status.detail}
 			</span>
+			<SenderAction cx={cx} project={project} target={target} />
 		</div>
+	);
+};
+
+/** Kinds that change what stands here rather than place something new: the marble's way here doesn't decide them */
+const EDITS: ReadonlySet<string> = new Set(['remove', 'flip', 'fix']);
+
+/** A Problem shows here but may be changed earlier: the piece that sends the marble here, and a way to go to it */
+const SenderAction: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }> = (props) => {
+	const { cx, project, target } = props;
+	const result = useFeatureState(cx.simulation.$result);
+	const sender = senderOf(project, result, target);
+	if (sender == null) return null;
+	const name = sender.piece.name ?? 'the piece before';
+	return (
+		<button className="mm-notice-action" onClick={() => cx.bar.goToStop(sender.stop)} title={`${name} sends the marble here. Change it there`} type="button">
+			Go to {name}
+		</button>
 	);
 };
 

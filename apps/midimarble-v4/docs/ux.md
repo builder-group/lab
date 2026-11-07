@@ -181,6 +181,8 @@ Its groups, with separators:
 
 **An empty rest falls through a fixed order:** Curved Rail, then Switchback, then the plain piece, a Platform at the next note that the marble falls to. A refused default gives way to the next, and the line says which it shows and why: "Curved Rail doesn't fit at Note 11 of Melody. The rail lets go 0.25 s early for the note at 0:09. Switchback instead." It's a rule, not a judgment: the first that fits is shown, never the best. When the plain piece is refused too, Enter opens the dropdown, and ▶ goes on with no piece.
 
+**A Problem that shows at a note may be changed earlier.** When nothing placed here fits, a hint has a Problem or what stands here has one, the line names the piece that sends the marble here, the last of its own pieces it touched before, and offers **Go to Platform 15**, which moves the bar there to tilt or change it.
+
 **Past the built notes** the bar offers **Build Up to Here,** which builds up to and including that note as Build Entire Track does, as one Undo step, and leaves the rest open.
 
 **What's about the note lands in the bar,** in a line above it: why a note can't play, with its fixes, what a change or a Tilt did to later notes, with Undo. Everything else stays in the notice, which stands above the bar in the same lane. Quick Help's panel sits above the bar on the right.

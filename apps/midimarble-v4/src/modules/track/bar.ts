@@ -1,6 +1,6 @@
 import { isPatternGroup, parseGroupKey, parseHitKey, parseRangeKey, tieOf, toHitKey, toRangeKey, type TPatternGroup, type TPiece, type TProject } from '@/modules/project';
 import { findLongGaps, hitOwners, patternOfPiece, type TLongGap, type TProposal, type TProposeAsk } from '@/modules/building';
-import { getPieceDefinition } from '@/modules/simulation';
+import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
 import { patternPhrase } from './PatternsCx';
 
 // What the floating bar is about and what it offers, as pure functions of the track and the selection.
@@ -143,6 +143,24 @@ export function selectionOfStop(project: TProject, stop: TBarStop): string[] {
 	if (stop.kind === 'rest') return [toRangeKey(stop.marbleId, stop.gap.from, stop.gap.to)];
 	const piece = hitOwners(project, stop.marbleId).get(stop.hitId);
 	return [piece != null && patternOfPiece(project, piece.id) == null ? piece.id : toHitKey(stop.marbleId, stop.hitId)];
+}
+
+/**
+ * The piece that sends the marble to a note or a rest: the last of the marble's own pieces it touched before getting
+ * there, in this run. A Problem that shows here is changed there. Null on several notes, or when no stop holds that piece
+ */
+export function senderOf(project: TProject, result: TSimulationResult | null, target: TBarTarget): { piece: TPiece; stop: TBarStop } | null {
+	if (result == null || target.kind === 'notes') return null;
+	const { marbleId } = target;
+	const own = target.piece?.id;
+	const time = target.kind === 'rest' ? target.gap.from + 1e-3 : (result.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === target.hitId)?.targetTime ?? target.time) - 1e-3;
+	const pieces = new Map(project.track.pieces.filter((piece) => piece.id !== own && tieOf(piece)?.marbleId === marbleId).map((piece) => [piece.id, piece]));
+	const contact = result.contacts.filter((item) => item.marbleId === marbleId && item.kind === 'piece' && item.time <= time && pieces.has(item.otherId)).at(-1);
+	const piece = contact != null ? pieces.get(contact.otherId) : undefined;
+	const tie = tieOf(piece);
+	if (piece == null || tie == null) return null;
+	const stop = stopsOf(project, marbleId).find((item) => (tie.kind === 'plays' ? item.kind === 'note' && item.hitId === tie.hitId : item.kind === 'rest' && item.gap.bridgedBy === piece.id));
+	return stop != null ? { piece, stop } : null;
 }
 
 /** The stop next to where the bar is, the arrows' whole job */

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
-import { createLinkedPiece } from '@/modules/simulation';
-import { acceptWords, barRows, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
+import { createLinkedPiece, type TSimulationResult } from '@/modules/simulation';
+import { acceptWords, barRows, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -82,6 +82,26 @@ describe('stops', () => {
 		expect(frontierStop(track(EVEN, 2), 'm')).toMatchObject({ kind: 'note', number: 3 });
 		expect(frontierStop(track(WITH_REST, 2), 'm')?.kind).toBe('rest');
 		expect(frontierStop(track(EVEN, 4), 'm')).toBeNull();
+	});
+
+	it('names the piece that sends the marble to a note or a rest, the last of its own it touched before', () => {
+		const run = (times: number[]): TSimulationResult =>
+			({
+				hits: times.map((time, index) => ({ marbleId: 'm', hitId: `h${index + 1}`, targetTime: time })),
+				contacts: [
+					{ marbleId: 'm', kind: 'piece', otherId: 'p1', time: times[0] },
+					{ marbleId: 'm', kind: 'piece', otherId: 'p2', time: times[1] },
+					{ marbleId: 'm', kind: 'piece', otherId: 'stray', time: (times[1] ?? 0) + 0.1 }
+				]
+			}) as unknown as TSimulationResult;
+		const open = track(EVEN, 1);
+		expect(senderOf(open, run(EVEN), targetOf(open, [hit('h2')]))).toMatchObject({ piece: { id: 'p1' }, stop: { kind: 'note', number: 1 } });
+		// Its own platform isn't what sends the marble there, and a piece tied to nothing isn't counted
+		const built = track(EVEN, 2);
+		expect(senderOf(built, run(EVEN), targetOf(built, ['p2']))?.piece.id).toBe('p1');
+		const rest = track(WITH_REST, 2);
+		expect(senderOf(rest, run(WITH_REST), targetOf(rest, [toRangeKey('m', 1.5, 5)]))).toMatchObject({ piece: { id: 'p2' }, stop: { kind: 'note', number: 2 } });
+		expect(senderOf(open, null, targetOf(open, [hit('h2')]))).toBeNull();
 	});
 
 	it('takes a dragged silence as a rest', () => {

@@ -116,6 +116,12 @@ export class BarCx {
 		return true;
 	}
 
+	/** Goes to a stop the bar names, such as the piece that sends the marble here */
+	goToStop(stop: TBarStop): void {
+		const project = this.studio.project;
+		if (project != null) this.goTo(project, stop);
+	}
+
 	private goTo(project: TProject, stop: TBarStop): void {
 		const selection = selectionOfStop(project, stop);
 		this.studio.$selection.set(selection);
