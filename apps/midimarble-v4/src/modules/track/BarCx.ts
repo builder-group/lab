@@ -31,7 +31,10 @@ export interface TBarState {
 	passed: TBarChoice[];
 }
 
-const EMPTY: TBarState = { target: null, choice: null, answers: {}, menu: null, queued: 0, passed: [] };
+/** Choices that change what stands here and are over once landed: the bar goes back to its default */
+const DONE_ONCE: ReadonlySet<TBarChoice> = new Set(['flip', 'fix', 'remove']);
+
+const EMPTY: TBarState ={ target: null, choice: null, answers: {}, menu: null, queued: 0, passed: [] };
 
 /** The one question at a time for one target on one track: moving on or an edit makes a new one and the old one's answers are dropped */
 interface TBarSession {
@@ -210,8 +213,9 @@ export class BarCx {
 		if (proposal.status === 'problems' && proposal.words != null) this.studio.notifyEdit(proposal.words);
 		const now = this.studio.project;
 		if (now == null) return;
-		if (choice === 'remove' || choice === 'flip' || choice === 'fix') {
-			if (choice !== 'remove') this.$state.set({ ...this.$state.get(), choice: null });
+		// The bar stays where it was, back to its default; notes whose pieces went are selected by their notes
+		if (DONE_ONCE.has(choice)) {
+			if (choice === 'remove' && target.kind !== 'rest') this.studio.$selection.set(target.kind === 'note' ? selectionOfStop(now, target) : targetHitKeys(target));
 			return;
 		}
 		const last = proposal.ask.hitIds.at(-1);
@@ -402,8 +406,8 @@ export class BarCx {
 		const next: TBarSession = { project, key, waiting: [], isAsking: false, isRevealed: isSameTarget, stopped: new Set() };
 		this.session = next;
 		// What was chosen by hand stays through an edit; the default follows the track, so past the built notes it's no more
-		// once they're built. Flip and Fix are done once landed
-		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target, state.passed) && state.choice !== 'flip' && state.choice !== 'fix';
+		// once they're built. Flip, Fix and Remove are done once landed
+		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target, state.passed) && !DONE_ONCE.has(state.choice ?? '');
 		const choice = isSameTarget && isChosenByHand ? state.choice : defaultChoice(target);
 		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0, passed: [] });
 		this.revealOnce(next, target);

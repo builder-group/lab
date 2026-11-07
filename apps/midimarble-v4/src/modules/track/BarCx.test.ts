@@ -221,6 +221,8 @@ describe('BarCx', () => {
 		bar.remove();
 		expect(lands()).toBe(2);
 		expect(cx.project?.track.pieces).toHaveLength(0);
+		// Remove is over once landed: the open note offers its Platform again
+		expect(bar.$state.get().choice).toBe('platform');
 	});
 
 	it('at an empty rest falls through a refused Curved Rail to the next kind in the fixed order', async () => {
