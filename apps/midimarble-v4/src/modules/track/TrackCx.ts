@@ -128,6 +128,7 @@ export class TrackCx {
 		// Their listeners run only while the canvas is up, so Film does none of their work
 		cleanups.push(this.studio.assist.mount());
 		cleanups.push(this.studio.patterns.mount());
+		cleanups.push(this.studio.bar.mount());
 
 		// 3D and Camera cover this canvas with their own; the view keeps moving under them, since 3D stands on `$camera`
 		renderer.setPaused(!this.isFlatShown());
@@ -2131,6 +2132,11 @@ export class TrackCx {
 
 	private onKeyDown(event: KeyboardEvent): void {
 		if (isEditingTarget(event) || this.studio.$workspace.get() !== 'track') return;
+		if (this.studio.bar.handleMenuKey(event)) {
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
 		if (event.key === ' ' && !event.metaKey && !event.ctrlKey && !event.altKey) {
 			// Space and drag pans like Figma; a plain press still plays and pauses on release
 			event.preventDefault();
@@ -2150,6 +2156,7 @@ export class TrackCx {
 			// A selected Song or Camera track is no Next target, so Return keeps its timeline meaning there
 			hasSelection: selection.some((key) => parseSongKey(key) == null && key !== CAMERA_KEY),
 			hasGhosts: this.studio.assist.hasGhosts,
+			hasBar: this.studio.bar.isShown,
 			canTilt: project != null && this.tiltTargets(project).length > 0,
 			isDrawing: this.$pen.get() != null,
 			hasNotes: selection.length > 0 && selection.every((key) => parseHitKey(key) != null)
@@ -2189,6 +2196,9 @@ export class TrackCx {
 			case 'buildTrack':
 				void this.studio.assist.buildTrack();
 				return true;
+			case 'barMenu':
+				this.studio.bar.toggleMenu();
+				return true;
 			case 'acceptGhosts':
 				return this.studio.assist.acceptGhosts();
 			case 'escape':
@@ -2202,7 +2212,7 @@ export class TrackCx {
 				this.step('repeat');
 				return true;
 			case 'mirror':
-				this.step('mirror');
+				if (!this.studio.bar.flip()) this.step('mirror');
 				return true;
 			case 'fix':
 				this.studio.assist.fixSelection();
@@ -2216,8 +2226,12 @@ export class TrackCx {
 		}
 	}
 
-	/** Return and N */
+	/** Return and N: the bar's accept for a person, Next for an agent, which places as it always has */
 	next(): void {
+		if (!this.studio.isInAgentStep) {
+			this.studio.bar.enter();
+			return;
+		}
 		const before = this.studio.$selection.get();
 		this.studio.assist.next(this.placementType());
 		const after = this.studio.$selection.get();
@@ -2247,6 +2261,7 @@ export class TrackCx {
 
 	/** Escape cancels a drag or a rail in progress, then dismisses ghosts, then leaves a tool, then clears the selection */
 	escape(): void {
+		if (this.studio.bar.escape()) return;
 		if (this.$playNoteFor.get() != null) {
 			this.$playNoteFor.set(null);
 		} else if (this.studio.assist.$queuedNext.get() > 0) {
@@ -2504,7 +2519,7 @@ const OPENING_WAIT_MS = 400;
 const MIN_FIT_PLATFORM_PX = 24;
 
 // Keeps framed content clear of the corner controls and the contextual bar
-const canvasPadding: TPadding = { top: 56, right: 56, bottom: 72, left: 56 };
+const canvasPadding: TPadding = { top: 56, right: 56, bottom: 96, left: 56 };
 
 /**
  * Each marble's release and where its free fall from there reaches its first note: what the run's first hits

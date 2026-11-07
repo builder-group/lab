@@ -2771,67 +2771,211 @@ button.mm-lcd-length:hover {
 }
 
 /* Contextual build bar under the piece or dot it acts on, like Figma's selection toolbar */
-.mm-assist-bar {
-	position: absolute;
-	z-index: 18;
-	display: flex;
-	align-items: center;
-	gap: 1px;
-	padding: 3px;
+.mm-bar {
+	position: relative;
+	pointer-events: auto;
+	max-width: 100%;
 	border-radius: 10px;
 	background: var(--content-raised);
 	box-shadow:
 		0 0 0 0.5px rgb(0 0 0 / 0.12),
 		0 4px 14px rgb(0 0 0 / 0.14);
-	transform: translateX(-50%);
+	font-size: 13px;
 }
 
-.mm-assist-button {
-	position: relative;
+.mm-bar-line {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	max-width: 420px;
+	padding: 5px 6px 5px 12px;
+	border-bottom: 1px solid var(--separator);
+	font-size: 12px;
+}
+
+.mm-bar-line[data-tone='bad'] {
+	color: var(--bad);
+}
+
+.mm-bar-row {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	height: 36px;
+	padding: 0 5px;
 	white-space: nowrap;
+}
+
+.mm-bar-arrow {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	gap: 5px;
+	width: 24px;
 	height: 26px;
-	min-width: 28px;
-	padding: 0 6px;
-	border-radius: 7px;
+	border-radius: 6px;
+	color: var(--text-secondary);
+}
+
+.mm-bar-arrow:hover:not(:disabled) {
+	background: var(--hover);
 	color: var(--text);
+}
+
+.mm-bar-arrow:disabled {
+	color: var(--text-tertiary);
+	opacity: 0.5;
+}
+
+.mm-bar-where {
+	padding: 0 4px;
 	font-weight: 500;
 }
 
-.mm-assist-button[data-text='true'] {
-	padding: 0 6px 0 9px;
-}
-
-.mm-assist-button:hover {
-	background: var(--hover);
-}
-
-.mm-assist-button:hover .mm-tooltip {
-	opacity: 1;
-	transition-delay: 0.45s;
-}
-
-.mm-assist-more {
-	min-width: 20px;
-	padding: 0 3px;
-}
-
-.mm-assist-divider {
+.mm-bar-divider {
 	width: 1px;
-	height: 16px;
-	margin: 0 3px;
+	height: 18px;
+	margin: 0 5px;
 	background: var(--separator);
 }
 
+.mm-bar-what-text {
+	padding: 0 4px;
+}
+
+.mm-bar-split {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+}
+
+.mm-bar-accept {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	height: 26px;
+	padding: 0 6px 0 9px;
+	border-radius: 7px 0 0 7px;
+	font-weight: 500;
+}
+
+.mm-bar-accept[data-tone='go'] {
+	background: var(--accent);
+	color: var(--on-accent);
+}
+
+.mm-bar-accept[data-tone='go'] .mm-keycap {
+	background: rgb(0 0 0 / 0.1);
+	color: var(--on-accent);
+	box-shadow: none;
+}
+
+.mm-bar-accept[data-tone='bad'] {
+	box-shadow: inset 0 0 0 1px var(--bad);
+	color: var(--bad);
+}
+
+.mm-bar-accept[data-tone='none'] {
+	background: var(--field-fill);
+	color: var(--text-secondary);
+}
+
+.mm-bar-accept[aria-busy='true'] .mm-keycap {
+	opacity: 0.5;
+}
+
+.mm-bar-chevron,
+.mm-bar-type {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	height: 26px;
+	border-radius: 0 7px 7px 0;
+}
+
+.mm-bar-chevron {
+	width: 22px;
+	justify-content: center;
+	background: var(--field-fill);
+}
+
+.mm-bar-type {
+	padding: 0 5px 0 8px;
+	border-radius: 7px;
+	font-weight: 500;
+}
+
+.mm-bar-chevron:hover,
+.mm-bar-chevron[data-open='true'],
+.mm-bar-type:hover,
+.mm-bar-type[data-open='true'] {
+	background: var(--hover);
+}
+
+.mm-bar-mark {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0 4px;
+	font-size: 12px;
+}
+
+.mm-bar-fix {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: 24px;
+	padding: 0 7px;
+	border-radius: 6px;
+	background: var(--field-fill);
+	font-weight: 500;
+}
+
+.mm-bar-fix:hover {
+	background: var(--hover);
+}
+
+.mm-bar-tilt {
+	display: block;
+	width: 76px;
+}
+
+.mm-bar-menu {
+	position: absolute;
+	right: 0;
+	bottom: calc(100% + 6px);
+	width: max-content;
+	max-width: min(420px, calc(100vw - 32px));
+}
+
+.mm-bar-menu .mm-menu-item {
+	height: 24px;
+}
+
+.mm-bar-row-note {
+	margin-left: auto;
+	padding-left: 24px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	color: var(--text-secondary);
+	font-size: 12px;
+}
+
+.mm-bar-row-note[data-bad='true'] {
+	color: var(--bad);
+}
+
+.mm-menu-item[data-highlighted='true'] .mm-bar-row-note {
+	color: color-mix(in srgb, var(--on-accent) 70%, transparent);
+}
+
+
 @media (prefers-color-scheme: dark) {
-	.mm-assist-bar {
+	.mm-bar {
 		box-shadow:
 			0 0 0 0.5px rgb(255 255 255 / 0.14),
 			0 4px 14px rgb(0 0 0 / 0.45);
 	}
+
 
 	.mm-slider::-webkit-slider-thumb {
 		background: #d8d8da;

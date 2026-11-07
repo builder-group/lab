@@ -1,7 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { applyProjectCommands, createId, type TPiece, type TProject, type TProjectCommand } from '@/modules/project';
-import { isSuperseded, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
-import { hitOwners, openLongGaps } from './assists';
+import { applyProjectCommands, createId, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult, type TSimulator } from '@/modules/simulation';
+import { findLongGaps, hitOwners, openLongGaps } from './assists';
 import { hitReach, isUnreachable, reachMessage } from './reachability';
 import { answerEdit, changedPieces, editCommands, type TEditAnswer, type TEditRequest } from './edit-rule';
 import { checkPattern, type TPatternAsk, type TPatternCheck } from './patterns/check-pattern';
@@ -16,10 +16,10 @@ export interface TProposeAsk {
 	marbleId: string;
 	/** The note, or the notes of a stretch */
 	hitIds: string[];
-	/** What to place: a piece type for a note, a gap piece for the rest before the note, or a Pattern over these notes or that rest */
+	/** What to place: a piece type for a note, a gap piece for the rest before the note, or a Pattern over these notes or that rest. `flip` turns the note's platform the other way and `remove` takes its piece */
 	kind: string;
-	/** What the kind takes, and the ID its piece gets */
-	settings?: { pieceId?: string; width?: number; bounce?: number; maxTilt?: number };
+	/** What the kind takes, the ID its piece gets, and for `remove` the pieces it takes when they don't play these notes */
+	settings?: { pieceId?: string; pieceIds?: string[]; width?: number; bounce?: number; maxTilt?: number };
 }
 
 /** What one note makes of it, in plain words */
@@ -47,6 +47,8 @@ export interface TProposalFacts {
 	total: number;
 	/** Notes on time before and not after */
 	lost: number;
+	/** Their numbers, on the marble asked about */
+	lostNumbers: number[];
 	/** New since the track before: pieces struck twice, rolled on or passed through, pieces that touch, what another marble hits */
 	strikes: number;
 	rolls: number;
@@ -69,6 +71,11 @@ export interface TProposal {
 	/** What lands: the pieces and whatever they make change */
 	commands: TProjectCommand[];
 	pieces: TPiece[];
+	/** Those pieces as they'd stand, for a hint */
+	shown: TResolvedPiece[];
+	/** Where the marble is at its next open note with this, and its way there; empty without a next note or a run */
+	nextDot: TVec2 | null;
+	flight: TVec2[];
 	notes: TNoteVerdict[];
 	changes: TProposalChange[];
 	facts: TProposalFacts | null;
@@ -82,7 +89,7 @@ export interface TProposal {
 }
 
 /** What a Pattern's check says, in a worker or in this thread. Null when it was stopped */
-export type TProposedPattern = Pick<TPatternCheck, 'commands' | 'refusal' | 'verdicts' | 'ending'> | null;
+export type TProposedPattern = (Pick<TPatternCheck, 'commands' | 'refusal' | 'verdicts' | 'ending'> & { pieces?: TResolvedPiece[] }) | null;
 
 export interface TProposeDeps {
 	simulate: (project: TProject) => Promise<TSimulationResult> | TSimulationResult;
@@ -96,7 +103,7 @@ export interface TProposeDeps {
 export interface TProposeOptions {
 	/** The run of `project`, when the caller has it */
 	result?: TSimulationResult;
-	/** A place at any dot, past notes still open: Next and a click do this until the bar replaces them */
+	/** A place at any dot, past notes still open, or past a rest nothing fills: Next does this, and the bar on such a note */
 	isAnyDot?: boolean;
 }
 
@@ -123,6 +130,7 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	const hitId = hitIds[0];
 	const hit = before.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
 	if (marble == null || hitId == null || hit == null) return refused(project, before, ask, 'That note is gone.');
+	if (kind === 'remove' || kind === 'flip') return proposeEdit(project, before, ask, kind, deps);
 	const owners = hitOwners(project, marbleId);
 	const index = marble.hits.findIndex((item) => item.id === hitId);
 	const firstOpen = marble.hits.findIndex((item) => !owners.has(item.id));
@@ -155,15 +163,38 @@ function isGapKind(kind: string): kind is TGapPieceType {
 async function proposeGapPiece(project: TProject, before: TSimulationResult, ask: TProposeAsk, type: TGapPieceType, fromHitId: string | undefined, deps: TProposeDeps): Promise<TProposal> {
 	const toHitId = ask.hitIds[0];
 	if (fromHitId == null || toHitId == null) return refused(project, before, ask, 'A rest lies between two notes, and this note is the first.');
+	// What already fills the rest makes way, in the same step
+	const bridge = findLongGaps(project, ask.marbleId).find((gap) => gap.toHitId === toHitId)?.bridgedBy;
+	const makesWay: TProjectCommand[] = bridge != null ? [{ type: 'removePieces', pieceIds: [bridge] }] : [];
+	const [isClear, clearError, clear] = applyProjectCommands(project, makesWay);
+	if (!isClear) return refused(project, before, ask, clearError.message);
 	let answer: TGapAnswer;
 	try {
 		const pieceId = ask.settings?.pieceId;
-		answer = await deps.gapPiece({ type, project, marbleId: ask.marbleId, fromHitId, toHitId, ...(pieceId != null ? { pieceId } : {}) });
+		answer = await deps.gapPiece({ type, project: clear, marbleId: ask.marbleId, fromHitId, toHitId, ...(pieceId != null ? { pieceId } : {}) });
 	} catch (error) {
 		if (isSuperseded(error)) throw error;
 		return refused(project, before, ask, error instanceof Error ? error.message : String(error));
 	}
-	return { ...(await landed(project, before, ask, [answer.piece], answer.commands, { checksNext: false }, deps)), gap: answer };
+	return { ...(await landed(project, before, ask, [answer.piece], [...makesWay, ...answer.commands], { checksNext: false }, deps)), gap: answer };
+}
+
+/** A note's piece the other way round, or a stretch's pieces gone: what later notes do about it is in the answer */
+async function proposeEdit(project: TProject, before: TSimulationResult, ask: TProposeAsk, kind: 'remove' | 'flip', deps: TProposeDeps): Promise<TProposal> {
+	const owners = hitOwners(project, ask.marbleId);
+	const playing = ask.hitIds.flatMap((hitId) => owners.get(hitId) ?? []);
+	if (kind === 'flip') {
+		const [piece] = playing;
+		if (piece == null) return refused(project, before, ask, 'This note has no platform to flip.');
+		const flipped = { ...piece, angle: -piece.angle };
+		return landed(project, before, ask, [flipped], [{ type: 'updatePiece', pieceId: piece.id, patch: { angle: flipped.angle } }], { checksNext: true }, deps);
+	}
+	const wanted = ask.settings?.pieceIds;
+	const pieces = wanted != null ? project.track.pieces.filter((piece) => wanted.includes(piece.id)) : playing;
+	if (!pieces.length) return refused(project, before, ask, 'There is no piece here to remove.');
+	const proposal = await landed(project, before, ask, pieces, [{ type: 'removePieces', pieceIds: pieces.map((piece) => piece.id) }], { checksNext: false }, deps);
+	// They aren't there afterward: the hint draws them where they stand
+	return { ...proposal, shown: before.pieces.filter((piece) => pieces.some((item) => item.id === piece.pieceId)) };
 }
 
 /** What a rest offers instead of a plain piece: a Long Rail and a Switchback, each with its own answer, and the plain piece only when neither fits */
@@ -188,7 +219,7 @@ async function proposePattern(project: TProject, before: TSimulationResult, ask:
 	if (answer == null) return refused(project, before, ask, 'The Pattern was stopped.');
 	const said = new Map(answer.verdicts.flatMap((verdict) => (verdict.words != null ? [[verdict.hitId, verdict.words] as const] : [])));
 	const withWords = (proposal: TProposal): TProposal => ({ ...proposal, notes: proposal.notes.map((note) => ({ ...note, words: said.get(note.hitId) ?? note.words })) });
-	if (answer.refusal != null || !answer.commands.length) return withWords(refused(project, before, ask, answer.refusal?.words ?? answer.ending?.words ?? "It doesn't fit here."));
+	if (answer.refusal != null || !answer.commands.length) return { ...withWords(refused(project, before, ask, answer.refusal?.words ?? answer.ending?.words ?? "It doesn't fit here.")), shown: answer.pieces ?? [] };
 	const [isApplied, applyError, after] = applyProjectCommands(project, answer.commands);
 	if (!isApplied) return refused(project, before, ask, applyError.message);
 	// Its check already had the later pieces take up the change
@@ -196,7 +227,7 @@ async function proposePattern(project: TProject, before: TSimulationResult, ask:
 }
 
 function refused(project: TProject, before: TSimulationResult, ask: TProposeAsk, words: string): TProposal {
-	return { id: createId('proposal'), base: project, ask, status: 'refused', commands: [], pieces: [], notes: notesOf(project, ask, before, []), changes: [], facts: null, reasons: [], words };
+	return { id: createId('proposal'), base: project, ask, status: 'refused', commands: [], pieces: [], shown: [], nextDot: null, flight: [], notes: notesOf(project, ask, before, []), changes: [], facts: null, reasons: [], words };
 }
 
 /** Applies a proposal's pieces to its track on paper and states the facts */
@@ -218,6 +249,7 @@ async function landed(project: TProject, before: TSimulationResult, ask: TPropos
 	const countOf = (kind: TVerdictReason['kind']): number => verdict.reasons.filter((reason) => reason.kind === kind).length;
 	const made = new Set(pieces.map((piece) => piece.id));
 	const nextDotAsked = checksNext && (!verdict.reasons.length || verdict.reasons.every((reason) => reason.kind === 'noRoom'));
+	const hitsOfMarble = project.marbles.find((item) => item.id === ask.marbleId)?.hits ?? [];
 	return {
 		id: createId('proposal'),
 		base: project,
@@ -225,12 +257,15 @@ async function landed(project: TProject, before: TSimulationResult, ask: TPropos
 		status: verdict.reasons.length > 0 ? 'problems' : 'fits',
 		commands: allCommands,
 		pieces,
+		shown: result.pieces.filter((piece) => made.has(piece.pieceId)),
+		...wayOnward(result, ask),
 		notes: notesOf(after, ask, result, verdict.reasons),
 		changes: changesOf(project, after, before, result, made),
 		facts: {
 			onTime: verdict.onTime,
 			total: verdict.total,
 			lost: verdict.lost.length,
+			lostNumbers: verdict.lost.filter((note) => note.marbleId === ask.marbleId).map((note) => hitsOfMarble.findIndex((hit) => hit.id === note.hitId) + 1),
 			strikes: countOf('struckTwice'),
 			rolls: countOf('rolls'),
 			passThroughs: countOf('passesThrough'),
@@ -242,6 +277,16 @@ async function landed(project: TProject, before: TSimulationResult, ask: TPropos
 		reasons: verdict.reasons,
 		words: verdict.reasons[0] != null ? reasonWords(after, verdict.reasons[0]) : null
 	};
+}
+
+/** Where the marble goes from the notes asked to its next open note, for a hint */
+function wayOnward(result: TSimulationResult, ask: TProposeAsk): Pick<TProposal, 'nextDot' | 'flight'> {
+	const asked = result.hits.filter((hit) => hit.marbleId === ask.marbleId && ask.hitIds.includes(hit.hitId));
+	const from = Math.max(...asked.map((hit) => hit.targetTime), 0);
+	const next = result.hits.filter((hit) => hit.marbleId === ask.marbleId && hit.status === 'open' && hit.targetTime > from - 1e-6).sort((a, b) => a.targetTime - b.targetTime)[0];
+	if (next?.dot == null) return { nextDot: null, flight: [] };
+	const samples = result.marbles.find((track) => track.marbleId === ask.marbleId)?.samples ?? [];
+	return { nextDot: next.dot, flight: samples.filter((sample) => sample.time >= from && sample.time <= next.targetTime).map((sample) => sample.position) };
 }
 
 /** A note's verdict: on time, or the first reason that names it, or what the run says about it */
@@ -277,7 +322,7 @@ function changesOf(project: TProject, after: TProject, before: TSimulationResult
 	const now = new Map(after.track.pieces.map((piece) => [piece.id, piece]));
 	const standing = new Map(before.pieces.map((piece) => [piece.pieceId, piece.position]));
 	const changes: TProposalChange[] = [];
-	for (const piece of project.track.pieces) if (!now.has(piece.id)) changes.push({ pieceId: piece.id, name: nameOf(piece, piece.id), how: 'removed' });
+	for (const piece of project.track.pieces) if (!now.has(piece.id) && !made.has(piece.id)) changes.push({ pieceId: piece.id, name: nameOf(piece, piece.id), how: 'removed' });
 	for (const piece of after.track.pieces) {
 		const old = was.get(piece.id);
 		if (old == null || made.has(piece.id)) continue;

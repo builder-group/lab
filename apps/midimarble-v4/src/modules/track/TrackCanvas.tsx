@@ -1,26 +1,25 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, ChevronDown, ChevronsRight, CopyPlus, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
+import { Anchor, ChevronDown, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
-import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey, tieOf } from '@/modules/project';
+import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey } from '@/modules/project';
 import { stageAlongGuide, stageBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
-import { findStepTarget, linkedPieces, mapNodes, nodesPathData } from '@/modules/building';
-import type { AssistCx } from './AssistCx';
+import { mapNodes, nodesPathData } from '@/modules/building';
 import { TrackCx, noteLabel, type TTrackDrag } from './TrackCx';
 import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@/modules/canvas';
 import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
-import { acceptableCount } from './ghosts';
 import { followKey } from './keys';
-import { GhostHint, GhostShapes } from './GhostLayer';
+import { GhostShapes } from './GhostLayer';
 import { PatternGhost } from './PatternInspector';
+import { BarHint } from './FloatingBar';
 import { HitFlashLayer } from './HitFlashLayer';
 import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
-import { placeBar, type TScreenRect, ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
+import { ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
 import { nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
@@ -65,6 +64,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 				<PieceLayer trackCx={trackCx} />
 				<GhostShapes trackCx={trackCx} />
 				<PatternGhost trackCx={trackCx} />
+				<BarHint trackCx={trackCx} />
 			</svg>
 			<div
 				className="absolute inset-0 touch-none"
@@ -78,9 +78,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 			/>
 			<TrackOverlay trackCx={trackCx} />
 			<PenOverlay trackCx={trackCx} />
-			<GhostHint trackCx={trackCx} />
 			<PlayNoteHint trackCx={trackCx} />
-			<AssistBar trackCx={trackCx} />
 			<EmptyWall cx={cx} />
 			<Track3DView trackCx={trackCx} />
 			<div className="absolute top-3 right-3 z-30 flex items-center gap-2">
@@ -865,151 +863,6 @@ const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position
 				</button>
 			)}
 		</div>
-	);
-};
-
-// MARK: - Contextual assists
-
-/**
- * The build assists next to where they act, like Figma's selection toolbar: under the selected last piece of
- * a marble, or under the next open dot when nothing is selected. Their keys work everywhere.
- */
-const AssistBar: React.FC<{ trackCx: TrackCx }> = (props) => {
-	const { trackCx } = props;
-	const cx = trackCx.studio;
-	const result = useFeatureState(cx.simulation.$result);
-	const project = useFeatureState(cx.$history)?.present;
-	const selection = useFeatureState(cx.$selection);
-	const playing = useFeatureState(cx.$playing);
-	const drag = useFeatureState(trackCx.$drag);
-	const pen = useFeatureState(trackCx.$pen);
-	const tool = useFeatureState(trackCx.$tool);
-	const ghosts = useFeatureState(trackCx.studio.assist.$ghosts);
-	const queued = useFeatureState(trackCx.studio.assist.$queuedNext);
-	const building = useFeatureState(trackCx.studio.assist.$building);
-	const notice = useFeatureState(cx.$notice);
-	// The bar sits at screen positions, so it moves with the view
-	useFeatureState(trackCx.$camera);
-	const viewport = useFeatureState(trackCx.$viewport);
-	// The bar's measured size, so it can move off ghosts it would cover
-	const [size, setSize] = React.useState({ width: 240, height: 38 });
-	const barRef = React.useCallback((bar: HTMLDivElement | null) => {
-		if (bar == null) return;
-		const observer = new ResizeObserver(() => {
-			const { offsetWidth: width, offsetHeight: height } = bar;
-			setSize((current) => (Math.abs(current.width - width) > 1 || Math.abs(current.height - height) > 1 ? { width, height } : current));
-		});
-		observer.observe(bar);
-		return () => observer.disconnect();
-	}, []);
-	if (project == null || result == null || playing || drag != null || pen != null || tool === 'path' || building != null) return null;
-
-	const target = findStepTarget(project, result, selection);
-	if (target?.dot == null) return null;
-	// With a selection, the bar belongs to the selected piece or dot and only shows when Next has a target after it
-	let anchor: TVec2;
-	const pieceId = selection.length === 1 ? selection[0] : undefined;
-	const piece = pieceId != null ? linkedPieces(project).find((item) => item.piece.id === pieceId) : undefined;
-	const resolved = piece != null ? result.pieces.find((item) => item.pieceId === piece.piece.id) : undefined;
-	if (selection.length > 0 && piece == null && parseHitKey(selection[0] ?? '') == null) return null;
-	if (resolved != null) {
-		const outline = trackCx.screenOutline(resolved);
-		anchor = { x: outline.reduce((sum, point) => sum + point.x, 0) / outline.length, y: Math.max(...outline.map((point) => point.y)) + 30 };
-	} else {
-		// Below the ghost piece at the dot when one shows, so the bar never covers it
-		const ghost = ghosts.ghost?.kind === 'continue' ? ghosts.ghost.answer.suggestions.find((item) => item.resolved != null)?.resolved : ghosts.ghost?.kind === 'place' ? ghosts.ghost.answer.resolved : null;
-		const outline = ghost != null ? trackCx.screenOutline(ghost) : [];
-		const dot = trackCx.toScreen(target.dot);
-		anchor = outline.length ? { x: dot.x, y: Math.max(dot.y, ...outline.map((point) => point.y)) + 26 } : { x: dot.x, y: dot.y + 24 };
-	}
-	// The bar belongs next to what it acts on; when that is out of view it stays away
-	if (anchor.x < 0 || anchor.x > viewport.width || anchor.y < 0 || anchor.y > viewport.height + 20) return null;
-	const continueCount = ghosts.ghost?.kind === 'continue' ? acceptableCount(ghosts.ghost) : 0;
-	const hasLastPlatform = linkedPieces(project).some((item) => item.piece.type === 'platform' && tieOf(item.piece)?.marbleId === target.marbleId);
-	// Clear of the notice at the bottom of the canvas while one shows
-	const { left, top } = placeBar(anchor, size, ghostRects(trackCx, ghosts.ghost), notice != null ? { ...viewport, height: viewport.height - NOTICE_ROOM } : viewport);
-
-	return (
-		<div ref={barRef} className="mm-assist-bar mm-ghost-in" style={{ left, top }} role="toolbar" aria-label="Assists">
-			<AssistButton
-				label="Place Next Platform"
-				detail={queued > 0 ? `${queued} more ${queued === 1 ? 'press' : 'presses'} waiting for the track · esc cancels` : 'Add the platform for the next open note'}
-				shortcut="N"
-				onClick={() => trackCx.next()}
-				isText
-			>
-				{/* Presses made while the run catches up queue up, like key repeat in a text field */}
-				{queued > 0 ? <span className="tabular-nums">Next ×{queued}</span> : 'Next'}
-			</AssistButton>
-			<button
-				className="mm-assist-button mm-assist-more"
-				aria-label="More Ways to Build"
-				aria-haspopup="menu"
-				onPointerDown={(event) => event.stopPropagation()}
-				onClick={(event) => openContextMenu(event, [{ label: 'Build Track', shortcut: '⇧N', onSelect: () => void cx.assist.buildTrack() }])}
-				type="button"
-			>
-				<ChevronDown size={13} strokeWidth={1.8} />
-				<span className="mm-tooltip">More Ways to Build</span>
-			</button>
-			{hasLastPlatform ? (
-				<>
-					<div className="mm-assist-divider" />
-					<AssistButton label="Repeat Last Platform" detail="Tilt the same way again, for a staircase; Next would go back" shortcut="R" onClick={() => trackCx.step('repeat')}>
-						<CopyPlus size={14} strokeWidth={1.8} />
-					</AssistButton>
-				</>
-			) : null}
-			{continueCount > 1 ? (
-				<>
-					<div className="mm-assist-divider" />
-					<AssistButton label={`Continue Pattern (${continueCount})`} detail={`Repeat the pattern for ${continueCount} more ${continueCount === 1 ? 'note' : 'notes'} · esc dismisses`} shortcut="⇥" onClick={() => trackCx.studio.assist.acceptGhosts()} isText>
-						<ChevronsRight size={14} strokeWidth={1.8} />
-						Continue Pattern ({continueCount})
-					</AssistButton>
-				</>
-			) : null}
-		</div>
-	);
-};
-
-// Height of the bottom of the canvas a notice takes
-const NOTICE_ROOM = 64;
-
-/** Screen boxes of the ghost pieces and dots on show, which the build bar keeps clear of */
-function ghostRects(trackCx: TrackCx, ghost: ReturnType<AssistCx['$ghosts']['get']>['ghost']): TScreenRect[] {
-	if (ghost == null) return [];
-	const pieces = ghost.kind === 'continue' ? ghost.answer.suggestions.map((item) => item.resolved) : [ghost.answer.resolved];
-	const dots = ghost.kind === 'gap' ? [ghost.answer.track.at(-1)] : ghost.kind === 'place' ? [ghost.answer.nextDot] : ghost.answer.suggestions.map((item) => item.dot);
-	const rects: TScreenRect[] = [];
-	for (const piece of pieces) {
-		if (piece == null) continue;
-		const outline = trackCx.screenOutline(piece).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
-		if (!outline.length) continue;
-		const xs = outline.map((point) => point.x);
-		const ys = outline.map((point) => point.y);
-		rects.push({ x: Math.min(...xs) - 4, y: Math.min(...ys) - 4, width: Math.max(...xs) - Math.min(...xs) + 8, height: Math.max(...ys) - Math.min(...ys) + 8 });
-	}
-	for (const dot of dots) {
-		if (dot == null) continue;
-		const screen = trackCx.toScreen(dot);
-		rects.push({ x: screen.x - 7, y: screen.y - 7, width: 14, height: 14 });
-	}
-	return rects;
-}
-
-const AssistButton: React.FC<{ label: string; detail: string; shortcut: string; onClick: () => void; isText?: boolean; children: React.ReactNode }> = (props) => {
-	const { label, detail, shortcut, onClick, isText = false, children } = props;
-	return (
-		<button className="mm-assist-button" data-text={isText} aria-label={label} onPointerDown={(event) => event.stopPropagation()} onClick={onClick} type="button">
-			{children}
-			{isText ? <kbd className="mm-keycap">{shortcut}</kbd> : null}
-			<span className="mm-tooltip">
-				{label}
-				<span className="text-[rgb(255_255_255/0.6)]">{detail}</span>
-				<kbd>{shortcut}</kbd>
-			</span>
-		</button>
 	);
 };
 

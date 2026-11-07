@@ -17,7 +17,7 @@ import type { THitFlash } from '@/modules/canvas';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
 import type { TrackCx } from '@/modules/track';
-import { AssistCx, PatternsCx, withWholePatterns } from '@/modules/track';
+import { AssistCx, BarCx, PatternsCx, withWholePatterns } from '@/modules/track';
 import { earliestHitTime, releaseFollowsFirstHit, problemSummary, type TPreflightTarget } from '@/modules/building';
 import type { TView } from '@/modules/scene';
 import { McpCx } from '@/modules/mcp/McpCx';
@@ -112,6 +112,7 @@ export class StudioCx {
 	/** Next, Build Track and Fix, whichever workspace is open; the Track canvas attaches their listeners while it's up */
 	readonly assist = new AssistCx(this);
 	readonly patterns = new PatternsCx(this);
+	readonly bar = new BarCx(this);
 	readonly mcp = new McpCx(this);
 	/** The command registry, for the features and MCP, which don't import the shell */
 	readonly commands = {
@@ -885,6 +886,7 @@ export class StudioCx {
 		const project = this.project;
 		if (project == null) return false;
 		const isTrack = this.$workspace.get() === 'track';
+		if (isTrack && this.bar.isShown) return this.bar.move(direction);
 		const next = stepHitTarget(project, this.$selection.get(), this.$playhead.get(), direction, isTrack);
 		if (next == null) return false;
 		this.seek(next.time);
@@ -1068,7 +1070,7 @@ export class StudioCx {
 		const id = ++this.noticeId;
 		this.noticeShownAt = this.project?.revision ?? null;
 		this.noticeGroup = this.editGroup;
-		this.$notice.set({ id, message, tone, ...options });
+		this.$notice.set({ id, message, tone, selection: this.$selection.get(), ...options });
 		this.scheduleNoticeEnd();
 		return id;
 	}
@@ -1253,6 +1255,8 @@ export interface TNotice extends TNoticeOptions {
 	id: number;
 	message: string;
 	tone: 'info' | 'error';
+	/** What was selected when it was said */
+	selection: readonly string[];
 }
 
 export interface TNoticeOptions {

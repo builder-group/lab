@@ -8,6 +8,7 @@ import { HintLayer } from './HintLayer';
 import { ImportMidiSheet } from './ImportMidiSheet';
 import { Inspector } from './Inspector';
 import { LabelColorSuggestions } from './LabelColorInput';
+import { FloatingBar } from '@/modules/track';
 import { Notice } from './Notice';
 import { QuickHelp } from './QuickHelp';
 import { SaveChangesAlert } from './SaveChangesAlert';
@@ -40,7 +41,10 @@ export const Studio: React.FC<TStudioProps> = (props) => {
 						<ToolRail cx={cx} />
 						<main className="relative min-w-0 flex-1" data-canvas-bounds data-quick-help="wall" aria-label={workspace === 'track' ? 'Track wall' : 'Film preview'}>
 							{canvas}
-							<Notice cx={cx} />
+							<div className="pointer-events-none absolute inset-x-3 bottom-3 z-30 flex flex-col items-center gap-2">
+								<Notice cx={cx} />
+								<FloatingBar cx={cx} />
+							</div>
 						</main>
 						{panels.inspector ? <Inspector cx={cx} /> : null}
 					</div>

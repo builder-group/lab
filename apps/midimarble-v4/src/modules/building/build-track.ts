@@ -174,6 +174,8 @@ export interface TBuildOptions {
 	from?: { marbleId: string; hitId: string };
 	/** What is tried first across a long gap, the other when it doesn't fit: a straight rail unless asked otherwise; a Chain falls back to the Switchback layout */
 	gapPiece?: TBuildGapPreference;
+	/** Build Up to Here: builds the notes up to this time on every marble and leaves the rest open, with no Bowl */
+	until?: number;
 }
 
 /** Deps that answer in this thread with the same requests the assist workers answer, for scripts and tests */
@@ -880,18 +882,19 @@ export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Pr
  * without pieces. Each accepted step goes to `deps.commit`, so the pieces appear as they are found.
  */
 export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options: TBuildOptions = {}): Promise<TBuildOutcome> {
-	const { from, gapPiece = null } = options;
+	const { from, gapPiece = null, until } = options;
+	const asked = until != null ? upTo(whole, until) : whole;
 	// What Rebuild From Here keeps; the first commit takes the rest away, so it all stays one undo step
-	const project = from != null ? withoutPiecesAfter(whole, from) : whole;
+	const project = from != null ? withoutPiecesAfter(asked, from) : asked;
 	const people = new Map(project.track.pieces.map((piece) => [piece.id, playedShape(piece)]));
-	const build = createBuildRun(whole, project, deps, gapPiece, from);
+	const build = createBuildRun(asked, project, deps, gapPiece, from);
 	const best = await bestAttempt(build);
 	if (best == null) throw new Error('Build Track started no attempt');
 	let current = await goOnPastStuck(build, best);
 
 	// Each marble ends in a Bowl after its last note, and the film length follows
 	const bowls: string[] = [];
-	if (!build.isStopped && !isCanceled(best.state)) {
+	if (until == null && !build.isStopped && !isCanceled(best.state)) {
 		const finished = best.finished ?? (await withBowls(current, { simulate: (next) => deps.simulate(next), isCanceled: deps.isCanceled }, { marbles: marblesWithHits(current) }));
 		bowls.push(...finished.messages);
 		if (isCanceled(best.state)) build.isStopped = true;
@@ -922,6 +925,11 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 		attempts: build.attempts,
 		isStopped: build.isStopped
 	};
+}
+
+/** The project with no notes past `time`, which a build then knows nothing of */
+function upTo(project: TProject, time: number): TProject {
+	return { ...project, marbles: project.marbles.map((marble) => ({ ...marble, hits: marble.hits.filter((hit) => hit.time <= time + 1e-9) })) };
 }
 
 /** What a build's turn of a person's piece would change: its tie with the tied angle, its type and its parameters */

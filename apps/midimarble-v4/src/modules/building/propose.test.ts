@@ -44,6 +44,39 @@ describe('propose', () => {
 		expect(proposal.facts).toMatchObject({ onTime: 1, total: 4, lost: 0, hasRoomAtNext: true });
 	});
 
+	it('says what a piece would show and where the marble goes next, for a hint', async () => {
+		const proposal = await asked(fourNotes(), 'hit-0');
+		expect(proposal.shown.map((piece) => piece.pieceId)).toEqual(proposal.pieces.map((piece) => piece.id));
+		expect(proposal.nextDot).not.toBeNull();
+		expect(proposal.flight.length).toBeGreaterThan(1);
+	});
+
+	it('proposes a flip of a note\'s platform and lands it as one edit', async () => {
+		const project = fourNotes();
+		const built = landed(project, await asked(project, 'hit-0'));
+		const before = built.track.pieces[0]?.angle ?? 0;
+		const proposal = await asked(built, 'hit-0', 'flip');
+		expect(proposal.status).not.toBe('refused');
+		expect(landed(built, proposal).track.pieces[0]?.angle).toBeCloseTo(-before);
+	});
+
+	it('proposes a removal, says which notes stop playing and shows the piece where it stands', async () => {
+		const project = fourNotes();
+		const one = landed(project, await asked(project, 'hit-0'));
+		const two = landed(one, await asked(one, 'hit-1'));
+		const proposal = await asked(two, 'hit-0', 'remove');
+		expect(proposal.commands[0]).toEqual({ type: 'removePieces', pieceIds: [two.track.pieces[0]?.id] });
+		expect(proposal.shown.map((piece) => piece.pieceId)).toEqual([two.track.pieces[0]?.id]);
+		expect(proposal.facts?.lostNumbers).toContain(1);
+		expect(proposal.changes.map((change) => change.pieceId)).not.toContain(two.track.pieces[0]?.id);
+	});
+
+	it('refuses to flip or remove what isn\'t there', async () => {
+		const project = fourNotes();
+		expect((await asked(project, 'hit-0', 'flip')).status).toBe('refused');
+		expect((await asked(project, 'hit-0', 'remove')).status).toBe('refused');
+	});
+
 	it('lands exactly what it proposed', async () => {
 		const project = fourNotes();
 		const proposal = await asked(project, 'hit-0');

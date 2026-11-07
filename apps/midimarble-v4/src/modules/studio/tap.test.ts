@@ -126,6 +126,7 @@ describe('stepHit method', () => {
 			$selection: createState<string[]>([]),
 			$workspace: createState(workspace),
 			seek: StudioCx.prototype.seek,
+			bar: { isShown: false },
 			stepHit: StudioCx.prototype.stepHit
 		};
 		return cx as unknown as StudioCx;

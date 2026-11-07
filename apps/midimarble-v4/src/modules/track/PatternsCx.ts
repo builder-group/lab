@@ -237,6 +237,8 @@ export class PatternsCx {
 
 	/** Says once per try that a live Pattern's piece doesn't edit, with Flatten beside it: a held key or a long drag is one try */
 	tellLocked(group: TPatternGroup, pieceId?: string): void {
+		// The bar already says it on a note
+		if (this.studio.bar.isShown) return;
 		const now = performance.now();
 		if (this.toldGroup === group.id && now - this.toldAt < LOCK_NOTICE_MS) {
 			this.toldAt = now;
@@ -245,6 +247,15 @@ export class PatternsCx {
 		this.toldGroup = group.id;
 		this.toldAt = now;
 		this.studio.notify(`Part of ${group.name}.`, 'info', { actions: [{ label: 'Flatten', title: FLATTEN_HELP, run: () => this.flatten(group, pieceId) }] });
+	}
+
+	/** What a Pattern would make of this, with its ghost as soon as there is one and no notice, for the bar's hint. `cancelAsk` ends it */
+	ask(project: TProject, change: TPatternAsk, onGhost: (pieces: TResolvedPiece[]) => void): Promise<TPatternAnswer> {
+		return this.clientNow().preview(project, change, onGhost);
+	}
+
+	cancelAsk(): void {
+		this.client?.cancelPreview();
 	}
 
 	/** The same run with nothing applied, for an agent's dry run */

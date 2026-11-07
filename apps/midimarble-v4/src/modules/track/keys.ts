@@ -21,6 +21,8 @@ export interface TKeyContext {
 	hasSelection: boolean;
 	/** Ghost pieces are on the canvas */
 	hasGhosts: boolean;
+	/** The floating bar shows, whose dropdown Tab opens */
+	hasBar?: boolean;
 	/** A rail is being drawn with the path tool */
 	isDrawing?: boolean;
 	/** The selection holds a piece, or a hit with a platform, that ↑ ↓ can tilt */
@@ -43,6 +45,7 @@ export type TTrackKeyAction =
 	| { type: 'library' }
 	| { type: 'next' }
 	| { type: 'buildTrack' }
+	| { type: 'barMenu' }
 	| { type: 'acceptGhosts' }
 	| { type: 'escape' }
 	| { type: 'delete' }
@@ -103,9 +106,11 @@ export function trackKeyAction(input: TKeyInput, context: TKeyContext): TTrackKe
 	switch (input.key) {
 		case 'Enter':
 			// With nothing selected and nothing offered, Return keeps its timeline meaning: back to the start
-			return context.hasSelection || context.hasGhosts ? { type: 'next' } : null;
+			return context.hasSelection || context.hasGhosts || context.hasBar === true ? { type: 'next' } : null;
 		case 'Tab':
-			return context.hasGhosts && !input.shiftKey ? { type: 'acceptGhosts' } : null;
+			if (input.shiftKey) return null;
+			if (context.hasBar === true) return { type: 'barMenu' };
+			return context.hasGhosts ? { type: 'acceptGhosts' } : null;
 		case 'Escape':
 			return { type: 'escape' };
 		case 'Backspace':

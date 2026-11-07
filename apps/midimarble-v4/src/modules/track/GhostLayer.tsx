@@ -1,10 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import type { TVec2 } from '@/modules/project';
-import { PACE_LIMIT, type TResolvedPiece } from '@/modules/simulation';
+import type { TResolvedPiece } from '@/modules/simulation';
 import type { TrackCx } from './TrackCx';
 import { paletteOf, PieceBody, toPoints } from '@/modules/canvas';
-import { acceptableCount, type TGhost } from './ghosts';
 
 /** Suggested pieces drawn dashed and see-through in place, with the dots they would produce */
 export const GhostShapes: React.FC<TGhostLayerProps> = (props) => {
@@ -74,105 +73,3 @@ const GhostDot: React.FC<{ position: TVec2; color: string }> = (props) => {
 	const { position, color } = props;
 	return <circle cx={position.x} cy={position.y} r={4} fill="var(--canvas)" fillOpacity={0.7} stroke={color} strokeWidth={1.25} strokeDasharray="2 2" />;
 };
-
-/**
- * Inline hint next to the first ghost, like tab completion in a code editor: what Tab or Return adds and
- * that Escape hides it. While a gap piece is being searched it says so instead.
- */
-export const GhostHint: React.FC<TGhostLayerProps> = (props) => {
-	const { trackCx } = props;
-	const state = useFeatureState(trackCx.studio.assist.$ghosts);
-	// The hint is placed at a screen position, so it moves with the view
-	useFeatureState(trackCx.$camera);
-	const viewport = useFeatureState(trackCx.$viewport);
-	const result = useFeatureState(trackCx.studio.simulation.$result);
-	const drag = useFeatureState(trackCx.$drag);
-	if (drag != null) return null;
-
-	let anchor: TVec2 | null = null;
-	let content: React.ReactNode = null;
-	if (state.pendingGap != null) {
-		const { marbleId, toHitId } = state.pendingGap;
-		const dot = result?.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === toHitId)?.dot;
-		anchor = dot != null ? trackCx.toScreen(dot) : null;
-		content = <span className="text-[var(--text-secondary)]">Finding a rail for this gap…</span>;
-	} else if (state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') {
-		// Continue is offered in the contextual build bar; a dot's piece and gap pieces keep their own hint
-		anchor = hintAnchor(trackCx, state.ghost);
-		content = <HintContent trackCx={trackCx} ghost={state.ghost} />;
-	}
-	if (anchor == null || content == null) return null;
-	// Keep the hint inside the canvas, clear of the corner controls and the tool bar
-	const left = Math.min(Math.max(anchor.x + 14, 8), viewport.width - 240);
-	const top = Math.min(Math.max(anchor.y - 12, 52), viewport.height - 120);
-	return (
-		<div className="mm-hint mm-ghost-in absolute z-10" style={{ left, top }}>
-			{content}
-		</div>
-	);
-};
-
-const HintContent: React.FC<{ trackCx: TrackCx; ghost: TGhost }> = (props) => {
-	const { trackCx, ghost } = props;
-	const count = acceptableCount(ghost);
-	const accept = (): void => {
-		trackCx.studio.assist.acceptGhosts();
-	};
-	if (ghost.kind === 'place') {
-		const { type, isOk } = ghost.answer;
-		return (
-			<>
-				<button className="mm-hint-action" tabIndex={-1} onPointerDown={(event) => event.preventDefault()} onClick={accept} type="button">
-					<kbd className="mm-keycap">↩</kbd>
-					Add {type}
-				</button>
-				{isOk ? null : <span className="text-[var(--warn)]">· next note leaves the frame</span>}
-				<span className="text-[var(--text-tertiary)]">
-					<kbd className="mm-keycap">esc</kbd>
-				</span>
-			</>
-		);
-	}
-	if (ghost.kind === 'gap') {
-		const { check, type } = ghost.answer;
-		const label = type === 'tunnel' ? 'Tunnel' : 'Rail';
-		const offPace = check?.paceError != null && Math.abs(check.paceError) > PACE_LIMIT ? `next dot ${Math.abs(check.paceError).toFixed(2)} m off the descent` : null;
-		const note = check == null ? null : !check.isDotInFrame ? 'next dot leaves the frame' : check.leaveTime == null ? 'marble stays on it' : offPace;
-		return (
-			<>
-				<button className="mm-hint-action" tabIndex={-1} onPointerDown={(event) => event.preventDefault()} onClick={accept} type="button">
-					<kbd className="mm-keycap">↩</kbd>
-					Add {label.toLowerCase()} across the gap
-				</button>
-				{note != null ? <span className="text-[var(--warn)]">· {note}</span> : null}
-				<span className="text-[var(--text-tertiary)]">
-					<kbd className="mm-keycap">esc</kbd>
-				</span>
-			</>
-		);
-	}
-	const pattern = ghost.answer.pattern === 'mirror' ? 'zigzag' : 'repeat';
-	return (
-		<>
-			<button className="mm-hint-action" tabIndex={-1} onPointerDown={(event) => event.preventDefault()} onClick={accept} type="button">
-				<kbd className="mm-keycap">tab</kbd>
-				Continue {count}
-			</button>
-			<span className="text-[var(--text-secondary)]">{pattern}</span>
-			<span className="text-[var(--text-tertiary)]">
-				<kbd className="mm-keycap">esc</kbd>
-			</span>
-		</>
-	);
-};
-
-/** Screen point right of the first ghost piece */
-function hintAnchor(trackCx: TrackCx, ghost: TGhost): TVec2 | null {
-	const piece = ghost.kind !== 'continue' ? ghost.answer.resolved : (ghost.answer.suggestions.find((suggestion) => suggestion.resolved != null)?.resolved ?? null);
-	if (piece == null) return null;
-	const outline = trackCx.screenOutline(piece);
-	if (!outline.length) return null;
-	const right = outline.reduce((best, point) => (point.x > best.x ? point : best));
-	const top = Math.min(...outline.map((point) => point.y));
-	return { x: right.x, y: top };
-}

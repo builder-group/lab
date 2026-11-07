@@ -4,8 +4,8 @@ import React from 'react';
 import type { StudioCx } from './StudioCx';
 
 /**
- * The notice at the bottom left of the canvas, in both workspaces, above the transport and away from the wall's center,
- * where the run, the hints and the build bar are: one line, two at most, its actions at the right like the Undo of Mail's and
+ * The notice in the lane at the bottom of the canvas, in both workspaces, above the transport and above the bar when it
+ * shows: one line, two at most, its actions at the right like the Undo of Mail's and
  * Finder's toasts, and a thin progress bar while a long task such as Fix runs. Hovering keeps it open. A
  * notice with details, like Figma's notifications, has a Details disclosure with the full text and a close
  * button, and stays until it is closed or the next edit. An agent at work shows here too, one place for what the app is
@@ -16,6 +16,8 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	const notice = useFeatureState(cx.$notice);
 	const presence = useFeatureState(cx.mcp.presence.$current);
 	useFeatureState(cx.$history);
+	useFeatureState(cx.$selection);
+	useFeatureState(cx.bar.$state);
 	const [openDetails, setOpenDetails] = React.useState<number | null>(null);
 	// Text past its two lines stays readable behind Details, as it's often the sentence that says what to do
 	const textRef = React.useRef<HTMLSpanElement>(null);
@@ -38,7 +40,7 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	if (presence != null && notice?.tone !== 'error') {
 		const doing = presence.isStopping ? 'Stopping' : notice?.progress != null ? notice.message : presence.label;
 		return (
-			<div role="status" className="mm-notice absolute bottom-3 left-3 z-30 w-max max-w-[min(560px,calc(100%-24px))] overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]" style={{ boxShadow: 'var(--shadow-popover)' }}>
+			<div role="status" className="mm-notice pointer-events-auto w-max max-w-full overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]" style={{ boxShadow: 'var(--shadow-popover)' }}>
 				<div className="flex items-center gap-3 py-1.5 pr-1.5 pl-4" style={{ minHeight: 36 }}>
 					<span className="min-w-0 truncate">Agent · {doing}</span>
 					<button className="mm-notice-action" disabled={presence.isStopping} onClick={() => cx.mcp.stop()} title="Stop what the agent is doing" type="button">
@@ -50,6 +52,8 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 		);
 	}
 	if (notice == null) return null;
+	// The bar says what's about the note on show
+	if (cx.bar.carriesNotice(notice)) return null;
 	// An Undo is shown only while its edit is the latest, as it would take back a later edit otherwise
 	const actions = (notice.actions ?? []).filter((action) => action.undoGroup === undefined || action.undoGroup === cx.editGroup);
 	const hasDetails = notice.details != null || cutOff === notice.id;
@@ -58,7 +62,7 @@ export const Notice: React.FC<TNoticeProps> = (props) => {
 	return (
 		<div
 			role="status"
-			className="mm-notice absolute bottom-3 left-3 z-30 w-max max-w-[min(560px,calc(100%-24px))] overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
+			className="mm-notice pointer-events-auto w-max max-w-full overflow-hidden rounded-[10px] bg-[var(--content-raised)] text-[13px]"
 			style={{ boxShadow: 'var(--shadow-popover)' }}
 			onPointerEnter={() => cx.holdNotice(true)}
 			onPointerLeave={() => {

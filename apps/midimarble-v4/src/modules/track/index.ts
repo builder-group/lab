@@ -1,4 +1,6 @@
 export * from './AssistCx';
+export * from './BarCx';
+export * from './FloatingBar';
 export * from './InsertLibrary';
 export * from './PatternInspector';
 export * from './PatternsCx';

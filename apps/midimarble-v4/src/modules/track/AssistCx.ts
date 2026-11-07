@@ -316,11 +316,11 @@ export class AssistCx {
 		return Ok(proposal);
 	}
 
-	/** The worker calls a proposal needs */
-	private proposeDeps(): TProposeDeps | null {
+	/** The worker calls a proposal needs; `isCanceled` ends a search nobody waits for any more */
+	proposeDeps(options?: { isCanceled: () => boolean }): TProposeDeps | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
-		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request), gapPiece: (request) => client.gapPiece(request), pattern: (_project, ask) => this.studio.patterns.dryRun({ marbleId: ask.marbleId, from: ask.from, to: ask.to }, ask.kind as TPatternKind, { ...(ask.width != null ? { width: ask.width } : {}), ...(ask.bounce != null ? { bounce: ask.bounce } : {}), ...(ask.maxTilt != null ? { maxTilt: ask.maxTilt } : {}) }), settle: (request) => client.settle(request) };
+		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request, options), gapPiece: (request) => client.gapPiece(request, options), pattern: (_project, ask) => this.studio.patterns.dryRun({ marbleId: ask.marbleId, from: ask.from, to: ask.to }, ask.kind as TPatternKind, { ...(ask.width != null ? { width: ask.width } : {}), ...(ask.bounce != null ? { bounce: ask.bounce } : {}), ...(ask.maxTilt != null ? { maxTilt: ask.maxTilt } : {}) }), settle: (request) => client.settle(request) };
 	}
 
 	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */
@@ -668,6 +668,45 @@ export class AssistCx {
 			}
 		}
 		return outcome;
+	}
+
+	/**
+	 * Build Up to Here: builds every marble's notes up to this time as one Undo step and leaves the rest open, with
+	 * progress and Stop in the notice like Build Track, ending where it started.
+	 */
+	async buildUpTo(time: number): Promise<void> {
+		const project = this.studio.project;
+		if (project == null || this.buildRun != null || this.fixRun != null) return;
+		const run = { isCanceled: false };
+		let expected = project;
+		const deps = this.buildDeps(() => run.isCanceled || this.studio.project !== expected);
+		if (deps == null) return;
+		this.buildRun = run;
+		const total = project.marbles.reduce((sum, marble) => sum + marble.hits.filter((hit) => hit.time <= time).length, 0);
+		const progress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
+		this.$building.set(progress);
+		const noticeId = this.studio.notify(`Building up to here · 0 of ${total} notes`, 'info', { progress: 0, actions: [{ label: 'Stop', title: 'Keep the pieces built so far', run: () => (run.isCanceled = true) }] });
+		try {
+			await buildTrack(project, {
+				...deps,
+				commit: (commands, isFirst) => {
+					if (this.studio.project !== expected) return false;
+					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Up to Here' })) return false;
+					expected = this.studio.project ?? expected;
+					return true;
+				},
+				onProgress: (next) => {
+					this.$building.set(next);
+					this.studio.updateNotice(noticeId, { message: `Building up to here · ${next.done} of ${total} notes`, progress: next.fraction });
+				}
+			}, { until: time });
+			this.studio.dismissNotice(noticeId);
+		} catch (error) {
+			this.studio.notifyFailed('Building stopped. What it built stays.', error);
+		} finally {
+			this.buildRun = null;
+			this.$building.set(null);
+		}
 	}
 
 	/** The project once what's settling has landed, with its own run */
