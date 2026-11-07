@@ -525,12 +525,13 @@ textarea {
 	background-color: color-mix(in srgb, var(--band-selected) 50%, var(--band));
 }
 
-.mm-track-header[data-muted='true'] .mm-track-title,
-.mm-track-header[data-muted='true'] button.mm-track-chip:hover {
+.mm-track-chip:hover {
 	box-shadow: 0 0 0 2px var(--control-border);
 }
 
-.mm-track-chip {
+/* A muted track dims its name and its color */
+.mm-track-header[data-muted='true'] .mm-track-title,
+.mm-track-header[data-muted='true'] .mm-track-chip {
 	opacity: 0.45;
 }
 

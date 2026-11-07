@@ -1,3 +1,4 @@
+import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu, RenameField } from '@/components';
 import { findMarbleConflicts, marbleSounds } from '@/modules/music';
@@ -15,6 +16,7 @@ import { HEADER_WIDTH, ROW_HEIGHT } from './timeline-layout';
 export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 	const { cx, project, marble, selection } = props;
 	const [isRenaming, setIsRenaming] = React.useState(false);
+	const isMuted = useFeatureState(cx.$mix).muted.includes(marble.id);
 	const conflicts = findMarbleConflicts(marble).size;
 	const isSelected = selection.includes(marble.id) || selection.some((key) => key.startsWith(`hit:${marble.id}:`));
 	const hitCount = `${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`;
@@ -26,6 +28,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 			style={{ width: HEADER_WIDTH, height: ROW_HEIGHT }}
 			data-track={marble.id}
 			data-selected={isSelected}
+			data-muted={isMuted}
 			onContextMenu={(event) => openContextMenu(event, marbleMenu(cx, marble))}
 		>
 			<span className="mm-track-chip relative" style={{ background: marble.labelColor }}>

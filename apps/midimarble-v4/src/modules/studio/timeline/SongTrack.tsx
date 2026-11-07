@@ -1,4 +1,5 @@
 import { AudioLines, ChevronRight, Music } from 'lucide-react';
+import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { BACKING_COLOR } from '@/modules/music';
@@ -40,6 +41,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 	const moved = move?.songId === song.id ? move.delta : 0;
 	const songKey = toSongKey(song.id);
 	const isSelected = selection.includes(songKey);
+	const isMuted = useFeatureState(cx.$mix).muted.includes(song.id);
 	const moveStartRef = React.useRef<number | null>(null);
 
 	const clipHandlers = {
@@ -114,6 +116,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 				data-hint-anchor={isFirst ? 'song' : undefined}
 				data-selected={isSelected}
 				data-expanded={isExpanded}
+				data-muted={isMuted}
 				onClick={() => cx.$selection.set([songKey])}
 				onContextMenu={openMenu}
 				title={name}
@@ -137,7 +140,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 					)}
 					<span className="mm-song-icon">{isAudio ? <AudioLines size={12} strokeWidth={1.75} /> : <Music size={12} strokeWidth={1.75} />}</span>
 					<span className="flex min-w-0 flex-1 flex-col leading-tight">
-						<span className="truncate font-medium">{name}</span>
+						<span className="mm-track-title truncate font-medium">{name}</span>
 						<span className="truncate text-[11px] text-[var(--text-secondary)]">{details.filter(Boolean).join(' · ')}</span>
 					</span>
 					<MixToggles cx={cx} id={song.id} name="Song" />
