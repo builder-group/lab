@@ -886,7 +886,7 @@ export class TrackCx {
 	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false, also: readonly TVec2[] = []): void {
 		const result = this.result;
 		if (result == null) return;
-		const points: TVec2[] = point != null ? [point] : [];
+		const points: TVec2[] = [];
 		for (const id of ids) {
 			const key = parseHitKey(id);
 			const dot = key != null ? result.hits.find((hit) => hit.marbleId === key.marbleId && hit.hitId === key.hitId)?.dot : null;
@@ -895,18 +895,9 @@ export class TrackCx {
 			if (release != null) points.push(release.position);
 		}
 		const margin = 0.03;
-		const bounds = [
-			boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.pieceId))),
-			...points.map((item) => ({ minX: item.x - margin, minY: item.y - margin, maxX: item.x + margin, maxY: item.y + margin }))
-		].reduce<TBounds | null>(
-			(union, item) =>
-				item == null
-					? union
-					: union == null
-						? item
-						: { minX: Math.min(union.minX, item.minX), minY: Math.min(union.minY, item.minY), maxX: Math.max(union.maxX, item.maxX), maxY: Math.max(union.maxY, item.maxY) },
-			null
-		);
+		// What's asked about itself, then with the point, such as where the hint sends the marble next
+		const core = [boundsOfPieces(result.pieces.filter((piece) => ids.includes(piece.pieceId))), ...points.map((item) => boundsAround(item, margin))].reduce<TBounds | null>((union, item) => (item == null ? union : union == null ? item : unionBounds(union, item)), null);
+		const bounds = point != null ? (core != null ? unionBounds(core, boundsAround(point, margin)) : boundsAround(point, margin)) : core;
 		if (bounds == null) return;
 		const viewport = this.$viewport.get();
 		const camera = this.$camera.get();
@@ -919,18 +910,24 @@ export class TrackCx {
 			return;
 		}
 		// Where a glide under way ends is what counts, or it would carry on past this
-		const goal = this.isNavigating ? this.motion?.state.goal : null;
+		const view = (this.isNavigating ? this.motion?.state.goal : null) ?? camera.view;
+		const { scale } = camera.view;
 		// A marble's start in view stays there when it can, so a pan along a new track never slides it under the corner group
-		const starts = (this.project?.marbles ?? []).map((marble) => marble.start.position).filter((start) => isBoundsVisible(goal ?? camera.view, viewport, boundsAround(start, 0)));
+		const starts = (this.project?.marbles ?? []).map((marble) => marble.start.position).filter((start) => isBoundsVisible(view, viewport, boundsAround(start, 0)));
 		const withAlso = [...also, ...starts].reduce((union, item) => unionBounds(union, boundsAround(item, margin)), bounds);
-		if (withAlso !== bounds && isBoundsVisible(goal ?? camera.view, viewport, withAlso, 40)) return;
-		if (withAlso !== bounds && fitsAt(withAlso, camera.view.scale, viewport)) {
-			this.navigateTo({ scale: camera.view.scale, center: centerAt(withAlso, camera.view.scale) });
+		// In view means clear of the corner group and the bar, not merely on the canvas
+		if (withAlso !== bounds && isInFrame(view, viewport, withAlso)) return;
+		if (withAlso !== bounds && fitsAt(withAlso, scale, viewport)) {
+			this.navigateTo({ scale, center: centerAt(withAlso, scale) });
 			return;
 		}
-		if (isBoundsVisible(goal ?? camera.view, viewport, bounds, 40)) return;
-		const fitted = fitBounds(bounds, viewport, canvasPadding);
-		this.navigateTo(fitted.scale < camera.view.scale && !isZoomKept ? fitted : { scale: camera.view.scale, center: fitted.center });
+		if (isInFrame(view, viewport, bounds)) return;
+		if (!fitsAt(bounds, scale, viewport) && !isZoomKept) {
+			this.navigateTo(fitBounds(bounds, viewport, canvasPadding));
+			return;
+		}
+		// At this zoom, what's asked about stays in view and the view leans toward the point as far as that allows
+		this.navigateTo({ scale, center: centerAt(core != null ? leanToward(core, bounds, scale, viewport) : bounds, scale) });
 	}
 
 	private onWheel(event: WheelEvent, container: HTMLElement): void {
@@ -2568,6 +2565,32 @@ function unionBounds(a: TBounds, b: TBounds): TBounds {
 function fitsAt(bounds: TBounds, scale: number, viewport: TViewport): boolean {
 	const { top, right, bottom, left } = canvasPadding;
 	return (bounds.maxX - bounds.minX) * scale <= viewport.width - left - right && (bounds.maxY - bounds.minY) * scale <= viewport.height - top - bottom;
+}
+
+/** How far from the middle a lean may put what's asked about, as a share of half the padded canvas */
+const LEAN_REACH = 0.7;
+
+/** Whether `bounds` lies inside the padded canvas, clear of the corner group and the bar */
+function isInFrame(view: TView, viewport: TViewport, bounds: TBounds): boolean {
+	const { top, right, bottom, left } = canvasPadding;
+	const topLeft = worldToScreen(view, viewport, { x: bounds.minX, y: bounds.maxY });
+	const bottomRight = worldToScreen(view, viewport, { x: bounds.maxX, y: bounds.minY });
+	return topLeft.x >= left && topLeft.y >= top && bottomRight.x <= viewport.width - right && bottomRight.y <= viewport.height - bottom;
+}
+
+/**
+ * Where to center when `bounds` is too big for the padded canvas at this zoom: as near its middle as keeps all of `core`
+ * inside, as a point bounds
+ */
+function leanToward(core: TBounds, bounds: TBounds, scale: number, viewport: TViewport): TBounds {
+	const { top, right, bottom, left } = canvasPadding;
+	// Not quite to the edge, so a little of what comes before it shows too
+	const halfWidth = Math.max(0, ((viewport.width - left - right) / 2 / scale) * LEAN_REACH);
+	const halfHeight = Math.max(0, ((viewport.height - top - bottom) / 2 / scale) * LEAN_REACH);
+	const clamp = (value: number, low: number, high: number): number => (low > high ? (low + high) / 2 : Math.min(high, Math.max(low, value)));
+	const x = clamp((bounds.minX + bounds.maxX) / 2, core.maxX - halfWidth, core.minX + halfWidth);
+	const y = clamp((bounds.minY + bounds.maxY) / 2, core.maxY - halfHeight, core.minY + halfHeight);
+	return { minX: x, maxX: x, minY: y, maxY: y };
 }
 
 /** The view center that puts `bounds` in the middle of the padded canvas at this zoom */
