@@ -78,7 +78,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 				<StatusMark cx={cx} status={status} isOpen={isDetailsOpen} />
 			</div>
 			{menu != null ? <BarMenu cx={cx} target={target} rows={menu.rows} index={menu.index} /> : null}
-			{isDetailsOpen ? <BarDetails cx={cx} status={status} /> : null}
+			{isDetailsOpen && status.hasDetails ? <BarDetails cx={cx} status={status} /> : null}
 		</div>
 	);
 };
@@ -95,6 +95,8 @@ interface TBarStatus {
 	label: string;
 	words: string | null;
 	actions: TBarAction[];
+	/** Whether the mark opens a popover: only when there's more to say than its color, so On Time is just the mark */
+	hasDetails: boolean;
 }
 
 /** Kinds that change what stands here rather than place something new: the marble's way here doesn't decide them */
@@ -113,9 +115,12 @@ function useBarStatus(cx: StudioCx, project: TProject, target: TBarTarget): TBar
 	const name = sender?.piece.name ?? 'the piece before';
 	const goToSender: TBarAction[] = sender != null ? [{ label: `Go to ${name}`, title: `${name} sends the marble here. Change it there`, run: () => cx.bar.goToStop(sender.stop) }] : [];
 	const base: TTimingStatus = standing ?? { tone: 'neutral', label: target.kind === 'rest' ? 'Rest' : 'Open', detail: target.kind === 'rest' ? 'Nothing fills this rest yet' : 'No platform plays this note yet' };
+	const fix: TBarAction[] = isOverBuilt(target) ? [{ label: 'Fix', title: 'Show what Fix would change (A)', run: () => cx.bar.fix() }] : [];
 	if (notice != null && cx.bar.carriesNotice(notice)) {
+		const tone = notice.tone === 'error' ? 'bad' : base.tone;
 		const actions = (notice.actions ?? []).map((action) => ({ label: action.label, ...(action.title != null ? { title: action.title } : {}), run: () => { cx.dismissNotice(notice.id); action.run(); } }));
-		return { tone: notice.tone === 'error' ? 'bad' : base.tone, label: notice.tone === 'error' ? 'Problem' : base.label, words: notice.message, actions };
+		// The problem's Fix is here, never on the notice
+		return { tone, label: notice.tone === 'error' ? 'Problem' : base.label, words: notice.message, actions: tone === 'bad' || tone === 'warn' ? [...fix, ...actions] : actions, hasDetails: true };
 	}
 	const proposal = state.choice != null ? state.answers[state.choice]?.proposal : undefined;
 	if (state.choice != null && proposal != null) {
@@ -127,14 +132,11 @@ function useBarStatus(cx: StudioCx, project: TProject, target: TBarTarget): TBar
 		const hit = target.kind === 'note' && isRefused ? result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId) : undefined;
 		const reach = hit != null ? hitReach(project, result, hit) : null;
 		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, releaseFixFor(project, hit, reach)) : [];
-		if (isBad) return { tone: 'bad', label: isRefused ? "Doesn't Fit" : 'Problem', words, actions: [...fixes, ...(EDITS.has(proposal.ask.kind) ? [] : goToSender)] };
-		if (words != null) return { tone: base.tone, label: base.label, words, actions: [] };
+		if (isBad) return { tone: 'bad', label: isRefused ? "Doesn't Fit" : 'Problem', words, actions: [...fixes, ...(EDITS.has(proposal.ask.kind) ? [] : goToSender)], hasDetails: true };
+		if (words != null) return { tone: base.tone, label: base.label, words, actions: [], hasDetails: true };
 	}
-	if (base.tone === 'bad' || base.tone === 'warn') {
-		const fix: TBarAction[] = isOverBuilt(target) ? [{ label: 'Fix', title: 'Show what Fix would change (A)', run: () => cx.bar.fix() }] : [];
-		return { tone: base.tone, label: base.label, words: causeWords(project, target, sender, base), actions: [...fix, ...goToSender] };
-	}
-	return { tone: base.tone, label: base.label, words: base.detail ?? null, actions: [] };
+	if (base.tone === 'bad' || base.tone === 'warn') return { tone: base.tone, label: base.label, words: causeWords(project, target, sender, base), actions: [...fix, ...goToSender], hasDetails: true };
+	return { tone: base.tone, label: base.label, words: base.detail ?? null, actions: [], hasDetails: false };
 }
 
 /** How what stands here is doing, in the words of the inspector's pill and from the same problems */
@@ -165,6 +167,14 @@ const StatusMark: React.FC<{ cx: StudioCx; status: TBarStatus; isOpen: boolean }
 	const pulsedAt = useFeatureState(cx.bar.$pulsedAt);
 	const isPulsing = pulsedAt > 0 && performance.now() - pulsedAt < PULSE_MS && status.tone === 'bad';
 	const title = status.words != null ? `${status.label}: ${status.words}` : status.label;
+	// Nothing more to say than its color: just the mark, its words in the tooltip
+	if (!status.hasDetails) {
+		return (
+			<span className="mm-bar-mark" data-tone={status.tone} role="img" aria-label={title} title={title}>
+				<StatusGlyph tone={status.tone} />
+			</span>
+		);
+	}
 	return (
 		<button key={isPulsing ? pulsedAt : 'still'} className="mm-bar-mark" data-tone={status.tone} data-open={isOpen} data-pulse={isPulsing} aria-label={title} aria-haspopup="dialog" aria-expanded={isOpen} onClick={() => cx.bar.toggleDetails()} title={title} type="button">
 			<StatusGlyph tone={status.tone} />
