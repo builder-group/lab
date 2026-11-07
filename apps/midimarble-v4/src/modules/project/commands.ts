@@ -231,6 +231,31 @@ export function playsOnlySong(marble: Pick<TMarble, 'hits'>, songId: string): bo
 	return marble.hits.length > 0 && marble.hits.every((hit) => hit.songId === songId);
 }
 
+/** What a marble's hits move with: one song, none, or a mix of songs and hits of its own. The tie itself stays per hit. */
+export function marbleSong(marble: Pick<TMarble, 'hits'>): TMarbleSong {
+	const tied = marble.hits.filter((hit) => hit.songId != null);
+	const songIds = [...new Set(tied.flatMap((hit) => hit.songId ?? []))];
+	if (!songIds.length) return { kind: 'none' };
+	const [songId] = songIds;
+	if (songId != null && songIds.length === 1 && tied.length === marble.hits.length) return { kind: 'song', songId };
+	return { kind: 'mixed', songIds, tied: tied.length };
+}
+
+export type TMarbleSong = { kind: 'none' } | { kind: 'song'; songId: string } | { kind: 'mixed'; songIds: string[]; tied: number };
+
+/** Hits tied to a song, or to none with null. Only the tie changes: they stay where they are in time. */
+export function tiedToSong(hits: readonly THit[], songId: string | null): THit[] {
+	return hits.map((hit) => {
+		const { songId: _songId, ...own } = hit;
+		return songId == null ? own : { ...own, songId };
+	});
+}
+
+/** The name of a change of tie in Edit > Undo */
+export function tieLabel(songId: string | null): string {
+	return songId == null ? 'Detach from Song' : 'Tie to Song';
+}
+
 /**
  * A song at a new start, with its Backing and the hits tied to it. A marble that plays only this song starts that much
  * later too, so its whole run moves and stays on time. Hits that aren't tied stay put, so a marble with both changes its run.

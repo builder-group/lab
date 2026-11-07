@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyProjectCommands, backingOf, earliestSongStart, hitsOfSong, SProjectCommand, songPlayingAt, type TProjectCommand } from './commands';
+import { applyProjectCommands, backingOf, earliestSongStart, hitsOfSong, marbleSong, SProjectCommand, songPlayingAt, tiedToSong, type TProjectCommand } from './commands';
 import { createMarble, createProject } from './create-project';
 import { createHistory, pushHistory, undoHistory } from './history';
 import { BACKING_ID, type THit, type TProject, type TSong } from './schema';
@@ -148,5 +148,37 @@ describe('songPlayingAt function', () => {
 		expect(songPlayingAt(from, 0.5)).toBeUndefined();
 		expect(songPlayingAt(from, 2)?.id).toBe('a');
 		expect(songPlayingAt(from, 6)?.id).toBe('b');
+	});
+});
+
+describe('marbleSong function', () => {
+	it('should read none, one song or mixed from the hits', () => {
+		expect(marbleSong({ hits: [] })).toEqual({ kind: 'none' });
+		expect(marbleSong({ hits: [own('x', 1)] })).toEqual({ kind: 'none' });
+		expect(marbleSong({ hits: [tied('x', 1), tied('y', 2)] })).toEqual({ kind: 'song', songId: 'a' });
+		expect(marbleSong({ hits: [tied('x', 1), own('y', 2)] })).toEqual({ kind: 'mixed', songIds: ['a'], tied: 1 });
+		expect(marbleSong({ hits: [tied('x', 1), tied('y', 2, 'b')] })).toEqual({ kind: 'mixed', songIds: ['a', 'b'], tied: 2 });
+	});
+});
+
+describe('tiedToSong function', () => {
+	const melody = [tied('x', 2), own('y', 3), tied('z', 4, 'b')];
+	const detached = (from: TProject): TProject => apply(from, [{ type: 'upsertHits', marbleId: 'melody', hits: tiedToSong(melody, null) }]);
+
+	it('should detach every hit and keep them where they are, and a moved song then leaves them', () => {
+		const from = project([song('a', { start: 1 }), song('b', { start: 1 })], melody);
+		const next = detached(from);
+
+		expect(marbleSong(next.marbles[0] as TProject['marbles'][number])).toEqual({ kind: 'none' });
+		expect(hitTimes(next, 'melody')).toEqual([2, 3, 4]);
+		expect(hitTimes(apply(next, [{ type: 'moveSong', songId: 'a', start: 3 }]), 'melody')).toEqual([2, 3, 4]);
+	});
+
+	it('should tie every hit to the song chosen, and one Undo brings each tie back', () => {
+		const from = project([song('a', { start: 1 }), song('b', { start: 1 })], melody);
+		const next = apply(from, [{ type: 'upsertHits', marbleId: 'melody', hits: tiedToSong(melody, 'b') }]);
+
+		expect(marbleSong(next.marbles[0] as TProject['marbles'][number])).toEqual({ kind: 'song', songId: 'b' });
+		expect(undoHistory(pushHistory(createHistory(from), detached(from))).present.marbles[0]?.hits).toEqual(melody);
 	});
 });

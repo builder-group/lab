@@ -1,6 +1,6 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
-import { createId, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
+import { createId, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, tiedToSong, tieLabel, toHitKey, tieOf } from '@/modules/project';
 import { problemSummary } from '@/modules/building';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
@@ -184,6 +184,7 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, marble, time) } : null,
 		{ label: 'Select All Hits', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
 		...suggestedHitChoices(cx, marble),
+		marble.hits.some((hit) => hit.songId != null) ? { label: tieLabel(null), onSelect: () => cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: tiedToSong(marble.hits, null) }], { label: tieLabel(null) }) } : null,
 		'separator',
 		{
 			label: 'Rename…',
