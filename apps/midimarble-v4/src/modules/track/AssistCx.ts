@@ -442,7 +442,7 @@ export class AssistCx {
 			return null;
 		}
 		if (from == null && !this.hasOpenHits) {
-			this.studio.notify('Every hit already has a platform');
+			this.studio.notify('Every note already has a platform');
 			return null;
 		}
 		const run = { isCanceled: false };
@@ -1018,7 +1018,7 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.marbleId), marbleId: hit.marbleId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
 	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
 	const named = attention.slice(0, 3).map((hit) => `${hit.marble} note ${hit.hit}`);
-	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 note needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
+	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 note needs' : `${attention.length} notes need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
 	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
 	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
 	const fromMarble = from != null ? project.marbles.find((marble) => marble.id === from.marbleId) : undefined;

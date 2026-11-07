@@ -316,7 +316,7 @@ interface TFixTrial {
 
 /** What a refused try would have cost */
 function costOf(what: string, { broken, added }: Pick<TFixTrial, 'broken' | 'added'>): string {
-	return broken > 0 ? `${what} would break ${broken === 1 ? 'a note' : `${broken} hits`}` : `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
+	return broken > 0 ? `${what} would break ${broken === 1 ? 'a note' : `${broken} notes`}` : `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
 }
 
 function marbleName(project: TProject, marbleId: string): string {

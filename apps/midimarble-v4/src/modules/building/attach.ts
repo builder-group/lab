@@ -45,7 +45,7 @@ export function anchorPiece(
 	if (marble == null) return Err(new Error(`Marble ${marbleId} not found`));
 	const hit = anchorHit(marble.hits, time);
 	if (hit == null)
-		return Err(new Error(`No hit of ${marble.name} within ${ANCHOR_DELAY} s of that moment`));
+		return Err(new Error(`No note of ${marble.name} within ${ANCHOR_DELAY} s of that moment`));
 	const track = result.marbles.find((marble) => marble.marbleId === marbleId);
 	const sample = track != null ? trajectoryAt(track.samples, time, gravityOf(project)) : null;
 	if (track == null || sample == null)
@@ -104,7 +104,7 @@ export function linkPieceToHit(
 			tieOf(item)?.hitId === hitId &&
 			soundsHit(item.type, tieOf(item))
 	);
-	if (owner != null) return Err(new Error(`The hit already has ${owner.name ?? 'a piece'}`));
+	if (owner != null) return Err(new Error(`The note already has ${owner.name ?? 'a piece'}`));
 	const track = result.marbles.find((marble) => marble.marbleId === marbleId);
 	const dot =
 		result.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId)?.dot ??

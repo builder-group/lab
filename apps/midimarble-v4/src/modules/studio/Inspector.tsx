@@ -157,7 +157,7 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarb
 				onRename={(name) => cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { name } }])}
 				status={
 					conflicts > 0 ? (
-						<StatusPill tone="bad" label={`${conflicts} Too Close`} detail={`${conflicts === 1 ? 'A note is' : `${conflicts} hits are`} less than ${MIN_HIT_GAP * 1000} ms from the next one. Drag them apart or move them to another marble.`} />
+						<StatusPill tone="bad" label={`${conflicts} Too Close`} detail={`${conflicts === 1 ? 'A note is' : `${conflicts} notes are`} less than ${MIN_HIT_GAP * 1000} ms from the next one. Drag them apart or move them to another marble.`} />
 					) : null
 				}
 			/>

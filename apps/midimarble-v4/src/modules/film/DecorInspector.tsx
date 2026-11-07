@@ -47,7 +47,7 @@ export const DecorInspector: React.FC<{ cx: StudioCx; project: TProject; decor: 
 			/>
 			{item?.effect === 'snowfall' ? <SnowfallPanel cx={cx} decor={decor} /> : null}
 			{tip != null ? (
-				<DecorTip tip={tip} detail="A marble passes over it while it shows. Decor has no hitbox, so the hit stays the same.">
+				<DecorTip tip={tip} detail="A marble passes over it while it shows. Decor has no hitbox, so every note stays the same.">
 					<button className="mm-fix-it mm-fix-it-label" onClick={() => moveDecorClearAction(cx, decor.id)} title="Moves it the shortest way to a spot clear of every marble's path" type="button">
 						Move Clear
 					</button>
