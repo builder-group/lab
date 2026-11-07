@@ -43,7 +43,8 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const isRail = pattern?.takes === 'silence';
 	const problems = groupProblems(project, result, group);
 	const count = hitsInRange(marble, span.from, span.to).length;
-	const subtitle = isRail ? `${restWords(span.to - span.from)} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'note' : 'notes'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
+	// One line: the times are on its block in the strip and in its tooltip
+	const subtitle = `${isRail ? restWords(span.to - span.from) : `${count} ${count === 1 ? 'note' : 'notes'}`} on ${marble.name}`;
 	const widthRange = pattern?.widthRange;
 	const hasFields = isPatternKind(kind) && widthRange != null;
 	// A Curved Rail has nothing to set: no empty Pattern section under it
