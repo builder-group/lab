@@ -13,6 +13,7 @@ import { HintsCx } from './HintsCx';
 import { renumberDefaultNames } from './piece-order-names';
 import { selectionEnteringFilm } from './inspector-target';
 import { tapTime } from './tap';
+import { $rollHasFocus } from './timeline/timeline-state';
 import type { THitFlash } from '@/modules/canvas';
 import { SimulationCx } from './SimulationCx';
 import { SourcesCx } from './SourcesCx';
@@ -730,6 +731,11 @@ export class StudioCx {
 	/** An agent's tool call is running, whose edits fold into one named Undo step */
 	get isInAgentStep(): boolean {
 		return this.agentStep != null;
+	}
+
+	/** A click in the Song's piano roll makes ⌫ its own */
+	get isRollFocused(): boolean {
+		return $rollHasFocus.get();
 	}
 
 	/** The name of the step Undo would take back, null without one */

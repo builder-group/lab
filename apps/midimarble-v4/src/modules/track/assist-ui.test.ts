@@ -82,6 +82,9 @@ describe('track keys', () => {
 		expect(press('Tab', { code: 'Tab' })).toBeNull();
 		expect(press('Tab', { code: 'Tab' }, { ...none, hasBar: true })).toEqual({ type: 'barMenu' });
 		expect(press('Enter', { code: 'Enter' }, { ...none, hasBar: true })).toEqual({ type: 'next' });
+		// ⌫ goes to the bar's Remove on a note selected by its key, and to nothing without the bar or pieces
+		expect(press('Backspace', { code: 'Backspace' })).toBeNull();
+		expect(press('Backspace', { code: 'Backspace' }, { ...none, hasBar: true })).toEqual({ type: 'delete' });
 		expect(press('P', { code: 'KeyP', shiftKey: true })).toBeNull();
 		expect(press('P', { code: 'KeyP', shiftKey: true }, { ...none, hasPieces: true })).toBeNull();
 	});

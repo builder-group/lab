@@ -204,6 +204,25 @@ describe('BarCx', () => {
 		expect(bar.escape()).toBe(false);
 	});
 
+	it('takes ⌫ as its Remove: the hint first, then a second ⌫ lands it', async () => {
+		const { cx, bar, lands } = studio(notes());
+		await flush();
+		// Nothing stands on an open note
+		expect(bar.remove()).toBe(false);
+		bar.enter();
+		await flush();
+		bar.move(-1);
+		await flush();
+		expect(bar.remove()).toBe(true);
+		expect(bar.$state.get().choice).toBe('remove');
+		expect(lands()).toBe(1);
+		await flush();
+		expect(bar.answerOfChoice?.proposal?.commands.length).toBeGreaterThan(0);
+		bar.remove();
+		expect(lands()).toBe(2);
+		expect(cx.project?.track.pieces).toHaveLength(0);
+	});
+
 	it('at an empty rest falls through a refused Curved Rail to the next kind in the fixed order', async () => {
 		const { bar } = studio(notes([0.5, 1, 2.5, 3]));
 		await flush();

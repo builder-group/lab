@@ -251,6 +251,15 @@ export class BarCx {
 		return true;
 	}
 
+	/** ⌫ while the bar shows: its Remove, a hint first, landed by Enter or a second ⌫. False when nothing stands here */
+	remove(): boolean {
+		const { target, choice } = this.$state.get();
+		if (!this.isShown || target == null || !isOverBuilt(target)) return false;
+		if (choice === 'remove') this.enter();
+		else this.choose('remove');
+		return true;
+	}
+
 	/** Fix and A on what stands here: a hint of what Fix would change, landed on accept. False when nothing stands here */
 	fix(): boolean {
 		const { target } = this.$state.get();

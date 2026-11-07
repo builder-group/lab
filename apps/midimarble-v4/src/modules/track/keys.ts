@@ -115,7 +115,8 @@ export function trackKeyAction(input: TKeyInput, context: TKeyContext): TTrackKe
 			return { type: 'escape' };
 		case 'Backspace':
 		case 'Delete':
-			return context.hasPieces ? { type: 'delete' } : null;
+			// The bar's Remove, on a note selected by its key too
+			return context.hasPieces || context.hasBar === true ? { type: 'delete' } : null;
 		// ← → always step hits (Previous and Next Hit); ↑ ↓ always tilt, raising the value like any scrub field
 		case 'ArrowUp':
 		case 'ArrowDown':

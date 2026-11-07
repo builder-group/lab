@@ -2190,6 +2190,8 @@ export class TrackCx {
 				this.escape();
 				return true;
 			case 'delete':
+				// While the bar shows, ⌫ is its Remove with the same hint first. With nothing to remove it does what it did
+				if (!this.studio.isRollFocused && this.studio.bar.remove()) return true;
 				return this.deleteSelection();
 			case 'nudge':
 				return this.nudge(action.degrees);
