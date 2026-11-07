@@ -242,19 +242,12 @@ export function readMenuItem(cx: StudioCx, line: TCommandLine, isTextFocused: bo
 		return { title: `${isShown ? 'Hide' : 'Show'} ${command.title}`, enabled: isCommandEnabled(cx, command), checked: null };
 	}
 	// In a text field Undo and Redo take back typing, not the named step
-	const title = line.title ?? (line.text != null && isTextFocused ? null : stepTitle(cx, line.command)) ?? (line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : commandTitle(cx, command));
+	const title = line.title ?? (line.text != null && isTextFocused ? command.title : line.command === 'play.toggle' && cx.$playing.get() ? 'Pause' : commandTitle(cx, command));
 	return {
 		title: line.showsKey === true && command.shortcut != null ? `${title}\t${command.shortcut}` : title,
 		enabled: (line.text != null && isTextFocused) || isCommandEnabled(cx, command),
 		checked: command.isChecked != null ? command.isChecked(cx) === true : null
 	};
-}
-
-/** Undo and Redo name their step: "Undo Move Platform", "Undo Agent: Place Platform" */
-function stepTitle(cx: StudioCx, command: TCommandId): string | null {
-	if (command === 'edit.undo' && cx.undoLabel != null) return `Undo ${cx.undoLabel}`;
-	if (command === 'edit.redo' && cx.redoLabel != null) return `Redo ${cx.redoLabel}`;
-	return null;
 }
 
 /** The menus after the app menu, for the host to build */

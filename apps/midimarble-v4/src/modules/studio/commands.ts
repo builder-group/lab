@@ -349,8 +349,8 @@ export const commands: readonly TCommand[] = [
 	{ id: 'file.export', title: 'Export Film…', section: 'File', shortcut: '⌘E', keywords: 'render video movie mp4 share', isEnabled: hasProject, run: (cx) => cx.filmExport.openSheet() },
 
 	// MARK: - Edit
-	{ id: 'edit.undo', title: 'Undo', section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0 || cx.patterns.$isRunning.get(), run: (cx) => cx.undo() },
-	{ id: 'edit.redo', title: 'Redo', section: 'Edit', shortcut: '⇧⌘Z', isEnabled: (cx) => (cx.$history.get()?.future.length ?? 0) > 0, run: (cx) => cx.redo() },
+	{ id: 'edit.undo', title: 'Undo', currentTitle: (cx) => (cx.undoLabel != null ? `Undo ${cx.undoLabel}` : 'Undo'), section: 'Edit', shortcut: '⌘Z', isEnabled: (cx) => (cx.$history.get()?.past.length ?? 0) > 0 || cx.patterns.$isRunning.get(), run: (cx) => cx.undo() },
+	{ id: 'edit.redo', title: 'Redo', currentTitle: (cx) => (cx.redoLabel != null ? `Redo ${cx.redoLabel}` : 'Redo'), section: 'Edit', shortcut: '⇧⌘Z', isEnabled: (cx) => (cx.$history.get()?.future.length ?? 0) > 0, run: (cx) => cx.redo() },
 	{ id: 'edit.rename', title: 'Rename…', section: 'Edit', shortcut: 'F2', isEnabled: (cx) => cx.renameTarget() != null, run: (cx) => cx.renameSelection() },
 	{
 		id: 'edit.delete',
