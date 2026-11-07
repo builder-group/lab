@@ -153,7 +153,9 @@ function useStanding(cx: StudioCx, target: TBarTarget): TTimingStatus | null {
 	const { piece } = target;
 	if (piece == null) return null;
 	const resolved = result?.pieces.find((item) => item.pieceId === piece.id);
-	return lookStatus(struckStatus(pieceStatus(project, piece, resolved, result), struck?.get(piece.id)), looks?.get(piece.id));
+	const status = lookStatus(struckStatus(pieceStatus(project, piece, resolved, result), struck?.get(piece.id)), looks?.get(piece.id));
+	// A filled rest that carries the marble on is fine, a green mark, never the hollow ring of what's still open
+	return target.kind === 'rest' && status?.tone === 'neutral' ? { ...status, tone: 'good' } : status;
 }
 
 /** How long the mark pulses after an accept landed a new problem, in milliseconds */

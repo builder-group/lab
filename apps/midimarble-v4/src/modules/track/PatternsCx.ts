@@ -137,7 +137,8 @@ export class PatternsCx {
 	/** Flatten Pattern: one Undo step, and the piece a person went for is selected, ready to drag, or else all of them */
 	flatten(group: TPatternGroup, pieceId?: string): void {
 		if (!this.studio.execute(flattenCommands(group), { label: 'Flatten' })) return;
-		this.studio.$selection.set(pieceId != null && group.pieceIds.includes(pieceId) ? [pieceId] : group.pieceIds);
+		// The plain Group it leaves stays selected as a whole, its row with its pieces, as Figma keeps a group selected
+		this.studio.$selection.set(pieceId != null && group.pieceIds.includes(pieceId) ? [pieceId] : groupSelection(group));
 		this.studio.notifyEdit(`Flattened ${group.name}`);
 	}
 

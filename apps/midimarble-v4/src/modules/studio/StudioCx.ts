@@ -363,7 +363,8 @@ export class StudioCx {
 			this.notify('Checking the track…');
 			return;
 		}
-		const first = summary.problems[0];
+		// What the red count names comes first: a note that needs attention, then any other problem, each in time order
+		const first = summary.problems.find((problem) => problem.kind === 'hit') ?? summary.problems[0];
 		if (first?.target == null) {
 			this.notify(summary.problems.length > 0 ? (first?.title ?? summary.label) : `No problems: ${summary.label}`);
 			return;
