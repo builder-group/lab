@@ -269,7 +269,7 @@ export class PatternsCx {
 			const estimate = createEstimate({ minElapsedMs: 3000 });
 			const answer = await this.clientNow().run(project, change, (progress: TGroupRunProgress) => {
 				const percent = Math.round(progress.fraction * 100);
-				const steps = progress.steps > 1 ? `${progress.step} of ${progress.steps} Groups` : `${percent}%`;
+				const steps = progress.steps > 1 ? `${progress.step} of ${progress.steps} groups` : `${percent}%`;
 				const left = estimate.update(performance.now() - startedAt, progress.fraction, percent, 100);
 				this.studio.updateNotice(noticeId, { message: [`Fitting ${progress.name}`, steps, left].filter(Boolean).join(' · '), progress: progress.fraction });
 			}, isChecked);

@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft, FlipHorizontal2, FolderInput } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft, FlipHorizontal2 } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
 import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
@@ -11,7 +11,7 @@ import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, plainGroupOf, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import { isRowRefused } from './BarCx';
 import { GhostPiece } from './GhostLayer';
-import { GroupIcon } from './GroupIcon';
+import { FlattenIcon, GroupIcon, KindIcon } from './GroupIcon';
 import { pastBuiltMark } from './past-built';
 import { FLATTEN_HELP } from './PatternsCx';
 import { lookStatus, pieceStatus, struckStatus } from './PieceInspector';
@@ -73,7 +73,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 					<>
 						<span className="mm-bar-divider" />
 						<button className="mm-bar-arrow" aria-label="Flatten" onClick={() => cx.patterns.flatten(group)} title={`Flatten: ${FLATTEN_HELP.charAt(0).toLowerCase()}${FLATTEN_HELP.slice(1)}`} type="button">
-							<FolderInput size={14} strokeWidth={1.7} />
+							<FlattenIcon />
 						</button>
 					</>
 				) : null}
@@ -355,6 +355,8 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 							title={isDisabled ? `${row.label}: ${words}` : undefined}
 							type="button"
 						>
+							{/* Patterns by their shape, the Platform by its icon, commands with an empty slot so labels line up */}
+							<span className="mm-bar-row-icon">{row.isChoice ? <KindIcon kind={row.id} /> : null}</span>
 							{row.label}
 							<span className="mm-bar-row-note" title={words}>
 								{words}

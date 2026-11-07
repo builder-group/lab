@@ -173,8 +173,8 @@ describe('acceptWords', () => {
 		const project = track(EVEN, 1);
 		const open = targetOf(project, [hit('h2')]);
 		expect(acceptWords(project, open, 'platform', false)).toBe('Add Platform');
-		expect(acceptWords(project, open, 'zigzag', false)).toBe('Add Zigzag · 3 Notes');
-		expect(acceptWords(project, targetOf(project, ['p1']), 'staircase', false)).toBe('Change to Staircase · 4 Notes');
+		expect(acceptWords(project, open, 'zigzag', false)).toBe('Add Zigzag · 3 notes');
+		expect(acceptWords(project, targetOf(project, ['p1']), 'staircase', false)).toBe('Change to Staircase · 4 notes');
 		expect(acceptWords(project, targetOf(project, ['p1']), 'remove', true)).toBe('Remove Anyway');
 	});
 });

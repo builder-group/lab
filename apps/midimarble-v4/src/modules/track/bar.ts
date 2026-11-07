@@ -373,7 +373,7 @@ export function acceptWords(project: TProject, target: TBarTarget, choice: TBarC
 	const name = KIND_NAMES[choice] ?? choice;
 	const isBuilt = target.kind === 'notes' ? target.pieces.length > 0 : target.stage === 'built';
 	const stretch = choice === 'zigzag' || choice === 'staircase' ? stretchOf(project, target).length : 0;
-	return `${isBuilt ? 'Change to' : 'Add'} ${name}${stretch > 1 ? ` · ${stretch} Notes` : ''}${anyway}`;
+	return `${isBuilt ? 'Change to' : 'Add'} ${name}${stretch > 1 ? ` · ${stretch} notes` : ''}${anyway}`;
 }
 
 // MARK: - What a proposal does

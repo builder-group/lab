@@ -58,7 +58,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 			return title == null ? null : <WallTextInspector cx={cx} project={project} piece={title} />;
 		}
 		case 'titles':
-			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} Titles`} subtitle="Multiple selection" />;
+			return <InspectorHeader icon={<Type size={16} strokeWidth={1.7} />} title={`${target.ids.length} titles`} subtitle="Multiple selection" />;
 		case 'shot': {
 			const shot = project.film.camera.shots.find((item) => item.id === target.id);
 			return shot == null ? null : <ShotInspector cx={cx} project={project} shot={shot} />;
@@ -314,7 +314,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			<>
 				<InspectorHeader
 					icon={<HitGlyph />}
-					title={`${hits.length} Notes`}
+					title={`${hits.length} notes`}
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
 				/>
 				<Panel id="hit.playedBy" title="Played By">

@@ -68,7 +68,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	// A plain Group selected as a whole reads by its name, with its tiles below
 	const group = selectedPlainGroup(project, selection);
 	const groupNotes = group != null ? plainGroupNotes(project, group) : null;
-	const title = group?.name ?? (isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label}s` : `${pieces.length} Pieces`);
+	const title = group?.name ?? (isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label.toLowerCase()}s` : `${pieces.length} pieces`);
 	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} notes` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = free ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;

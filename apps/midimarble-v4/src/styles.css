@@ -3071,7 +3071,16 @@ button.mm-bar-mark:hover,
 
 .mm-bar-menu .mm-menu-item {
 	height: 24px;
-	padding-left: 10px;
+	padding-left: 8px;
+}
+
+.mm-bar-row-icon {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	opacity: 0.8;
 }
 
 /* What doesn't fit, greyed out with its reason like a macOS menu item: it never highlights */
