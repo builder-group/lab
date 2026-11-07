@@ -8,6 +8,7 @@ import { fixPiece, hasPieceProblem, type TFixDeps } from './fix-it';
 import { checkPattern, type TPatternAsk, type TPatternCheck } from './patterns/check-pattern';
 import { patternOfKind } from './patterns/registry';
 import { hitsInRange, patternSpan } from './patterns/run-group';
+import { restOffers } from './rest-order';
 import { noKnownFaults, addKnownFaults, reasonWords, verdictWithRoom, type TVerdictReason } from './verdict';
 import { answerWorkerRequest, type TAutoPlaceAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 
@@ -276,10 +277,10 @@ async function proposeMovePattern(project: TProject, before: TSimulationResult, 
 	return landed(project, before, ask, changedPieces(project, after), commands, { checksNext: true }, deps);
 }
 
-/** What a rest offers instead of a plain piece: a Long Rail and a Switchback, each with its own answer, and the plain piece only when neither fits */
+/** What a rest offers instead of a plain piece, in the order Build fills one (`restOffers`): a Curved Rail and a Switchback, each with its own answer, and the plain piece only when neither fits */
 async function proposeRest(project: TProject, before: TSimulationResult, ask: TProposeAsk, deps: TProposeDeps): Promise<TProposal> {
 	const instead: TProposal[] = [];
-	for (const kind of ['longRail', 'switchback']) instead.push(await propose(project, { ...ask, kind }, deps, { result: before }));
+	for (const kind of restOffers()) if (kind !== 'platform') instead.push(await propose(project, { ...ask, kind }, deps, { result: before }));
 	if (!instead.some((proposal) => proposal.status === 'fits')) instead.push(await propose(project, ask, deps, { result: before, isAnyDot: true }));
 	return { ...refused(project, before, ask, 'A rest comes before this note.'), instead };
 }

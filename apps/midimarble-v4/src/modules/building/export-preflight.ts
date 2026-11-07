@@ -594,7 +594,7 @@ function rollIssues(project: TProject, result: TSimulationResult, names: TNames)
 		marbleId: roll.marbleId,
 		title: `${names.marble(roll.marbleId)} rolls on ${names.piece(roll.pieceId)}`,
 		label: 'Rolls',
-		detail: `Stays on it after the note at ${formatTime(roll.time)} instead of bouncing off.`,
+		detail: `Stays on it from ${formatTime(roll.time)} instead of bouncing off.`,
 		time: roll.time,
 		target: { ids: [roll.pieceId], point: roll.position, time: roll.time }
 	}));

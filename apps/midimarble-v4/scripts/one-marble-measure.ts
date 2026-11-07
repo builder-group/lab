@@ -5,35 +5,21 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { assignNotesCommands, buildTrack, checkRun, hitOwners, hitReach, localBuildDeps, localProposeDeps, NO_BLENDER_OBJECTS, nextStepOf, openLongGaps, problemSummary, propose, type TProposal, type TProposeDeps } from '../src/modules/building';
 import { withStartRails } from '../src/modules/building/start-rail';
 import { filmCamera } from '../src/modules/camera';
-import { createImportCommands } from '../src/modules/music';
-import { applyProjectCommands, BACKING_ID, createProject, type TProject, type TProjectCommand } from '../src/modules/project';
+import { applyProjectCommands, BACKING_ID, type TProject, type TProjectCommand } from '../src/modules/project';
 import { parseProject } from '../src/modules/project/project-file';
 import { createSimulator, type TSimulationResult, type TSimulator } from '../src/modules/simulation';
+import { odeToJoy } from './songs';
 
 const [out = '', songsText = 'jingle-bells,reference-20,ode-to-joy', gravitiesText = '0.25,0.3,0.35,0.5', modesText = 'plain,pattern,build'] = process.argv.slice(2);
 /** Seconds one run may take, so a run that wanders ends with what it has */
 const RUN_LIMIT = 300;
 const PATTERN_NOTES = [8, 4];
 
-/** Ode to Joy, public domain, tuned on nothing: beats of a 0.4 s quarter note, with its dotted quarters, eighths and half notes */
-const ODE_TO_JOY: [number, number][] = [64, 64, 65, 67, 67, 65, 64, 62, 60, 60, 62, 64].map((pitch): [number, number] => [pitch, 1]).concat([[64, 1.5], [62, 0.5], [62, 2]], [64, 64, 65, 67, 67, 65, 64, 62, 60, 60, 62, 64].map((pitch): [number, number] => [pitch, 1]), [[62, 1.5], [60, 0.5], [60, 2]], [[62, 1], [62, 1], [64, 1], [60, 1], [62, 1], [64, 0.5], [65, 0.5], [64, 1], [60, 1], [62, 1], [64, 0.5], [65, 0.5], [64, 1], [62, 1], [60, 1], [62, 1], [55, 2]]);
-
 function applied(project: TProject, commands: TProjectCommand[]): TProject {
 	if (!commands.length) return project;
 	const [isOk, error, next] = applyProjectCommands(project, commands);
 	if (!isOk) throw error;
 	return next;
-}
-
-function odeToJoy(): TProject {
-	const project = createProject({ id: 'ode-to-joy', title: 'Ode to Joy' });
-	let beat = 0;
-	const notes = ODE_TO_JOY.map(([midi, beats], index) => {
-		const note = { time: 1 + beat * 0.4, duration: beats * 0.4, midi, velocity: 0.8, id: `note-${index}` };
-		beat += beats;
-		return note;
-	});
-	return applied(project, createImportCommands(project, { marbles: [notes] as never }));
 }
 
 function oneMarble(song: string, gravity: number): TProject {

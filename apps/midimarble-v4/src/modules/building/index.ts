@@ -20,6 +20,7 @@ export * from './problems-client';
 export * from './progress-estimate';
 export * from './propose';
 export * from './reachability';
+export * from './rest-order';
 export * from './simulation-client';
 export * from './track-problems';
 export * from './verdict';

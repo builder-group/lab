@@ -89,6 +89,14 @@ describe('rollingHits function', () => {
 		expect(rollingHits(rolled, result)).toMatchObject([{ pieceId: 'piece-a', hitId: 'a', time: 1 }]);
 	});
 
+	it('should name a marble that bounces off its platform, lands on it again and stays', () => {
+		// Up 2 cm and down again by 0.2 s after the note, then on the platform until the next note
+		const { project: landed, result } = flight((after) => (after < 0.2 ? 0.4 * after * (0.2 - after) * 5 : 0));
+		const again = { ...result, contacts: [...result.contacts, { time: 1.2, marbleId: 'marble', otherId: 'piece-a', kind: 'piece' as const, position: { x: 0.01, y: 0 }, speed: 0.2 }] };
+		expect(rollingHits(landed, again)).toMatchObject([{ pieceId: 'piece-a', hitId: 'a', time: 1.2 }]);
+		expect(extraStrikes(landed, again)).toMatchObject([{ pieceId: 'piece-a', times: 2, time: 1.2 }]);
+	});
+
 	it('should leave a bounce alone, even a low one', () => {
 		const { project: bounced, result } = flight((after) => after * 0.5);
 		expect(rollingHits(bounced, result)).toEqual([]);

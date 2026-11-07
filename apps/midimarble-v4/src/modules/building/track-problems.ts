@@ -1,5 +1,5 @@
 import { type TProject, type TVec2, tieOf } from '@/modules/project';
-import { boundsOf, resolvedPieceShapes, shapesGap, layoutOf, soundsHit, shapeDistance, type TBounds2, type TPieceShape, HIT_TOLERANCE, IMPACT_SPEED, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { boundsOf, resolvedPieceShapes, shapesGap, layoutOf, soundsHit, shapeDistance, type TBounds2, type TPieceShape, HIT_TOLERANCE, IMPACT_SPEED, type TContact, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 
 // What's physically wrong with a run beyond its timing: pieces touching in the wall plane, a platform struck outside its
 // note, a marble rolling on a platform. They're Problems, with no taste in them: every number here says what breaks.
@@ -146,7 +146,6 @@ const NO_TOUCH_SPEED = 0.02;
  * meant to, and a free platform is scenery. A hit that is already Blocked or Missed is reported as that.
  */
 export function extraStrikes(project: TProject, result: TSimulationResult): TExtraStrike[] {
-	const marbleOf = new Map(result.marbles.map((marble) => [marble.marbleId, marble.marbleId]));
 	const strikes: TExtraStrike[] = [];
 	for (const hit of result.hits) {
 		const pieceId = hit.pieceId;
@@ -154,19 +153,25 @@ export function extraStrikes(project: TProject, result: TSimulationResult): TExt
 		const piece = project.track.pieces.find((item) => item.id === pieceId);
 		const type = piece?.type;
 		if (type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(piece))) continue;
-		const marbleId = marbleOf.get(hit.marbleId);
-		const note = hit.actualTime;
 		const isLast = project.marbles.find((marble) => marble.id === hit.marbleId)?.hits.at(-1)?.id === hit.hitId;
-		const extra = result.contacts.filter((contact) => {
-			if (contact.marbleId !== marbleId || contact.otherId !== pieceId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE || (contact.speed ?? 1) < NO_TOUCH_SPEED) return false;
-			// After the marble's last note it may come to rest; only another real bounce still shows
-			return !isLast || contact.time < note || (contact.speed ?? Infinity) >= IMPACT_SPEED;
-		});
+		const extra = strikesBesideNote(result, hit.marbleId, pieceId, hit.actualTime, isLast);
 		const first = extra[0];
 		if (first == null) continue;
 		strikes.push({ pieceId, marbleId: hit.marbleId, hitId: hit.hitId, times: extra.length + 1, time: first.time, position: first.position });
 	}
 	return strikes.sort((a, b) => a.time - b.time);
+}
+
+/**
+ * A marble's real touches of its platform other than the note's strike, in time order: before the note, or after it,
+ * when it lands on the platform again. After the marble's last note it may come to rest, and only another real bounce
+ * still shows.
+ */
+function strikesBesideNote(result: TSimulationResult, marbleId: string, pieceId: string, note: number, isLast: boolean): TContact[] {
+	return result.contacts.filter((contact) => {
+		if (contact.marbleId !== marbleId || contact.otherId !== pieceId || contact.time > result.duration || Math.abs(contact.time - note) <= SAME_STRIKE || (contact.speed ?? 1) < NO_TOUCH_SPEED) return false;
+		return !isLast || contact.time < note || (contact.speed ?? Infinity) >= IMPACT_SPEED;
+	});
 }
 
 /** How far into a skin's body a marble's center must come to count as passing through it: a graze of the edge isn't one */
@@ -299,9 +304,9 @@ export function riseAfterHit(piece: TResolvedPiece, marble: TMarbleTrack, note: 
 }
 
 /**
- * Platforms a marble rolls along after its note. Rails and the Bowl are exempt, since rolling is their
- * job, a free platform is scenery, and after a marble's last note it may come to rest. A hit that is already Blocked or
- * Missed is reported as that.
+ * Platforms a marble rolls along after its note, or after it lands on the platform again later. Rails and the Bowl are
+ * exempt, since rolling is their job, a free platform is scenery, and after a marble's last note it may come to rest. A
+ * hit that is already Blocked or Missed is reported as that.
  */
 export function rollingHits(project: TProject, result: TSimulationResult): TRollingHit[] {
 	const resolvedPieces = new Map(result.pieces.map((piece) => [piece.pieceId, piece]));
@@ -319,9 +324,15 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 			const resolvedPiece = resolvedPieces.get(hit.pieceId);
 			const type = piece?.type;
 			if (resolvedPiece == null || type == null || layoutOf(type) !== 'box' || !soundsHit(type, tieOf(piece))) return;
-			const risen = riseAfterHit(resolvedPiece, marbleTrack, hit.actualTime, following.time);
-			if (risen == null || risen.isBounce) return;
-			rolls.push({ pieceId: hit.pieceId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: hit.actualTime, position: hit.dot ?? resolvedPiece.position });
+			const note = hit.actualTime;
+			const landings = [{ time: note, position: hit.dot ?? resolvedPiece.position }, ...strikesBesideNote(result, marble.id, hit.pieceId, note, false).filter((contact) => contact.time > note)];
+			for (const landing of landings) {
+				const nextNote = marble.hits.find((later) => later.time > landing.time + HIT_TOLERANCE)?.time ?? null;
+				const risen = riseAfterHit(resolvedPiece, marbleTrack, landing.time, nextNote);
+				if (risen == null || risen.isBounce) continue;
+				rolls.push({ pieceId: hit.pieceId, marbleId: marble.id, hitId: hit.hitId, rise: risen.rise, time: landing.time, position: landing.position });
+				return;
+			}
 		});
 	}
 	return rolls.sort((a, b) => a.time - b.time);
