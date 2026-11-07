@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createPerfProject } from './fixture-projects';
-import { answerEdit, withEditAnswer } from './edit-rule';
+import { answerEdit, withEditAnswer } from '@/modules/building';
 import { createSimulator, type TSimulator } from './simulate';
 import type { TSimulationResult } from './types';
 

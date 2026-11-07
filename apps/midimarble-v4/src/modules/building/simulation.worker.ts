@@ -1,7 +1,4 @@
-import { createSimulator } from './simulate';
-import type { TQueueResponse } from './request-queue';
-import { packResult } from './result-transfer';
-import type { TSimulationResult } from './types';
+import { createSimulator, type TQueueResponse, packResult, type TSimulationResult } from '@/modules/simulation';
 import { answerWorkerRequest, createWorkerMemory, type TWorkerMessage } from './worker-protocol';
 
 export type TSimulationWorkerRequest = TWorkerMessage;

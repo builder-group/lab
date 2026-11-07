@@ -1,13 +1,13 @@
 import { createState } from 'feature-state';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { applyProjectCommands, createHistory, createProject, pushHistory, type TPiece, type TProject, undoHistory, stepHitTarget, toHitKey, tieOf, backingOf } from '@/modules/project';
-import { createLinkedPiece, createSimulator, type TAutoPlaceAnswer, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { createLinkedPiece, createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { type TAutoPlaceAnswer, displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap, replaceCommands, withCommands, dotClickAction } from '@/modules/building';
 import { addNoteCommands } from '@/modules/studio/timeline/piano-roll';
 import { deleteHitCommands } from './hand-notes';
 import type { StudioCx } from '@/modules/studio';
 import { AssistCx } from './AssistCx';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
-import { displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap, replaceCommands, withCommands, dotClickAction } from '@/modules/building';
 import { ghostReducer, initialGhostState, type TPlaceAnswer } from './ghosts';
 import { trackKeyAction } from './keys';
 import { isOnGhost, pick, PLACED_DOT_PICK_RADIUS, firstHitsView, isBoundsVisible, worldToScreen } from '@/modules/scene';

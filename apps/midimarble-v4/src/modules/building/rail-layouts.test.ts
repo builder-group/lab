@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { TPiece } from '@/modules/project';
-import { createBareRunProject } from './fixture-projects';
+import { chainGeometry, createSimulator, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, RAIL_LAYOUTS, switchbackGeometry, type TLayoutInput, type TRailLayout } from '@/modules/simulation';
+import { createBareRunProject } from '@/modules/simulation/fixture-projects';
 import { gapPieceOrder, gapPieceTypeOf, gapSearch, type TGapSearchPlan, type TGapTry } from './gap-pieces';
-import { chainGeometry, layoutAtMarble, layoutFree, layoutOf, switchbackGeometry, type TLayoutInput } from './piece-layout';
-import { railLayoutInfo, resolvePieceParams, RAIL_LAYOUTS, type TRailLayout } from './pieces';
-import { createSimulator } from './simulate';
 
 function input(layout: TRailLayout, params: Record<string, number> = {}): TLayoutInput {
 	return { type: 'rail', layout, params: resolvePieceParams('rail', { ...railLayoutInfo[layout].defaults, ...params }), path: [], angle: -0.14, contactAt: 0.5, marbleRadius: 0.012 };

@@ -6,11 +6,6 @@ import { StudioCx } from './StudioCx';
 
 const simulate = vi.fn<(project: TProject, horizon?: number) => Promise<never>>(() => new Promise(() => undefined));
 
-vi.mock('@/modules/simulation', async (original) => ({
-	...(await original<typeof import('@/modules/simulation/index')>()),
-	createSimulationClient: () => ({ simulate, dispose: () => undefined })
-}));
-
 /** A problems worker that answers when told, with the issues it was given */
 const problems = vi.hoisted(() => ({
 	asked: [] as { project: TProject; answer: (issues: TPreflightIssue[]) => void }[]
@@ -18,6 +13,7 @@ const problems = vi.hoisted(() => ({
 
 vi.mock('@/modules/building', async (original) => ({
 	...(await original<typeof import('@/modules/building/index')>()),
+	createSimulationClient: () => ({ simulate, dispose: () => undefined }),
 	createProblemsClient: () => ({
 		check: (project: TProject) => new Promise<TPreflightIssue[]>((resolve) => problems.asked.push({ project, answer: resolve })),
 		dispose: () => undefined

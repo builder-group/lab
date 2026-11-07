@@ -1,5 +1,8 @@
 import { patched, type TFollows, type TMarble, type TPiece, type TPlays, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { BOWL_TYPE, isPathPieceType, extraStrikes, rollingHits, findLongGaps, freePose, getPieceDefinition, gravityOf, isMusicalPiece, gapPieceTypeOf, layoutOf, shapesBounds, shapesDistance, soundsHit, passThroughs, touchingPairs, trajectoryAt, transformShape, type TGapPieceType, type THitResult, type TLongGap, type TResolvedPiece, type TSimulationResult, crossesOtherMarbles, openFrontiers, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { BOWL_TYPE, isPathPieceType, extraStrikes, rollingHits, freePose, getPieceDefinition, gravityOf, isMusicalPiece, layoutOf, shapesBounds, shapesDistance, soundsHit, passThroughs, touchingPairs, trajectoryAt, transformShape, type THitResult, type TResolvedPiece, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { findLongGaps, type TLongGap, crossesOtherMarbles, openFrontiers } from './assists';
+import { gapPieceTypeOf } from './gap-pieces';
+import { type TGapPieceType } from './worker-protocol';
 import { bowlFix, hitKeyOf, isBroken, newlyBroken } from './bowl-assist';
 import type { TBlenderObject } from '@/modules/scene';
 import { NO_BLENDER_OBJECTS, checkRun, type TPreflightIssue, type TProblemSummary } from './export-preflight';

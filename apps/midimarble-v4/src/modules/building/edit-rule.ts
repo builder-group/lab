@@ -1,10 +1,5 @@
 import { type THandOver, type TMarble, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { ballistic, gravityOf } from './geometry';
-import { frameBand } from './placement';
-import { getPieceDefinition, soundsHit } from './pieces';
-import { handOversOf, SEAM_SPEED, type TBodyState, type TMarbleWalk, type TSimulator, type TWalk, type TWalkHop } from './simulate';
-import { hasRide } from './ride';
-import { PHYSICS_HZ } from './types';
+import { ballistic, gravityOf, frameBand, getPieceDefinition, soundsHit, handOversOf, SEAM_SPEED, type TBodyState, type TMarbleWalk, type TSimulator, type TWalk, type TWalkHop, hasRide, PHYSICS_HZ } from '@/modules/simulation';
 
 // What an edit does to the run. A hop stands alone from its hand-over, so an edit runs only the hops it reaches. Where the
 // marble then lands differs from the next stored hand-over, and the next bar takes that up: its tilt and bounce are two

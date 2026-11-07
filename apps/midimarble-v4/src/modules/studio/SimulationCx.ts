@@ -1,7 +1,7 @@
 import { createComputed, createState } from 'feature-state';
-import { checkRun, createProblemsClient, isSameProblemInput, pendingPreflight, strayCause, type TExportPreflight, type TPreflightIssue, type TProblemsClient } from '@/modules/building';
+import { checkRun, createProblemsClient, isSameProblemInput, pendingPreflight, strayCause, type TExportPreflight, type TPreflightIssue, type TProblemsClient, createSimulationClient, type TSimulationClient, editCommands, type TEditAnswer, withEditAnswer } from '@/modules/building';
 import { type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
-import { createSimulationClient, editCommands, isSameRunInput, isSuperseded, type TEditAnswer, type TRunInput, type TSimulationClient, type TSimulationResult, withEditAnswer } from '@/modules/simulation';
+import { isSameRunInput, isSuperseded, type TRunInput, type TSimulationResult } from '@/modules/simulation';
 import type { TBlenderObject } from '@/modules/scene';
 import { onNextFrame } from './next-frame';
 import type { StudioCx } from './StudioCx';

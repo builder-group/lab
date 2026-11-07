@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkPattern } from '@/modules/building';
+import { checkPattern, answerSettle, type TEditRequest } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { createHistory, type TProject, type TProjectHistory } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerSettle, createSimulator, type TEditRequest } from '@/modules/simulation';
+import { createSimulator } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
 import { PatternsCx } from './PatternsCx';
 
 const client = vi.hoisted(() => ({ current: null as unknown }));
 
-vi.mock('@/modules/simulation', async (original) => ({
-	...(await original<typeof import('@/modules/simulation/index')>()),
+vi.mock('@/modules/building', async (original) => ({
+	...(await original<typeof import('@/modules/building/index')>()),
 	createSimulationClient: () => client.current
 }));
 vi.mock('@/modules/studio/next-frame', () => ({

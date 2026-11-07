@@ -1,7 +1,7 @@
 import { createId } from '@/modules/project';
+import { createRequestQueue, type TQueueResponse } from '@/modules/simulation';
 import { runAutoPlaceSearch, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan } from './assists';
 import { gapSearch, type TGapEvaluation, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
-import { createRequestQueue, type TQueueResponse } from './request-queue';
 import type { TAutoPlaceAnswer, TGapAnswer, TSearchBatch, TSearchRequest, TWorkerMessage, TWorkerRequest } from './worker-protocol';
 
 // A pool of assists workers that share one search at a time: Auto place's angles or a long gap's rails,

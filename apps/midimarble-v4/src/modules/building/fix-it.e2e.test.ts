@@ -3,7 +3,9 @@ import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight
 import { assignNotesCommands } from './assign-notes';
 import { applyProjectCommands, BACKING_ID, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { autoPlace, createRailForGap, createSimulator, createSwitchbackForGap, createTunnelForGap, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { autoPlace } from './assists';
+import { createRailForGap, createSwitchbackForGap, createTunnelForGap } from './gap-pieces';
 import { addedProblems, brokenHits, fixMessage, fixTrack, type TFixDeps } from './fix-it';
 
 function hitsNeedingAttention(result: TSimulationResult): THitResult[] {

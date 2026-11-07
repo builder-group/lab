@@ -1,16 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { pathGap, resolvedPieceShapes, shapesGap } from './clearance';
-import { GRAVITY_Y, gravityOf, surfaceNormal } from './geometry';
-import { descentPace, longGapThreshold, paceAt, takeoffSpeed } from './pace';
-import { layoutOf } from './piece-layout';
-import { getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit } from './pieces';
-import { createLinkedPiece, frameBand, type TFrameBand } from './placement';
-import { wrapAngle, type TPieceShape } from './shapes';
-import { BOWL_TYPE } from './bowl';
+import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, longGapThreshold, paceAt, takeoffSpeed, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, frameBand, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { columnOffset } from './build-track-defaults';
-import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
-import { HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from './types';
 
 // Step loop assists. Each one is a pure function over the project and its latest simulation result that
 // returns pieces and the commands that add them. Assists that predict the future take a `simulate`

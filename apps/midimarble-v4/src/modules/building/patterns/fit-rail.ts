@@ -1,6 +1,6 @@
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, findEntryTime, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, touchingPairs } from '@/modules/simulation';
-import type { TSimulator, TSimulationResult } from '@/modules/simulation';
+import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, touchingPairs, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { findEntryTime } from '../gap-pieces';
 import { sampleAt, withPiece } from './fit-bars';
 
 // Long Rail: a rail whose shape is solved so the marble leaves it a chosen time before the next hit, against the real

@@ -1,13 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, MARBLE_SPACING, type TPiece, type TProject, tieOf } from '@/modules/project';
 import { autoPlace, continueSuggestions, copyLinkedPiece, crossesOtherMarbles, findLongGaps, mirrorPiece, nextOpenHit, openLongGaps, repeatPiece, type TSimulateFn } from './assists';
-import { resolvedPieceShapes, shapesGap } from './clearance';
-import { createBareRunProject } from './fixture-projects';
+import { resolvedPieceShapes, shapesGap, paceAt, createLinkedPiece, frameBand, createSimulator, type TContact, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { createBareRunProject } from '@/modules/simulation/fixture-projects';
 import { createRailForGap, createSwitchbackForGap } from './gap-pieces';
-import { paceAt } from './pace';
-import { createLinkedPiece, frameBand } from './placement';
-import { createSimulator } from './simulate';
-import type { TContact, THitResult, TSimulationResult } from './types';
 
 let simulate: TSimulateFn;
 

@@ -1,17 +1,9 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withPieces, type TSimulateFn } from './assists';
-import { gravityOf } from './geometry';
-import { descentPace, paceAt } from './pace';
-import { chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime } from './piece-layout';
-import { getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout } from './pieces';
-import { createLinkedPiece, frameBand } from './placement';
-import { projectOnPath, shapesBounds } from './shapes';
-import { trajectoryAt } from './simulate';
+import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, frameBand, projectOnPath, shapesBounds, trajectoryAt, extraStrikes, MIN_PIECE_GAP, nearestPieceGap, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
 import { columnOffset } from './build-track-defaults';
-import { extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-problems';
-import { HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from './types';
-import type { TGapPieceType } from './worker-protocol';
+import type { TGapPieceType } from '@/modules/building';
 
 /**
  * What a long gap gets first: a straight Rail, since the Switchback layout is only for what nothing else bridges, or the

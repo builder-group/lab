@@ -1,8 +1,7 @@
 import { checkRun, NO_BLENDER_OBJECTS, problemSummary, type TProblemSummary } from '../export-preflight';
-import type { TMarble, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { parseHitKey, tieOf } from '@/modules/project';
-import { answerSettle, changedPieces, editCommands, frameBand, soundsHit, withEditAnswer } from '@/modules/simulation';
-import type { TSimulator, TSimulationResult } from '@/modules/simulation';
+import { type TMarble, type TProject, type TProjectCommand, type TVec2, parseHitKey, tieOf } from '@/modules/project';
+import { frameBand, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { answerSettle, changedPieces, editCommands, withEditAnswer } from '../edit-rule';
 import type { THitVerdict, TPatternCourse, TPatternLeaving } from './contract';
 import { BAR_LENGTH, COLUMN_PROBLEM, sampleAt } from './fit-bars';
 import { patternOfKind } from './registry';

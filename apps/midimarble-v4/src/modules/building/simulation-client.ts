@@ -1,10 +1,8 @@
 import type { TProject } from '@/modules/project';
 import { assistPoolSize, createAssistPool, type TAssistPool, type TSearchRunOptions, type TPoolWorker } from './assist-pool';
-import type { TEditAnswer, TEditRequest } from './edit-rule';
-import { createRequestQueue, type TRequestQueue } from './request-queue';
-import { isPackedResult, unpackResult } from './result-transfer';
+import { createRequestQueue, type TRequestQueue, isPackedResult, unpackResult, type TSimulationResult } from '@/modules/simulation';
+import { type TEditAnswer, type TEditRequest } from './edit-rule';
 import type { TSimulationWorkerRequest, TSimulationWorkerResponse } from './simulation.worker';
-import type { TSimulationResult } from './types';
 import type { TAutoPlaceAnswer, TContinueAnswer, TGapAnswer, TWorkerRequest } from './worker-protocol';
 
 export interface TSimulationClient {

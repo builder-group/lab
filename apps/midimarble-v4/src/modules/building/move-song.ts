@@ -1,5 +1,6 @@
 import { playsOnlySong, type TProject, type TProjectCommand } from '@/modules/project';
-import { changedPieces, PHYSICS_HZ, type TSimulationResult, withRides } from '@/modules/simulation';
+import { PHYSICS_HZ, type TSimulationResult, withRides } from '@/modules/simulation';
+import { changedPieces } from './edit-rule';
 
 /**
  * The edit that moves a song to a new start, as one undo step. The rides are kept first, as at any edit: a rail turns the

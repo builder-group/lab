@@ -2,8 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { type TPiece, type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { answerEdit, type TEditAnswer, withEditAnswer } from './edit-rule';
-import { createSimulator, type TSimulator } from './simulate';
-import type { TSimulationResult } from './types';
+import { createSimulator, type TSimulator, type TSimulationResult } from '@/modules/simulation';
 
 let simulator: TSimulator;
 const DEGREE = Math.PI / 180;

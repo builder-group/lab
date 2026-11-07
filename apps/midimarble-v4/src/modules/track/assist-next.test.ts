@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHistory, createMarble, createProject, type TPiece, type TProject } from '@/modules/project';
-import { createLinkedPiece, type TAutoPlaceAnswer, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { createLinkedPiece, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { type TAutoPlaceAnswer } from '@/modules/building';
 import { StudioCx } from '@/modules/studio';
 import { AssistCx } from './AssistCx';
 

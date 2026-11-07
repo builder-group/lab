@@ -1,5 +1,10 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { answerWorkerRequest, changedPieces, isPathPieceType, columnOffset, gapPieceOrder, gapPieceReads, extraStrikes, passThroughs, rollingHits, findLongGaps, isInBand, mirrorPiece, openLongGaps, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { isPathPieceType, extraStrikes, passThroughs, rollingHits, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { changedPieces } from './edit-rule';
+import { columnOffset } from './build-track-defaults';
+import { gapPieceOrder, gapPieceReads } from './gap-pieces';
+import { findLongGaps, isInBand, mirrorPiece, openLongGaps } from './assists';
+import { answerWorkerRequest, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
 import { withStartRails } from './start-rail';

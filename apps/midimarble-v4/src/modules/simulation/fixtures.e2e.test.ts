@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TProject, type TVec2, tieOf, tempoOf } from '@/modules/project';
-import { NO_BLENDER_OBJECTS, checkRun } from '@/modules/building';
-import { findLongGaps } from './assists';
+import { NO_BLENDER_OBJECTS, checkRun, findLongGaps } from '@/modules/building';
 import { bowlCatch, bowlOfMarble } from './bowl';
 import { paceAt } from './pace';
 import { frameBand, startRailId } from './placement';

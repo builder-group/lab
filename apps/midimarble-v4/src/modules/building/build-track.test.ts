@@ -3,7 +3,9 @@ import { expandCommands } from '@/modules/mcp/project-commands';
 import { createImportCommands } from '@/modules/music';
 import { applyProjectCommands, createProject, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { createSimulator, findLongGaps, hitPlace, type TAutoPlaceAnswer, type TSimulator } from '@/modules/simulation';
+import { createSimulator, hitPlace, type TSimulator } from '@/modules/simulation';
+import { findLongGaps } from './assists';
+import { type TAutoPlaceAnswer } from './worker-protocol';
 import { buildOneStep, buildTrack, localBuildDeps, withoutPiecesAfter } from './build-track';
 
 const MINUTES = 60_000;

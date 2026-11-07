@@ -4,7 +4,7 @@ import { createLinkedPiece } from './placement';
 import { createBareRunProject } from './fixture-projects';
 import { createRequestQueue, isSuperseded } from './request-queue';
 import { createSimulator } from './simulate';
-import { answerWorkerRequest, type TContinueAnswer, type TGapAnswer } from './worker-protocol';
+import { answerWorkerRequest, type TContinueAnswer, type TGapAnswer } from '@/modules/building';
 
 function setup(priority?: (channel: string) => number): {
 	queue: ReturnType<typeof createRequestQueue<string>>;

@@ -2,14 +2,15 @@ import { createState } from 'feature-state';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { amendHistory, applyProjectCommands, createHistory, pushHistory, redoHistory, undoHistory, type TProject, type TProjectCommand, type TProjectHistory, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { answerEdit, answerWorkerRequest, createSimulator, createWorkerMemory, type TEditRequest, type TSimulationResult, type TWorkerMessage } from '@/modules/simulation';
+import { createSimulator, type TSimulationResult } from '@/modules/simulation';
+import { answerEdit, type TEditRequest, answerWorkerRequest, createWorkerMemory, type TWorkerMessage } from '@/modules/building';
 import { SimulationCx } from './SimulationCx';
 import type { StudioCx } from './StudioCx';
 
 const client = vi.hoisted(() => ({ current: null as unknown }));
 
-vi.mock('@/modules/simulation', async (original) => ({
-	...(await original<typeof import('@/modules/simulation/index')>()),
+vi.mock('@/modules/building', async (original) => ({
+	...(await original<typeof import('@/modules/building/index')>()),
 	createSimulationClient: () => client.current
 }));
 vi.mock('./next-frame', () => ({
@@ -393,7 +394,7 @@ describe('SimulationCx class', () => {
 			// Prepare
 			const workers = workerStub();
 			vi.stubGlobal('Worker', workers.Worker);
-			const { createSimulationClient } = await vi.importActual<typeof import('@/modules/simulation/index')>('@/modules/simulation');
+			const { createSimulationClient } = await vi.importActual<typeof import('@/modules/building/index')>('@/modules/building');
 			const { cx, studio, execute, flush } = await setup(createSimulationClient);
 			const open = workers.hold();
 			const present = (): TProject => studio.project as TProject;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { TContinueAnswer, TGapAnswer, TResolvedPiece } from '@/modules/simulation';
+import type { TResolvedPiece } from '@/modules/simulation';
+import type { TContinueAnswer, TGapAnswer } from '@/modules/building';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostState } from './ghosts';
 import { trackKeyAction, type TKeyContext, type TKeyInput } from './keys';
 import { pickTrack, pathHandles, pathRun, pathToLocal, pathToWorld, pieceAngleAt, turnPathRun, withPathBend, withPathEnd, withPathRun } from '@/modules/scene';

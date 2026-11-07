@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, type THit, type TProject } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
-import { answerEdit } from '@/modules/simulation/edit-rule';
+import { answerEdit } from './edit-rule';
 import { HIT_DRIFT } from '@/modules/simulation/types';
 import { moveSongCommands } from './move-song';
 import { NO_BLENDER_OBJECTS, checkRun } from './export-preflight';

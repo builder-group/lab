@@ -1,10 +1,9 @@
 import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import type { TResult } from 'tuple-result';
+import { type TSimulator, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withPieces, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
 import { createRailForGap, createChainForGap, createSwitchbackForGap, createTunnelForGap, prepareGapSearch, type TGapEvaluation, type TGapPieceCheck, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
 import { answerEdit, reconnect, type TEditAnswer, type TEditRequest } from './edit-rule';
-import type { TSimulator } from './simulate';
-import type { TResolvedPiece, TSimulationResult } from './types';
 
 // Messages between the UI and the simulation worker. Every request carries the project it asks about,
 // so the worker always answers for the newest edit. Assists first simulate that project, which resumes
