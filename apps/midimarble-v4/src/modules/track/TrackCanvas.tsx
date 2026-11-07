@@ -109,7 +109,7 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 		case 'nodeIn':
 		case 'nodeOut':
 			if (!cx.$selection.get().includes(target.pieceId)) cx.$selection.set([target.pieceId]);
-			openContextMenu(event, cx.menus.piece());
+			openContextMenu(event, cx.menus.piece(target.pieceId));
 			return;
 		case 'dot': {
 			const marble = trackCx.project?.marbles.find((item) => item.id === target.marbleId);

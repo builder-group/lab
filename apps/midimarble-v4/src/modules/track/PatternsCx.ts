@@ -1,5 +1,5 @@
 import { createState } from 'feature-state';
-import { createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternLockWords, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type THitVerdict, type TPatternAsk, type TPatternClient, type TPatternKind, type TPatternOffer, type TPatternRefusal } from '@/modules/building';
+import { createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type THitVerdict, type TPatternAsk, type TPatternClient, type TPatternKind, type TPatternOffer, type TPatternRefusal } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
 import { type TResolvedPiece } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject, TProjectHistory } from '@/modules/project';
@@ -224,19 +224,19 @@ export class PatternsCx {
 		if (refusal?.hitId != null) this.studio.$reveal.set({ ids: [toHitKey(refusal.marbleId, refusal.hitId)], isZoomKept: true });
 	}
 
-	/** Flatten Pattern: one Undo step, and the pieces are selected, to edit one by one */
-	flatten(group: TPatternGroup): void {
+	/** Flatten Pattern: one Undo step, and the piece a person went for is selected, ready to drag, or else all of them */
+	flatten(group: TPatternGroup, pieceId?: string): void {
 		this.endHover();
 		if (!this.studio.execute(flattenCommands(group), { label: 'Flatten' })) return;
-		this.studio.$selection.set(group.pieceIds);
+		this.studio.$selection.set(pieceId != null && group.pieceIds.includes(pieceId) ? [pieceId] : group.pieceIds);
 		this.studio.notifyEdit(`Flattened ${group.name}`);
 	}
 
 	private toldAt = 0;
 	private toldGroup: string | null = null;
 
-	/** Says once per try that a live Pattern's piece doesn't edit: a held key or a long drag is one try */
-	tellLocked(group: TPatternGroup): void {
+	/** Says once per try that a live Pattern's piece doesn't edit, with Flatten beside it: a held key or a long drag is one try */
+	tellLocked(group: TPatternGroup, pieceId?: string): void {
 		const now = performance.now();
 		if (this.toldGroup === group.id && now - this.toldAt < LOCK_NOTICE_MS) {
 			this.toldAt = now;
@@ -244,7 +244,7 @@ export class PatternsCx {
 		}
 		this.toldGroup = group.id;
 		this.toldAt = now;
-		this.studio.notify(patternLockWords(group));
+		this.studio.notify(`Part of ${group.name}.`, 'info', { actions: [{ label: 'Flatten', title: FLATTEN_HELP, run: () => this.flatten(group, pieceId) }] });
 	}
 
 	/** The same run with nothing applied, for an agent's dry run */
@@ -401,6 +401,9 @@ export function withWholeGroups(project: TProject, selection: readonly string[])
 export function groupSelection(group: TGroup): string[] {
 	return [toGroupKey(group.id), ...group.pieceIds];
 }
+
+/** What Flatten does, in its tooltip wherever it's offered */
+export const FLATTEN_HELP = 'Keep these pieces as they are, as a plain Group, and remove the Pattern';
 
 /** How far apart notes can be and still read as one phrase for a Pattern, in seconds */
 const PHRASE_GAP = 1.2;

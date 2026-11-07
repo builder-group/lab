@@ -61,6 +61,11 @@ function clearLabelItem(cx: StudioCx, isSet: boolean, commands: () => TProjectCo
 	return isSet ? { label: 'Clear Label Color', onSelect: () => cx.execute(commands()) } : null;
 }
 
+function flattenItem(cx: StudioCx, pieceId: string | undefined): TMenuEntry | null {
+	const group = selectedPattern(cx);
+	return group != null ? { ...commandItem(cx, 'edit.flatten'), onSelect: () => cx.patterns.flatten(group, pieceId) } : null;
+}
+
 /** Clear Label Color for the selected pieces' and titles' menu */
 function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	const selection = cx.$selection.get();
@@ -68,8 +73,8 @@ function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	return first != null ? clearLabelItem(cx, first.labelColor != null, () => layerLabelCommands(cx, first, null)) : null;
 }
 
-/** Right-click on a piece, on the canvas or in the sidebar */
-export function pieceMenu(cx: StudioCx): TMenuEntry[] {
+/** Right-click on a piece, on the canvas or in the sidebar. `pieceId` is the one under the pointer, which Flatten leaves selected. */
+export function pieceMenu(cx: StudioCx, pieceId?: string): TMenuEntry[] {
 	// Film shows what works there: Track's edits ask for the wall
 	if (cx.$workspace.get() !== 'track') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
 	const selection = cx.$selection.get();
@@ -85,7 +90,7 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		commandItem(cx, 'edit.duplicate'),
 		commandItem(cx, 'edit.group'),
 		canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null,
-		selectedPattern(cx) != null ? commandItem(cx, 'edit.flatten') : null,
+		flattenItem(cx, pieceId),
 		commandItem(cx, 'edit.rename'),
 		selectionLabelItem(cx),
 		'separator',
