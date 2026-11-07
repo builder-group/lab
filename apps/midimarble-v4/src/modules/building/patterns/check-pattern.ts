@@ -83,7 +83,7 @@ function firstNew(before: TProblemSummary, after: TProblemSummary): TProblemSumm
 
 /** What fits instead, when what was asked doesn't: one click from there */
 export interface TPatternOffer {
-	/** "Use Hits 12–15", the action's words */
+	/** "Use Notes 12–15", the action's words */
 	label: string;
 	words: string;
 	width?: number;

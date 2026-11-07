@@ -1,11 +1,9 @@
 import { createState } from 'feature-state';
-import { acceptProposal, propose, type TProposal, type TProposeDeps } from '@/modules/building';
-import { PatternCanceledError } from '@/modules/building';
+import { acceptProposal, displayPiece, PatternCanceledError, propose, type TProposal, type TProposeDeps } from '@/modules/building';
 import { type TProject, tieOf } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { displayPiece } from '@/modules/building';
 import type { StudioCx, TNotice } from '@/modules/studio';
-import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, frontierStop, REBUILD, selectionOfStop, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, frontierStop, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -208,20 +206,10 @@ export class BarCx {
 			if (choice === 'flip') this.$state.set({ ...this.$state.get(), choice: null });
 			return;
 		}
-		const stop = this.stopAfter(now, target, proposal);
+		const last = proposal.ask.hitIds.at(-1);
+		const stop = target.kind === 'rest' ? stopBeside(now, target, 1) : last != null ? stopAfterNote(now, target.marbleId, last) : null;
 		if (stop != null) this.goTo(now, stop);
 		else this.studio.$selection.set(selectionOfLast(now, proposal));
-	}
-
-	/** The stop after the notes a proposal landed on */
-	private stopAfter(project: TProject, target: TBarTarget, proposal: TProposal): TBarStop | null {
-		const last = proposal.ask.hitIds.at(-1);
-		const marble = project.marbles.find((item) => item.id === target.marbleId);
-		const number = marble?.hits.findIndex((hit) => hit.id === last) ?? -1;
-		if (target.kind === 'rest') return stopBeside(project, target, 1);
-		const hit = marble?.hits[number];
-		if (hit == null) return null;
-		return stopBeside(project, { kind: 'notes', marbleId: target.marbleId, hitIds: [hit.id], first: number + 1, last: number + 1, total: marble?.hits.length ?? 0, time: hit.time, pieces: [], group: null }, 1);
 	}
 
 	/** Build Up to Here: everything up to this note, and to the note before this rest, as one Undo step, and the bar stays on it */
@@ -436,7 +424,8 @@ export class BarCx {
 		const project = this.studio.project;
 		const state = this.$state.get();
 		if (session == null || project == null || state.answers[kind] != null || kind === BUILD_UP_TO) return;
-		if (this.studio.assist.isBuilding) return;
+		// An agent's own questions go first, as the workers keep only the newest of a kind
+		if (this.studio.assist.isBuilding || this.studio.isInAgentStep) return;
 		if (!session.waiting.includes(kind)) session.waiting = isFirst ? [kind, ...session.waiting] : [...session.waiting, kind];
 		void this.pump(session);
 	}

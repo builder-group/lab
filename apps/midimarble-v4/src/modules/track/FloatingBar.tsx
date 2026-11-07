@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Wand2, X } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
-import { canMakeBacking, hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, type TProposal } from '@/modules/building';
+import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, type TProposal } from '@/modules/building';
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
@@ -61,7 +61,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 					</>
 				) : null}
 			</div>
-			{menu != null ? <BarMenu cx={cx} project={project} target={target} rows={menu.rows} index={menu.index} /> : null}
+			{menu != null ? <BarMenu cx={cx} target={target} rows={menu.rows} index={menu.index} /> : null}
 		</div>
 	);
 };
@@ -99,11 +99,11 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		);
 	}
 	const proposal = answer?.proposal;
-	const words = proposal != null ? effectWords(project, target, proposal) : null;
+	const words = proposal != null ? effectWords(target, proposal) : null;
 	if (words != null) {
 		const hit = target.kind === 'note' && proposal?.status === 'refused' ? result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId) : undefined;
 		const reach = hit != null ? hitReach(project, result, hit) : null;
-		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, canMakeBacking(project) ? releaseFixFor(project, hit, reach) : null) : [];
+		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, releaseFixFor(project, hit, reach)) : [];
 		return (
 			<div className="mm-bar-line" data-tone={proposal?.status === 'fits' ? undefined : 'bad'}>
 				<span title={words}>
@@ -260,14 +260,14 @@ const BarAdjust: React.FC<{ cx: StudioCx; piece: TPiece; isLastBuilt: boolean }>
 	);
 };
 
-const BarMenu: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget; rows: TBarRow[]; index: number }> = (props) => {
-	const { cx, project, target, rows, index } = props;
+const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; index: number }> = (props) => {
+	const { cx, target, rows, index } = props;
 	const { answers, choice } = useFeatureState(cx.bar.$state);
 	return (
 		<div className="mm-menu mm-bar-menu" role="menu" onPointerLeave={() => cx.bar.hoverRow(rows.findIndex((row) => row.id === choice))}>
 			{rows.map((row, rowIndex) => {
 				const answer = row.isChoice ? answers[row.id] : undefined;
-				const words = row.note ?? (answer?.proposal != null ? rowWords(project, target, answer.proposal) : row.isChoice && row.id !== BUILD_UP_TO ? 'Checking…' : '');
+				const words = row.note ?? (answer?.proposal != null ? rowWords(target, answer.proposal) : row.isChoice && row.id !== BUILD_UP_TO ? 'Checking…' : '');
 				return (
 					<React.Fragment key={row.id}>
 						{row.isSplit === true && rowIndex > 0 ? <div className="mm-menu-separator" role="separator" /> : null}

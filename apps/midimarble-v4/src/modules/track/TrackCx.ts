@@ -2391,7 +2391,7 @@ function hasSameValues<T extends object>(a: T, b: T): boolean {
 	return (Object.keys(a) as (keyof T)[]).every((key) => a[key] === b[key]);
 }
 
-/** "Hit 3 · C4", as the Plays row names a hit */
+/** "Note 3 · C4", as the Plays row names a note */
 export function noteLabel(project: TProject, marbleId: string, hitId: string): string {
 	const hits = project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const index = hits.findIndex((hit) => hit.id === hitId);

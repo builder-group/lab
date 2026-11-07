@@ -125,7 +125,7 @@ export const LinkRow: React.FC<TLinkRowProps> = (props) => {
 
 interface TLinkRowProps {
 	icon?: React.ReactNode;
-	/** Tooltip, such as `Select Hit 1` */
+	/** Tooltip, such as `Select Note 1` */
 	title: string;
 	onOpen: () => void;
 	action?: React.ReactNode;

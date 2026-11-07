@@ -158,14 +158,10 @@ export function hasStopBeside(project: TProject, target: TBarTarget, direction: 
 	return stopBeside(project, target, direction) != null;
 }
 
-/** The stop after these notes or this rest, where Enter goes next */
-export function stopAfterAccept(project: TProject, target: TBarTarget): TBarStop | null {
-	return stopBeside(project, target, 1);
-}
-
-/** The time a target stands for, for the playhead */
-export function targetTime(target: TBarTarget): number {
-	return target.kind === 'rest' ? target.gap.from : target.time;
+/** The stop after this note, where Enter goes once it and the notes before it have landed */
+export function stopAfterNote(project: TProject, marbleId: string, hitId: string): TBarStop | null {
+	const stops = stopsOf(project, marbleId);
+	return stops[stops.findIndex((stop) => stop.kind === 'note' && stop.hitId === hitId) + 1] ?? null;
 }
 
 /** The notes a target is about, to bring them into view */
@@ -229,7 +225,6 @@ export interface TBarRow {
 	isChoice: boolean;
 	/** Fixed words at the row's end, when it's a command */
 	note?: string;
-	isBad?: boolean;
 	/** Starts a new block of rows */
 	isSplit?: boolean;
 }
@@ -292,7 +287,7 @@ export function acceptWords(project: TProject, target: TBarTarget, choice: TBarC
 // MARK: - What a proposal does
 
 /** One line on what a proposal does to the notes, in the bar's words; null when there's nothing to say */
-export function effectWords(project: TProject, target: TBarTarget, proposal: TProposal): string | null {
+export function effectWords(target: TBarTarget, proposal: TProposal): string | null {
 	// A hint changed nothing, so it needn't say so
 	if (proposal.status === 'refused' || proposal.status === 'buildUpTo') return proposal.words?.replace(/ Nothing changed\.$/, '') ?? null;
 	const asked = new Set(proposal.notes.map((note) => note.number));
@@ -321,8 +316,8 @@ function laterWords(proposal: TProposal, isOverBuiltNotes: boolean): string | nu
 }
 
 /** A row's short answer, at its end */
-export function rowWords(project: TProject, target: TBarTarget, proposal: TProposal): string {
-	const words = effectWords(project, target, proposal) ?? (proposal.status === 'fits' ? '' : (proposal.words ?? ''));
+export function rowWords(target: TBarTarget, proposal: TProposal): string {
+	const words = effectWords(target, proposal) ?? (proposal.status === 'fits' ? '' : (proposal.words ?? ''));
 	// The row already names it, so it says why
 	return proposal.status === 'refused' ? words.replace(/^[^.]* doesn't fit [^.]*\. /, '') : words;
 }

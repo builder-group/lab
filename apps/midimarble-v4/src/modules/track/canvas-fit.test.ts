@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createProject } from '@/modules/project';
 import type { THitResult, TSimulationResult } from '@/modules/simulation';
-import { pickTrack, type TScreenTrack, fitTargets, nearestMoment, struckAt, placeBar } from '@/modules/scene';
+import { pickTrack, type TScreenTrack, fitTargets, nearestMoment, struckAt } from '@/modules/scene';
 
-const viewport = { width: 800, height: 600 };
 
 describe('fitTargets', () => {
 	function openHit(marbleId: string, time: number, y: number, pieceId: string | null = null): THitResult {
@@ -54,27 +53,6 @@ describe('nearestMoment', () => {
 		const samples = [0, 1, 2, 3].map((time) => ({ time, position: { x: 0, y: -time } }));
 		expect(nearestMoment(samples, { x: 0.1, y: -2.2 })).toBe(2);
 		expect(nearestMoment([], { x: 0, y: 0 })).toBeNull();
-	});
-});
-
-describe('placeBar', () => {
-	const size = { width: 200, height: 36 };
-
-	it('stays at the anchor when nothing is in the way', () => {
-		expect(placeBar({ x: 400, y: 300 }, size, [], viewport)).toEqual({ left: 400, top: 300 });
-	});
-
-	it('moves below the ghosts it would cover', () => {
-		const ghosts = [{ x: 380, y: 310, width: 60, height: 20 }, { x: 440, y: 350, width: 60, height: 20 }];
-		const placed = placeBar({ x: 400, y: 300 }, size, ghosts, viewport);
-		expect(placed).toEqual({ left: 400, top: 380 });
-	});
-
-	it('moves beside the ghosts when there is no room below', () => {
-		const ghosts = [{ x: 380, y: 300, width: 60, height: 290 }];
-		const placed = placeBar({ x: 400, y: 300 }, size, ghosts, viewport);
-		expect(placed.left - size.width / 2).toBeGreaterThanOrEqual(440);
-		expect(placed.top).toBe(300);
 	});
 });
 

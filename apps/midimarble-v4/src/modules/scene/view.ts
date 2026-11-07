@@ -114,42 +114,6 @@ export function isBoundsVisible(view: TView, viewport: TViewport, bounds: TBound
 
 // MARK: - Floating bars
 
-/** A screen rectangle in CSS pixels */
-export interface TScreenRect {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-
-/**
- * Where a floating bar of `size`, centered on its `left`, goes near `anchor` without covering any of
- * `obstacles`: under the anchor, under the obstacles, beside them or above the anchor, whichever fits in the
- * viewport first. Falls back to the anchor, kept inside the viewport.
- */
-export function placeBar(anchor: TVec2, size: { width: number; height: number }, obstacles: TScreenRect[], viewport: TViewport): { left: number; top: number } {
-	const gap = 10;
-	const margin = 8;
-	const clampLeft = (left: number): number => Math.min(Math.max(left, size.width / 2 + margin), viewport.width - size.width / 2 - margin);
-	const clampTop = (top: number): number => Math.min(Math.max(top, 48), viewport.height - size.height - margin);
-	const covers = (left: number, top: number): boolean =>
-		obstacles.some((rect) => left - size.width / 2 < rect.x + rect.width && left + size.width / 2 > rect.x && top < rect.y + rect.height && top + size.height > rect.y);
-	const fits = (left: number, top: number): boolean => top >= 0 && top + size.height <= viewport.height && left - size.width / 2 >= 0 && left + size.width / 2 <= viewport.width;
-	const first = { left: clampLeft(anchor.x), top: clampTop(anchor.y) };
-	if (!obstacles.length) return first;
-	const minX = Math.min(...obstacles.map((rect) => rect.x));
-	const maxX = Math.max(...obstacles.map((rect) => rect.x + rect.width));
-	const maxY = Math.max(...obstacles.map((rect) => rect.y + rect.height));
-	const candidates = [
-		first,
-		{ left: clampLeft(anchor.x), top: maxY + gap },
-		{ left: maxX + gap + size.width / 2, top: clampTop(anchor.y) },
-		{ left: minX - gap - size.width / 2, top: clampTop(anchor.y) },
-		{ left: clampLeft(anchor.x), top: anchor.y - size.height - 3 * gap }
-	];
-	return candidates.find((item) => fits(item.left, item.top) && !covers(item.left, item.top)) ?? first;
-}
-
 const POPOVER_INSET = 8;
 
 /** Where a floating panel sits: beside its control, level with it, inside the canvas with an inset; it scrolls when taller */

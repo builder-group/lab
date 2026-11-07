@@ -132,14 +132,6 @@ export function commitAtHit(cx: StudioCx, hit: THitResult, piece: TPiece, comman
 	return true;
 }
 
-/** Places a piece of `type` at an open hit, selects it, moves the playhead there and plays the note */
-export function placeAtHit(cx: StudioCx, hit: THitResult, type: string): string | null {
-	const project = cx.project;
-	if (project == null || hit.dot == null) return null;
-	const piece = pieceForHit(project, hit, type, 'default');
-	return commitAtHit(cx, hit, piece) ? piece.id : null;
-}
-
 // MARK: - Piece edits
 
 /** Project with new angles for some pieces, for previews that should not enter history */

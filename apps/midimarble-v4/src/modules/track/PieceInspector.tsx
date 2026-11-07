@@ -326,7 +326,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; piece: TPiece }
 					<span className="inline-flex items-center gap-2">
 						{marbleDot}
 						<span>
-							Hit {hitIndex + 1}
+							Note {hitIndex + 1}
 							<span className="mm-insp-secondary">
 								{hit?.pitch != null ? ` · ${noteName(hit.pitch)}` : ''} · {formatTime(hit?.time ?? 0)}
 							</span>

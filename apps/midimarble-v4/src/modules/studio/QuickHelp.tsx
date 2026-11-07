@@ -104,6 +104,6 @@ const QuickHelpOverlay: React.FC<{ cx: StudioCx }> = (props) => {
 
 // The panel's size, kept clear of the labels
 /** Its panel sits above the floating bar, so the bar can be pointed at */
-const BAR_ROOM = 60;
+const BAR_ROOM = 100;
 const PANEL_WIDTH = 260;
 const PANEL_HEIGHT = 96;

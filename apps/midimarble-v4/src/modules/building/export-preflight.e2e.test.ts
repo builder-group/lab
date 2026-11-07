@@ -32,7 +32,7 @@ describe('checkRun function on whole songs', () => {
 			expect.objectContaining({
 				id: expect.stringMatching(/^frame:marble-\d:\d+$/),
 				severity: 'warning',
-				title: expect.stringMatching(/^(Melody|Bass) leaves the frame at \d:\d\d\.\d\d \(\d+ hits?\)$/),
+				title: expect.stringMatching(/^(Melody|Bass) leaves the frame at \d:\d\d\.\d\d \(\d+ notes?\)$/),
 				detail: expect.stringMatching(/^Out of frame for \d\.\d s while it plays, until 0:\d\d\.\d\d\. The camera follows Bass there\.$/),
 				// Framing problems open Film at their time with the Camera selected, with a span for the Camera track
 				target: { ids: ['camera'], time: first?.span?.from, workspace: 'film' }

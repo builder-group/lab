@@ -105,7 +105,7 @@ describe('buildTrack function', () => {
 		expect(outcome.isStopped).toBe(false);
 		expect(outcome.result.hits.filter((hit) => hit.status === 'onTime').length + outcome.attention.length).toBe(24);
 		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
-		expect(summary.label).toMatch(/of 24 hits on time|problem/);
+		expect(summary.label).toMatch(/of 24 notes on time|problem/);
 	}, 5 * MINUTES);
 
 	it('builds the zigzag and staircase hit patterns', async () => {
