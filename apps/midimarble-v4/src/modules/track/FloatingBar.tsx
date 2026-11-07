@@ -7,7 +7,7 @@ import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
+import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, plainGroupOf, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import { isRowRefused, type TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { GroupIcon } from './GroupIcon';
@@ -274,8 +274,10 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 			</span>
 		);
 	}
+	const plain = plainGroupOf(project, target);
 	return (
 		<button className="mm-bar-type" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Change what stands here (⇥)" type="button">
+			{plain != null ? <GroupIcon group={plain} /> : null}
 			<span className="mm-bar-label">{standingWords(project, target)}</span>
 			<ChevronDown size={13} strokeWidth={1.8} />
 		</button>

@@ -6,14 +6,15 @@ import { isPatternGroup, type TGroup, type TPiece, type TPatternGroup, type TPro
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, patternOfKind, patternSpan, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
+import { restWords } from './bar';
 import { GroupIcon } from './GroupIcon';
 import { type TPatternTarget } from './PatternsCx';
 
-/** A silence dragged out in the strip */
+/** An empty rest, from the bar or dragged out in the strip: "Rest · 2.0 s", as the bar says it */
 export const PatternRangeInspector: React.FC<{ project: TProject; target: { marbleId: string; from: number; to: number } }> = (props) => {
 	const { project, target } = props;
 	const marble = project.marbles.find((item) => item.id === target.marbleId);
-	return <InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={`${(target.to - target.from).toFixed(1)} s`} subtitle={`Silence on ${marble?.name ?? 'a marble'}`} />;
+	return <InspectorHeader icon={<Spline size={16} strokeWidth={1.7} />} title={restWords(target.to - target.from)} subtitle={`${marble?.name ?? 'A marble'}, ${formatTime(target.from)} to ${formatTime(target.to)}`} />;
 };
 
 /** What a plain Group plays, when that's a run of a marble's notes: a Pattern can then take its place */
@@ -42,7 +43,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const isRail = pattern?.takes === 'silence';
 	const problems = groupProblems(project, result, group);
 	const count = hitsInRange(marble, span.from, span.to).length;
-	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'note' : 'notes'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
+	const subtitle = isRail ? `${restWords(span.to - span.from)} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'note' : 'notes'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
 	const widthRange = pattern?.widthRange;
 	return (
 		<>

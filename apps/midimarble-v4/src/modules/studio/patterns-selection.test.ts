@@ -24,6 +24,13 @@ describe('Pattern selection', () => {
 		expect(inspectorTarget(project(), [key], 'track')).toEqual({ kind: 'patternRange', marbleId: 'marble', from: 3.2, to: 4.8 });
 	});
 
+	it('should show the piece a rest holds rather than the empty rest', () => {
+		const base = project();
+		const rail: TProject['track']['pieces'][number] = { id: 'r1', name: 'Curved Rail', type: 'rail', params: {}, angle: 0, place: { kind: 'plays', marbleId: 'marble', hitId: 'h3', contactAt: 0.5 } };
+		const holding = { ...base, track: { ...base.track, pieces: [...base.track.pieces, rail] } };
+		expect(inspectorTarget(holding, [toRangeKey('marble', 3, 5)], 'track')).toEqual({ kind: 'pieces', ids: ['r1'] });
+	});
+
 	it('should show a Group in Track and its pieces in Film', () => {
 		const selection = groupSelection(group);
 		expect(selection).toEqual([toGroupKey('g1'), 'p1', 'p2']);

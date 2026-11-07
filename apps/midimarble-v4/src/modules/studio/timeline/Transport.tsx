@@ -8,6 +8,7 @@ import { commandItem, getCommand, type TCommandId } from '../commands';
 import { problemMenu } from '../menus';
 import { askedFilmLength, formatTime, parseTime } from '@/modules/project';
 import type { StudioCx } from '../StudioCx';
+import { summaryWords } from './hit-summary';
 import { sliderToZoom, zoomToSlider } from './timeline-layout';
 
 /**
@@ -16,13 +17,13 @@ import { sliderToZoom, zoomToSlider } from './timeline-layout';
  * at the right
  */
 export const Transport: React.FC<TTransportProps> = (props) => {
-	const { cx, zoom, onZoom } = props;
+	const { cx, results, zoom, onZoom } = props;
 	const playing = useFeatureState(cx.$playing);
 	const project = useFeatureState(cx.$history)?.present ?? null;
 
 	return (
 		<div className="mm-transport" role="toolbar" aria-label="Transport">
-			<div className="flex min-w-0 flex-1 items-center">{project != null ? <HitSummary cx={cx} /> : null}</div>
+			<div className="flex min-w-0 flex-1 items-center">{project != null ? <HitSummary cx={cx} results={results} /> : null}</div>
 			<div className="flex items-center gap-2">
 				<div className="flex items-center gap-px" role="group" aria-label="Playback" data-quick-help="transport">
 					<TransportButton cx={cx} command="play.start" icon={<SkipBack size={16} strokeWidth={1.75} />} />
@@ -56,18 +57,20 @@ interface TTransportProps {
 
 /**
  * The hit summary, like Xcode's issue count, read from the same problem model as the export sheet, Layers and
- * the Camera track: "107 of 109 hits on time · 4 other problems", or "2 hits need attention" in amber. With problems a
+ * the Camera track. It counts what's built, not the notes still to build: "11 built · all on time · 4 other problems",
+ * or "2 need attention" in amber. With problems a
  * click goes to the first in time order, and the chevron or a right-click lists them all. Until the run for the current
  * edit arrives it reads "Checking…", and while Fix runs only its progress line shows, in the notice.
  */
-const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
-	const { cx } = props;
+const HitSummary: React.FC<{ cx: StudioCx; results: THitResult[] | null }> = (props) => {
+	const { cx, results } = props;
 	// Build Track and Fix say how far they are in the notice, the one place for progress; the count waits until they end
 	const fixing = useFeatureState(cx.assist.$fixing);
 	const building = useFeatureState(cx.assist.$building);
 	const workspace = useFeatureState(cx.$workspace);
 	const problems = useFeatureState(cx.simulation.$problems);
-	const summary = React.useMemo(() => problemSummary(problems, workspace), [problems, workspace]);
+	const checked = React.useMemo(() => problemSummary(problems, workspace), [problems, workspace]);
+	const summary = { ...checked, label: summaryWords(checked, results?.filter((hit) => hit.pieceId != null).length ?? 0) };
 	if (!summary.total && !summary.problems.length && summary.state === 'checked') return null;
 
 	if (fixing != null || building != null || summary.state === 'pending') {
@@ -95,7 +98,6 @@ const HitSummary: React.FC<{ cx: StudioCx }> = (props) => {
 		</span>
 	);
 };
-
 
 /** A glyph button that runs a playback command and names it with its shortcut in the tooltip */
 const TransportButton: React.FC<{ cx: StudioCx; command: TCommandId; icon: React.ReactNode; title?: string; isActive?: boolean }> = (props) => {
