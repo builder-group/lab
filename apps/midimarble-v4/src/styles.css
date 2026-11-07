@@ -990,6 +990,11 @@ button.mm-hit-summary:hover,
 	background: var(--warn);
 }
 
+/* Red once a note is Blocked, Missed or Stopped, as its mark in the bar and its pill are */
+.mm-hit-summary-dot[data-tone='bad'] {
+	background: var(--bad);
+}
+
 /* Hits that cannot get a platform (Too Soon, Out of Reach): hollow like Open, with an amber dashed outline */
 .mm-hit[data-state='unreachable'] > span {
 	background: var(--content);
@@ -1201,6 +1206,16 @@ button.mm-hit-summary:hover,
 .mm-tooltip kbd {
 	font-family: var(--font);
 	color: rgb(255 255 255 / 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+	/* On the dark wall the tooltip keeps an edge and a shadow, so its text never floats loose */
+	.mm-tooltip {
+		background: rgb(58 58 60 / 0.97);
+		box-shadow:
+			0 0 0 0.5px rgb(255 255 255 / 0.18),
+			0 4px 12px rgb(0 0 0 / 0.4);
+	}
 }
 
 .mm-tool-button:hover .mm-tooltip {
@@ -3067,9 +3082,6 @@ button.mm-bar-mark:hover,
 	font-size: 12px;
 }
 
-.mm-bar-row-note[data-bad='true'] {
-	color: var(--bad);
-}
 
 .mm-menu-item[data-highlighted='true'] .mm-bar-row-note {
 	color: color-mix(in srgb, var(--on-accent) 70%, transparent);

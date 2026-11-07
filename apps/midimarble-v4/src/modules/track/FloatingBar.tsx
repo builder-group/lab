@@ -8,7 +8,7 @@ import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, plainGroupOf, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
-import { isRowRefused, type TBarAnswer } from './BarCx';
+import { isRowRefused } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { GroupIcon } from './GroupIcon';
 import { FLATTEN_HELP } from './PatternsCx';
@@ -353,7 +353,7 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 							type="button"
 						>
 							{row.label}
-							<span className="mm-bar-row-note" data-bad={isBadAnswer(answer)} title={words}>
+							<span className="mm-bar-row-note" title={words}>
 								{words}
 							</span>
 						</button>
@@ -364,9 +364,6 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 	);
 };
 
-function isBadAnswer(answer: TBarAnswer | undefined): boolean {
-	return answer?.proposal != null && isBadProposal(answer.proposal) && !isRowRefused(answer);
-}
 
 /** The hint on the wall: what's chosen, or the row under the pointer. Nothing here is on the track yet */
 export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {

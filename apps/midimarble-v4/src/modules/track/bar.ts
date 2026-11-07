@@ -1,7 +1,7 @@
 import { isPatternGroup, parseGroupKey, parseHitKey, parseRangeKey, tieOf, toHitKey, toRangeKey, type TGroup, type TPatternGroup, type TPiece, type TProject } from '@/modules/project';
 import { findLongGaps, hitOwners, patternOfPiece, type TLongGap, type TProposal, type TProposeAsk } from '@/modules/building';
 import { getPieceDefinition, type TSimulationResult } from '@/modules/simulation';
-import { patternPhrase } from './PatternsCx';
+import { groupSelection, patternPhrase } from './PatternsCx';
 
 // What the floating bar is about and what it offers, as pure functions of the track and the selection.
 
@@ -138,9 +138,17 @@ function restTarget(project: TProject, marbleId: string, from: number, to: numbe
 	return { kind: 'rest', marbleId, gap: found, total: marble.hits.length, stage, piece };
 }
 
-/** The selection that puts the bar on a stop: a built note's platform, so it's there to adjust, or the note or rest itself */
+/**
+ * The selection that puts the bar on a stop: a built note's platform, so it's there to adjust, a filled rest's piece or
+ * its Pattern, so it's selected on the wall, in Layers and in the inspector alike, or the note or empty rest itself
+ */
 export function selectionOfStop(project: TProject, stop: TBarStop): string[] {
-	if (stop.kind === 'rest') return [toRangeKey(stop.marbleId, stop.gap.from, stop.gap.to)];
+	if (stop.kind === 'rest') {
+		const held = stop.gap.bridgedBy;
+		if (held == null || !project.track.pieces.some((piece) => piece.id === held)) return [toRangeKey(stop.marbleId, stop.gap.from, stop.gap.to)];
+		const pattern = patternOfPiece(project, held);
+		return pattern != null ? groupSelection(pattern) : [held];
+	}
 	const piece = hitOwners(project, stop.marbleId).get(stop.hitId);
 	return [piece != null && patternOfPiece(project, piece.id) == null ? piece.id : toHitKey(stop.marbleId, stop.hitId)];
 }

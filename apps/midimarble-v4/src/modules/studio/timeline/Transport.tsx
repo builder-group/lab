@@ -91,7 +91,7 @@ const HitSummary: React.FC<{ cx: StudioCx; results: THitResult[] | null }> = (pr
 	return (
 		<span className="mm-hit-summary-group" data-quick-help="hitSummary" onContextMenu={(event) => openContextMenu(event, problemMenu(cx))}>
 			<button className="mm-hit-summary" data-tone="warn" onClick={() => cx.showFirstProblem()} title="Show the first problem" type="button">
-				<span className="mm-hit-summary-dot" aria-hidden />
+				<span className="mm-hit-summary-dot" data-tone={results?.some((hit) => hit.pieceId != null && (hit.status === 'blocked' || hit.status === 'missed')) === true ? 'bad' : 'warn'} aria-hidden />
 				<span className="min-w-0 truncate">{summary.label}</span>
 			</button>
 			<MenuButton className="mm-hit-summary mm-hit-summary-chevron" title="Show every problem" items={problemMenu(cx)} label={<ChevronDown size={12} strokeWidth={2} />} />
