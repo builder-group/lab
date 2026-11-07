@@ -7,7 +7,7 @@ import { bandAlongGuide, frameBand, type THitResult, type TResolvedPiece, type T
 import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
-import { mapNodes, nodesPathData } from '@/modules/building';
+import { findStepTarget, linkedPieces, mapNodes, nodesPathData } from '@/modules/building';
 import type { AssistCx } from './AssistCx';
 import { TrackCx, noteLabel, type TTrackDrag } from './TrackCx';
 import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@/modules/canvas';
@@ -22,7 +22,7 @@ import { canvasMenu, dotMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { placeBar, type TScreenRect, ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
-import { findStepTarget, linkedPieces, nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
+import { nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
 
 /** The Track wall: the wall and its content in WebGL, with screen-space handles on top */
 export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {

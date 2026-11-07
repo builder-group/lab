@@ -14,7 +14,7 @@ function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TPro
 	// Placing a note plays it, and tests have no audio
 	cx.audition = () => undefined;
 	cx.$history.set(createHistory(project));
-	Object.defineProperty(cx.simulation, 'assists', { get: () => assists });
+	Object.defineProperty(cx.simulation, 'assists', { get: () => ({ simulateAssist: () => Promise.resolve(cx.simulation.$result.get()), ...assists }) });
 	cx.simulation.$result.set({ revision: project.revision, duration: project.length, marbles: [], pieces: [], contacts: [], hits: [hit], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult);
 	return { cx, project, hit };
 }

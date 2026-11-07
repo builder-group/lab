@@ -1,9 +1,9 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
 import { bowlOfMarble, createLinkedPiece, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { parseHitKey, tieOf } from '@/modules/project';
+import { tieOf } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { openHits } from '@/modules/building';
+import { linkedPieces, openHits, type TLinkedPiece } from '@/modules/building';
 
 // The step loop builds a run one hit at a time: place a piece at a dot, rotate it, accept and move on.
 
@@ -12,53 +12,6 @@ export function nextOpenHitPerMarble(result: TSimulationResult): Map<string, THi
 	const next = new Map<string, THitResult>();
 	for (const hit of openHits(result)) if (!next.has(hit.marbleId)) next.set(hit.marbleId, hit);
 	return next;
-}
-
-export interface TLinkedPiece {
-	piece: TPiece;
-	marbleId: string;
-	hitId: string;
-	angle: number;
-	time: number;
-}
-
-/** Hit-linked pieces with their hit time, in time order */
-export function linkedPieces(project: TProject, marbleId?: string): TLinkedPiece[] {
-	const times = new Map<string, number>();
-	for (const marble of project.marbles) for (const hit of marble.hits) times.set(`${marble.id}/${hit.id}`, hit.time);
-	const pieces: TLinkedPiece[] = [];
-	for (const piece of project.track.pieces) {
-		const link = tieOf(piece);
-		if (link == null || (marbleId != null && link.marbleId !== marbleId)) continue;
-		const time = times.get(`${link.marbleId}/${link.hitId}`);
-		if (time == null) continue;
-		pieces.push({ piece, marbleId: link.marbleId, hitId: link.hitId, angle: piece.angle, time });
-	}
-	return pieces.sort((a, b) => a.time - b.time);
-}
-
-/**
- * The open hit that Return, Repeat and Mirror act on: the focused dot, otherwise the next open dot after
- * the selected piece's hit, otherwise the first open dot of the first marble that has one.
- */
-export function findStepTarget(project: TProject, result: TSimulationResult, selection: string[]): THitResult | null {
-	const open = openHits(result);
-	if (selection.length === 1) {
-		const key = selection[0] ?? '';
-		const hitKey = parseHitKey(key);
-		if (hitKey != null) {
-			const focused = open.find((hit) => hit.marbleId === hitKey.marbleId && hit.hitId === hitKey.hitId);
-			if (focused != null) return focused;
-			const time = result.hits.find((hit) => hit.marbleId === hitKey.marbleId && hit.hitId === hitKey.hitId)?.targetTime;
-			// A Backing note belongs to no marble, so the next step is the first open dot of any marble
-			if (time == null) return open[0] ?? null;
-			// Past the last open note the next step is still that marble's earliest open note
-			return open.find((hit) => hit.marbleId === hitKey.marbleId && hit.targetTime > time) ?? open.find((hit) => hit.marbleId === hitKey.marbleId) ?? null;
-		}
-		const piece = linkedPieces(project).find((item) => item.piece.id === key);
-		if (piece != null) return open.find((hit) => hit.marbleId === piece.marbleId && hit.targetTime > piece.time) ?? open.find((hit) => hit.marbleId === piece.marbleId) ?? null;
-	}
-	return open[0] ?? null;
 }
 
 /** The latest piece of the marble placed before `time`, which Repeat and Mirror copy */
@@ -168,10 +121,10 @@ function withRunDirection(project: TProject, piece: TPiece, position: TVec2 | nu
 	return { ...piece, path: { points: points.map((point) => ({ x: point.x * direction, y: point.y })) } };
 }
 
-/** Adds a piece made for an open hit, selects it, moves the playhead there and plays the note */
-export function commitAtHit(cx: StudioCx, hit: THitResult, piece: TPiece): boolean {
+/** Lands a piece made for an open hit and what it brings, selects it, moves the playhead there and plays the note */
+export function commitAtHit(cx: StudioCx, hit: THitResult, piece: TPiece, commands: TProjectCommand[] = [{ type: 'addPiece', piece }]): boolean {
 	const project = cx.project;
-	if (project == null || !cx.execute([{ type: 'addPiece', piece }])) return false;
+	if (project == null || !cx.execute(commands)) return false;
 	cx.$selection.set([piece.id]);
 	if (!cx.$playing.get()) cx.$playhead.set(hit.targetTime);
 	const pitch = project.marbles.find((marble) => marble.id === hit.marbleId)?.hits.find((item) => item.id === hit.hitId)?.pitch;

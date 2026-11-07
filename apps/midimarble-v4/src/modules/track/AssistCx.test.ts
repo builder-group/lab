@@ -39,7 +39,7 @@ function studio(assists: Record<string, unknown> = {}): { cx: StudioCx; assist: 
 	const cx = new StudioCx();
 	cx.audition = () => undefined;
 	cx.$history.set(createHistory(first));
-	Object.defineProperty(cx.simulation, 'assists', { get: () => assists });
+	Object.defineProperty(cx.simulation, 'assists', { get: () => ({ simulateAssist: () => Promise.resolve(cx.simulation.$result.get()), ...assists }) });
 	cx.simulation.$result.set({ revision: first.revision, duration: first.length, marbles: [], pieces: [], contacts: [], hits: [HIT], stats: { computeMs: 0, reusedUntil: 0, steps: 0 } } as unknown as TSimulationResult);
 	// Another project at the same revision
 	return { cx, assist: new AssistCx(cx), project: first, open: () => cx.$history.set(createHistory(project('second'))) };

@@ -2,11 +2,11 @@ import { createState } from 'feature-state';
 import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { isSuperseded, layoutOf, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { gapPieceReads, hitOwners, openLongGaps, release, changedPieces, editCommands, withEditAnswer, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { acceptProposal, findStepTarget, nextStepOf, propose, type TProposal, type TProposeDeps, focusedMarbleId, gapPieceReads, hitOwners, release, changedPieces, editCommands, withEditAnswer, type TContinueAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
-import { commitAtHit, findStepTarget, pieceForHit, selectedPieceIds } from './step-loop';
+import { commitAtHit, pieceForHit, selectedPieceIds } from './step-loop';
 
 /** How long Fix tries to bring a marble back to pieces waiting behind a break, before it says it can't */
 const FIX_HELD_BUDGET_MS = 10000;
@@ -122,13 +122,9 @@ export class AssistCx {
 			this.$queuedNext.set(this.$queuedNext.get() + 1);
 			return;
 		}
-		const target = findStepTarget(project, result, this.studio.$selection.get());
-		// A long gap after the last piece comes first: across it the marble may fall too far to leave a dot
-		const gap = project.marbles
-			.flatMap((marble) => openLongGaps(project, marble.id))
-			.filter((item) => target == null || item.marbleId === target.marbleId || item.to <= target.targetTime)
-			.sort((a, b) => a.to - b.to)[0];
-		if (gap != null && (target == null || gap.to <= target.targetTime + 1e-9)) {
+		const step = nextStepOf(project, result, this.studio.$selection.get());
+		if (step.kind === 'gap') {
+			const { gap } = step;
 			// A suggestion waits for the user to accept it, so presses queued behind it end here
 			this.clearQueuedNext();
 			const key = `${project.revision}:${gap.marbleId}/${gap.toHitId}`;
@@ -144,28 +140,17 @@ export class AssistCx {
 			});
 			return;
 		}
-		const unreachable = this.firstUnreachable(project, result, target);
-		if (unreachable != null) {
+		if (step.kind === 'unreachable') {
 			this.clearQueuedNext();
-			this.explainUnreachable(project, result, unreachable);
+			this.explainUnreachable(project, result, step.hit);
 			return;
 		}
-		if (target == null) {
+		if (step.kind === 'done') {
 			this.clearQueuedNext();
 			this.studio.notify(everyNotePlacedMessage(project, this.studio.$selection.get()));
 			return;
 		}
-		void this.place(target, type);
-	}
-
-	/**
-	 * The earliest open hit before `target` (or anywhere, without one) on the focused marble that cannot get a
-	 * platform, so Next explains it instead of skipping it silently or placing a platform that cannot play
-	 */
-	private firstUnreachable(project: TProject, result: TSimulationResult, target: THitResult | null): THitResult | null {
-		const marbleId = target?.marbleId ?? focusedMarbleId(project, this.studio.$selection.get());
-		const open = result.hits.filter((hit) => hit.status === 'open' && (marbleId == null || hit.marbleId === marbleId) && (target == null || hit.targetTime <= target.targetTime)).sort((a, b) => a.targetTime - b.targetTime);
-		return open.find((hit) => isUnreachable(hitReach(project, result, hit))) ?? null;
+		void this.place(step.hit, type);
 	}
 
 	/** N's message for an unreachable hit, with the fixes as actions: Move Release Earlier or Later and Make Backing */
@@ -264,21 +249,37 @@ export class AssistCx {
 			commitAtHit(this.studio, hit, pieceForHit(project, hit, type, 'default', id));
 			return;
 		}
-		const ask = (): Promise<TAutoPlaceAnswer | { refused: unknown }> =>
-			client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, pieceId: id }).then(
-				(answer) => answer,
-				(error: unknown) => ({ refused: error })
-			);
-		let answer = await ask();
+		const deps = this.proposeDeps();
+		if (deps == null) return;
+		const ask = { marbleId: hit.marbleId, hitIds: [hit.hitId], kind: type, settings: { pieceId: id } };
+		const known = this.currentResult();
+		const options = { isAnyDot: true, ...(known != null ? { result: known } : {}) };
+		const asked = (): Promise<TProposal | { failed: unknown }> => propose(project, ask, deps, options).catch((error: unknown) => ({ failed: error }));
+		let answer = await asked();
 		// A newer request replaced this one in the queue, not an answer about this hit
-		if ('refused' in answer && isSuperseded(answer.refused)) answer = await ask();
+		if ('failed' in answer && isSuperseded(answer.failed)) answer = await asked();
 		// Another edit since: this answer is about a track that no longer stands
 		if (this.studio.project !== project) return;
-		if ('refused' in answer) {
-			this.explainNoTilt(hit, type, answer.refused);
+		if ('failed' in answer) {
+			this.explainNoTilt(hit, type, answer.failed);
 			return;
 		}
-		commitAtHit(this.studio, hit, answer.piece);
+		const piece = answer.pieces[0];
+		if (piece == null) {
+			this.explainNoTilt(hit, type, new Error(answer.words ?? ''));
+			return;
+		}
+		const [isAccepted, , commands] = acceptProposal(project, answer);
+		if (!isAccepted || !commitAtHit(this.studio, hit, piece, commands)) return;
+		// It stays placed, as a person may want it: nothing lands without saying so
+		if (answer.status === 'problems' && answer.words != null) this.studio.notifyEdit(`Placed. ${answer.words}`);
+	}
+
+	/** The worker calls a proposal needs */
+	private proposeDeps(): TProposeDeps | null {
+		const client = this.studio.simulation.assists;
+		if (client == null) return null;
+		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request), settle: (request) => client.settle(request) };
 	}
 
 	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */
@@ -1065,17 +1066,6 @@ function everyNotePlacedMessage(project: TProject, selection: string[]): string 
 }
 
 /** The marble of the selected hit or piece, if any */
-function focusedMarbleId(project: TProject, selection: string[]): string | null {
-	for (const key of selection) {
-		if (project.marbles.some((item) => item.id === key)) return key;
-		const marbleId = tieOf(project.track.pieces.find((item) => item.id === key))?.marbleId;
-		if (marbleId != null) return marbleId;
-		const marble = project.marbles.find((item) => key.startsWith(`hit:${item.id}:`));
-		if (marble != null) return marble.id;
-	}
-	return null;
-}
-
 /** What a Build Track left, in the words of its notice and for `get_state` */
 export interface TBuildReport {
 	/** The two-line notice */

@@ -136,27 +136,27 @@ export function reasonWords(project: TProject, reason: TVerdictReason): string {
 	const hitName = (marbleId: string, hitId: string): string => `Hit ${(project.marbles.find((marble) => marble.id === marbleId)?.hits.findIndex((hit) => hit.id === hitId) ?? -1) + 1} of ${marbleName(marbleId)}`;
 	switch (reason.kind) {
 		case 'late':
-			return `${hitName(reason.marbleId, reason.hitId)} would no longer play on time (${reason.why}).`;
+			return `${hitName(reason.marbleId, reason.hitId)} no longer plays on time (${reason.why}).`;
 		case 'blocked':
-			return `${pieceName(reason.pieceId)} would be left out: the marble no longer reaches it.`;
+			return `${pieceName(reason.pieceId)} is left out: the marble no longer reaches it.`;
 		case 'crossing':
-			return `${marbleName(reason.marbleId)} would hit ${project.marbles.some((marble) => marble.id === reason.otherId) ? marbleName(reason.otherId) : pieceName(reason.otherId)}.`;
+			return `${marbleName(reason.marbleId)} hits ${project.marbles.some((marble) => marble.id === reason.otherId) ? marbleName(reason.otherId) : pieceName(reason.otherId)}.`;
 		case 'outsideBand':
-			return `${hitName(reason.marbleId, reason.hitId)} would lie outside the frame band.`;
+			return `${hitName(reason.marbleId, reason.hitId)} lies outside the frame band.`;
 		case 'struckTwice':
-			return `The marble would strike ${pieceName(reason.pieceId)} twice.`;
+			return `The marble strikes ${pieceName(reason.pieceId)} twice.`;
 		case 'rolls':
-			return `The marble would roll along ${pieceName(reason.pieceId)} instead of bouncing.`;
+			return `The marble rolls along ${pieceName(reason.pieceId)} instead of bouncing.`;
 		case 'passesThrough':
-			return `${marbleName(reason.marbleId)} would pass through ${pieceName(reason.pieceId)}.`;
+			return `${marbleName(reason.marbleId)} passes through ${pieceName(reason.pieceId)}.`;
 		case 'touching':
-			return `${pieceName(reason.a)} would touch ${pieceName(reason.b)}.`;
+			return `${pieceName(reason.a)} touches ${pieceName(reason.b)}.`;
 		case 'nextOutOfBand':
-			return `The marble would land outside the frame band at ${hitName(reason.marbleId, reason.hitId)}.`;
+			return `The marble lands outside the frame band at ${hitName(reason.marbleId, reason.hitId)}.`;
 		case 'noRoom':
-			return `There would be no room for a platform at ${hitName(reason.marbleId, reason.hitId)}.`;
+			return `There's no room for a platform at ${hitName(reason.marbleId, reason.hitId)}.`;
 		case 'offPace':
-			return `${hitName(reason.marbleId, reason.hitId)} would land ${reason.by.toFixed(2)} m from the pace.`;
+			return `${hitName(reason.marbleId, reason.hitId)} lands ${reason.by.toFixed(2)} m from the pace.`;
 	}
 }
 

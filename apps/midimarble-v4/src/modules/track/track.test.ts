@@ -3,7 +3,8 @@ import { createLinkedPiece, type THitResult, type TSimulationResult } from '@/mo
 import { createProject } from '@/modules/project';
 import { dragRotation, formatDegrees, normalizeSurfaceAngle, parseDegrees, snapAngle, toDegrees, toRadians } from './angles';
 import { pick, piecesInRect, type TPickScene, marblePositionAt, rotationGrip, fitBounds, popoverFrame, screenToWorld, worldToScreen, zoomAt } from '@/modules/scene';
-import { findStepTarget, stepAngle } from './step-loop';
+import { findStepTarget } from '@/modules/building';
+import { stepAngle } from './step-loop';
 
 const viewport = { width: 800, height: 600 };
 
