@@ -173,8 +173,7 @@ export function fitLongRail(sim: { simulate: (project: TProject) => TSimulationR
 						if (best != null) {
 							results.push(best);
 							const found: TTrial = best;
-							// The first ramp that fits is the one: the note after it is placed where the marble arrives, so a closer hold buys nothing
-							if (Math.abs(found.holdErr) <= HOLD_LIMIT && !found.isTouching) break rampLoop;
+							if (Math.abs(found.holdErr) < 0.02 && !found.isTouching) break rampLoop;
 						}
 					}
 				}
