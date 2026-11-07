@@ -52,8 +52,10 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	function preview(edit: TPieceEdit): void {
 		cx.simulation.startPreview(applyPieceEdit(project, pieces, edit).project);
 	}
+	// Lands only if the notes after it keep playing, or says which one stops first
 	function commit(edit: TPieceEdit): void {
-		cx.execute(applyPieceEdit(project, pieces, edit).commands);
+		const label = 'angle' in edit ? 'Tilt' : 'position' in edit ? 'Move' : 'Edit';
+		void cx.simulation.landChecked(applyPieceEdit(project, pieces, edit).commands, { label, anyway: `${label} Anyway` });
 		cx.simulation.endPreview();
 	}
 	const cancel = (): void => cx.simulation.endPreview();

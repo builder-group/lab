@@ -7,7 +7,7 @@ import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { acceptWords, defaultChoice, effectWords, hasStopBeside, passedWords, rowWords, senderOf, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
+import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, passedWords, rowWords, senderOf, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import type { TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { FLATTEN_HELP } from './PatternsCx';
@@ -123,10 +123,11 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	}
 	if (selection.length === 0 || state.choice != null) return null;
 	if (status == null || status.tone === 'good' || status.tone === 'neutral' || status.detail == null) return null;
+	const detail = causeWords(project, target, senderOf(project, result, target), status);
 	return (
 		<div className="mm-bar-line" data-tone="bad">
-			<span title={status.detail}>
-				{status.detail}
+			<span title={detail ?? undefined}>
+				{detail}
 			</span>
 			<SenderAction cx={cx} project={project} target={target} />
 		</div>
@@ -269,7 +270,7 @@ const BarAdjust: React.FC<{ cx: StudioCx; piece: TPiece; isLastBuilt: boolean }>
 						if (project != null) cx.simulation.startPreview(project);
 					}}
 					onCommit={(value) => {
-						cx.execute([{ type: 'updatePiece', pieceId: piece.id, patch: { angle: toRadians(value) } }], { label: 'Tilt' });
+						void cx.simulation.landChecked([{ type: 'updatePiece', pieceId: piece.id, patch: { angle: toRadians(value) } }], { label: 'Tilt', anyway: 'Tilt Anyway' });
 						cx.simulation.endPreview();
 					}}
 					onCancel={() => cx.simulation.endPreview()}

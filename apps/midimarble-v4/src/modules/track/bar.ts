@@ -163,6 +163,19 @@ export function senderOf(project: TProject, result: TSimulationResult | null, ta
 	return stop != null ? { piece, stop } : null;
 }
 
+/**
+ * What's wrong here said from its cause, when the piece before sends the marble past this one: "Platform 1 sends Marble 1
+ * past Platform 2". Otherwise the status's own words
+ */
+export function causeWords(project: TProject, target: TBarTarget, sender: { piece: TPiece } | null, status: { label: string; detail?: string }): string | null {
+	const piece = target.kind === 'notes' ? null : target.piece;
+	// Only a marble that doesn't touch the piece at all was sent past it; one that lands off time has its own words
+	const isPast = status.label === 'Missed' && /without touching|never reaches/.test(status.detail ?? '');
+	if (sender == null || piece == null || !isPast) return status.detail ?? null;
+	const marble = project.marbles.find((item) => item.id === target.marbleId)?.name ?? 'the marble';
+	return `${sender.piece.name ?? 'The piece before'} sends ${marble} past ${piece.name ?? 'it'}`;
+}
+
 /** The stop next to where the bar is, the arrows' whole job */
 export function stopBeside(project: TProject, target: TBarTarget, direction: 1 | -1): TBarStop | null {
 	const stops = stopsOf(project, target.marbleId);

@@ -1,7 +1,7 @@
 import { createState } from 'feature-state';
-import { createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitsInRange, isPatternKind, patternLabel, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, type TGroupRunProgress, type TPatternAsk, type TPatternClient, type TPatternKind } from '@/modules/building';
+import { createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitKey, hitsInRange, isPatternKind, patternLabel, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, playingNotes, type TGroupRunProgress, type TPatternAsk, type TPatternClient, type TPatternKind } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
-import { type TResolvedPiece } from '@/modules/simulation';
+import { type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { TGroup, TPatternGroup, TProject, TProjectHistory } from '@/modules/project';
 import { toGroupKey, toHitKey, toRangeKey } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
@@ -59,10 +59,12 @@ export class PatternsCx {
 
 	/**
 	 * Gravity changes how every marble falls, so live Patterns fit again, in one Undo step with it. A Group fits the later
-	 * ones on its marble itself, so the first of each marble is enough. Stop takes the change back, so nothing changed.
+	 * ones on its marble itself, so the first of each marble is enough. Stop takes the change back, so nothing changed. A
+	 * change that stops notes playing is taken back too, and says which, with Change Anyway to land it knowingly.
 	 */
-	async setGravity(gravity: number): Promise<void> {
-		if (!this.studio.execute([{ type: 'updateProject', patch: { gravity: gravity } }])) return;
+	async setGravity(gravity: number, options: { isForced?: boolean } = {}): Promise<void> {
+		const before = this.studio.project;
+		if (before == null || !this.studio.execute([{ type: 'updateProject', patch: { gravity: gravity } }])) return;
 		const project = this.studio.project;
 		if (project == null) return;
 		this.isStopped = false;
@@ -76,13 +78,23 @@ export class PatternsCx {
 				if (this.isStopped) this.studio.undo();
 				return;
 			}
-			if (!answer.commands.length) {
-				this.studio.notify(`${group.name} can't fit at this Gravity: ${answer.problems[0]?.words ?? 'try another Width.'}`, 'error');
-				continue;
-			}
-			if (!this.studio.execute(answer.commands, { amend: true })) return;
-			this.tell(answer, `Fitted ${answer.name} again`);
+			if (answer.commands.length > 0 && !this.studio.execute(answer.commands, { amend: true })) return;
 		}
+		if (options.isForced === true) return;
+		await this.studio.simulation.whenSettled();
+		const words = await this.lostWords(before, gravity);
+		if (words == null) return;
+		this.studio.undo();
+		const was = before.gravity.toFixed(2);
+		this.studio.notify(`${words} Gravity stays ${was}.`, 'error', { actions: [{ label: 'Change Anyway', title: `Set Gravity to ${gravity.toFixed(2)} even though those notes stop playing`, run: () => void this.setGravity(gravity, { isForced: true }) }] });
+	}
+
+	/** What a Gravity change stops playing, compared with the track before it, in words; null when every note still plays */
+	private async lostWords(before: TProject, gravity: number): Promise<string | null> {
+		const simulate = this.studio.assist.proposeDeps()?.simulate;
+		const after = this.studio.project;
+		if (simulate == null || after == null || after.gravity !== gravity) return null;
+		return lostNotesWords(before, await simulate(before), await simulate(after), `at Gravity ${gravity.toFixed(2)}`);
 	}
 
 	/** Makes or changes the Group and selects it. Null when it was stopped or couldn't be made */
@@ -246,6 +258,18 @@ function changeFor(target: TPatternTarget, kind: TPatternKind, settings: TPatter
 		...(bounce != null ? { bounce } : {}),
 		...(maxTilt != null ? { maxTilt } : {})
 	};
+}
+
+/** The notes a change stops playing, from the runs before and after it, as one sentence; null when every note still plays */
+export function lostNotesWords(project: TProject, before: TSimulationResult, after: TSimulationResult, when: string): string | null {
+	const now = playingNotes(after);
+	const lost = before.hits.filter((hit) => (hit.status === 'onTime' || hit.status === 'drifting') && !now.has(hitKey(hit.marbleId, hit.hitId)));
+	const marble = project.marbles.find((item) => item.id === lost[0]?.marbleId);
+	if (marble == null) return null;
+	const numbers = lost.filter((hit) => hit.marbleId === marble.id).map((hit) => marble.hits.findIndex((item) => item.id === hit.hitId) + 1).sort((a, b) => a - b);
+	const notes = numbers.length === 1 ? `Note ${numbers[0]}` : `${numbers.length} notes from Note ${numbers[0]}`;
+	const others = lost.length - numbers.length;
+	return `${notes} of ${marble.name} ${numbers.length === 1 ? 'stops' : 'stop'} playing ${when}${others > 0 ? `, and ${others} of other marbles` : ''}.`;
 }
 
 /** What a click or a setting just did, so the notice names the edit its Undo takes back */

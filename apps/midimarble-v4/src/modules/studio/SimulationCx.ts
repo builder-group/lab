@@ -1,6 +1,6 @@
 import { createComputed, createState } from 'feature-state';
 import { checkRun, createProblemsClient, isSameProblemInput, pendingPreflight, strayCause, type TExportPreflight, type TPreflightIssue, type TProblemsClient, createSimulationClient, type TSimulationClient, editCommands, type TEditAnswer, withEditAnswer } from '@/modules/building';
-import { type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
+import { applyProjectCommands, type TProject, type TProjectCommand, type TProjectHistory, type TVec2, tieOf } from '@/modules/project';
 import { isSameRunInput, isSuperseded, type TRunInput, type TSimulationResult } from '@/modules/simulation';
 import type { TBlenderObject } from '@/modules/scene';
 import { onNextFrame } from './next-frame';
@@ -259,6 +259,52 @@ export class SimulationCx {
 		this.settled = this.studio.$history.get();
 		this.stopSettling();
 		return isDone;
+	}
+
+	/**
+	 * An edit that lands only when the later pieces can take it up. One that would leave a note no longer playing lands
+	 * nothing and says which note first, with `anyway` to land it as it is. False when nothing landed now
+	 */
+	async landChecked(commands: TProjectCommand[], options: { label: string; anyway: string }): Promise<boolean> {
+		const before = this.studio.project;
+		const client = this.client;
+		if (before == null || client == null) return this.studio.execute(commands, { label: options.label });
+		const [isApplied, , after] = applyProjectCommands(before, commands);
+		if (!isApplied) return false;
+		const run = ++this.settleRun;
+		let answer: TEditAnswer;
+		try {
+			answer = await client.settle({ before, after });
+		} catch (error) {
+			if (run !== this.settleRun || isSuperseded(error)) return false;
+			return this.studio.execute(commands, { label: options.label });
+		}
+		if (run !== this.settleRun || this.studio.project !== before) return false;
+		const all = [...commands, ...editCommands(answer)];
+		// Only a note that plays now counts: an edit made to mend one already broken lands
+		const was = this.$result.get();
+		const first = answer.heldFrom.find((held) => {
+			const hit = was?.revision === before.revision ? was.hits.find((item) => item.marbleId === held.marbleId && item.hitId === held.hitId) : undefined;
+			return hit == null || hit.status === 'onTime' || hit.status === 'drifting';
+		});
+		if (first == null) {
+			if (!this.landWorkedOut(all, { label: options.label })) return false;
+			this.sayTakers(answer, after);
+			this.sayBreak(answer, after);
+			return true;
+		}
+		const marble = before.marbles.find((item) => item.id === first.marbleId);
+		const number = (marble?.hits.findIndex((hit) => hit.id === first.hitId) ?? -1) + 1;
+		this.studio.notify(`${options.label} would stop Note ${number} of ${marble?.name ?? 'the marble'} playing: the pieces after it can't take it up. Nothing changed.`, 'error', {
+			actions: [{ label: options.anyway, title: `${options.label} even though Note ${number} stops playing`, run: () => void this.landHeld(before, all, options.label, answer, after) }]
+		});
+		return false;
+	}
+
+	/** Lands an edit that was said to stop a note playing, if the track is still the one it was worked out for */
+	private landHeld(before: TProject, commands: TProjectCommand[], label: string, answer: TEditAnswer, after: TProject): void {
+		if (this.studio.project !== before || !this.landWorkedOut(commands, { label })) return;
+		this.sayBreak(answer, after);
 	}
 
 	private stopSettling(): void {

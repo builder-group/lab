@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptWords, barRows, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
+import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -163,5 +163,17 @@ describe('acceptWords', () => {
 		expect(acceptWords(project, open, 'zigzag', false)).toBe('Add Zigzag · 3 Notes');
 		expect(acceptWords(project, targetOf(project, ['p1']), 'staircase', false)).toBe('Change to Staircase · 4 Notes');
 		expect(acceptWords(project, targetOf(project, ['p1']), 'remove', true)).toBe('Remove Anyway');
+	});
+});
+
+describe('causeWords', () => {
+	it('says a marble sent past a platform from the piece that sends it, and keeps other words as they are', () => {
+		const base = track(EVEN, 2);
+		const project = { ...base, track: { ...base.track, pieces: base.track.pieces.map((piece, index) => ({ ...piece, name: `Platform ${index + 1}` })) } };
+		const target = targetOf(project, ['p2']);
+		const sender = { piece: project.track.pieces[0] as TProject['track']['pieces'][number] };
+		expect(causeWords(project, target, sender, { label: 'Missed', detail: 'Marble 1 passes Platform 2 without touching it' })).toBe('Platform 1 sends Marble 1 past Platform 2');
+		expect(causeWords(project, target, sender, { label: 'Missed', detail: 'Lands 12 ms before the note' })).toBe('Lands 12 ms before the note');
+		expect(causeWords(project, target, null, { label: 'Missed', detail: 'Marble 1 passes Platform 2 without touching it' })).toBe('Marble 1 passes Platform 2 without touching it');
 	});
 });
