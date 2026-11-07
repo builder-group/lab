@@ -13,7 +13,7 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Agents:** MCP only, with Connect in the Agent menu. No chat in the window. A small film over MCP takes 7 calls and about 2 min, Draft included.
 - **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.25. Why: `references.md`.
 - **Data:** `marble-project@6`, no migrations, since the app hasn't shipped. A marble has one color, its `labelColor`.
-- **Timeline:** 0 is the film's first frame. An import releases the marble at 0: a new JB opens with its first sound at 0.5 s. Jingle Bells' example still has it at 1 s, from its long start rail, until the fixture is rebuilt.
+- **Timeline:** 0 is the film's first frame. An import releases the marble at 0: a new JB opens with its first sound at 0.5 s. Jingle Bells' example still has it at 1 s, from its long start rail, until the fixture is rebuilt. The Camera sits above the Song, so marbles sit under their song. A marble's row shows the song its hits move with and a ring for its start, which drags in time.
 
 ## Verified
 
@@ -42,9 +42,10 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - `long-gap` has one marble passing through a skin, a real Problem in that fixture
 - Fixtures keep their 9 cm long bars, so they read as wide slabs on 15 cm posts; bars built today are 3 cm. Example stills aren't regenerated
 - Applying a Pattern can still zoom the wall out a little, seen from 17 % to 11 % on Jingle Bells; the reveal itself keeps the zoom, so something else moves it
-- Patterns fit far less often as Staircases on two-marble songs (11 of 42 on built Jingle Bells), and a Long Rail on a built song about half the time (`references.md`). A check that says no takes about 7 s on built Jingle Bells, in the Pattern worker, with the ghost and "Checking the whole song…" showing.
+- Patterns fit far less often as Staircases on two-marble songs (11 of 42 on built Jingle Bells), and a Long Rail on a built song about half the time (`references.md`). A check takes 5 to 20 s on built Jingle Bells for 8 notes that don't fit first time, in the Pattern worker, with the ghost and "Checking the whole song…" showing: over 90 % is about 1100 to 4250 short physics runs searching tilts, not the whole-song check. A stretch that plays first time takes 0.2 s.
 - Build Track after a Pattern in the middle of a bare song names the notes before it in its attention list instead of moving the marble's release back; a Pattern on them does move it.
 - Patterns: Bounce sets a drop aim, so bars still vary. Median tilt is high at Gravity 0.5 (about 29°, about 16° at Gravity 1). Width 16 cm leaves many problems. A run with 7 later Groups takes 24 s with nothing moving on the wall.
+- A drag's chip can run past a narrow wall's edge, seen cut off at "Goes 1.5 cm: the marble" at 1280 px. Dragging a platform on a fresh Pattern's flattened pieces named its Undo step Change Marble, not the move
 - No Problem for a missing asset: only Blender knows, and only while open
 - `assists.test.ts` "holds the marble across a long gap" runs about 360 simulations per search and takes 10 to 30 s depending on the machine's load, against its 20 s limit
 - The 204 s, 776 piece perf song doesn't run clean on one surface: 580 of 690 hits with its capsule-era rides and exits kept. Hop edits there take about 0.3 s at the median in Node, and a release can take seconds
