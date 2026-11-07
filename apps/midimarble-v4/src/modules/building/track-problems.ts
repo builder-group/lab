@@ -1,5 +1,5 @@
 import { type TProject, type TVec2, tieOf } from '@/modules/project';
-import { boundsOf, resolvedPieceShapes, shapesGap, layoutOf, soundsHit, shapeDistance, type TBounds2, type TPieceShape, HIT_TOLERANCE, IMPACT_SPEED, type TContact, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { boundsOf, resolvedPieceShapes, shapesGap, layoutOf, isPathPieceType, soundsHit, shapeDistance, type TBounds2, type TPieceShape, HIT_TOLERANCE, IMPACT_SPEED, type TContact, type THitResult, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 
 // What's physically wrong with a run beyond its timing: pieces touching in the wall plane, a platform struck outside its
 // note, a marble rolling on a platform. They're Problems, with no taste in them: every number here says what breaks.
@@ -336,4 +336,40 @@ export function rollingHits(project: TProject, result: TSimulationResult): TRoll
 		});
 	}
 	return rolls.sort((a, b) => a.time - b.time);
+}
+
+/** A marble back on a rail or tunnel of its own after it left it and played the note after it */
+export interface TRailReturn {
+	/** The rail or tunnel */
+	pieceId: string;
+	marbleId: string;
+	/** The note the marble played after the rail, and the piece it played it on, which sends it back */
+	hitId: string;
+	notePieceId: string;
+	time: number;
+	position: TVec2;
+}
+
+/**
+ * Rails and tunnels a marble lands on again after the note that follows them: it bounces off that note's platform back
+ * into the rail it just left, which reads as a mistake, as a second strike of a platform does. A ride along the rail
+ * before that note is the rail's job and doesn't count. A Bowl is no rail.
+ */
+export function railReturns(project: TProject, result: TSimulationResult): TRailReturn[] {
+	const returns: TRailReturn[] = [];
+	for (const piece of project.track.pieces) {
+		const marbleId = tieOf(piece)?.marbleId;
+		if (marbleId == null || !isPathPieceType(piece.type)) continue;
+		const touches = result.contacts.filter((contact) => contact.marbleId === marbleId && contact.otherId === piece.id && contact.time <= result.duration && (contact.speed ?? 1) >= NO_TOUCH_SPEED).sort((a, b) => a.time - b.time);
+		const entry = touches[0]?.time;
+		if (entry == null) continue;
+		const note = result.hits
+			.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.pieceId !== piece.id && hit.actualTime != null && hit.actualTime > entry && (hit.status === 'onTime' || hit.status === 'drifting'))
+			.reduce<THitResult | null>((first, hit) => (first == null || (hit.actualTime ?? Infinity) < (first.actualTime ?? Infinity) ? hit : first), null);
+		if (note?.actualTime == null || note.pieceId == null) continue;
+		const noteTime = note.actualTime;
+		const back = touches.find((contact) => contact.time > noteTime + SAME_STRIKE);
+		if (back != null) returns.push({ pieceId: piece.id, marbleId, hitId: note.hitId, notePieceId: note.pieceId, time: back.time, position: back.position });
+	}
+	return returns.sort((a, b) => a.time - b.time);
 }

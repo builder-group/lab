@@ -28,7 +28,7 @@ Each marble's band of the wall runs straight down from where it starts. To send 
 Build Entire Track, `build.next` and `build.fix` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
 
 - **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart on the wall, skins included. A pair that comes closer is the problem "Platform 12 touches Platform 13".
-- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a rail or in a Bowl don't count.
+- **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a rail or in a Bowl don't count. Neither does a rail once the marble has left it: "Melody bounces back onto Rail 4" means the next note's platform sends it back, and that platform is what to change.
 - **Marbles may cross.** A marble's run may leave its band of the wall and cross another's path, as long as it touches neither that marble nor its pieces. It stays in its band where it can, since its pieces would otherwise stand in the other marble's way, and always stays in frame.
 
 To fix a touching pair or a second strike, try these in order of how little they change. Each moves the run a little from there on, since every bounce follows the one before, so read `hits` in the reply and Undo a try that breaks one.
