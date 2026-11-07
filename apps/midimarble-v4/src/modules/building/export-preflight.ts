@@ -3,7 +3,7 @@ import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong, marbleSounds } from '@/modules/music';
 import { type TProject, type TVec2, formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
 import { BOWL_TYPE, bowlCatch, getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { extraStrikes, LONG_FALL, passThroughs, railReturns, rollingHits, touchingPairs } from './track-problems';
+import { extraStrikes, LONG_FALL, passThroughs, rollingHits, touchingPairs } from './track-problems';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 
@@ -77,7 +77,6 @@ export function runIssues(project: TProject, result: TSimulationResult): TPrefli
 		...contactIssues(project, result, names),
 		...strikeIssues(project, result, names),
 		...rollIssues(project, result, names),
-		...railReturnIssues(project, result, names),
 		...touchingIssues(project, result, names),
 		...passIssues(project, result, names),
 		...fallIssues(project, result, names),
@@ -598,24 +597,6 @@ function rollIssues(project: TProject, result: TSimulationResult, names: TNames)
 		detail: `Stays on it from ${formatTime(roll.time)} instead of bouncing off.`,
 		time: roll.time,
 		target: { ids: [roll.pieceId], point: roll.position, time: roll.time }
-	}));
-}
-
-/**
- * A marble that bounces off a note's platform back onto the rail it just left: "Melody bounces back onto Rail 12". The
- * note's platform sends it there, so it comes first in the target, for Fix (`railReturns`).
- */
-function railReturnIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
-	return railReturns(project, result).map((back) => ({
-		id: `return:${back.pieceId}`,
-		kind: 'strike' as const,
-		severity: 'warning' as const,
-		marbleId: back.marbleId,
-		title: `${names.marble(back.marbleId)} bounces back onto ${names.piece(back.pieceId)}`,
-		label: 'Back on Rail',
-		detail: `After its note on ${names.piece(back.notePieceId)} it lands on the rail again at ${formatTime(back.time)}.`,
-		time: back.time,
-		target: { ids: [back.notePieceId, back.pieceId], point: back.position, time: back.time }
 	}));
 }
 

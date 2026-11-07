@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, hitPlace, nextPieceName, switchbackHoldTime, railParams, resolvePieceParams, frameBand, stageBand, startRailId, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, stageBand, startRailId, type TSimulationResult } from '@/modules/simulation';
 import type { TSimulateFn } from '../assists';
 import { touchingPairs } from '../track-problems';
 import { checkGapPiece, findEntryTime, type TGapPieceProposal } from '../gap-pieces';
@@ -222,11 +222,9 @@ export function createCurveForGap(project: TProject, _result: TSimulationResult,
 	if (fit == null) return Err(new Error(`No single rail holds the marble here${why != null ? `: ${why}` : ''}`));
 	if (Math.abs(fit.holdErr) > HOLD_LIMIT) return Err(new Error(`The single rail lets go ${Math.abs(fit.holdErr).toFixed(2)} s ${fit.holdErr > 0 ? 'late' : 'early'}`));
 	if (fit.isTouching) return Err(new Error('The single rail touches a piece beside it'));
-	// On its own, outside a Pattern, it's numbered like any rail, so a Problem can name it
-	const piece = { ...fit.piece, name: nextPieceName(fit.piece.type, project.track.pieces) };
-	const entryTime = from.time + (piece.params['entryDelay'] ?? 0);
-	const trial = options.simulate({ ...withPiece(project, piece), length: to.time + 0.02 });
-	return Ok({ piece, commands: [{ type: 'addPiece', piece }], entryTime, length: fit.width, slope: fit.slope, check: checkGapPiece(trial, project, marbleId, piece.id, entryTime, toHitId, to.time) });
+	const entryTime = from.time + (fit.piece.params['entryDelay'] ?? 0);
+	const trial = options.simulate({ ...withPiece(project, fit.piece), length: to.time + 0.02 });
+	return Ok({ piece: fit.piece, commands: [{ type: 'addPiece', piece: fit.piece }], entryTime, length: fit.width, slope: fit.slope, check: checkGapPiece(trial, project, marbleId, fit.piece.id, entryTime, toHitId, to.time) });
 }
 
 function marbleRadius(project: TProject, marbleId: string): number {

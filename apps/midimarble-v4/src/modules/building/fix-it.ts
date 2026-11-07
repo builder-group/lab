@@ -1,6 +1,6 @@
 import { patched, type TFollows, type TMarble, type TPiece, type TPlays, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { BOWL_TYPE, isPathPieceType, getPieceDefinition, gravityOf, isMusicalPiece, layoutOf, shapesBounds, shapesDistance, soundsHit, trajectoryAt, transformShape, type THitResult, type TResolvedPiece, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
-import { extraStrikes, rollingHits, passThroughs, railReturns, touchingPairs } from './track-problems';
+import { extraStrikes, rollingHits, passThroughs, touchingPairs } from './track-problems';
 import { freePose } from './attach';
 import { findLongGaps, type TLongGap, crossesOtherMarbles, openFrontiers } from './assists';
 import { gapPieceTypeOf } from './gap-pieces';
@@ -323,9 +323,9 @@ function marbleName(project: TProject, marbleId: string): string {
 	return project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'the marble';
 }
 
-/** Pieces a marble strikes twice or rolls on, the platform that sends it back onto a rail, and the later piece of each pair that touches, in time order */
+/** Pieces a marble strikes twice or rolls on, and the later piece of each pair that touches, in time order */
 export function problemPieces(project: TProject, result: TSimulationResult): string[] {
-	const items = [...extraStrikes(project, result).map((strike) => ({ id: strike.pieceId, time: strike.time })), ...rollingHits(project, result).map((roll) => ({ id: roll.pieceId, time: roll.time })), ...railReturns(project, result).map((back) => ({ id: back.notePieceId, time: back.time })), ...touchingPairs(project, result).map((pair) => ({ id: pair.b, time: pair.time })), ...passThroughs(project, result).map((pass) => ({ id: pass.pieceId, time: pass.time }))];
+	const items = [...extraStrikes(project, result).map((strike) => ({ id: strike.pieceId, time: strike.time })), ...rollingHits(project, result).map((roll) => ({ id: roll.pieceId, time: roll.time })), ...touchingPairs(project, result).map((pair) => ({ id: pair.b, time: pair.time })), ...passThroughs(project, result).map((pass) => ({ id: pass.pieceId, time: pass.time }))];
 	return [...new Set(items.sort((a, b) => a.time - b.time).map((item) => item.id))];
 }
 
@@ -360,7 +360,6 @@ async function fixProblemPiece(
 	const problemsBefore = new Set(problemPieces(project, result));
 	const isStruck = extraStrikes(project, result).some((strike) => strike.pieceId === pieceId);
 	const isRolled = rollingHits(project, result).some((roll) => roll.pieceId === pieceId);
-	const backOnto = railReturns(project, result).find((back) => back.notePieceId === pieceId);
 	const tryCommands = async (commands: TProjectCommand[], did: string): Promise<TPieceFix | null> => {
 		if (!commands.length) return null;
 		const what = await check(commands);
@@ -368,7 +367,7 @@ async function fixProblemPiece(
 		const next = withCommands(project, commands);
 		const problemsAfter = problemPieces(next, what.run);
 		if (problemsAfter.includes(pieceId) || problemsAfter.some((id) => !problemsBefore.has(id))) return null;
-		return { commands, run: what.run, message: `${did}: ${isStruck ? `the marble now hits ${name} once` : isRolled ? `the marble now bounces off ${name}` : backOnto != null ? `the marble no longer bounces back onto ${pieceName(project, backOnto.pieceId)}` : `${name} now stands clear`}` };
+		return { commands, run: what.run, message: `${did}: ${isStruck ? `the marble now hits ${name} once` : isRolled ? `the marble now bounces off ${name}` : `${name} now stands clear`}` };
 	};
 	if (!isStruck && !isRolled && piece != null && link != null && isMusicalPiece(piece.type)) {
 		const length = piece.params['length'] ?? getPieceDefinition(piece.type)?.params['length']?.default;

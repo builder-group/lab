@@ -2,7 +2,7 @@ import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, paceAt, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, bandAlongGuide, stageAlongGuide, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { longGapThreshold, takeoffSpeed } from './long-gap';
-import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, railReturns, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
+import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import { columnOffset } from './build-track-defaults';
 
 // Step loop assists. Each one is a pure function over the project and its latest simulation result that
@@ -306,7 +306,7 @@ export interface TAngleTry {
 }
 
 /** Why a tried angle failed a hard check */
-export type TAutoPlaceRejection = 'blocked' | 'missed' | 'strayContact' | 'otherMarble' | 'outOfFrame' | 'nextBlocked' | 'offPace' | 'rising' | 'restrike' | 'rolls' | 'backOnRail' | 'touching' | 'passes';
+export type TAutoPlaceRejection = 'blocked' | 'missed' | 'strayContact' | 'otherMarble' | 'outOfFrame' | 'nextBlocked' | 'offPace' | 'rising' | 'restrike' | 'rolls' | 'touching' | 'passes';
 
 /** A tried angle's score, or null when it fails a hard check, with the checks its simulations failed */
 export interface TAngleEvaluation {
@@ -751,8 +751,6 @@ function evaluatePlacement(
 	const ownTrack = trial.marbles.find((marble) => marble.marbleId === marbleId);
 	const risen = isBox && own != null && ownTrack != null && followingHit != null && trialHit?.actualTime != null ? riseAfterHit(own, ownTrack, trialHit.actualTime, followingHit.time) : null;
 	const isRolling = risen != null && !risen.isBounce;
-	// Nor may it send the marble back onto the rail it came off
-	const isBackOnRail = railReturns(project, trial).some((back) => back.marbleId === marbleId && back.hitId === hitId);
 	if (!isRelaxed) {
 		if (restrikes > 0 && !isMending) {
 			rejected.push('restrike');
@@ -760,10 +758,6 @@ function evaluatePlacement(
 		}
 		if (isRolling && !isMending) {
 			rejected.push('rolls');
-			return { candidate: null, nextDot };
-		}
-		if (isBackOnRail && !isMending) {
-			rejected.push('backOnRail');
 			return { candidate: null, nextDot };
 		}
 		if (ownTouching > 0 && !isMending) {
@@ -986,7 +980,6 @@ function* autoPlaceSearch(
 		rising: 0,
 		restrike: 0,
 		rolls: 0,
-		backOnRail: 0,
 		passes: 0,
 		touching: 0
 	};
@@ -1113,8 +1106,6 @@ function refusalWords(rejected: Record<TAutoPlaceRejection, number>): string {
 		case 'restrike':
 		case 'rolls':
 			return 'every tilt leaves the marble on the platform';
-		case 'backOnRail':
-			return 'every tilt sends the marble back onto the rail it came off';
 		default:
 			return 'something stands in the way of the marble here';
 	}
@@ -1427,8 +1418,7 @@ interface TGhostCheck {
 
 /**
  * Which ghosts cause a flaw of how the track looks, by index: the one before a stray strike, since its bounce sends the
- * marble there whichever piece gets hit, the later piece of two that touch, one the marble rolls on, and one that sends it back onto
- * the rail it came off. Flaws from before the first ghost are
+ * marble there whichever piece gets hit, the later piece of two that touch, and one the marble rolls on. Flaws from before the first ghost are
  * not theirs.
  */
 function flawedGhosts(project: TProject, trial: TSimulationResult, ghosts: TGhost[]): Set<number> {
@@ -1445,10 +1435,6 @@ function flawedGhosts(project: TProject, trial: TSimulationResult, ghosts: TGhos
 	}
 	for (const roll of rollingHits(project, trial)) {
 		const index = indexOf.get(roll.pieceId);
-		if (index != null) flawed.add(index);
-	}
-	for (const back of railReturns(project, trial)) {
-		const index = indexOf.get(back.notePieceId);
 		if (index != null) flawed.add(index);
 	}
 	return flawed;

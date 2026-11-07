@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TProject } from '@/modules/project';
 import { pathDepth, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { extraStrikes, MIN_PIECE_GAP, railReturns, rollingHits, touchingPairs, visualShapes } from './track-problems';
+import { extraStrikes, MIN_PIECE_GAP, rollingHits, touchingPairs, visualShapes } from './track-problems';
 
 function platform(pieceId: string, x: number, y: number, hitTime = 1, angle = 0, depth = 0.03): TResolvedPiece {
 	return { pieceId: pieceId, type: 'platform', position: { x, y }, angle, params: { length: 0.09, thickness: 0.012, depth }, status: 'placed', hitTime } as unknown as TResolvedPiece;
@@ -116,31 +116,6 @@ describe('rollingHits function', () => {
 		const marble = result.marbles[0];
 		if (marble == null) throw new Error('No marble');
 		expect(rollingHits(cut, { ...result, marbles: [{ ...marble, samples: marble.samples.filter((sample) => sample.time < 1.05) }] })).toEqual([]);
-	});
-});
-
-describe('railReturns function', () => {
-	/** Notes a and b on platforms, and a rail across the rest after a, ridden from 1.1 s to 1.6 s; b plays at 2 s */
-	function railed(contacts: { time: number; other: string; speed?: number }[]): { project: TProject; result: TSimulationResult } {
-		const base = project(['a', 'b']);
-		base.track.pieces.push({ id: 'rail', type: 'rail', params: {}, angle: 0, place: { kind: 'follows', marbleId: 'marble', hitId: 'a' } } as unknown as TProject['track']['pieces'][number]);
-		const ride = [{ time: 1, other: 'piece-a' }, { time: 1.1, other: 'rail' }, { time: 1.6, other: 'rail', speed: 0.1 }, { time: 2, other: 'piece-b' }];
-		return { project: base, result: run([platform('piece-a', 0, 0), platform('piece-b', 0, -0.2, 2)], [...ride, ...contacts], { a: 1, b: 2 }) };
-	}
-
-	it('should name a marble that bounces off the next note back onto the rail it left', () => {
-		const { project: back, result } = railed([{ time: 2.15, other: 'rail' }]);
-		expect(railReturns(back, result)).toMatchObject([{ pieceId: 'rail', hitId: 'b', notePieceId: 'piece-b', time: 2.15 }]);
-	});
-
-	it('should leave the ride along the rail before the next note alone', () => {
-		const { project: ridden, result } = railed([]);
-		expect(railReturns(ridden, result)).toEqual([]);
-	});
-
-	it('should leave a touch reported with the note and a contact that never comes alone', () => {
-		const { project: grazed, result } = railed([{ time: 2.005, other: 'rail' }, { time: 2.3, other: 'rail', speed: 0.01 }]);
-		expect(railReturns(grazed, result)).toEqual([]);
 	});
 });
 

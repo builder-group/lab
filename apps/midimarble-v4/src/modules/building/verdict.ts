@@ -3,7 +3,7 @@ import { createLinkedPiece, frameBand, paceAt, stageAlongGuide, stageBand, type 
 import { findLongGaps, isInBand, openLongGaps } from './assists';
 import { changedPieces } from './edit-rule';
 import { openHits } from './reachability';
-import { extraStrikes, passThroughs, railReturns, rollingHits, touchingPairs } from './track-problems';
+import { extraStrikes, passThroughs, rollingHits, touchingPairs } from './track-problems';
 
 // The one verdict: given a track before and after, what changed and which facts hold, with reasons. It states them and
 // doesn't choose: whoever asks decides what a fact means for what it's doing. Build Track refuses a step with any reason;
@@ -21,8 +21,6 @@ export type TVerdictReason =
 	| { kind: 'outsideBand'; marbleId: string; hitId: string }
 	| { kind: 'struckTwice'; pieceId: string; hitId: string }
 	| { kind: 'rolls'; pieceId: string; hitId: string }
-	/** The marble lands on its rail again after the note that follows it */
-	| { kind: 'backOnRail'; marbleId: string; pieceId: string; hitId: string }
 	| { kind: 'passesThrough'; marbleId: string; pieceId: string }
 	| { kind: 'touching'; a: string; b: string }
 	/** The marble's next dot would leave the band */
@@ -39,7 +37,6 @@ export interface TKnownFaults {
 	contacts: Set<string>;
 	strikes: Set<string>;
 	rolls: Set<string>;
-	returns: Set<string>;
 	passes: Set<string>;
 	touching: Set<string>;
 }
@@ -49,7 +46,7 @@ const contactKey = (marble: string, other: string): string => `${marble}/${other
 const pairKey = (a: string, b: string): string => (a < b ? `${a}/${b}` : `${b}/${a}`);
 
 export function noKnownFaults(): TKnownFaults {
-	return { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), returns: new Set(), passes: new Set(), touching: new Set() };
+	return { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), passes: new Set(), touching: new Set() };
 }
 
 function marbleOfPiece(project: TProject, pieceId: string): string | null {
@@ -68,7 +65,6 @@ export function addKnownFaults(known: TKnownFaults, project: TProject, result: T
 	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, bandAt(hit.dot.y), 1)) known.hits.add(hitKey(hit.marbleId, hit.hitId));
 	for (const strike of extraStrikes(project, result)) known.strikes.add(strike.pieceId);
 	for (const roll of rollingHits(project, result)) known.rolls.add(roll.pieceId);
-	for (const back of railReturns(project, result)) known.returns.add(back.pieceId);
 	for (const pass of passThroughs(project, result)) known.passes.add(contactKey(pass.marbleId, pass.pieceId));
 	for (const pair of touchingPairs(project, result)) known.touching.add(pairKey(pair.a, pair.b));
 }
@@ -156,8 +152,6 @@ export function reasonWords(project: TProject, reason: TVerdictReason): string {
 			return `The marble strikes ${pieceName(reason.pieceId)} twice.`;
 		case 'rolls':
 			return `The marble rolls along ${pieceName(reason.pieceId)} instead of bouncing.`;
-		case 'backOnRail':
-			return `${marbleName(reason.marbleId)} bounces back onto ${pieceName(reason.pieceId)} after ${hitName(reason.marbleId, reason.hitId)}.`;
 		case 'passesThrough':
 			return `${marbleName(reason.marbleId)} passes through ${pieceName(reason.pieceId)}.`;
 		case 'touching':
@@ -222,9 +216,6 @@ function reasonsOf(ask: TVerdictAsk): TVerdictReason[] {
 	// And bounces off it, a platform not being for rolling
 	const rolling = rollingHits(project, result).filter((roll) => !known.rolls.has(roll.pieceId) && roll.time < (frontier.get(roll.marbleId) ?? Infinity));
 	if (add(rolling.map((roll): TVerdictReason => ({ kind: 'rolls', pieceId: roll.pieceId, hitId: roll.hitId })))) return reasons;
-	// And leaves each rail for good once it played the note after it
-	const back = railReturns(project, result).filter((item) => !known.returns.has(item.pieceId) && item.time < (frontier.get(item.marbleId) ?? Infinity));
-	if (add(back.map((item): TVerdictReason => ({ kind: 'backOnRail', marbleId: item.marbleId, pieceId: item.pieceId, hitId: item.hitId })))) return reasons;
 	// And goes through no piece's skin on its way
 	const passing = passThroughs(project, result).filter((pass) => !known.passes.has(contactKey(pass.marbleId, pass.pieceId)) && pass.time < (frontier.get(pass.marbleId) ?? Infinity));
 	if (add(passing.map((pass): TVerdictReason => ({ kind: 'passesThrough', marbleId: pass.marbleId, pieceId: pass.pieceId })))) return reasons;
