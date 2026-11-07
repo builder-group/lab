@@ -119,6 +119,58 @@ describe('propose across a rest', () => {
 	});
 });
 
+describe('propose a Pattern', () => {
+	/** Eight notes 0.4 s apart, the first with its piece */
+	async function regular(): Promise<TProject> {
+		const project = fourNotes();
+		const marble = project.marbles[0];
+		if (marble == null) throw new Error('No marble');
+		const hits = Array.from({ length: 8 }, (_, index) => ({ id: `hit-${index}`, time: 0.5 + index * 0.4 }));
+		const notes: TProject = { ...project, gravity: 0.5, length: 4.5, marbles: [{ ...marble, hits }] };
+		return landed(notes, await asked(notes, 'hit-0'));
+	}
+
+	it('fits a Zigzag over the notes asked, each with its verdict, and lands it', async () => {
+		const project = await regular();
+		const ids = ['hit-1', 'hit-2', 'hit-3', 'hit-4'];
+		const before = JSON.stringify(project);
+		const proposal = await propose(project, { marbleId: 'marble', hitIds: ids, kind: 'zigzag' }, deps);
+		expect(JSON.stringify(project)).toBe(before);
+		expect(proposal.status).toBe('fits');
+		expect(proposal.notes.map((note) => note.state)).toEqual(['onTime', 'onTime', 'onTime', 'onTime']);
+		expect(proposal.pieces.length).toBeGreaterThanOrEqual(4);
+		const next = landed(project, proposal);
+		expect(next.track.groups.at(-1)?.pattern?.kind).toBe('zigzag');
+		const played = simulator.simulate(next).hits.filter((hit) => ids.includes(hit.hitId));
+		expect(played.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
+	});
+
+	it('names the note when a Pattern is refused, and places nothing', async () => {
+		const project = await regular();
+		const words = "Zigzag doesn't fit at Hit 2 of Marble 1. Nothing changed.";
+		const refusing: TProposeDeps = { ...deps, pattern: () => ({ commands: [], refusal: { marbleId: 'marble', hitId: 'hit-1', words }, verdicts: [{ hitId: 'hit-1', fits: false, words: 'The marble misses this note.' }], ending: null }) };
+		const proposal = await propose(project, { marbleId: 'marble', hitIds: ['hit-1', 'hit-2'], kind: 'zigzag' }, refusing);
+		expect(proposal.commands).toEqual([]);
+		expect(proposal.status).toBe('refused');
+		expect(proposal.words).toBe(words);
+		expect(proposal.notes[0]?.words).toBe('The marble misses this note.');
+	});
+
+	it('answers a note after a rest with what fills the rest, kept apart from a plain platform', async () => {
+		const project = fourNotes();
+		const marble = project.marbles[0];
+		if (marble == null) throw new Error('No marble');
+		const gapped: TProject = { ...project, length: 6, marbles: [{ ...marble, hits: [{ id: 'hit-0', time: 0.5 }, { id: 'hit-1', time: 3 }] }] };
+		const placed = landed(gapped, await asked(gapped, 'hit-0'));
+		const noLongRail: TProposeDeps = { ...deps, pattern: () => ({ commands: [], refusal: { marbleId: 'marble', hitId: 'hit-1', words: 'No rail holds the marble.' }, verdicts: [], ending: null }) };
+		const proposal = await propose(placed, { marbleId: 'marble', hitIds: ['hit-1'], kind: 'platform' }, noLongRail);
+		expect(proposal.status).toBe('refused');
+		expect(proposal.words).toBe('A rest comes before this note.');
+		expect(proposal.instead?.slice(0, 2).map((item) => item.ask.kind)).toEqual(['longRail', 'switchback']);
+		for (const item of proposal.instead ?? []) expect(item.base).toBe(placed);
+	});
+});
+
 describe('nextStepOf', () => {
 	it('places at the first open dot, and says so when none is left', async () => {
 		let project = fourNotes();

@@ -4,9 +4,9 @@ import { host, songFileKind, specta } from '@/environment';
 import { addWallTextCommands, frameHeightOnWall, previewPointToWall, titleStyles, withTitleStyle, type TTitleStyle } from '@/modules/film';
 import type { TReadyPackTheme } from './project-commands';
 import { defaultTitleColor, packOriginOf, filmFileName, addShotCommands, STARTER_PACK, STARTER_PACK_ID, toItemId, songDisplayName } from '@/modules/scene';
-import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan } from '@/modules/building';
+import { framingProblemAt, PATTERN_KINDS, PATTERNS, patternSpan, reasonWords, type TProposal } from '@/modules/building';
 import { addedPacks, library } from '@/modules/library';
-import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, WALL_KEY, toShotKey, type TSong } from '@/modules/project';
+import { createProject, isPatternGroup, CAMERA_KEY, parseHitKey, tieOf, WALL_KEY, toShotKey, type TSong } from '@/modules/project';
 import type { StudioCx, TAgentStepNotice, TCommand, TCommandId } from '@/modules/studio';
 import { editPresenceLabel } from './agent-presence';
 import { hitReport, projectState, resolveSelection } from './mcp-state';
@@ -29,6 +29,8 @@ const EXPORT_WAIT_MS = 15_000;
 const DRAFT_WIDTH = 540;
 const BLENDER_WIDTH = 1280;
 const PROJECT_EXECUTE = 'project.execute';
+const BUILD_PROPOSE = 'build.propose';
+const BUILD_ACCEPT = 'build.accept';
 const EDIT_SELECT = 'edit.select';
 const REMOVE_PACK = 'film.removePack';
 
@@ -112,6 +114,8 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 			commands: [
 				...[
 					{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' },
+					{ id: BUILD_PROPOSE, title: 'What would be placed for a note or notes, changing nothing: args.marbleId, args.hitIds, args.kind' },
+					{ id: BUILD_ACCEPT, title: 'Lands a proposal exactly as proposed, as one Undo step: args.proposalId' },
 					{ id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, piece IDs, wall or light:key' },
 					{ id: REMOVE_PACK, title: 'Remove an added Pack: args.name. Projects keep what they use from it' }
 				].filter((command) => words.every((word) => `${command.id} ${command.title}`.toLowerCase().includes(word))),
@@ -127,6 +131,8 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const busy = WHILE_BUSY.has(id) ? null : await waitUntilFree(cx);
 		if (busy != null) return fail(cx, busy);
 		if (id === PROJECT_EXECUTE) return runProjectCommands(cx, commandArgs);
+		if (id === BUILD_PROPOSE) return runPropose(cx, commandArgs);
+		if (id === BUILD_ACCEPT) return runAccept(cx, commandArgs);
 		const badKeys = unknownSelection(cx, commandArgs);
 		if (badKeys != null) return fail(cx, badKeys);
 		if (id === EDIT_SELECT) {
@@ -276,7 +282,8 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 /** What Next placed and how the marble takes it, so a tilt can follow in the next call without reading the whole state */
 function placedReply(cx: StudioCx): Record<string, unknown> {
 	const project = cx.project;
-	return project != null ? { placed: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get())[0] ?? null } : {};
+	const fault = cx.assist.lastPlacedWords;
+	return project != null ? { placed: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get())[0] ?? null, status: fault != null ? 'problems' : 'fits', ...(fault != null ? { words: fault } : {}) } : {};
 }
 
 /** A command's own reading of its arguments, whose failure names what the command needs rather than the parser's report */
@@ -428,6 +435,59 @@ const SApplyPattern = z.strictObject({
 	maxTilt: z.number().positive().optional(),
 	dryRun: z.boolean().optional()
 });
+
+const SPropose = z.strictObject({
+	marbleId: z.string(),
+	/** The note, or the notes of a stretch */
+	hitIds: z.array(z.string()).min(1),
+	kind: z.string(),
+	width: z.number().positive().optional(),
+	bounce: z.number().min(0).max(1).optional(),
+	maxTilt: z.number().positive().optional()
+});
+
+/** What an agent reads of a proposal: everything but the track it's about */
+function proposalReply(proposal: TProposal): Record<string, unknown> {
+	const { id, ask, status, words, notes, changes, facts, reasons, pieces, instead } = proposal;
+	return {
+		proposalId: id,
+		kind: ask.kind,
+		status,
+		...(words != null ? { words } : {}),
+		notes,
+		changes,
+		facts,
+		reasons: reasons.map((reason) => reasonWords(proposal.base, reason)),
+		pieces: pieces.map((piece) => ({ id: piece.id, name: piece.name, type: piece.type, ...(piece.layout != null ? { layout: piece.layout } : {}), angle: piece.angle, ...(tieOf(piece) != null ? { hitId: tieOf(piece)?.hitId } : {}) })),
+		...(instead != null ? { instead: instead.map(proposalReply) } : {})
+	};
+}
+
+/** `propose`: what would be placed and what would come of it. Nothing changes and no Undo step comes of it */
+async function runPropose(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
+	const { marbleId, hitIds, kind, width, bounce, maxTilt } = SPropose.parse(args);
+	if (cx.project == null) return noProject(cx);
+	await settled(cx);
+	if (!cx.project.marbles.some((marble) => marble.id === marbleId)) return fail(cx, `There is no marble ${marbleId}. get_state lists them.`);
+	let proposal: TProposal | null = null;
+	await cx.runAgentStep('Agent: Propose', async () => {
+		proposal = await cx.assist.proposeFor({ marbleId, hitIds, kind, settings: { ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) } });
+	});
+	if (proposal == null) return fail(cx, "The app can't answer that yet. Try again in a moment.");
+	return text(cx, { changed: false, ...proposalReply(proposal) });
+}
+
+/** `accept`: lands a proposal exactly as proposed, as one Undo step, and refuses one for a track that has changed since */
+async function runAccept(cx: StudioCx, args: Record<string, unknown>): Promise<TToolReply> {
+	const { proposalId } = z.strictObject({ proposalId: z.string() }).parse(args);
+	if (cx.project == null) return noProject(cx);
+	await settled(cx);
+	let refusal: string | null = null;
+	return editStep(cx, 'Accept Proposal', () => {
+		const [isAccepted, error] = cx.assist.acceptProposalById(proposalId);
+		if (!isAccepted) refusal = error.message;
+	}, {}, () => (refusal != null ? { refused: refusal } : {}));
+}
 
 /** A Pattern over a range of a marble's row, as one Undo step; `dryRun` changes nothing and answers the same */
 async function runApplyPattern(cx: StudioCx, command: unknown, label: string | undefined): Promise<TToolReply> {

@@ -100,18 +100,23 @@ export interface TVerdict {
 	reasons: TVerdictReason[];
 }
 
+/** The notes a run plays on time, by `hitKey` */
+export function playingNotes(result: TSimulationResult): Set<string> {
+	return new Set(result.hits.filter((hit) => hit.status === 'onTime' || hit.status === 'drifting').map((hit) => hitKey(hit.marbleId, hit.hitId)));
+}
+
 /** What a placement changed and which facts hold, all but the room at the next dot, which takes a run */
 export function verdictOf(ask: TVerdictAsk): TVerdict {
 	const { before, after } = ask;
-	const isPlaying = (status: string): boolean => status === 'onTime' || status === 'drifting';
-	const now = new Set(after.result.hits.filter((hit) => isPlaying(hit.status)).map((hit) => hitKey(hit.marbleId, hit.hitId)));
+	const now = playingNotes(after.result);
+	const was = playingNotes(before.result);
 	const kept = new Set(after.project.track.pieces.map((piece) => piece.id));
 	return {
 		changed: changedPieces(before.project, after.project),
 		removed: before.project.track.pieces.filter((piece) => !kept.has(piece.id)),
 		onTime: now.size,
 		total: after.result.hits.length,
-		lost: before.result.hits.filter((hit) => isPlaying(hit.status) && !now.has(hitKey(hit.marbleId, hit.hitId))).map((hit) => ({ marbleId: hit.marbleId, hitId: hit.hitId })),
+		lost: before.result.hits.filter((hit) => was.has(hitKey(hit.marbleId, hit.hitId)) && !now.has(hitKey(hit.marbleId, hit.hitId))).map((hit) => ({ marbleId: hit.marbleId, hitId: hit.hitId })),
 		reasons: reasonsOf(ask)
 	};
 }

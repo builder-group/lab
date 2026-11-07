@@ -1,9 +1,11 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { applyProjectCommands, createId, tieOf, type TPiece, type TProject, type TProjectCommand } from '@/modules/project';
 import { isSuperseded, type THitResult, type TSimulationResult, type TSimulator } from '@/modules/simulation';
-import { hitOwners } from './assists';
+import { hitOwners, openLongGaps } from './assists';
 import { hitReach, isUnreachable, reachMessage } from './reachability';
-import { answerEdit, editCommands, type TEditAnswer, type TEditRequest } from './edit-rule';
+import { answerEdit, changedPieces, editCommands, type TEditAnswer, type TEditRequest } from './edit-rule';
+import { checkPattern, type TPatternAsk, type TPatternCheck } from './patterns/check-pattern';
+import { patternOfKind } from './patterns/registry';
 import { noKnownFaults, addKnownFaults, reasonWords, verdictWithRoom, type TVerdictReason } from './verdict';
 import { answerWorkerRequest, type TAutoPlaceAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 
@@ -14,10 +16,10 @@ export interface TProposeAsk {
 	marbleId: string;
 	/** The note, or the notes of a stretch */
 	hitIds: string[];
-	/** What to place: a piece type for a note, or a gap piece for the rest before the note */
+	/** What to place: a piece type for a note, a gap piece for the rest before the note, or a Pattern over these notes or that rest */
 	kind: string;
 	/** What the kind takes, and the ID its piece gets */
-	settings?: { pieceId?: string };
+	settings?: { pieceId?: string; width?: number; bounce?: number; maxTilt?: number };
 }
 
 /** What one note makes of it, in plain words */
@@ -67,12 +69,18 @@ export interface TProposal {
 	words: string | null;
 	/** For a gap piece, what the search said of it: its ghost and how it reads */
 	gap?: TGapAnswer;
+	/** A rest comes before this note: what fills it, and the plain piece with its reason when nothing does */
+	instead?: TProposal[];
 }
+
+/** What a Pattern's check says, in a worker or in this thread. Null when it was stopped */
+export type TProposedPattern = Pick<TPatternCheck, 'commands' | 'refusal' | 'verdicts' | 'ending'> | null;
 
 export interface TProposeDeps {
 	simulate: (project: TProject) => Promise<TSimulationResult> | TSimulationResult;
 	autoPlace: (request: { project: TProject; marbleId: string; hitId: string; type: string; pieceId: string }) => Promise<TAutoPlaceAnswer> | TAutoPlaceAnswer;
 	gapPiece: (request: { type: TGapPieceType; project: TProject; marbleId: string; fromHitId: string; toHitId: string; pieceId?: string }) => Promise<TGapAnswer> | TGapAnswer;
+	pattern: (project: TProject, ask: TPatternAsk) => Promise<TProposedPattern> | TProposedPattern;
 	/** What later pieces do about it, asked only when later pieces exist */
 	settle: (request: TEditRequest) => Promise<TEditAnswer> | TEditAnswer;
 }
@@ -90,12 +98,15 @@ export function localProposeDeps(simulator: TSimulator): TProposeDeps {
 		simulate: (project) => simulator.simulate(project),
 		autoPlace: (request) => answerWorkerRequest(simulator, { kind: 'autoPlace', ...request }) as TAutoPlaceAnswer,
 		gapPiece: (request) => answerWorkerRequest(simulator, { kind: 'gapPiece', ...request }) as TGapAnswer,
+		pattern: (project, ask) => checkPattern(project, ask, { sim: simulator }),
 		settle: (request) => answerEdit(simulator, request)
 	};
 }
 
 /** Pieces further than this from where they stood count as moved, in meters */
 const MOVED = 0.01;
+/** A Pattern for a rest asks for the silence just inside its notes */
+const SILENCE_MARGIN = 0.01;
 
 export async function propose(project: TProject, ask: TProposeAsk, deps: TProposeDeps, options: TProposeOptions = {}): Promise<TProposal> {
 	const before = options.result ?? (await deps.simulate(project));
@@ -109,6 +120,8 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	const firstOpen = marble.hits.findIndex((item) => !owners.has(item.id));
 	if (options.isAnyDot !== true && firstOpen >= 0 && index > firstOpen) return { ...refused(project, before, ask, `Build up to here: Hit ${firstOpen + 1} has no piece yet.`), status: 'buildUpTo' };
 	if (isGapKind(kind)) return proposeGapPiece(project, before, ask, kind, marble.hits[index - 1]?.id, deps);
+	if (patternOfKind(kind) != null) return proposePattern(project, before, ask, deps);
+	if (options.isAnyDot !== true && openLongGaps(project, marbleId).some((gap) => gap.toHitId === hitId)) return proposeRest(project, before, ask, deps);
 	const reach = hitReach(project, before, hit);
 	if (isUnreachable(reach)) return refused(project, before, ask, reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble.name }, null, false) ?? "The marble can't reach this note.");
 	if (hit.dot == null) return refused(project, before, ask, 'The marble does not reach this note.');
@@ -121,7 +134,7 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 		if (isSuperseded(error)) throw error;
 		return refused(project, before, ask, error instanceof Error ? error.message : String(error));
 	}
-	return landed(project, before, ask, [answer.piece], [{ type: 'addPiece', piece: answer.piece }], true, deps);
+	return landed(project, before, ask, [answer.piece], [{ type: 'addPiece', piece: answer.piece }], { checksNext: true }, deps);
 }
 
 const GAP_KINDS: readonly string[] = ['rail', 'switchback', 'chain', 'tunnel'] satisfies TGapPieceType[];
@@ -142,7 +155,36 @@ async function proposeGapPiece(project: TProject, before: TSimulationResult, ask
 		if (isSuperseded(error)) throw error;
 		return refused(project, before, ask, error instanceof Error ? error.message : String(error));
 	}
-	return { ...(await landed(project, before, ask, [answer.piece], answer.commands, false, deps)), gap: answer };
+	return { ...(await landed(project, before, ask, [answer.piece], answer.commands, { checksNext: false }, deps)), gap: answer };
+}
+
+/** What a rest offers instead of a plain piece: a Long Rail and a Switchback, each with its own answer, and the plain piece only when neither fits */
+async function proposeRest(project: TProject, before: TSimulationResult, ask: TProposeAsk, deps: TProposeDeps): Promise<TProposal> {
+	const instead: TProposal[] = [];
+	for (const kind of ['longRail', 'switchback']) instead.push(await propose(project, { ...ask, kind }, deps, { result: before }));
+	if (!instead.some((proposal) => proposal.status === 'fits')) instead.push(await propose(project, ask, deps, { result: before, isAnyDot: true }));
+	return { ...refused(project, before, ask, 'A rest comes before this note.'), instead };
+}
+
+/** A Pattern over these notes, or over the rest before this note, asked of the whole song by its own check */
+async function proposePattern(project: TProject, before: TSimulationResult, ask: TProposeAsk, deps: TProposeDeps): Promise<TProposal> {
+	const { marbleId, hitIds, kind, settings } = ask;
+	const hits = project.marbles.find((item) => item.id === marbleId)?.hits ?? [];
+	const firstIndex = hits.findIndex((hit) => hit.id === hitIds[0]);
+	const [first, last] = [hits[firstIndex], hits.find((hit) => hit.id === hitIds.at(-1))];
+	if (first == null || last == null) return refused(project, before, ask, 'That note is gone.');
+	const isSilence = patternOfKind(kind)?.takes === 'silence';
+	const range = isSilence ? { from: (hits[firstIndex - 1]?.time ?? 0) + SILENCE_MARGIN, to: first.time - SILENCE_MARGIN } : { from: first.time, to: last.time };
+	const { width, bounce, maxTilt } = settings ?? {};
+	const answer = await deps.pattern(project, { marbleId, kind, ...range, ...(width != null ? { width } : {}), ...(bounce != null ? { bounce } : {}), ...(maxTilt != null ? { maxTilt } : {}) });
+	if (answer == null) return refused(project, before, ask, 'The Pattern was stopped.');
+	const said = new Map(answer.verdicts.flatMap((verdict) => (verdict.words != null ? [[verdict.hitId, verdict.words] as const] : [])));
+	const withWords = (proposal: TProposal): TProposal => ({ ...proposal, notes: proposal.notes.map((note) => ({ ...note, words: said.get(note.hitId) ?? note.words })) });
+	if (answer.refusal != null || !answer.commands.length) return withWords(refused(project, before, ask, answer.refusal?.words ?? answer.ending?.words ?? "It doesn't fit here."));
+	const [isApplied, applyError, after] = applyProjectCommands(project, answer.commands);
+	if (!isApplied) return refused(project, before, ask, applyError.message);
+	// Its check already had the later pieces take up the change
+	return withWords(await landed(project, before, ask, changedPieces(project, after), answer.commands, { checksNext: !isSilence, isSettled: true }, deps));
 }
 
 function refused(project: TProject, before: TSimulationResult, ask: TProposeAsk, words: string): TProposal {
@@ -150,12 +192,12 @@ function refused(project: TProject, before: TSimulationResult, ask: TProposeAsk,
 }
 
 /** Applies a proposal's pieces to its track on paper and states the facts */
-async function landed(project: TProject, before: TSimulationResult, ask: TProposeAsk, pieces: TPiece[], commands: TProjectCommand[], checksNext: boolean, deps: TProposeDeps): Promise<TProposal> {
+async function landed(project: TProject, before: TSimulationResult, ask: TProposeAsk, pieces: TPiece[], commands: TProjectCommand[], { checksNext, isSettled = false }: { checksNext: boolean; isSettled?: boolean }, deps: TProposeDeps): Promise<TProposal> {
 	const [isApplied, applyError, applied] = applyProjectCommands(project, commands);
 	if (!isApplied) return refused(project, before, ask, applyError.message);
 	const last = project.marbles.find((item) => item.id === ask.marbleId)?.hits.findIndex((item) => item.id === ask.hitIds.at(-1)) ?? -1;
 	const owners = hitOwners(project, ask.marbleId);
-	const hasLater = project.marbles.find((item) => item.id === ask.marbleId)?.hits.slice(last + 1).some((item) => owners.has(item.id)) === true;
+	const hasLater = !isSettled && project.marbles.find((item) => item.id === ask.marbleId)?.hits.slice(last + 1).some((item) => owners.has(item.id)) === true;
 	// With later pieces already there, they take up the change or move with the marble, as any edit does
 	const settled = hasLater ? await deps.settle({ before: project, after: applied }) : null;
 	const allCommands = settled != null ? [...commands, ...editCommands(settled)] : commands;

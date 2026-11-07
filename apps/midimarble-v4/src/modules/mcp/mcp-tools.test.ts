@@ -70,6 +70,41 @@ describe('MCP tools', () => {
 		expect(textOf(reply).length).toBeLessThan(3000);
 	});
 
+	describe('build.propose and build.accept', () => {
+		function proposing(): ReturnType<typeof studio> {
+			const made = studio();
+			const piece = { id: 'proposed', name: 'Platform 1', type: 'platform', params: {}, angle: 0.2, place: { kind: 'plays', marbleId: made.marbleId, hitId: made.hitId, contactAt: 0.5 } } as TPiece;
+			Object.defineProperty(made.cx.simulation, 'assists', { get: () => ({ simulateAssist: () => Promise.resolve(made.cx.simulation.$result.get()), autoPlace: () => Promise.resolve({ piece, angle: 0.2, nextDot: null, computeMs: 1 }) }) });
+			return made;
+		}
+
+		it('should say what would be placed and change nothing, then land it as one Undo step', async () => {
+			const { cx, marbleId, hitId } = proposing();
+			const before = cx.project;
+			const asked = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'build.propose', args: { marbleId, hitIds: [hitId], kind: 'platform' } }))) as { changed: boolean; proposalId: string; status: string; pieces: { id: string }[]; notes: { hitId: string }[] };
+			expect(asked.changed).toBe(false);
+			expect(cx.project).toBe(before);
+			expect(asked.status).toBe('fits');
+			expect(asked.pieces[0]?.id).toBe('proposed');
+			expect(asked.notes[0]?.hitId).toBe(hitId);
+			const accepted = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'build.accept', args: { proposalId: asked.proposalId } }))) as { changed: boolean; undoStep: string };
+			expect(accepted.changed).toBe(true);
+			expect(accepted.undoStep).toBeTypeOf('string');
+			expect(cx.project?.track.pieces.map((piece) => piece.id)).toEqual(['proposed']);
+		});
+
+		it('should refuse a proposal once the track has changed, and one it never made', async () => {
+			const { cx, marbleId, hitId } = proposing();
+			const asked = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'build.propose', args: { marbleId, hitIds: [hitId], kind: 'platform' } }))) as { proposalId: string };
+			cx.execute([{ type: 'updateProject', patch: { title: 'Changed' } }]);
+			const stale = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'build.accept', args: { proposalId: asked.proposalId } }))) as { changed: boolean; refused: string };
+			expect(stale.changed).toBe(false);
+			expect(stale.refused).toBe('The track changed since this was proposed. Propose again.');
+			const unknown = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'build.accept', args: { proposalId: 'nothing' } }))) as { refused: string };
+			expect(unknown.refused).toMatch(/no proposal/);
+		});
+	});
+
 	it('should say so when no project is open', async () => {
 		const cx = new StudioCx();
 		expect(JSON.parse(textOf(await runTool(cx, 'get_state', {})))).toMatchObject({ project: null });

@@ -1,8 +1,9 @@
 import { createState } from 'feature-state';
+import { Err, Ok, type TResult } from 'tuple-result';
 import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { isSuperseded, layoutOf, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptProposal, findStepTarget, nextStepOf, propose, type TProposal, type TProposeDeps, focusedMarbleId, gapPieceReads, hitOwners, release, changedPieces, editCommands, withEditAnswer, type TContinueAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { acceptProposal, findStepTarget, nextStepOf, propose, type TPatternKind, type TProposal, type TProposeAsk, type TProposeDeps, focusedMarbleId, gapPieceReads, hitOwners, release, changedPieces, editCommands, withEditAnswer, type TContinueAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
@@ -12,6 +13,8 @@ import { commitAtHit, pieceForHit, selectedPieceIds } from './step-loop';
 const FIX_HELD_BUDGET_MS = 10000;
 
 const DEGREE = Math.PI / 180;
+/** Proposals kept for an agent to accept */
+const KEPT_PROPOSALS = 16;
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterward */
 
@@ -32,6 +35,10 @@ export class AssistCx {
 	private pendingContinue: string | null = null;
 	/** What the verdict said of the gap piece on offer, said when it lands */
 	private gapWords: string | null = null;
+	/** What the verdict said of what Next placed last, for an agent's reply */
+	private placedWords: string | null = null;
+	/** What an agent was offered, which it may accept while the track stands */
+	private readonly proposals = new Map<string, TProposal>();
 	/** The gap Next found no way past, for the revision it asked at; the next press places at the note after it */
 	private stuckGap: string | null = null;
 	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
@@ -274,14 +281,46 @@ export class AssistCx {
 		const [isAccepted, , commands] = acceptProposal(project, answer);
 		if (!isAccepted || !commitAtHit(this.studio, hit, piece, commands)) return;
 		// It stays placed, as a person may want it: nothing lands without saying so
-		if (answer.status === 'problems' && answer.words != null) this.studio.notifyEdit(`Placed. ${answer.words}`);
+		this.placedWords = answer.status === 'problems' ? answer.words : null;
+		if (this.placedWords != null) this.studio.notifyEdit(`Placed. ${this.placedWords}`);
+	}
+
+	/** Why what Next placed last has a fault, if it does */
+	get lastPlacedWords(): string | null {
+		return this.placedWords;
+	}
+
+	/** `propose` for an agent: its answer, and what it offers instead, stay to be accepted */
+	async proposeFor(ask: TProposeAsk): Promise<TProposal | null> {
+		const project = this.studio.project;
+		const deps = this.proposeDeps();
+		if (project == null || deps == null) return null;
+		const proposal = await propose(project, ask, deps, this.currentResult() != null ? { result: this.currentResult() as TSimulationResult } : {});
+		for (const kept of [proposal, ...(proposal.instead ?? [])]) this.proposals.set(kept.id, kept);
+		// The newest are what an agent is comparing
+		for (const id of [...this.proposals.keys()].slice(0, Math.max(0, this.proposals.size - KEPT_PROPOSALS))) this.proposals.delete(id);
+		return proposal;
+	}
+
+	/** Lands a proposal exactly as proposed, as one Undo step. Its commands already have later pieces taking up the change */
+	acceptProposalById(id: string): TResult<TProposal, Error> {
+		const project = this.studio.project;
+		const proposal = this.proposals.get(id);
+		if (project == null || proposal == null) return Err(new Error(`There is no proposal ${id}. Propose again.`));
+		const [isAccepted, refusal, commands] = acceptProposal(project, proposal);
+		if (!isAccepted) return Err(refusal);
+		if (!this.studio.simulation.landWorkedOut(commands, { label: 'Accept Proposal' })) return Err(new Error('That proposal could not be applied.'));
+		this.proposals.delete(id);
+		const [first] = proposal.pieces;
+		if (first != null) this.studio.$selection.set(proposal.pieces.map((piece) => piece.id));
+		return Ok(proposal);
 	}
 
 	/** The worker calls a proposal needs */
 	private proposeDeps(): TProposeDeps | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
-		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request), gapPiece: (request) => client.gapPiece(request), settle: (request) => client.settle(request) };
+		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request), gapPiece: (request) => client.gapPiece(request), pattern: (_project, ask) => this.studio.patterns.dryRun({ marbleId: ask.marbleId, from: ask.from, to: ask.to }, ask.kind as TPatternKind, { ...(ask.width != null ? { width: ask.width } : {}), ...(ask.bounce != null ? { bounce: ask.bounce } : {}), ...(ask.maxTilt != null ? { maxTilt: ask.maxTilt } : {}) }), settle: (request) => client.settle(request) };
 	}
 
 	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */
@@ -398,6 +437,7 @@ export class AssistCx {
 			this.studio.$selection.set([ghost.answer.piece.id]);
 			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());
 			// It stays placed, as a person may want it: nothing lands without saying so
+			this.placedWords = this.gapWords;
 			if (this.gapWords != null) this.studio.notifyEdit(`Placed. ${this.gapWords}`);
 		}
 		return true;

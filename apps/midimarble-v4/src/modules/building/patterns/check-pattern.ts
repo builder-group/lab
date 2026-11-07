@@ -2,6 +2,7 @@ import { checkRun, NO_BLENDER_OBJECTS, problemSummary, type TProblemSummary } fr
 import { type TMarble, type TProject, type TProjectCommand, type TVec2, parseHitKey, tieOf } from '@/modules/project';
 import { frameBand, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
 import { answerSettle, changedPieces, editCommands, withEditAnswer } from '../edit-rule';
+import { playingNotes } from '../verdict';
 import type { THitVerdict, TPatternCourse, TPatternLeaving } from './contract';
 import { BAR_LENGTH, COLUMN_PROBLEM, sampleAt } from './fit-bars';
 import { patternOfKind } from './registry';
@@ -46,7 +47,7 @@ interface TStanding {
 function standing(project: TProject, result: TSimulationResult): TStanding {
 	return {
 		summary: problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS), 'track'),
-		onTime: new Set(result.hits.filter((hit) => hit.status === 'onTime' || hit.status === 'drifting').map((hit) => `${hit.marbleId}/${hit.hitId}`))
+		onTime: playingNotes(result)
 	};
 }
 

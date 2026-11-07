@@ -48,6 +48,14 @@ To fix a touching pair or a second strike, try these in order of how little they
 
 Build marbles together in time order, since they can collide with each other's pieces. The same project and the same calls always give the same track.
 
+## Ask before placing
+
+`run_command('build.propose', { marbleId, hitIds: [hitId], kind })` says what would be placed and changes nothing, so you can ask as often as you like and compare. `kind` is `platform`, `rail`, `switchback` or `chain` for the rest before the note, or a Pattern: `zigzag` or `staircase` over the notes in `hitIds` (with `width`, `bounce`, `maxTilt` if wanted) and `longRail` for the rest before its note. Nothing chooses a shape for you.
+
+The reply has `status`: `fits`, every fact holds; `problems`, it would land with the `reasons` listed, and accepting it is your call; `refused`, with nothing to place and `words` saying why; or `buildUpTo`, the note lies past notes with no piece, and `words` names the first. `notes` has one `{ hitId, number, time, state, words }` per note: `onTime`, `reached` (a piece can still play it) or `off`. `changes` lists the pieces it would change, remove or move, before or after those notes. `facts` has `onTime`, `total`, `lost` and `hasRoomAtNext`. A `platform` for a note after a rest answers with `instead`: a proposal for `longRail` and for `switchback`, and the plain platform with its reason when neither fits.
+
+`run_command('build.accept', { proposalId })` lands exactly that proposal as one Undo step. It refuses one made before the track last changed: propose again. `build.next` answers with `status` and, when the piece it placed has a fault, `words`.
+
 ## Reading hits
 
 `get_state.marbles[].hitList` lists every hit as `hitColumns` says: id, time, note, status, its dot, where the marble is at that time, and the song it is tied to. A hit's time is the MIDI note's time plus the Song's `start` (`get_state.song.songs`), one second for an import. `nextOpen` gives the next open hits; `hasDot` means a platform can go there now. Each piece in `layers.pieces` has its `angle` in radians (positive tilts to the left) and `params`, such as a platform's `length` and `bounce`. Statuses in `problems`: **Early/Late** by some ms (tilt or move the platform), **Missed** (the marble passes it), **Stopped** (it rests on it: tilt it), **Blocked** (a piece is in the way before this note), **Too Soon** and **Out of Reach** (no platform can play this hit from where the marble is: change the earlier ones, or make the note Backing with `edit.makeBacking`).
