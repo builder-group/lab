@@ -332,7 +332,12 @@ const CURVED_LAYOUTS: ReadonlySet<string> = new Set(['curve', 'c']);
 
 /** The What button when nothing is chosen: what stands here */
 export function standingWords(project: TProject, target: TBarTarget): string {
-	if (target.kind === 'notes') return `${target.hitIds.length} Notes`;
+	// Where already counts the notes: What says what stands on them
+	if (target.kind === 'notes') {
+		const labels = new Set(target.pieces.map((piece) => getPieceDefinition(piece.type)?.label ?? 'Piece'));
+		const [only] = labels;
+		return !target.pieces.length ? 'Notes' : labels.size === 1 && only != null ? `${only}s` : 'Pieces';
+	}
 	if (target.piece == null) return target.kind === 'rest' ? 'Rest' : 'Note';
 	if (target.kind === 'rest') return restPieceWord(project, target.piece);
 	return getPieceDefinition(target.piece.type)?.label ?? 'Piece';

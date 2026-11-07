@@ -42,6 +42,8 @@ describe('barTargetOf', () => {
 		expect(target).toMatchObject({ kind: 'notes', first: 1, last: 3, hitIds: ['h1', 'h2', 'h3'] });
 		expect(whereWords(target)).toBe('3 notes');
 		expect(whereTitle(target)).toBe('Notes 1 to 3');
+		expect(standingWords(track(EVEN, 0), targetOf(track(EVEN, 0), [hit('h1'), hit('h2')]))).toBe('Notes');
+		expect(standingWords(track(EVEN, 2), targetOf(track(EVEN, 2), [hit('h1'), hit('h2')]))).toBe('Platforms');
 	});
 
 	it('has nothing to say on notes of two marbles or anything else', () => {

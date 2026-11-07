@@ -199,10 +199,12 @@ const BarDetails: React.FC<{ cx: StudioCx; status: TBarStatus }> = (props) => {
 			{status.words != null ? <p className="mm-bar-details-words">{status.words}</p> : null}
 			{status.actions.length > 0 ? (
 				<div className="mm-bar-details-actions">
-					{status.actions.map((action) => (
+					{status.actions.map((action, index) => (
 						<button
 							key={action.label}
 							className="mm-notice-action"
+							// What to do first, like a dialog's default button; the rest go elsewhere
+							data-variant={index === 0 && status.tone !== 'neutral' ? 'primary' : undefined}
 							onClick={() => {
 								cx.bar.closeDetails();
 								action.run();
