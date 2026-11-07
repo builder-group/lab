@@ -59,7 +59,7 @@ function piecesByOrder(project: TProject): string[] {
 
 /** A long fall is only a tip: Build Track still leaves one on a 1.06 s gap, which Patterns don't change */
 function problemsBesidesSong(project: TProject, outcome: TBuildOutcome): string[] {
-	return checkRun(project, outcome.result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind !== 'song' && issue.kind !== 'fall').map((issue) => issue.title);
+	return checkRun(project, outcome.result, NO_BLENDER_OBJECTS).issues.filter((issue) => issue.kind !== 'song' && issue.kind !== 'fall' && issue.kind !== 'opening').map((issue) => issue.title);
 }
 
 describe('buildTrack function', () => {

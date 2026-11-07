@@ -10,9 +10,10 @@ The app is trimmed and waiting for the owner's test against a to-do list.
 - **Patterns:** Zigzag, Staircase and Long Rail, checked before they're applied with a ghost and a verdict per hit, Groups and Flatten.
 - **Film:** themes, skins, Lights as layers, Wall, Camera with shots, titles, Decor with Scatter, Packs, Draft Preview and background Blender frames. Problems here are clear output mistakes only: a marble out of frame, a screen title wider than the frame.
 - **Export:** Draft and Final, each at −14 LUFS with its true peak at −1 dB. The film's first frame is 0 on the timeline, and the sheet shows it. The melody plays 10 dB over the other parts by default.
-- **Agents:** MCP only, with Connect in the Agent menu. No chat in the window.
+- **Agents:** MCP only, with Connect in the Agent menu. No chat in the window. A small film over MCP takes 7 calls and about 2 min, Draft included.
 - **Defaults:** platforms 3 cm long and 15 cm deep on long posts, 30 mm lens, tilt 0.54, Turn 90°, distance 48 cm, Gravity 0.25. Why: `references.md`.
-- **Data:** `marble-project@6`, no migrations, since the app hasn't shipped.
+- **Data:** `marble-project@6`, no migrations, since the app hasn't shipped. A marble has one color, its `labelColor`.
+- **Timeline:** 0 is the film's first frame. An import releases the marble at 0: a new JB opens with its first sound at 0.5 s. Jingle Bells' example still has it at 1 s, from its long start rail, until the fixture is rebuilt.
 
 ## Verified
 
