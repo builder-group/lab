@@ -36,7 +36,7 @@ To fix a touching pair or a second strike, try these in order of how little they
 
 ## One step at a time
 
-1. `build.next` takes the next step: a platform at the next open hit, or a rail when a long gap comes first. Where none fits it takes the step Build Track would, or says what to do; a second press then places a platform at the note after the gap. A reply with `changed: false` placed nothing, and it made no Undo step.
+1. `build.next` takes the next step: a platform at the next open hit, or a rail when a long gap comes first, and its reply's `placed` says what it placed, with its `angle` and how the marble takes it, ready for one `updatePiece` before the next call. Where none fits it takes the step Build Track would, or says what to do; a second press then places a platform at the note after the gap. A reply with `changed: false` placed nothing, and it made no Undo step.
 2. `build.fix` with a platform selected through `args.select` solves that platform's tilt and bounce so it lands on time. To place one at an open hit, select the hit through `args.select` and run `build.next`.
 3. `build.continue` accepts a suggested pattern. `build.repeat` and `build.mirror` copy the last platform's tilt, which makes zigzags.
 4. `build.fix` with nothing selected fixes the whole run. `edit.firstProblem` jumps to the first problem for the person.

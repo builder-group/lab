@@ -637,7 +637,8 @@ function fallIssues(project: TProject, result: TSimulationResult, names: TNames)
 		for (let index = 1; index < hits.length; index++) {
 			const from = hits[index - 1];
 			const to = hits[index];
-			if (from?.dot == null || to?.dot == null) continue;
+			// A note still open has no piece yet, so the marble's fall there says nothing about the track
+			if (from?.dot == null || to?.dot == null || to.status === 'open') continue;
 			const fall = from.dot.y - to.dot.y;
 			if (fall < LONG_FALL) continue;
 			const isBridged = project.track.pieces.some((piece) => tieOf(piece)?.marbleId === marble.id && tieOf(piece)?.hitId === from.hitId && !soundsHit(piece.type ?? '', tieOf(piece)));

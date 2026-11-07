@@ -42,7 +42,11 @@ const PANEL_COMMANDS: Partial<Record<TCommandId, string>> = {
 	'film.exportPack': 'args.path, plus name and either theme or items',
 	'film.addText': 'args.text, and style, at, color, in and out if wanted',
 	'camera.addShot': 'args.time, distance and hold if wanted',
-	'marble.speed': 'args.value, Gravity from 0.05 to 2'
+	'marble.speed': 'args.value, Gravity from 0.05 to 2',
+	'film.theme': "project.execute with { type: 'applyTheme', theme }",
+	'film.format': "project.execute with { type: 'updateProject', patch: { format } }",
+	'decor.scatter': "project.execute with { type: 'placeDecor', source, at }, or the person, whose panel this opens",
+	'decor.add': "project.execute with { type: 'placeDecor', source, at }, or the person, whose panel this opens"
 };
 
 /** Rows for the person: they change or copy how agents reach the app, and an agent could cut itself off with one */
@@ -106,9 +110,11 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 		const libraryItems = cx.library.$projectItems.get().flatMap((item) => (item.manifest?.role === 'skin' ? [{ id: item.id, label: item.manifest.label, fits: item.manifest.pieceType ?? 'any piece' }] : []));
 		return text(cx, {
 			commands: [
-				{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' },
-				{ id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, piece IDs, wall or light:key' },
-				{ id: REMOVE_PACK, title: 'Remove an added Pack: args.name. Projects keep what they use from it' },
+				...[
+					{ id: PROJECT_EXECUTE, title: 'Project commands with parameters: see the building-a-track guide' },
+					{ id: EDIT_SELECT, title: 'Select by keys: args.select, such as hit keys, piece IDs, wall or light:key' },
+					{ id: REMOVE_PACK, title: 'Remove an added Pack: args.name. Projects keep what they use from it' }
+				].filter((command) => words.every((word) => `${command.id} ${command.title}`.toLowerCase().includes(word))),
 				...listed
 			],
 			// What applySkin takes: built-in skins by element, and the project's own
@@ -163,7 +169,7 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 				return invoke(cx, command);
 			},
 			undoName != null ? (canStep ? { [command.id === 'edit.undo' ? 'undid' : 'redid']: undoName } : { notices: [`Nothing to ${command.id === 'edit.undo' ? 'undo' : 'redo'}.`] }) : {},
-			command.id === 'file.save' || command.id === 'file.saveAs' ? () => ({ saved: cx.$path.get(), title: cx.project?.title ?? null }) : undefined
+			command.id === 'file.save' || command.id === 'file.saveAs' ? () => ({ saved: cx.$path.get(), title: cx.project?.title ?? null }) : command.id === 'build.next' ? () => placedReply(cx) : undefined
 		);
 	},
 
@@ -267,6 +273,12 @@ const TOOLS: Record<string, (cx: StudioCx, args: unknown) => Promise<TToolReply>
 	}
 };
 
+/** What Next placed and how the marble takes it, so a tilt can follow in the next call without reading the whole state */
+function placedReply(cx: StudioCx): Record<string, unknown> {
+	const project = cx.project;
+	return project != null ? { placed: resolveSelection(project, cx.simulation.$result.get(), cx.$selection.get())[0] ?? null } : {};
+}
+
 /** A command's own reading of its arguments, whose failure names what the command needs rather than the parser's report */
 async function runWithArgs(command: { id: TCommandId; title: string }, special: NonNullable<(typeof ARGUMENT_COMMANDS)[TCommandId]>, cx: StudioCx, args: Record<string, unknown>): Promise<void> {
 	try {
@@ -274,7 +286,7 @@ async function runWithArgs(command: { id: TCommandId; title: string }, special: 
 	} catch (error) {
 		if (!(error instanceof z.ZodError)) throw error;
 		const needs = PANEL_COMMANDS[command.id];
-		throw new Error(needs != null ? `${command.title} needs ${needs}.` : `${command.title} can't use these arguments: ${error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join('; ')}`);
+		throw new Error(needs != null ? `${command.title} needs ${needs}.` : `${command.title} can't use these arguments: ${error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join('; ')}`, { cause: error });
 	}
 }
 

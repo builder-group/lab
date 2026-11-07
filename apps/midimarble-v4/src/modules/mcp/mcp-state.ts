@@ -75,6 +75,7 @@ export function projectState(project: TProject, result: TSimulationResult | null
 				radius: marble.radius,
 				skin: marble.skin?.assetId ?? resolveElementLook(film, 'marble', marble.skin).skin,
 				start: marble.start.position,
+				releasedAt: marble.start.time,
 				hits: marble.hits.length,
 				onTime: own.filter((hit) => hit.status === 'onTime').length,
 				nextOpen: own.filter((hit) => hit.status === 'open').slice(0, 3).map((hit) => ({ hitId: hit.hitId, time: round(hit.targetTime), hasDot: hit.dot != null })),

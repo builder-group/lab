@@ -1019,6 +1019,7 @@ export class StudioCx {
 		if (history == null || opened == null) return;
 		const next = { ...pushHistory(history, { ...opened, title: history.present.title, revision: history.present.revision + 1 }), isStep: true };
 		this.stepLabels.set(next.groups.present, 'Revert to Opened');
+		if (this.agentStep != null) this.agentStep.didEdit = true;
 		this.stepHistory(history, next);
 	}
 

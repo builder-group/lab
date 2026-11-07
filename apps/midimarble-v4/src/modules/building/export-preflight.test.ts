@@ -122,10 +122,12 @@ describe('checkRun function', () => {
 		const marble = project.marbles[0];
 		const result = simulator.simulate(project);
 		const dots = [0.4, -1.7];
-		const hits = (marble?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: marble?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'open' as const }));
+		const hits = (marble?.hits ?? []).slice(0, 2).map((hit, index) => ({ marbleId: marble?.id ?? '', hitId: hit.id, targetTime: 9 + index, pieceId: null, dot: { x: 0, y: dots[index] ?? 0 }, velocity: null, actualTime: null, error: null, status: 'onTime' as const }));
 
 		const preflight = checkRun(project, { ...result, hits }, []);
 		const tip = preflight.issues.find((issue) => issue.kind === 'fall');
+		const open = hits.map((hit) => ({ ...hit, status: 'open' as const }));
+		expect(checkRun(project, { ...result, hits: open }, []).issues.some((issue) => issue.kind === 'fall')).toBe(false);
 
 		expect(tip?.title).toBe(`${marble?.name} falls 2.1 m at 0:09: a Long Rail fills that gap`);
 		expect(tip?.severity).toBe('info');
