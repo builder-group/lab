@@ -104,7 +104,7 @@ export function fitLongRail(sim: { simulate: (project: TProject) => TSimulationR
 		const leave = ride.leave != null ? ride.leave - from : null;
 		const isStruck = result.contacts.some((contact) => contact.kind === 'piece' && contact.marbleId === marbleId && contact.otherId !== id && contact.time > from + 0.03 && contact.time < to - 0.004 && base.track.pieces.find((item) => item.id === contact.otherId)?.type === 'platform');
 		const isTouching = !ride.isBlocked && touchingPairs(next, result).some((pair) => pair.a === id || pair.b === id);
-		const why = ride.isBlocked ? 'it would run through the marble’s path' : ride.isTrapped ? 'the marble stops on it' : leave == null ? 'the marble misses it' : isStruck ? 'the marble strikes a bar on the way' : null;
+		const why = ride.isBlocked ? 'it would run through the marble’s path' : ride.isTrapped ? 'the marble stops on it' : leave == null ? 'the marble misses it' : isStruck ? 'the marble strikes a platform on the way' : null;
 		if (why != null) whys.set(why, (whys.get(why) ?? 0) + 1);
 		return { piece, project: next, kind, wanted, holdErr: leave == null ? Infinity : leave - wanted, dot: nextHit?.dot ?? last?.position ?? null, sims: 0, width, turns, slope, isTouching, why };
 	};

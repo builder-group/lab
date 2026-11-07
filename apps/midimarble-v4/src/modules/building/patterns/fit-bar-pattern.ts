@@ -212,8 +212,8 @@ function problemsOf(fit: TScoredFit, hits: readonly THit[]): THitVerdict[] {
 	if (!fit.bars.length) add(hits[0]?.id ?? '', 'The marble has not reached this range, so nothing can be fitted here yet.');
 	for (const hitId of fit.late) add(hitId, "The marble can't reach this note on time.");
 	for (const bar of fit.bars) for (const issue of bar.why) add(bar.hitId, issueWords(issue, fit.width));
-	for (const hitId of fit.strikes) add(hitId, 'The marble strikes this bar twice.');
-	for (const hitId of fit.rolls) add(hitId, 'The marble rolls along this bar instead of bouncing. Try a higher Bounce.');
+	for (const hitId of fit.strikes) add(hitId, 'The marble strikes this platform twice.');
+	for (const hitId of fit.rolls) add(hitId, 'The marble rolls along this platform instead of bouncing. Try a higher Bounce.');
 	for (const hitId of fit.touching) add(hitId, 'Two pieces touch on the wall here. Try another Width or Bounce.');
 	return problems;
 }
@@ -234,13 +234,13 @@ function issueWords(issue: TBarIssue, width: number): string {
 		case 'late':
 			return 'The marble misses this note.';
 		case 'resting':
-			return 'The marble settles on this bar instead of striking it.';
+			return 'The marble settles on this platform instead of striking it.';
 		case 'restrike':
-			return 'The marble lands on this bar a second time.';
+			return 'The marble lands on this platform a second time.';
 		case 'stray':
-			return `The marble strikes another bar on the way at Width ${formatCm(width)}.`;
+			return `The marble strikes another platform on the way at Width ${formatCm(width)}.`;
 		case 'rolls':
-			return 'The marble rolls along this bar instead of bouncing. Try a higher Bounce.';
+			return 'The marble rolls along this platform instead of bouncing. Try a higher Bounce.';
 	}
 }
 
@@ -259,7 +259,7 @@ function longFalls(result: TSimulationResult, ids: readonly string[], hits: read
 /** A bar past the usual limit is allowed once asked for, and said */
 function tiltNotes(fit: TScoredFit): string[] {
 	const steepest = Math.max(0, ...fit.bars.map((bar) => (Math.abs(bar.angle) * 180) / Math.PI));
-	return steepest > MAX_TILT + 0.5 ? [`Bars tilt up to ${steepest.toFixed(0)}°, past the usual ${MAX_TILT}°.`] : [];
+	return steepest > MAX_TILT + 0.5 ? [`Platforms tilt up to ${steepest.toFixed(0)}°, past the usual ${MAX_TILT}°.`] : [];
 }
 
 /** The report's sentence: "The 0.21 s hop needs more than 40° of tilt at Width 14 cm." */
