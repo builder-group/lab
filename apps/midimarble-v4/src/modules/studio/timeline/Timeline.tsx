@@ -26,9 +26,9 @@ import { Transport } from './Transport';
 
 /**
  * What changes over time, as a Blender-style dope sheet in a Logic-style track
- * area: the transport and hit summary in the header, one row per song on top, each expandable into
- * every note when it has notes, then the Camera, one flat row per marble with its hits by timing status, and in Film
- * Titles when there are any. Mute and Solo sit on the song's and each marble's header.
+ * area: the transport and hit summary in the header, the Camera on top, one row per song, each expandable into
+ * every note when it has notes, then one flat row per marble with its hits by timing status, and in Film Titles when
+ * there are any. Mute and Solo sit on the song's and each marble's header.
  */
 export const Timeline: React.FC<TTimelineProps> = (props) => {
 	const { cx } = props;
@@ -289,6 +289,8 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 						<TimeGutter isRuler />
 						<Ruler cx={cx} end={project.length} zoom={zoom} width={trackWidth} timeAt={timeAt} />
 					</div>
+					{/* The same layers as Layers, in the same order: the Camera, the songs, marbles, then in Film Titles */}
+					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
 					{songs.map((song, index) => (
 						<SongTrack
 							key={song.id}
@@ -313,8 +315,6 @@ export const Timeline: React.FC<TTimelineProps> = (props) => {
 							timeAt={timeAt}
 						/>
 					))}
-					{/* The same layers as Layers, in the same order: the songs, the Camera, marbles, then in Film Titles */}
-					<CameraRow cx={cx} project={project} zoom={zoom} width={trackWidth} selection={selection} timeAt={timeAt} />
 					{project.marbles.map((marble) => (
 						<div key={marble.id} className="flex shrink-0" style={{ height: ROW_HEIGHT }}>
 							<TrackHeader cx={cx} project={project} marble={marble} selection={selection} />

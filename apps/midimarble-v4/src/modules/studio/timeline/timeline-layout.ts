@@ -12,7 +12,7 @@ export const SONG_ROW_HEIGHT = 40;
 export const SONG_ROLL_MAX_HEIGHT = 240;
 // Transport bar above the ruler
 export const TRANSPORT_HEIGHT = 40;
-// Camera track of the Film workspace, the last track
+// Camera track, the first row
 export const CAMERA_ROW_HEIGHT = 32;
 // One semitone of the Song's piano roll
 export const NOTE_ROW_HEIGHT = 12;
