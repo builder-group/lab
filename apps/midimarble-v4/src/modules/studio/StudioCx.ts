@@ -347,6 +347,8 @@ export class StudioCx {
 		else {
 			this.$selection.set(target.ids);
 			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
+			// Going to a problem means wanting its details: the bar's popover opens on it at once
+			this.bar.openDetails();
 		}
 		if (target.time != null) this.$playhead.set(target.time);
 	}

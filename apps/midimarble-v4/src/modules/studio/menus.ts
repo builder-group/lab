@@ -82,6 +82,8 @@ export function pieceMenu(cx: StudioCx, pieceId?: string): TMenuEntry[] {
 	const isOnlyPiece = selected.length === 1 && ![...(cx.project?.marbles ?? []), ...(cx.project?.film.titles ?? [])].some((layer) => selection.includes(layer.id));
 	return tidyMenu([
 		isOnlyPiece && tieOf(selected[0]) != null ? commandItem(cx, 'build.fix') : null,
+		// At the end of what's built, as the bar's hint to accept
+		isOnlyPiece && cx.bar.canFlip ? { label: 'Flip', shortcut: 'M', onSelect: () => void cx.bar.flip() } : null,
 		selected.some((piece) => tieOf(piece) != null) ? commandItem(cx, 'build.rebuildFrom') : null,
 		'separator',
 		commandItem(cx, 'view.fitSelection'),

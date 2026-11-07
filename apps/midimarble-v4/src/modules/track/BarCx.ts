@@ -260,10 +260,15 @@ export class BarCx {
 		this.ask(kind, true);
 	}
 
-	/** Flip at the end of what's built, with its own key: a hint like any other choice */
-	flip(): boolean {
+	/** Whether Flip applies: a plain platform at the end of what's built, where no later note depends on its direction */
+	get canFlip(): boolean {
 		const { target } = this.$state.get();
-		if (target?.kind !== 'note' || !target.isLastBuilt || target.group != null) return false;
+		return target?.kind === 'note' && target.isLastBuilt && target.group == null && target.piece?.type === 'platform';
+	}
+
+	/** Flip, from M, the right-click menu or the inspector: a hint in the bar like any other choice, landed on accept */
+	flip(): boolean {
+		if (!this.canFlip) return false;
 		this.choose('flip');
 		return true;
 	}
@@ -290,6 +295,12 @@ export class BarCx {
 		const state = this.$state.get();
 		if (state.menu != null) this.closeMenu();
 		this.$state.set({ ...this.$state.get(), isDetailsOpen: !state.isDetailsOpen });
+	}
+
+	/** Opens the status popover on what the bar now stands on, as going to a problem from the summary does */
+	openDetails(): void {
+		const state = this.$state.get();
+		if (state.target != null && !state.isDetailsOpen) this.$state.set({ ...state, menu: null, isDetailsOpen: true });
 	}
 
 	closeDetails(): void {

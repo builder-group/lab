@@ -1,13 +1,11 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft, FlipHorizontal2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft } from 'lucide-react';
 import React from 'react';
-import { ScrubField } from '@/components';
 import { hitReach, isUnreachable, patternOfPiece, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
-import type { TPatternGroup, TPiece, TProject, TVec2 } from '@/modules/project';
+import type { TPatternGroup, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { bandAlongGuide } from '@/modules/simulation';
-import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, plainGroupOf, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import { isRowRefused } from './BarCx';
 import { GhostPiece } from './GhostLayer';
@@ -19,7 +17,10 @@ import { timingStatus, type TTimingStatus } from './timing-status';
 import type { TrackCx } from './TrackCx';
 import { unreachableActions } from './unreachable-fixes';
 
-/** The bar: where you are, what's there or would go there, the one platform's Adjust, and its status at the end, floating over the wall's bottom */
+/**
+ * The bar: where you are, what's there or would go there, and its status at the end, floating over the wall's bottom.
+ * It's about building the track: one platform's Tilt and Flip are in the inspector, on the canvas and on M
+ */
 export const FloatingBar: React.FC<{ cx: StudioCx }> = (props) => {
 	const { cx } = props;
 	const state = useFeatureState(cx.bar.$state);
@@ -44,10 +45,8 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 	const { menu, isDetailsOpen } = useFeatureState(cx.bar.$state);
 	const status = useBarStatus(cx, project, target);
 	if (drag != null || pen != null || tool === 'path') return null;
-	const piece = target.kind === 'note' ? target.piece : null;
 	// A rest filled by a Pattern, such as a Curved Rail, flattens from the bar like a note's Zigzag
 	const group = target.kind === 'rest' ? restPattern(project, target) : target.group;
-	const canAdjust = target.kind === 'note' && piece?.type === 'platform' && target.group == null;
 	return (
 		<div className="mm-bar mm-ghost-in" role="toolbar" aria-label="Note" onPointerDown={(event) => event.stopPropagation()}>
 			<div className="mm-bar-row">
@@ -64,12 +63,6 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 				<span className="mm-bar-what">
 					<BarWhat cx={cx} project={project} target={target} />
 				</span>
-				{canAdjust && piece != null ? (
-					<>
-						<span className="mm-bar-divider" />
-						<BarAdjust cx={cx} piece={piece} isLastBuilt={target.isLastBuilt} />
-					</>
-				) : null}
 				{group != null ? (
 					<>
 						<span className="mm-bar-divider" />
@@ -140,7 +133,8 @@ function useBarStatus(cx: StudioCx, project: TProject, target: TBarTarget): TBar
 		if (words != null) return { tone: base.tone, label: base.label, words, actions: [], hasDetails: true };
 	}
 	if (base.tone === 'bad' || base.tone === 'warn') return { tone: base.tone, label: base.label, words: causeWords(project, target, sender, base), actions: [...fix, ...goToSender], hasDetails: true };
-	return { tone: base.tone, label: base.label, words: base.detail ?? null, actions: [], hasDetails: false };
+	// On time, a click confirms it in a short popover: "Melody hits B4 on time". What's open says so in its tooltip
+	return { tone: base.tone, label: base.label, words: base.detail ?? null, actions: [], hasDetails: base.tone === 'good' && base.detail != null };
 }
 
 /** How what stands here is doing, in the words of the inspector's pill and from the same problems */
@@ -296,46 +290,6 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 function restPattern(project: TProject, target: TBarTarget): TPatternGroup | null {
 	return target.kind === 'rest' && target.piece != null ? patternOfPiece(project, target.piece.id) : null;
 }
-
-const BarAdjust: React.FC<{ cx: StudioCx; piece: TPiece; isLastBuilt: boolean }> = (props) => {
-	const { cx, piece, isLastBuilt } = props;
-	const degrees = Math.round(toDegrees(normalizeSurfaceAngle(piece.angle)) * 10) / 10;
-	const tilted = (value: number): TProject | null => {
-		const { project } = cx;
-		return project != null ? { ...project, track: { ...project.track, pieces: project.track.pieces.map((item) => (item.id === piece.id ? { ...item, angle: toRadians(value) } : item)) } } : null;
-	};
-	return (
-		<>
-			<span className="mm-bar-tilt">
-				<ScrubField
-					id="bar-tilt"
-					label="∠"
-					name="Tilt"
-					value={degrees}
-					unit="°"
-					step={0.5}
-					precision={1}
-					min={-90}
-					max={90}
-					onPreview={(value) => {
-						const project = tilted(value);
-						if (project != null) cx.simulation.startPreview(project);
-					}}
-					onCommit={(value) => {
-						void cx.simulation.landChecked([{ type: 'updatePiece', pieceId: piece.id, patch: { angle: toRadians(value) } }], { label: 'Tilt', anyway: 'Tilt Anyway' });
-						cx.simulation.endPreview();
-					}}
-					onCancel={() => cx.simulation.endPreview()}
-				/>
-			</span>
-			{isLastBuilt ? (
-				<button className="mm-bar-arrow" aria-label="Flip" onClick={() => cx.bar.flip()} title="Tilt it the other way (M)" type="button">
-					<FlipHorizontal2 size={14} strokeWidth={1.7} />
-				</button>
-			) : null}
-		</>
-	);
-};
 
 const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; index: number }> = (props) => {
 	const { cx, target, rows, index } = props;

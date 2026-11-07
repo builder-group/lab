@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, Unplug, WandSparkles } from 'lucide-react';
+import { Anchor, FlipHorizontal2, Unplug, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import { type TPiece, type TPlace, type TProject, type TProjectCommand, type TVec2, formatTime, freePosition, noteName, toHitKey, tieOf } from '@/modules/project';
@@ -26,6 +26,8 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const { cx, project, ids } = props;
 	const result = useFeatureState(cx.simulation.$result);
 	const selection = useFeatureState(cx.$selection);
+	// Flip sits by the angle on the platform at the end of what's built
+	const barTarget = useFeatureState(cx.bar.$state).target;
 	// Pieces another marble hits, from the problem model the hit summary and Layers read
 	const preflight = useRunPreflight(cx);
 	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : new Map<string, TPreflightIssue[]>()), [preflight]);
@@ -139,6 +141,11 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 						onCommit={(value) => commit(angleEdit(value))}
 						onCancel={cancel}
 					/>
+				) : null}
+				{isSingle && barTarget?.kind === 'note' && barTarget.piece?.id === first.id && cx.bar.canFlip ? (
+					<button className="mm-icon-button self-center" aria-label="Flip" onClick={() => cx.bar.flip()} title="Flip: tilt it the other way, as a hint in the bar (M)" type="button">
+						<FlipHorizontal2 size={14} strokeWidth={1.7} />
+					</button>
 				) : null}
 				{isPath && isSingle && resolved != null && first.path?.nodes == null ? <PathRunFields cx={cx} project={project} piece={first} resolved={resolved} /> : null}
 				{link != null && attach.kind === 'linked' && kind === 'box' ? (

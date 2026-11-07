@@ -2833,11 +2833,13 @@ button.mm-lcd-length:hover {
 }
 
 /* Contextual build bar under the piece or dot it acts on, like Figma's selection toolbar */
-/* One fixed width, so nothing in it shifts as what it says changes: Where on the left, the status mark at the end */
+/* It hugs what it holds, like Figma's, yet holds steady: Where has a fixed width and What a stable minimum, so stepping
+   through notes never jumps between very different sizes. No animation, which is calmer than a moving edge */
 .mm-bar {
 	position: relative;
 	pointer-events: auto;
-	width: min(400px, 100%);
+	width: max-content;
+	max-width: 100%;
 	border-radius: 10px;
 	background: var(--content-raised);
 	box-shadow:
@@ -2886,10 +2888,11 @@ button.mm-lcd-length:hover {
 
 .mm-bar-what {
 	display: flex;
-	flex: 1;
+	flex: 0 1 auto;
 	align-items: center;
 	gap: 2px;
-	min-width: 0;
+	min-width: 132px;
+	max-width: 240px;
 }
 
 .mm-bar-label {
@@ -3053,12 +3056,6 @@ button.mm-bar-mark:hover,
 	flex-wrap: wrap;
 	gap: 4px;
 	margin: 8px 0 0 12px;
-}
-
-.mm-bar-tilt {
-	display: block;
-	flex: none;
-	width: 76px;
 }
 
 .mm-bar-menu {
