@@ -1,5 +1,7 @@
 // The comparison table for Build Entire Track: notes on time, Problems, time, camera, and how rests and repeats come
 // out, per song, Gravity and marble count. Run it on two commits and compare the rows; nothing here chooses for the app.
+// The songs are Jingle Bells and reference-20 from `fixtures/` and Ode to Joy (`songs.ts`), tuned on nothing; no other
+// song has two marbles.
 // Usage: tsx scripts/build-table.ts <out.json> [songs, comma] [gravities, comma] [marbles, comma: 1,2] [save-dir]
 // One marble keeps the first and hands the others' notes to Backing; two runs the fixture as it is, where it has two.
 // With a save folder each built project is written there, for a film of it (`export-blender-fixture.ts`).
@@ -10,8 +12,9 @@ import { applyProjectCommands, BACKING_ID, tieOf, type TProject, type TProjectCo
 import { parseProject, serializeProject } from '../src/modules/project/project-file';
 import { createSimulator, type TSimulationResult } from '../src/modules/simulation';
 import { repeatedStretches, STRETCH } from '../src/modules/building/repeats';
+import { odeToJoy } from './songs';
 
-const [out = '', songsText = 'jingle-bells,reference-20', gravitiesText = '0.25,0.3,0.35,0.5', marblesText = '1,2', saveDir = ''] = process.argv.slice(2);
+const [out = '', songsText = 'jingle-bells,reference-20,ode-to-joy',gravitiesText = '0.25,0.3,0.35,0.5', marblesText = '1,2', saveDir = ''] = process.argv.slice(2);
 const DEGREE = Math.PI / 180;
 
 function applied(project: TProject, commands: TProjectCommand[]): TProject {
@@ -21,9 +24,16 @@ function applied(project: TProject, commands: TProjectCommand[]): TProject {
 	return next;
 }
 
-function bare(song: string, gravity: number, marbles: number): TProject | null {
-	const [isOk, error, parsed] = parseProject(readFileSync(`fixtures/${song}.marble.json`, 'utf8'));
+/** A fixture, or Ode to Joy (`songs.ts`), which has one marble */
+function song(name: string): TProject {
+	if (name === 'ode-to-joy') return odeToJoy();
+	const [isOk, error, parsed] = parseProject(readFileSync(`fixtures/${name}.marble.json`, 'utf8'));
 	if (!isOk) throw error;
+	return parsed;
+}
+
+function bare(name: string, gravity: number, marbles: number): TProject | null {
+	const parsed = song(name);
 	if (parsed.marbles.length < marbles) return null;
 	let project: TProject = { ...parsed, gravity, track: { ...parsed.track, pieces: [], groups: [] } };
 	for (const marble of project.marbles.slice(marbles)) {
