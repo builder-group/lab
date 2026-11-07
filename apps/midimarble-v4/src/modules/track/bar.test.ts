@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
 import { createLinkedPiece } from '@/modules/simulation';
-import { acceptWords, barRows, barTargetOf, defaultChoice, frontierStop, selectionOfStop, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
+import { acceptWords, barRows, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -96,10 +97,25 @@ describe('barRows', () => {
 		expect(ids(track(EVEN, 1), [hit('h2')])).toEqual(['platform', 'zigzag', 'staircase', 'buildEntire']);
 	});
 
-	it('offers a rest what fills a rest', () => {
+	it('offers a rest what fills a rest, then the plain piece, in the order a refused default falls through', () => {
 		const project = track(WITH_REST, 2);
-		expect(ids(project, [toRangeKey('m', 1.5, 5)])).toEqual(['longRail', 'switchback', 'buildEntire']);
-		expect(defaultChoice(targetOf(project, [toRangeKey('m', 1.5, 5)]))).toBe('longRail');
+		const rest = targetOf(project, [toRangeKey('m', 1.5, 5)]);
+		expect(ids(project, [toRangeKey('m', 1.5, 5)])).toEqual(['longRail', 'switchback', 'platform', 'buildEntire']);
+		expect(defaultChoice(rest)).toBe('longRail');
+		expect(fallbackOf(rest, 'longRail')).toBe('switchback');
+		expect(fallbackOf(rest, 'switchback')).toBe('platform');
+		expect(fallbackOf(rest, 'platform')).toBeNull();
+		expect(defaultChoice(rest, ['longRail'])).toBe('switchback');
+		expect(defaultChoice(rest, ['longRail', 'switchback'])).toBe('platform');
+		// A note's default doesn't fall through
+		expect(fallbackOf(targetOf(project, [hit('h3')]), 'platform')).toBeNull();
+	});
+
+	it('says which kind it shows and why the ones before it were passed over', () => {
+		const refusal = { words: "Curved Rail doesn't fit at Note 3 of Melody. The rail lets go 0.40 s early for the note at 0:05. Nothing changed." } as TProposal;
+		expect(passedWords([{ kind: 'longRail', proposal: refusal }], 'switchback')).toBe("Curved Rail doesn't fit at Note 3 of Melody. The rail lets go 0.40 s early for the note at 0:05. Switchback instead.");
+		expect(passedWords([{ kind: 'switchback', proposal: { words: 'No switchback holds the marble.' } as TProposal }], 'platform')).toBe("Switchback doesn't fit. No switchback holds the marble. Platform instead.");
+		expect(passedWords([], 'longRail')).toBeNull();
 	});
 
 	it('offers a built note Change to, Rebuild From Here and Remove', () => {

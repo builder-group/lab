@@ -197,12 +197,36 @@ function stretchOf(project: TProject, target: TBarTarget): string[] {
 	return patternPhrase(project, target.marbleId, target.hitId).flatMap((key) => parseHitKey(key)?.hitId ?? []);
 }
 
-/** What a press does when nothing was chosen: the plain piece here, what comes first past the built notes, nothing on what's built */
-export function defaultChoice(target: TBarTarget): TBarChoice | null {
+/** What an empty rest offers by default, in this order: a refused one gives way to the next, a rule and not a judgment. The plain piece comes last */
+const REST_ORDER: readonly TBarChoice[] = ['longRail', 'switchback', 'platform'];
+
+/**
+ * What a press does when nothing was chosen: the plain piece here, what comes first past the built notes, nothing on
+ * what's built. At an empty rest it's the first kind of `REST_ORDER` not yet `passed` over
+ */
+export function defaultChoice(target: TBarTarget, passed: readonly TBarChoice[] = []): TBarChoice | null {
 	if (target.kind === 'notes') return null;
 	if (target.stage === 'built') return null;
 	if (target.stage === 'pastBuilt') return BUILD_UP_TO;
-	return target.kind === 'rest' ? 'longRail' : 'platform';
+	return target.kind === 'rest' ? (REST_ORDER[Math.min(passed.length, REST_ORDER.length - 1)] ?? null) : 'platform';
+}
+
+/** What the default gives way to when `kind` is refused at an empty rest, or null */
+export function fallbackOf(target: TBarTarget, kind: TBarChoice): TBarChoice | null {
+	if (target.kind !== 'rest' || target.stage !== 'open') return null;
+	const index = REST_ORDER.indexOf(kind);
+	return index < 0 ? null : (REST_ORDER[index + 1] ?? null);
+}
+
+/** Why the bar shows `shown` at a rest: each kind passed over with its reason, then what it shows instead */
+export function passedWords(passed: readonly { kind: TBarChoice; proposal: TProposal | null | undefined }[], shown: TBarChoice): string | null {
+	if (!passed.length) return null;
+	const reasons = passed.map(({ kind, proposal }) => {
+		const name = KIND_NAMES[kind] ?? kind;
+		const words = proposal?.words?.replace(/ Nothing changed\.$/, '') ?? '';
+		return words.includes("doesn't fit") ? words : `${name} doesn't fit.${words !== '' ? ` ${words}` : ''}`;
+	});
+	return `${reasons.join(' ')} ${KIND_NAMES[shown] ?? shown} instead.`;
 }
 
 const KIND_NAMES: Record<string, string> = { platform: 'Platform', zigzag: 'Zigzag', staircase: 'Staircase', longRail: 'Curved Rail', switchback: 'Switchback' };
@@ -241,7 +265,8 @@ export function barRows(project: TProject, target: TBarTarget, openNotes: number
 	const prefix = isBuilt ? 'Change to ' : '';
 	if (target.kind === 'rest') {
 		const current = target.piece != null ? restPieceWord(project, target.piece) : null;
-		for (const kind of ['longRail', 'switchback']) if (KIND_NAMES[kind] !== current) rows.push({ id: kind, label: `${prefix}${KIND_NAMES[kind]}`, isChoice: true });
+		const kinds = isBuilt ? REST_ORDER.filter((kind) => kind !== 'platform') : REST_ORDER;
+		for (const kind of kinds) if (KIND_NAMES[kind] !== current) rows.push({ id: kind, label: `${prefix}${KIND_NAMES[kind]}`, isChoice: true });
 	} else {
 		if (target.kind === 'note' && !isBuilt) rows.push({ id: 'platform', label: 'Platform', isChoice: true });
 		const stretch = stretchOf(project, target);

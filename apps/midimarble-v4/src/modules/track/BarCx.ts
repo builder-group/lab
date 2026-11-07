@@ -1,9 +1,9 @@
 import { createState } from 'feature-state';
-import { acceptProposal, displayPiece, PatternCanceledError, propose, type TProposal, type TProposeDeps } from '@/modules/building';
+import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, propose, type TProposal, type TProposeDeps } from '@/modules/building';
 import { type TProject, tieOf } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx, TNotice } from '@/modules/studio';
-import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, frontierStop, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, frontierStop, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -27,9 +27,11 @@ export interface TBarState {
 	menu: { rows: TBarRow[]; index: number } | null;
 	/** Presses made while the answer was on its way */
 	queued: number;
+	/** At an empty rest, the defaults refused before the one chosen, in their fixed order */
+	passed: TBarChoice[];
 }
 
-const EMPTY: TBarState = { target: null, choice: null, answers: {}, menu: null, queued: 0 };
+const EMPTY: TBarState = { target: null, choice: null, answers: {}, menu: null, queued: 0, passed: [] };
 
 /** The one question at a time for one target on one track: moving on or an edit makes a new one and the old one's answers are dropped */
 interface TBarSession {
@@ -207,7 +209,9 @@ export class BarCx {
 			return;
 		}
 		const last = proposal.ask.hitIds.at(-1);
-		const stop = target.kind === 'rest' ? stopBeside(now, target, 1) : last != null ? stopAfterNote(now, target.marbleId, last) : null;
+		// A rest's rail leaves the note after it open, and the plain piece plays it
+		const isLastPlayed = last != null && hitOwners(now, target.marbleId).has(last);
+		const stop = target.kind === 'rest' && !isLastPlayed ? stopBeside(now, target, 1) : last != null ? stopAfterNote(now, target.marbleId, last) : null;
 		if (stop != null) this.goTo(now, stop);
 		else this.studio.$selection.set(selectionOfLast(now, proposal));
 	}
@@ -252,7 +256,7 @@ export class BarCx {
 			this.$state.set({ ...state, queued: 0 });
 			return true;
 		}
-		const fallback = state.target != null ? defaultChoice(state.target) : null;
+		const fallback = state.target != null ? defaultChoice(state.target, state.passed) : null;
 		if (state.choice === fallback) return false;
 		this.$state.set({ ...state, choice: fallback });
 		return true;
@@ -375,9 +379,9 @@ export class BarCx {
 		const next: TBarSession = { project, key, waiting: [], isAsking: false, isRevealed: isSameTarget, stopped: new Set() };
 		this.session = next;
 		// What was chosen by hand stays through an edit; the default follows the track, so past the built notes it's no more once they're built
-		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target) && state.choice !== 'flip';
+		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target, state.passed) && state.choice !== 'flip';
 		const choice = isSameTarget && isChosenByHand ? state.choice : defaultChoice(target);
-		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0 });
+		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0, passed: [] });
 		this.revealOnce(next, target);
 		this.askChoice();
 	}
@@ -462,11 +466,24 @@ export class BarCx {
 		write({ proposal, answerMs: performance.now() - startedAt, ...(proposal.shown.length > 0 ? { shape: proposal.shown } : {}) });
 		// Where the hint sends the marble is part of the hint
 		if (session === this.session && this.$state.get().choice === kind && proposal.nextDot != null) this.studio.$reveal.set({ ids: targetHitKeys(target), point: proposal.nextDot, isZoomKept: true });
+		if (session === this.session && proposal.status === 'refused' && this.fallThrough(target, kind)) return;
 		const state = this.$state.get();
 		if (session !== this.session || state.choice !== kind || state.queued === 0) return;
 		// A press made before the answer takes it only if there's nothing it should have read first
 		this.$state.set({ ...state, queued: proposal.status === 'fits' ? state.queued - 1 : 0 });
 		if (proposal.status === 'fits') this.acceptAnswer(proposal);
+	}
+
+	/** A refused default at an empty rest gives way to the next kind in the fixed order, and says why. Presses made meanwhile are dropped, as there's something to read first */
+	private fallThrough(target: TBarTarget, kind: TBarChoice): boolean {
+		const state = this.$state.get();
+		const next = fallbackOf(target, kind);
+		if (next == null || state.choice !== kind || kind !== defaultChoice(target, state.passed)) return false;
+		this.$state.set({ ...state, choice: next, passed: [...state.passed, kind], queued: 0 });
+		// The dropdown may have had it answered already
+		if (state.answers[next]?.proposal?.status === 'refused') this.fallThrough(target, next);
+		else this.ask(next, true);
+		return true;
 	}
 
 	private async answerOf(session: TBarSession, kind: TBarChoice, target: TBarTarget, result: TSimulationResult, onShape: (pieces: TResolvedPiece[]) => void): Promise<TProposal | null> {
@@ -475,8 +492,10 @@ export class BarCx {
 		if (base == null) return null;
 		const deps: TProposeDeps = { ...base, pattern: (asked, ask) => this.studio.patterns.ask(asked, ask, onShape) };
 		const ask = { ...askOf(project, target, kind) };
-		// A note with an empty rest before it gets what a note gets: the rest was its own stop, with its own answer
-		const options = { result, ...(target.kind === 'note' && target.stage === 'open' ? { isAnyDot: true } : {}) };
+		// A note with an empty rest before it gets what a note gets: the rest was its own stop, with its own answer. So
+		// does the plain piece at an empty rest, the marble falling through the silence
+		const isAnyDot = (target.kind === 'note' && target.stage === 'open') || (target.kind === 'rest' && kind === 'platform');
+		const options = { result, ...(isAnyDot ? { isAnyDot: true } : {}) };
 		for (let isRetry = false; ; isRetry = true) {
 			try {
 				const proposal = await propose(project, ask, deps, options);

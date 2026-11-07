@@ -7,7 +7,7 @@ import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { acceptWords, effectWords, hasStopBeside, rowWords, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
+import { acceptWords, defaultChoice, effectWords, hasStopBeside, passedWords, rowWords, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import type { TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { FLATTEN_HELP } from './PatternsCx';
@@ -99,13 +99,15 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		);
 	}
 	const proposal = answer?.proposal;
-	const words = proposal != null ? effectWords(target, proposal) : null;
+	const isPassed = state.choice != null && state.passed.length > 0 && state.choice === defaultChoice(target, state.passed);
+	const passed = isPassed && state.choice != null ? passedWords(state.passed.map((kind) => ({ kind, proposal: state.answers[kind]?.proposal })), state.choice) : null;
+	const words = [passed, proposal != null ? effectWords(target, proposal) : null].filter((part) => part != null).join(' ') || null;
 	if (words != null) {
 		const hit = target.kind === 'note' && proposal?.status === 'refused' ? result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId) : undefined;
 		const reach = hit != null ? hitReach(project, result, hit) : null;
 		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, releaseFixFor(project, hit, reach)) : [];
 		return (
-			<div className="mm-bar-line" data-tone={proposal?.status === 'fits' ? undefined : 'bad'}>
+			<div className="mm-bar-line" data-tone={proposal == null || proposal.status === 'fits' ? undefined : 'bad'}>
 				<span title={words}>
 					{words}
 				</span>

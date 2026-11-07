@@ -4,6 +4,7 @@ import { applyProjectCommands, createHistory, createMarble, createProject, pushH
 import { localProposeDeps } from '@/modules/building';
 import { createSimulator, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
+import { defaultChoice } from './bar';
 import { BarCx } from './BarCx';
 
 let simulator: TSimulator;
@@ -200,6 +201,25 @@ describe('BarCx', () => {
 		expect(lands()).toBe(1);
 		expect(bar.escape()).toBe(true);
 		expect(bar.$state.get().choice).toBeNull();
+		expect(bar.escape()).toBe(false);
+	});
+
+	it('at an empty rest falls through a refused Curved Rail to the next kind in the fixed order', async () => {
+		const { bar } = studio(notes([0.5, 1, 2.5, 3]));
+		await flush();
+		bar.enter();
+		await flush();
+		bar.enter();
+		await flush();
+		await flush();
+		const state = bar.$state.get();
+		expect(state.target).toMatchObject({ kind: 'rest', stage: 'open' });
+		// The stand-in's Patterns answer nothing, so Curved Rail is refused
+		expect(state.answers['longRail']?.proposal?.status).toBe('refused');
+		expect(state.passed[0]).toBe('longRail');
+		expect(state.choice).toBe(state.target != null ? defaultChoice(state.target, state.passed) : null);
+		expect(state.choice).not.toBe('longRail');
+		// Esc has nothing to take back: the choice is the default
 		expect(bar.escape()).toBe(false);
 	});
 
