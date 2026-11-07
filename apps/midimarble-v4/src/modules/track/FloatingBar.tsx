@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, FolderInput } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft, FlipHorizontal2, FolderInput } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
 import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
@@ -268,7 +268,10 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 			<span className="mm-bar-split">
 				<button className="mm-bar-accept" data-tone={isRefused ? 'none' : isProblem ? 'bad' : 'go'} aria-busy={isChecking} disabled={isRefused && target.kind !== 'rest'} onClick={() => cx.bar.enter()} title={isChecking ? 'Checking it. A press takes it once it plays' : `${label} and go on (⏎)`} type="button">
 					<span className="mm-bar-label">{queued > 0 ? `${label} ×${queued}` : label}</span>
-					<kbd className="mm-keycap">⏎</kbd>
+					{/* The Return key's own ⏎, drawn so no font turns it into Undo's ↩ */}
+					<kbd className="mm-keycap" aria-label="Return">
+						<CornerDownLeft size={11} strokeWidth={2} aria-hidden />
+					</kbd>
 				</button>
 				{toggle}
 			</span>
