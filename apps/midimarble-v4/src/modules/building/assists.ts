@@ -89,7 +89,7 @@ function copyToNextOpenHit(
 	options: TAssistIdOptions
 ): TResult<TAssistPlacement, Error> {
 	const open = nextOpenHit(project, result, marbleId);
-	if (open == null) return Err(new Error('The marble has no open hit after its last piece'));
+	if (open == null) return Err(new Error('The marble has no open note after its last piece'));
 	if (open.previous == null) return Err(new Error('There is no earlier piece to copy'));
 	const piece = copyLinkedPiece(open.previous.piece, open.hit.id, isMirrored, {
 		pieces: project.track.pieces,
@@ -473,12 +473,12 @@ function placementContext(
 	const index = marble?.hits.findIndex((hit) => hit.id === hitId) ?? -1;
 	const hit = marble?.hits[index];
 	if (marble == null || hit == null)
-		return Err(new Error(`Hit ${hitId} does not exist in marble ${marbleId}`));
+		return Err(new Error(`Note ${hitId} does not exist in marble ${marbleId}`));
 	if (!isMusicalPiece(type))
-		return Err(new Error(`${getPieceDefinition(type)?.label ?? type} is scenery and never sounds a hit`));
+		return Err(new Error(`${getPieceDefinition(type)?.label ?? type} is scenery and never sounds a note`));
 	const hitResult = findHitResult(result, marbleId, hitId);
 	const dot = hitResult?.dot;
-	if (dot == null) return Err(new Error('The marble does not reach this hit'));
+	if (dot == null) return Err(new Error('The marble does not reach this note'));
 	const velocity = hitResult?.velocity ?? null;
 
 	const owners = hitOwners(project, marbleId);

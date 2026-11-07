@@ -277,7 +277,7 @@ function offersFor(project: TProject, ask: TPatternAsk, change: TGroupChange, an
 		const last = hits[size - 1];
 		const first = hits[0];
 		if (size < 2 || last == null || first == null || !fits({ ...change, from: first.time, to: last.time })) continue;
-		const range = `Hits ${number(first.id)}–${number(last.id)}`;
+		const range = `Notes ${number(first.id)}–${number(last.id)}`;
 		offers.push({ label: `Use ${range}`, words: `${label} fits ${range} of ${marble.name}.`, from: first.time, to: last.time });
 		break;
 	}
@@ -289,7 +289,7 @@ function refusalOf(project: TProject, outcome: TGroupRunOutcome, marbleId: strin
 	const [problem] = outcome.problems;
 	const hit = problem != null ? hitWords(project, problem.hitId) : null;
 	const label = outcome.name.replace(/ \d+$/, '');
-	const words = hit != null && problem != null ? `${label} doesn't fit at Hit ${hit.number} of ${hit.name}. ${problem.words} Nothing changed.` : `${problem?.words ?? `${label} doesn't fit here.`} Nothing changed.`;
+	const words = hit != null && problem != null ? `${label} doesn't fit at Note ${hit.number} of ${hit.name}. ${problem.words} Nothing changed.` : `${problem?.words ?? `${label} doesn't fit here.`} Nothing changed.`;
 	return { marbleId: hit?.marbleId ?? marbleId, hitId: hit?.hitId ?? null, words };
 }
 
@@ -300,7 +300,7 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	const [blocking] = outcome.blocking;
 	if (blocking != null) {
 		const hit = hitWords(before, blocking.hitId);
-		const at = hit != null ? `at Hit ${hit.number} of ${hit.name}` : 'here';
+		const at = hit != null ? `at Note ${hit.number} of ${hit.name}` : 'here';
 		return refused({ marbleId: hit?.marbleId ?? marbleId, hitId: hit?.hitId ?? null, words: `${label} doesn't fit ${at}. ${blocking.words} Nothing changed.` });
 	}
 	if (!outcome.commands.length) return { refusal: null, commands: [], movedAfter: 0 };

@@ -96,7 +96,7 @@ export function linkPieceToHit(
 	if (!isMusicalPiece(type)) return Err(new Error(`A ${type} is scenery; anchor it instead`));
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = marble?.hits.find((item) => item.id === hitId);
-	if (marble == null || hit == null) return Err(new Error(`Hit ${hitId} not found`));
+	if (marble == null || hit == null) return Err(new Error(`Note ${hitId} not found`));
 	const owner = project.track.pieces.find(
 		(item) =>
 			item.id !== pieceId &&
@@ -109,7 +109,7 @@ export function linkPieceToHit(
 	const dot =
 		result.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId)?.dot ??
 		(track != null ? trajectoryAt(track.samples, hit.time, gravityOf(project))?.position : null);
-	if (dot == null) return Err(new Error(`The marble of ${marble.name} does not reach that hit`));
+	if (dot == null) return Err(new Error(`The marble of ${marble.name} does not reach that note`));
 
 	const pose = freePose(piece, resolved, track?.radius);
 	const params = resolvePieceParams(type, piece.params ?? {});

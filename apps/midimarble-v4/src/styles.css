@@ -2793,6 +2793,13 @@ button.mm-lcd-length:hover {
 	font-size: 12px;
 }
 
+.mm-bar-line > span {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
 .mm-bar-line[data-tone='bad'] {
 	color: var(--bad);
 }

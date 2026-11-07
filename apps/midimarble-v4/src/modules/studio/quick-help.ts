@@ -18,8 +18,8 @@ export const quickHelpRegions: TQuickHelpRegion[] = [
 	{ id: 'inspector', title: 'Inspector', line: 'Settings of the selection: its skin, or the Scene with its theme', gutter: 'right' },
 	{ id: 'timelineLayers', title: 'Timeline', line: 'The same layers along the time: the song, each marble and the camera, in Film also titles', gutter: 'bottom' },
 	{ id: 'song', title: 'Song', line: 'The music; each marble plays some of its notes. Expand it to see and edit every note', gutter: 'bottom' },
-	{ id: 'hitSummary', title: 'Hit Summary', line: 'Says when every hit is on time; click it to find a problem', gutter: 'bottom' },
-	{ id: 'transport', title: 'Transport', line: 'Play, step from hit to hit and see the time', gutter: 'bottom' }
+	{ id: 'hitSummary', title: 'Note Summary', line: 'Says when every note is on time; click it to find a problem', gutter: 'bottom' },
+	{ id: 'transport', title: 'Transport', line: 'Play, step from hit to note and see the time', gutter: 'bottom' }
 ];
 
 export interface TQuickHelpRegion {

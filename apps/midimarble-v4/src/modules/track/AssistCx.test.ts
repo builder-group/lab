@@ -97,7 +97,7 @@ describe('AssistCx class', () => {
 			expect(cx.project).toBe(edited);
 			expect(simulateAssist).toHaveBeenCalledWith(edited);
 			expect(assist.$lastBuild.get()?.isStopped).toBe(true);
-			expect(assist.$lastBuild.get()?.message).toContain('0 of 1 hit on time');
+			expect(assist.$lastBuild.get()?.message).toContain('0 of 1 note on time');
 			expect(assist.$lastBuild.get()?.attention).toMatchObject([{ hitId: 'hit1', status: 'missed' }]);
 		});
 
@@ -110,7 +110,7 @@ describe('AssistCx class', () => {
 			await assist.buildTrack();
 
 			// Assert
-			expect(landed).toHaveBeenCalledWith(BUILT, expect.objectContaining({ label: 'Build Track' }));
+			expect(landed).toHaveBeenCalledWith(BUILT, expect.objectContaining({ label: 'Build Entire Track' }));
 		});
 
 		it('should land in its own project', async () => {

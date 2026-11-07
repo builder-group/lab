@@ -2396,7 +2396,7 @@ export function noteLabel(project: TProject, marbleId: string, hitId: string): s
 	const hits = project.marbles.find((marble) => marble.id === marbleId)?.hits ?? [];
 	const index = hits.findIndex((hit) => hit.id === hitId);
 	const pitch = hits[index]?.pitch;
-	return `Hit ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''}`;
+	return `Note ${index + 1}${pitch != null ? ` · ${noteName(pitch)}` : ''}`;
 }
 
 export interface TSnapDot {

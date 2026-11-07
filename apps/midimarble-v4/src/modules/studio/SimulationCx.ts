@@ -349,7 +349,7 @@ export class SimulationCx {
 		const waiting = project.track.pieces.filter((piece) => tieOf(piece)?.marbleId === first.marbleId && (marble?.hits.find((hit) => hit.id === tieOf(piece)?.hitId)?.time ?? -1) > first.time).length;
 		const later = waiting === 1 ? 'The piece after it waits.' : `The ${waiting} pieces after it wait.`;
 		const cause = strayCause(project, result, first.marbleId, first.time);
-		const missed = cause != null ? `${cause} and misses Hit ${number}.` : `${marble?.name ?? 'The marble'} misses Hit ${number}.`;
+		const missed = cause != null ? `${cause} and misses Note ${number}.` : `${marble?.name ?? 'The marble'} misses Note ${number}.`;
 		this.studio.notifyEdit(`${missed} ${later}`, [], { isUndoFirst: true });
 	}
 

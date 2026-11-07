@@ -15,7 +15,7 @@ describe('hitsBeforeStart function', () => {
 describe('hitsBeforeStartWords function', () => {
 	it('should say nothing before the first note and name the notes past it', () => {
 		expect(hitsBeforeStartWords(marble, 0.5)).toBeNull();
-		expect(hitsBeforeStartWords(marble, 1.2)).toBe('Hit 1 comes before this start');
-		expect(hitsBeforeStartWords(marble, 2.5)).toBe('Hits 1 to 3 come before this start');
+		expect(hitsBeforeStartWords(marble, 1.2)).toBe('Note 1 comes before this start');
+		expect(hitsBeforeStartWords(marble, 2.5)).toBe('Notes 1 to 3 come before this start');
 	});
 });

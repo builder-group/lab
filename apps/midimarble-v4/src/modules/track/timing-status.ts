@@ -46,7 +46,7 @@ export function timingStatus(
 			if (hit.error == null) return { tone: 'bad', label: 'Missed', detail: `${marble} passes ${target} without touching it` };
 			return { tone: 'bad', label: 'Missed', detail: landsDetail(hit.error) };
 		case 'waiting':
-			return { tone: 'neutral', label: 'Waiting', detail: `${target === 'this piece' ? 'This platform' : target} waits where it was until the first hit that needs attention is fixed` };
+			return { tone: 'neutral', label: 'Waiting', detail: `${target === 'this piece' ? 'This platform' : target} waits where it was until the first note that needs attention is fixed` };
 		case 'open':
 			if (unreachable != null) return { tone: 'warn', label: unreachable.label, detail: unreachable.detail };
 			return { tone: 'neutral', label: 'Open', detail: 'No platform plays this note yet' };

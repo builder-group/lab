@@ -16,7 +16,7 @@ export function handNotes(cx: StudioCx, keys: string[], target: string | 'new'):
 	if (!notes.length) return false;
 	// Backing notes live in the Song track; without a song they could not be seen or selected again
 	if (target === BACKING_ID && !canMakeBacking(project)) {
-		cx.notify('Backing needs a song. Delete the hits instead, or import a song first.');
+		cx.notify('Backing needs a song. Delete the notes instead, or import a song first.');
 		return false;
 	}
 	const hitIds = notes.map((item) => item.hit.id);

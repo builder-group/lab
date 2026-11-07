@@ -27,7 +27,7 @@ export function suggestedHits(cx: StudioCx, marble: TMarble, songId?: string): T
 }
 
 export function suggestedHitsLabel(count: number, songName?: string): string {
-	return `Add ${count} Suggested ${count === 1 ? 'Hit' : 'Hits'}${songName != null ? ` from ${songName}` : ''}`;
+	return `Add ${count} Suggested ${count === 1 ? 'Note' : 'Notes'}${songName != null ? ` from ${songName}` : ''}`;
 }
 
 export function addSuggestedHits(cx: StudioCx, marble: TMarble, songId?: string): void {

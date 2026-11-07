@@ -64,7 +64,7 @@ export const platformDefinition: TPieceDefinition = {
 		// `BAR_BODY_DEPTH` skins keep the bar's size and stand it out on a long post (`post_standoff` in skins.py)
 		depth: { default: kit(0.1), min: 0.02, max: 0.2, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.65, min: 0.1, max: 0.95, label: 'Bounce', unit: '' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after note', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.55,
@@ -128,7 +128,7 @@ const railDefinition: TPieceDefinition = {
 		bend: { default: 0.04, min: 0, max: 0.08, label: 'Roundness of each turn', short: 'Turn Curve', unit: 'm' },
 		arc: { default: 0.05, min: 0.02, max: 0.12, label: 'Radius of each curved turn', short: 'Curve', unit: 'm' },
 		sweep: { default: 100, min: 70, max: 130, label: 'How far each curved turn comes round. Past 90° the marble can settle in it', short: 'Lip', unit: '°' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after note', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -154,7 +154,7 @@ export const tunnelDefinition: TPieceDefinition = {
 		radius: { default: kit(0.002), min: 0.001, max: 0.006, label: 'Wall thickness', short: 'Wall', unit: 'm' },
 		bore: { default: kit(0.004), min: 0.001, max: 0.02, label: 'Room around the marble', short: 'Room', unit: 'm' },
 		mouth: { default: kit(0.03), min: 0.01, max: 0.1, label: 'Mouth width', short: 'Mouth', unit: 'm' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after note', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.15,
@@ -185,7 +185,7 @@ const windmillDefinition: TPieceDefinition = {
 		motorSpeed: { default: 0, min: -20, max: 20, label: 'Spin on its own; 0 turns only when the marble pushes it', short: 'Spin', unit: 'rad/s' },
 		depth: { default: kit(0.03), min: 0.02, max: 0.08, label: 'Depth', unit: 'm' },
 		bounce: { default: 0.5, min: 0.2, max: 0.95, label: 'Bounce', unit: '' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after note', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.5,
@@ -208,7 +208,7 @@ export const bowlDefinition: TPieceDefinition = {
 		mirror: { default: 0, min: 0, max: 1, label: 'Which side of the marble the center lies on', short: 'Mirror', unit: '', integer: true },
 		size: { default: kit(0.04), min: 0.035, max: 0.15, label: 'Size of the curve that catches the marble', short: 'Size', unit: 'm' },
 		radius: { default: kit(0.0025), min: 0.001, max: 0.006, label: 'Thickness of the rails', short: 'Thickness', unit: 'm' },
-		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after hit', unit: 's' }
+		entryDelay: { default: 0, min: -ANCHOR_DELAY, max: ANCHOR_DELAY, label: 'Starts after note', unit: 's' }
 	},
 	wallOffset: 0,
 	restitution: 0.1,

@@ -226,7 +226,7 @@ function pieceReferenceProblem(project: TProject, piece: Pick<TPiece, 'type' | '
 	if (tie == null) return null;
 	const marble = project.marbles.find((item) => item.id === tie.marbleId);
 	if (marble == null) return `There is no marble ${tie.marbleId}. get_state.marbles[].marbleId lists them.`;
-	return marble.hits.some((hit) => hit.id === tie.hitId) ? null : `There is no hit ${tie.hitId} on ${marble.name}. ${NO_SUCH_HIT}`;
+	return marble.hits.some((hit) => hit.id === tie.hitId) ? null : `There is no note ${tie.hitId} on ${marble.name}. ${NO_SUCH_HIT}`;
 }
 
 /** Why a Group's marble or pieces can't be named: the ones given that aren't there */
@@ -293,14 +293,14 @@ function valueProblem(project: TProject, items: readonly TLibraryItem[], packThe
 		case 'assignHits': {
 			const known = new Set([...project.marbles.flatMap((marble) => marble.hits), ...backingOf(project)].map((hit) => hit.id));
 			const missing = command.hitIds.find((id) => !known.has(id));
-			return missingMarble(command.marbleId) ?? (missing != null ? `There is no hit ${missing}. ${NO_SUCH_HIT}` : null);
+			return missingMarble(command.marbleId) ?? (missing != null ? `There is no note ${missing}. ${NO_SUCH_HIT}` : null);
 		}
 		case 'removeHits': {
 			const marble = missingMarble(command.marbleId);
 			if (marble != null) return marble;
 			const owner = project.marbles.find((item) => item.id === command.marbleId);
 			const missing = owner == null ? undefined : command.hitIds.find((id) => !owner.hits.some((hit) => hit.id === id));
-			return missing != null ? `There is no hit ${missing} on that marble. ${NO_SUCH_HIT}` : null;
+			return missing != null ? `There is no note ${missing} on that marble. ${NO_SUCH_HIT}` : null;
 		}
 		case 'updateFilm':
 			return filmProblem(project, items, command.film);
@@ -360,7 +360,7 @@ export function expandCommands(project: TProject, result: TSimulationResult | nu
 		if (!isExpandedOk) return Err(expandedErr);
 		const [isAppliedOk, appliedErr, applied] = applyProjectCommands(running, expanded.commands);
 		if (!isAppliedOk) return Err(appliedErr);
-		if (changesRadius(running, command)) notices.push('A marble\'s radius changes the run, so hits can move. Read hits in this reply; 0.012 is the usual radius, and Undo takes it back.');
+		if (changesRadius(running, command)) notices.push('A marble\'s radius changes the run, so notes can move. Read notes in this reply; 0.012 is the usual radius, and Undo takes it back.');
 		running = applied;
 		commands.push(...expanded.commands);
 		if (expanded.piece != null) createdIds.push(expanded.piece.id);
@@ -427,12 +427,12 @@ function placedPiece(project: TProject, result: TSimulationResult | null, comman
 	if (command.hit != null) {
 		const hit = command.hit;
 		const target = result?.hits.find((item) => item.marbleId === hit.marbleId && item.hitId === hit.hitId);
-		if (target?.dot == null) return Err(new Error(`Hit ${hit.hitId} has no dot yet. Place the hits before it first.`));
+		if (target?.dot == null) return Err(new Error(`Note ${hit.hitId} has no dot yet. Place the notes before it first.`));
 		piece = pieceForHit(project, target, command.pieceType);
 	} else if (command.position != null) {
 		piece = createFreePiece(command.pieceType, { position: command.position, angle: command.angle ?? 0 }, project.track.pieces, command.path != null ? { points: command.path } : undefined);
 	} else {
-		return Err(new Error('placePiece needs a hit or a position'));
+		return Err(new Error('placePiece needs a note or a position'));
 	}
 	if (command.params != null) piece.params = { ...piece.params, ...command.params };
 	if (command.angle != null) piece.angle = command.angle;

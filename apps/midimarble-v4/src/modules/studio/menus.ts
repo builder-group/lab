@@ -160,10 +160,10 @@ export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntr
 	const moving = selected.includes(key) ? selected : [key];
 
 	return tidyMenu([
-		{ section: `${marble.name} · Hit ${marble.hits.indexOf(hit) + 1} · ${formatTime(hit.time)}` },
-		{ label: 'Go to Hit', onSelect: () => cx.$playhead.set(hit.time) },
+		{ section: `${marble.name} · Note ${marble.hits.indexOf(hit) + 1} · ${formatTime(hit.time)}` },
+		{ label: 'Go to Note', onSelect: () => cx.$playhead.set(hit.time) },
 		{
-			label: 'Play from Hit',
+			label: 'Play from Note',
 			onSelect: () => {
 				cx.$playhead.set(hit.time);
 				cx.$playing.set(true);
@@ -174,7 +174,7 @@ export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntr
 		'separator',
 		...playedByMenu(cx, moving),
 		'separator',
-		{ label: 'Delete Hit', onSelect: () => void deleteHits(cx, moving) }
+		{ label: 'Delete Note', onSelect: () => void deleteHits(cx, moving) }
 	]);
 }
 
@@ -185,8 +185,8 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 
 	return tidyMenu([
 		{ section: marble.name },
-		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, marble, time) } : null,
-		{ label: 'Select All Hits', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
+		time != null ? { label: `Add Note at ${formatTime(time)}`, onSelect: () => addHit(cx, marble, time) } : null,
+		{ label: 'Select All Notes', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
 		...suggestedHitChoices(cx, marble),
 		marble.hits.some((hit) => hit.songId != null) ? { label: tieLabel(null), onSelect: () => cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: tiedToSong(marble.hits, null) }], { label: tieLabel(null) }) } : null,
 		'separator',

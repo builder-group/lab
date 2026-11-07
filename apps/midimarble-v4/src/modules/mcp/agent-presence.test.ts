@@ -30,10 +30,10 @@ describe('Agent status line', () => {
 });
 
 describe('Presence words', () => {
-	const titleOf = (id: string): string | null => ({ 'build.track': 'Build Track', 'build.addBowl': 'Add Bowl', 'view.track': 'Track' })[id] ?? null;
+	const titleOf = (id: string): string | null => ({ 'build.track': 'Build Entire Track', 'build.addBowl': 'Add Bowl', 'view.track': 'Track' })[id] ?? null;
 
 	it('should say what a call is doing and nothing for what only reads', () => {
-		expect(presenceLabel('run_command', { id: 'build.track' }, titleOf)).toBe('Building Track');
+		expect(presenceLabel('run_command', { id: 'build.track' }, titleOf)).toBe('Building Entire Track');
 		expect(presenceLabel('run_command', { id: 'view.track' }, titleOf)).toBeNull();
 		expect(presenceLabel('run_command', { id: 'play.toggle' }, titleOf)).toBeNull();
 		expect(presenceLabel('run_command', { id: 'project.execute', args: { label: 'Tilt Platform 12' } }, titleOf)).toBe('Tilting Platform 12');
@@ -77,7 +77,7 @@ describe('AgentPresenceCx', () => {
 
 	it('should say Stopping until the running call has ended, then go at once', () => {
 		const presence = new AgentPresenceCx();
-		const end = presence.begin('Building Track');
+		const end = presence.begin('Building Entire Track');
 		const epoch = presence.stopEpoch;
 		presence.requestStop();
 		expect(presence.stopEpoch).toBe(epoch + 1);
@@ -234,7 +234,7 @@ describe('Stop and edits through McpCx', () => {
 		cx.mcp.stop();
 		expect(assist.stopBuild).not.toHaveBeenCalled();
 		let bowl: () => void = () => undefined;
-		const step = cx.runAgentStep('Agent: Build Track', () => new Promise<void>((resolve) => (bowl = resolve)));
+		const step = cx.runAgentStep('Agent: Build Entire Track', () => new Promise<void>((resolve) => (bowl = resolve)));
 		cx.mcp.stop();
 		expect(assist.stopBuild).toHaveBeenCalledTimes(1);
 		bowl();

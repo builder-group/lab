@@ -138,7 +138,7 @@ export async function verdictWithRoom(ask: TVerdictAsk, simulate: (project: TPro
 export function reasonWords(project: TProject, reason: TVerdictReason): string {
 	const pieceName = (id: string): string => project.track.pieces.find((piece) => piece.id === id)?.name ?? id;
 	const marbleName = (id: string): string => project.marbles.find((marble) => marble.id === id)?.name ?? id;
-	const hitName = (marbleId: string, hitId: string): string => `Hit ${(project.marbles.find((marble) => marble.id === marbleId)?.hits.findIndex((hit) => hit.id === hitId) ?? -1) + 1} of ${marbleName(marbleId)}`;
+	const hitName = (marbleId: string, hitId: string): string => `Note ${(project.marbles.find((marble) => marble.id === marbleId)?.hits.findIndex((hit) => hit.id === hitId) ?? -1) + 1} of ${marbleName(marbleId)}`;
 	switch (reason.kind) {
 		case 'late':
 			return `${hitName(reason.marbleId, reason.hitId)} no longer plays on time (${reason.why}).`;
@@ -147,7 +147,7 @@ export function reasonWords(project: TProject, reason: TVerdictReason): string {
 		case 'crossing':
 			return `${marbleName(reason.marbleId)} hits ${project.marbles.some((marble) => marble.id === reason.otherId) ? marbleName(reason.otherId) : pieceName(reason.otherId)}.`;
 		case 'outsideBand':
-			return `${hitName(reason.marbleId, reason.hitId)} lies outside the frame band.`;
+			return `${hitName(reason.marbleId, reason.hitId)} lies outside the frame.`;
 		case 'struckTwice':
 			return `The marble strikes ${pieceName(reason.pieceId)} twice.`;
 		case 'rolls':
@@ -157,7 +157,7 @@ export function reasonWords(project: TProject, reason: TVerdictReason): string {
 		case 'touching':
 			return `${pieceName(reason.a)} touches ${pieceName(reason.b)}.`;
 		case 'nextOutOfBand':
-			return `The marble lands outside the frame band at ${hitName(reason.marbleId, reason.hitId)}.`;
+			return `The marble lands outside the frame at ${hitName(reason.marbleId, reason.hitId)}.`;
 		case 'noRoom':
 			return `There's no room for a platform at ${hitName(reason.marbleId, reason.hitId)}.`;
 		case 'offPace':

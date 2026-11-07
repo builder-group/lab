@@ -61,7 +61,7 @@ const workspaces: { id: TWorkspace; label: string; purpose: string; shortcut: st
 ];
 
 function problemsLabel(workspace: TWorkspace, count: number): string {
-	if (workspace === 'track') return count === 1 ? '1 hit needs attention' : `${count} hits need attention`;
+	if (workspace === 'track') return count === 1 ? '1 note needs attention' : `${count} notes need attention`;
 	return count === 1 ? '1 problem needs attention' : `${count} problems need attention`;
 }
 

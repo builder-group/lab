@@ -108,7 +108,7 @@ const StartChip: React.FC<{ cx: StudioCx; marble: TMarble; time: number; base: T
 	return (
 		<span className="mm-start-chip" data-bad={past != null} style={{ left: left + 12, top }}>
 			{formatTime(time)}
-			{past != null ? ` · ${past}` : broken > 0 ? ` · Breaks ${broken} ${broken === 1 ? 'hit' : 'hits'}` : ''}
+			{past != null ? ` · ${past}` : broken > 0 ? ` · Breaks ${broken} ${broken === 1 ? 'note' : 'notes'}` : ''}
 		</span>
 	);
 };

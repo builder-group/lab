@@ -889,7 +889,7 @@ export async function buildTrack(whole: TProject, deps: TBuildTrackDeps, options
 	const people = new Map(project.track.pieces.map((piece) => [piece.id, playedShape(piece)]));
 	const build = createBuildRun(asked, project, deps, gapPiece, from);
 	const best = await bestAttempt(build);
-	if (best == null) throw new Error('Build Track started no attempt');
+	if (best == null) throw new Error('Build Entire Track started no attempt');
 	let current = await goOnPastStuck(build, best);
 
 	// Each marble ends in a Bowl after its last note, and the film length follows

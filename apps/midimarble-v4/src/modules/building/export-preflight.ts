@@ -101,7 +101,7 @@ export const ADD_SONG_LABEL = 'Add a Song';
 /** Hits without a Song or a note play silently and export silently, which the sheet warns of */
 function songIssues(project: TProject): TPreflightIssue[] {
 	if (hasSong(project) || countHits(project) === 0 || project.marbles.some((marble) => marbleSounds(project, marble))) return [];
-	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has hits but no song, so the film has no sound.', target: null }];
+	return [{ id: 'song', kind: 'song', severity: 'warning', title: ADD_SONG_LABEL, detail: 'This project has notes but no song, so the film has no sound.', target: null }];
 }
 
 /** A song file that doesn't load: the film would play without it, so it comes up before the export */
@@ -134,7 +134,7 @@ export function workspaceProblems(preflight: TExportPreflight): Record<TProblemW
 
 /**
  * The hit summary of the timeline header, read from the preflight so it never disagrees with the export sheet,
- * Layers or the Camera track: "107 of 109 hits on time · 4 other problems", "2 hits need attention", or
+ * Layers or the Camera track: "107 of 109 hits on time · 4 other problems", "2 notes need attention", or
  * "Checking…" until the run for the current edit arrives. Problems are the warnings in time order, so the
  * summary's click and Show First Problem go to the earliest. With a workspace it counts only that workspace's
  * problems, so Track never speaks of the camera; the export sheet passes none and lists them all.
@@ -149,12 +149,12 @@ export function problemSummary(preflight: TExportPreflight, workspace?: TProblem
 	const otherProblems = problems.length - hitProblems;
 	const hits =
 		hitProblems > 0
-			? `${hitProblems} ${hitProblems === 1 ? 'hit needs' : 'hits need'} attention`
+			? `${hitProblems} ${hitProblems === 1 ? 'note needs' : 'notes need'} attention`
 			: total > 0
-				? `${onTime} of ${total} ${total === 1 ? 'hit' : 'hits'} on time`
+				? `${onTime} of ${total} ${total === 1 ? 'note' : 'notes'} on time`
 				: '';
 	const others = otherProblems > 0 ? `${otherProblems} ${hits === '' ? '' : 'other '}${otherProblems === 1 ? 'problem' : 'problems'}` : '';
-	const label = [hits, others].filter(Boolean).join(' · ') || 'No hits yet';
+	const label = [hits, others].filter(Boolean).join(' · ') || 'No notes yet';
 	const tone = problems.length > 0 ? 'warn' : total > 0 && onTime === total ? 'good' : 'neutral';
 	return { state: 'checked', tone, label, problems, hitProblems, otherProblems, needsSong, onTime, total };
 }
@@ -350,7 +350,7 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 		const marble = names.marble(hit.marbleId);
 		const key = toHitKey(hit.marbleId, hit.hitId);
 		// "Hit 12 of Melody is Blocked", as words.md names a hit by its number on its marble
-		const is = (label: string): string => `Hit ${numbers.get(key) ?? '?'} of ${marble} is ${label}`;
+		const is = (label: string): string => `Note ${numbers.get(key) ?? '?'} of ${marble} is ${label}`;
 		const piece = hit.pieceId != null ? pieces.get(hit.pieceId) : undefined;
 		const target: TPreflightTarget = { ids: hit.pieceId != null ? [hit.pieceId] : [key], point: hit.dot ?? undefined, time: hit.targetTime };
 		const id = `hit:${hit.marbleId}:${hit.hitId}`;
@@ -401,8 +401,8 @@ function hitIssues(project: TProject, result: TSimulationResult, names: TNames):
 			title: count === 1 ? `Open note, ${names.marble(marbleId)} at ${formatTime(first.targetTime)}` : `${count} open notes on ${names.marble(marbleId)}`,
 			detail:
 				count === 1
-					? 'No platform plays this note yet. It still sounds in the film, without a hit.'
-					: `No platforms play these notes yet, from ${formatTime(first.targetTime)}. They still sound in the film, without hits.`,
+					? 'No platform plays this note yet. It still sounds in the film, with no piece.'
+					: `No platforms play these notes yet, from ${formatTime(first.targetTime)}. They still sound in the film, with no pieces.`,
 			time: first.targetTime,
 			target: { ids: [toHitKey(marbleId, first.hitId)], time: first.targetTime }
 		});
@@ -574,7 +574,7 @@ function strikeIssues(project: TProject, result: TSimulationResult, names: TName
 			severity: 'warning' as const,
 			marbleId: strike.marbleId,
 			title: `${names.marble(strike.marbleId)} hits ${names.piece(strike.pieceId)} ${count}`,
-			label: strike.times === 2 ? 'Hit Twice' : `Hit ${strike.times} Times`,
+			label: strike.times === 2 ? 'Hit Twice' : `Note ${strike.times} Times`,
 			detail: `Hits it ${strike.times} times from ${formatTime(strike.time)}, with one note.`,
 			time: strike.time,
 			target: { ids: [strike.pieceId], point: strike.position, time: strike.time }
@@ -648,7 +648,7 @@ function fallIssues(project: TProject, result: TSimulationResult, names: TNames)
 				kind: 'fall',
 				severity: 'info',
 				marbleId: marble.id,
-				title: `${names.marble(marble.id)} falls ${fall.toFixed(1)} m at ${wholeSeconds(from.targetTime)}: a Long Rail fills that gap`,
+				title: `${names.marble(marble.id)} falls ${fall.toFixed(1)} m at ${wholeSeconds(from.targetTime)}: a Curved Rail fills that gap`,
 				label: 'Long fall',
 				time: from.targetTime,
 				target: { ids: [from.pieceId ?? '', marble.id].filter(Boolean), point: from.dot, time: from.targetTime }
@@ -681,7 +681,7 @@ function framingIssues(project: TProject, result: TSimulationResult, names: TNam
 		const marble = names.marble(stretch.marbleId);
 		const number = (counts.get(stretch.marbleId) ?? 0) + 1;
 		counts.set(stretch.marbleId, number);
-		const hits = `${stretch.notes.length} ${stretch.notes.length === 1 ? 'hit' : 'hits'}`;
+		const hits = `${stretch.notes.length} ${stretch.notes.length === 1 ? 'note' : 'notes'}`;
 		const seconds = (stretch.to - stretch.from).toFixed(1);
 		const followed = framing.followed[index] ?? [];
 		const others = followed.length ? ` The camera follows ${followed.map((marbleId) => names.marble(marbleId)).join(' and ')} there.` : '';
@@ -800,7 +800,7 @@ function decorIssues(project: TProject, result: TSimulationResult, names: TNames
 			kind: 'decor' as const,
 			severity: 'info' as const,
 			title: `${overlap.name}: ${label.charAt(0).toLowerCase()}${label.slice(1)}`,
-			detail: `The marble passes over it${first != null ? ` at ${formatTime(first.time)}` : ''}. Decor has no hitbox, so the hit stays the same.`,
+			detail: `The marble passes over it${first != null ? ` at ${formatTime(first.time)}` : ''}. Decor has no hitbox, so the note stays the same.`,
 			label,
 			time: first?.time,
 			target: { ids: [overlap.key], point: first?.point, time: first?.time, workspace: 'film' as const }

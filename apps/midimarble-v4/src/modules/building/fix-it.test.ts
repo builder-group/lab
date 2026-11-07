@@ -192,7 +192,7 @@ describe('fixTrack function', () => {
 		expect(new Set(progress.map((item) => item.total))).toEqual(new Set([counted]));
 		expect(progress.every((item, index) => index === 0 || item.done >= (progress[index - 1]?.done ?? 0))).toBe(true);
 		const summary = problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS));
-		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted === 1 ? 'the hit' : `${counted} hits`} · .*moved the release · ${summary.label}`));
+		expect(resultMessage(edited, broken, outcome)).toMatch(new RegExp(`^Fixed ${counted === 1 ? 'the note' : `${counted} hits`} · .*moved the release · ${summary.label}`));
 	}, 60_000);
 
 	it('should keep the release and recover a run after notes in its middle become Backing', async () => {
@@ -293,7 +293,7 @@ describe('moveClear function', () => {
 		const moved = await fixPiece(project, onTime, 'windmill', { simulate: async () => keeps, autoPlace: unused });
 
 		// Assert
-		expect(refused).toEqual(expect.objectContaining({ commands: null, message: 'Moving Windmill 1 clear would break a hit, so nothing changed. Drag it by hand or Detach it.' }));
+		expect(refused).toEqual(expect.objectContaining({ commands: null, message: 'Moving Windmill 1 clear would break a note, so nothing changed. Drag it by hand or Detach it.' }));
 		expect(moved.commands).toHaveLength(1);
 		expect(moved.message).toMatch(/^Windmill 1 moved \d+ cm, clear of .+'s run$/);
 	});
@@ -339,7 +339,7 @@ describe('fixHelps function', () => {
 describe('fixWorseWords function', () => {
 	it('should give the real counts of both runs', () => {
 		const words = fixWorseWords({ onTime: 114, otherProblems: 5, total: 115 }, { onTime: 44, otherProblems: 88, total: 115 });
-		expect(words).toContain('Fix would leave 71 broken hits and 88 other problems, where there are now 1 broken hit and 5 other problems, so nothing changed.');
+		expect(words).toContain('Fix would leave 71 broken notes and 88 other problems, where there are now 1 broken note and 5 other problems, so nothing changed.');
 	});
 
 	it('should say when nothing better was found', () => {
@@ -358,10 +358,10 @@ describe('fixMessage function', () => {
 		const added = [{ id: 'contact:m:s', kind: 'contact' as const, severity: 'warning' as const, title: 'Bass hits Rail 6 of Melody', target: null }];
 
 		// Act
-		const message = fixMessage(withPieces, before, outcome, { label: '2 of 3 hits on time', hitProblems: 1, added });
+		const message = fixMessage(withPieces, before, outcome, { label: '2 of 3 notes on time', hitProblems: 1, added });
 
 		// Assert
-		expect(message).toBe('Fixed 2 of 3 hits · placed 13 platforms again · moved the release · moved Rail 2 and Windmill 1 · 2 of 3 hits on time · 1 new problem: Bass hits Rail 6 of Melody. Turn it by hand or undo the edit.');
+		expect(message).toBe('Fixed 2 of 3 notes · placed 13 platforms again · moved the release · moved Rail 2 and Windmill 1 · 2 of 3 notes on time · 1 new problem: Bass hits Rail 6 of Melody. Turn it by hand or undo the edit.');
 	});
 });
 

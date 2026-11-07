@@ -134,12 +134,12 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	const owners = hitOwners(project, marbleId);
 	const index = marble.hits.findIndex((item) => item.id === hitId);
 	const firstOpen = marble.hits.findIndex((item) => !owners.has(item.id));
-	if (options.isAnyDot !== true && firstOpen >= 0 && index > firstOpen) return { ...refused(project, before, ask, `Build up to here: Hit ${firstOpen + 1} has no piece yet.`), status: 'buildUpTo' };
+	if (options.isAnyDot !== true && firstOpen >= 0 && index > firstOpen) return { ...refused(project, before, ask, `Build up to here: Note ${firstOpen + 1} has no piece yet.`), status: 'buildUpTo' };
 	if (isGapKind(kind)) return proposeGapPiece(project, before, ask, kind, marble.hits[index - 1]?.id, deps);
 	if (patternOfKind(kind) != null) return proposePattern(project, before, ask, deps);
 	if (options.isAnyDot !== true && openLongGaps(project, marbleId).some((gap) => gap.toHitId === hitId)) return proposeRest(project, before, ask, deps);
 	const reach = hitReach(project, before, hit);
-	if (isUnreachable(reach)) return refused(project, before, ask, reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble.name }, null, false) ?? "The marble can't reach this note.");
+	if (isUnreachable(reach)) return refused(project, before, ask, reachMessage(reach, { hit: `Note ${index + 1}`, marble: marble.name }, null, false) ?? "The marble can't reach this note.");
 	if (hit.dot == null) return refused(project, before, ask, 'The marble does not reach this note.');
 
 	let answer: TAutoPlaceAnswer;
@@ -308,11 +308,11 @@ function noteState(project: TProject, result: TSimulationResult, hit: THitResult
 }
 
 function noteWords(number: number, hit: THitResult | undefined, state: TNoteVerdict['state']): string {
-	if (state === 'onTime') return `Hit ${number} plays on time.`;
-	if (state === 'reached') return `The marble reaches Hit ${number}, which can take a piece.`;
-	if (hit?.status === 'open') return `The marble doesn't reach Hit ${number}.`;
+	if (state === 'onTime') return `Note ${number} plays on time.`;
+	if (state === 'reached') return `The marble reaches Note ${number}, which can take a piece.`;
+	if (hit?.status === 'open') return `The marble doesn't reach Note ${number}.`;
 	const error = hit?.error != null ? ` by ${Math.round(Math.abs(hit.error) * 1000)} ms` : '';
-	return `Hit ${number} doesn't play on time${error}: ${hit?.reason ?? hit?.status ?? 'missed'}.`;
+	return `Note ${number} doesn't play on time${error}: ${hit?.reason ?? hit?.status ?? 'missed'}.`;
 }
 
 /** Pieces beyond the proposal's own that change, go, or stand somewhere else */

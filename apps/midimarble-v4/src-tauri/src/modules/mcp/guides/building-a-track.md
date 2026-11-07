@@ -4,13 +4,13 @@ Each marble falls and bounces. A **hit** is a moment in the song a marble must s
 
 ## Fastest way
 
-`run_command('build.track')`, "Build Track", builds every marble's open hits in time order, with platforms and rails across long gaps, starts each bare marble on a short Rail and ends each marble in a Bowl; both are ordinary pieces you can delete. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes, and leaves the window at a zoom that reads with Follow on, the playhead at the top, so the person can press Space and watch it. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
+`run_command('build.track')`, "Build Entire Track", builds every marble's open hits in time order, with platforms and rails across long gaps, starts each bare marble on a short Rail and ends each marble in a Bowl; both are ordinary pieces you can delete. Track pieces already there stay; it turns one only when nothing else works and says so. It is one Undo step and shows on the wall as it goes, and leaves the window at a zoom that reads with Follow on, the playhead at the top, so the person can press Space and watch it. It answers when done, usually within a minute or two. A client with a short tool timeout can pass `args: { wait: false }` and read `get_state.building`, then `get_state.lastBuild`; `build.stop` stops it and keeps what it built.
 
 **Patterns: make a stretch of the track a shape, on a song with or without pieces.** `project.execute` with one command `{ type: 'applyPattern', marbleId, from, to, kind, width, bounce, maxTilt, dryRun }` fits a Pattern over the notes between `from` and `to` (seconds), or over the silence there, as a Group: ordinary pieces in one Undo step, named after the Pattern. `get_state.patterns` lists the kinds, each with what it takes: `zigzag` and `staircase` play notes, `longRail` fills silence. `width` is in meters, `bounce` asks for less fall per hit when higher (0.3 to 0.7), and `maxTilt` is in degrees. Leave `width` out and the app picks one that fits; a `width` you give is kept or refused, never changed.
 
 Asking changes nothing: `dryRun: true` answers exactly what applying would. `fits` says whether it lands, `verdicts` has one `{ hitId, fits, words }` per hit, `refusal` names the hit and why, ending "Nothing changed.", `ending` is the later hit it would break, and `offers` says what fits instead: another `width`, or a shorter `from` and `to`. It applies nothing unless every hit fits and no hit that was on time goes off time, with no new Problems. `measures` gives `onTime`, `columnStraightness`, `dropPerHit`, `largestDrop`, `medianTilt`. It never falls back silently.
 
-On a song already built, a Pattern follows the way the track goes, so what comes after can stay where it stands; `movedAfter` counts the pieces that had to move with the marble. A hop too long for a bounce gets a rail inside the Pattern, as Build Track's do. A rail already holding a silence stays and joins the Group. A marble with nothing before the range starts just above it, and the notes before it wait; a Pattern on them later moves the release back and fits what follows again. With pieces before the range and open notes between, the first hit is out of order, and the refusal says which hits to build first. Changing an earlier Pattern fits the later ones again. Tilt follows Gravity, not Bounce.
+On a song already built, a Pattern follows the way the track goes, so what comes after can stay where it stands; `movedAfter` counts the pieces that had to move with the marble. A hop too long for a bounce gets a rail inside the Pattern, as Build Entire Track's do. A rail already holding a silence stays and joins the Group. A marble with nothing before the range starts just above it, and the notes before it wait; a Pattern on them later moves the release back and fits what follows again. With pieces before the range and open notes between, the first hit is out of order, and the refusal says which hits to build first. Changing an earlier Pattern fits the later ones again. Tilt follows Gravity, not Bounce.
 
 A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds the rest. `build.fix` (Fix) fixes broken hits; for an open hit, change the ones before it or place it by hit. Then adjust by hand.
 
@@ -21,11 +21,11 @@ Two arguments steer it, and neither is needed by default:
 
 ## A line to follow
 
-Each marble's band of the wall runs straight down from where it starts. To send it another way, store a line: `project.execute` with `{ type: 'updateMarble', marbleId, patch: { guide: { points: [{ x, y }, ...] } } }`, points from highest to lowest. Auto place, gap pieces and Build Track then keep the marble near the line at each height, and refuse a dot that leaves its band. A run never reads the line, so setting it moves nothing already placed. Keep it straight down to the first note, since nothing steers the marble before its first piece. Up to about 2 m sideways per meter of drop every note still plays on the songs measured; at 3 notes are lost.
+Each marble's band of the wall runs straight down from where it starts. To send it another way, store a line: `project.execute` with `{ type: 'updateMarble', marbleId, patch: { guide: { points: [{ x, y }, ...] } } }`, points from highest to lowest. Auto place, gap pieces and Build Entire Track then keep the marble near the line at each height, and refuse a dot that leaves its band. A run never reads the line, so setting it moves nothing already placed. Keep it straight down to the first note, since nothing steers the marble before its first piece. Up to about 2 m sideways per meter of drop every note still plays on the songs measured; at 3 notes are lost.
 
 ## How a track should look
 
-Build Track, `build.next`, Continue and `build.fix` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
+Build Entire Track, `build.next` and `build.fix` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.
 
 - **Track pieces don't touch.** Two pieces stand at least 1.2 cm apart on the wall, skins included. A pair that comes closer is the problem "Platform 12 touches Platform 13".
 - **A marble strikes a platform once.** "Melody hits Platform 12 twice" is a problem to fix, not a quiet note. Rests and rolls after a marble's last note and rides on a rail or in a Bowl don't count.
@@ -33,16 +33,16 @@ Build Track, `build.next`, Continue and `build.fix` share these rules. A hit's t
 
 To fix a touching pair or a second strike, try these in order of how little they change. Each moves the run a little from there on, since every bounce follows the one before, so read `hits` in the reply and Undo a try that breaks one.
 
-1. **Shorten** (touching only): `updatePiece` the platform with a smaller `length` in its `params`, down to about two thirds of its own, as long as the marble still strikes it. Build Track does this itself when things are tight.
+1. **Shorten** (touching only): `updatePiece` the platform with a smaller `length` in its `params`, down to about two thirds of its own, as long as the marble still strikes it. Build Entire Track does this itself when things are tight.
 2. **Move** (touching only): `updatePiece` its `place` with another `contactAt`, from 0.15 to 0.85, which slides the platform along its own surface under the same strike.
 3. **Tilt**: `updatePiece` with a new `angle`, or on the platform before it, which sets where the marble arrives. `build.fix` tries all of these for every such piece when nothing else is wrong.
 4. **Rebuild From Here** from the hit before them, if none of that holds.
 
 ## One step at a time
 
-1. `build.next` takes the next step: a platform at the next open hit, or a rail when a long gap comes first, and its reply's `placed` says what it placed, with its `angle` and how the marble takes it, ready for one `updatePiece` before the next call. It adds one piece and changes nothing already there. Where no rail fits a gap it takes the step Build Track would without touching what's there, or says what to do; a second press then tries a platform at the note after the gap. Where no tilt plays a note it places nothing and its notice says why. A reply with `changed: false` placed nothing, and it made no Undo step.
+1. `build.next` takes the next step: a platform at the next open hit, or a rail when a long gap comes first, and its reply's `placed` says what it placed, with its `angle` and how the marble takes it, ready for one `updatePiece` before the next call. It adds one piece and changes nothing already there. Where no rail fits a gap it takes the step Build Entire Track would without touching what's there, or says what to do; a second press then tries a platform at the note after the gap. Where no tilt plays a note it places nothing and its notice says why. A reply with `changed: false` placed nothing, and it made no Undo step.
 2. `build.fix` with a platform selected through `args.select` solves that platform's tilt and bounce so it lands on time. To place one at an open hit, select the hit through `args.select` and run `build.next`.
-3. `build.continue` accepts a suggested pattern. `build.repeat` and `build.mirror` copy the last platform's tilt, which makes zigzags.
+3. `build.repeat` copies the last platform's tilt; a Pattern through `build.propose` makes a stretch of them.
 4. `build.fix` with nothing selected fixes the whole run. `edit.firstProblem` jumps to the first problem for the person.
 5. `build.addBowl` ends a marble's run in a catch once all its hits are on time.
 
@@ -50,7 +50,7 @@ Build marbles together in time order, since they can collide with each other's p
 
 ## Ask before placing
 
-`run_command('build.propose', { marbleId, hitIds: [hitId], kind })` says what would be placed and changes nothing, so you can ask as often as you like and compare. `kind` is `platform`, `rail`, `switchback` or `chain` for the rest before the note, or a Pattern: `zigzag` or `staircase` over the notes in `hitIds` (with `width`, `bounce`, `maxTilt` if wanted) and `longRail` for the rest before its note. Nothing chooses a shape for you.
+`run_command('build.propose', { marbleId, hitIds: [hitId], kind })` says what would be placed and changes nothing, so you can ask as often as you like and compare. `kind` is `platform`, `rail`, `switchback` or `chain` for the rest before the note, `flip` for a note's platform, `remove` for its piece, or a Pattern: `zigzag` or `staircase` over the notes in `hitIds` (with `width`, `bounce`, `maxTilt` if wanted) and `longRail` for the rest before its note. Nothing chooses a shape for you.
 
 The reply has `status`: `fits`, every fact holds; `problems`, it would land with the `reasons` listed, and accepting it is your call; `refused`, with nothing to place and `words` saying why; or `buildUpTo`, the note lies past notes with no piece, and `words` names the first. `notes` has one `{ hitId, number, time, state, words }` per note: `onTime`, `reached` (a piece can still play it) or `off`. `changes` lists the pieces it would change, remove or move, before or after those notes. `facts` has `onTime`, `total`, `lost`, `strikes`, `rolls`, `passThroughs`, `touching`, `crossings`, `isNearPace` and `hasRoomAtNext`, each counting only what the track didn't already have. A `platform` for a note after a rest answers with `instead`: a proposal for `longRail` and for `switchback`, and the plain platform with its reason when neither fits.
 
@@ -62,9 +62,9 @@ The reply has `status`: `fits`, every fact holds; `problems`, it would land with
 
 ## Long gaps
 
-Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Track and `build.next` bridge them with a rail where one reads well, or a Rail with the Switchback layout, which holds the marble while it descends, where nothing else does. A rail or tunnel never plays a note.
+Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Entire Track and `build.next` bridge them with a rail where one reads well, or a Rail with the Switchback layout, which holds the marble while it descends, where nothing else does. A rail or tunnel never plays a note.
 
-To choose the piece yourself, place it on the hit before the gap with `project.execute`: `{ type: 'placePiece', pieceType: 'rail', hit: { marbleId, hitId }, params: { entryDelay: 0.3 } }`, where `entryDelay` is how many seconds after that hit the marble meets it, and `path` sets its shape, or `layout: 'switchback'`, `'chain'`, `'c'` or `'curve'` with `params` such as `turns`, `width` and `drop` generates its paths. A `rail` or `tunnel` counts as bridging the gap, and Build Track then keeps it and builds around it.
+To choose the piece yourself, place it on the hit before the gap with `project.execute`: `{ type: 'placePiece', pieceType: 'rail', hit: { marbleId, hitId }, params: { entryDelay: 0.3 } }`, where `entryDelay` is how many seconds after that hit the marble meets it, and `path` sets its shape, or `layout: 'switchback'`, `'chain'`, `'c'` or `'curve'` with `params` such as `turns`, `width` and `drop` generates its paths. A `rail` or `tunnel` counts as bridging the gap, and Build Entire Track then keeps it and builds around it.
 
 ## project.execute
 

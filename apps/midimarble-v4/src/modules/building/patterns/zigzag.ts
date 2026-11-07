@@ -4,7 +4,7 @@ import { fitBarPattern } from './fit-bar-pattern';
 
 export const zigzag: TPatternDefinition = {
 	label: 'Zigzag',
-	title: 'Two columns: the marble crosses between them on every hit',
+	title: 'Two columns: the marble crosses between them on every note',
 	takes: 'notes',
 	defaults: { width: ZIGZAG_WIDTH, bounce: 0.5 },
 	widthRange: { min: 0.08, max: 0.26 },

@@ -30,12 +30,12 @@ const EmptyMarbleHint: React.FC<{ cx: StudioCx; marble: TMarble; top: number }> 
 			{suggested > 0 ? (
 				<>
 					{' · '}
-					<button className="mm-link pointer-events-auto" onClick={() => addSuggestedHits(cx, marble)} onPointerDown={(event) => event.stopPropagation()} title="Add a hit for each beat found in the recording" type="button">
+					<button className="mm-link pointer-events-auto" onClick={() => addSuggestedHits(cx, marble)} onPointerDown={(event) => event.stopPropagation()} title="Add a note for each beat found in the recording" type="button">
 						{suggestedHitsLabel(suggested)}
 					</button>
 				</>
 			) : null}
-			{' · press T to tap along, or double-click to add a hit'}
+			{' · press T to tap along, or double-click to add a note'}
 		</span>
 	);
 };
@@ -157,7 +157,7 @@ const HitButton: React.FC<THitButtonProps> = (props) => {
 	const timing = hitTiming(status, { marble: marble.name, pitch: hit.pitch, piece }, unreachable);
 	return (
 		<button
-			aria-label={`Hit ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}
+			aria-label={`Note ${index + 1}${hit.pitch == null ? '' : ` ${noteName(hit.pitch)}`} at ${formatTime(hit.time)}`}
 			aria-pressed={isSelected}
 			className="mm-hit"
 			data-hit-key={key}
@@ -255,9 +255,9 @@ interface TMarquee {
 
 function hitTitle(index: number, hit: THit, timing: THitTiming, isConflict: boolean, error: number | null, songName: string | undefined): string {
 	const note = hit.pitch == null ? '' : ` · ${noteName(hit.pitch)}`;
-	const warning = isConflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to the next hit` : '';
+	const warning = isConflict ? ` · closer than ${MIN_HIT_GAP * 1000} ms to the next note` : '';
 	// A landed hit names its offset from the note; "12 ms Late" already does
 	const offset = error != null && timing.state === 'onTime' ? ` (${offsetLabel(error)})` : '';
 	const tied = songName == null || songName === '' ? '' : ` · moves with ${songName}`;
-	return `Hit ${index + 1}${note} · ${formatTime(hit.time)}${tied} · ${timing.label}${offset}: ${timing.tooltip}${warning}`;
+	return `Note ${index + 1}${note} · ${formatTime(hit.time)}${tied} · ${timing.label}${offset}: ${timing.tooltip}${warning}`;
 }

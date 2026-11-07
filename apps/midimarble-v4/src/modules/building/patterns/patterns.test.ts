@@ -223,9 +223,9 @@ describe('runGroupChange function', () => {
 		const overSilence = runGroupChange(project, { ...change, from: 1.6, to: 2.8 }, { sim });
 
 		expect(overNotes.commands).toEqual([]);
-		expect(overNotes.problems[0]?.words).toContain('Long Rail fills silence');
+		expect(overNotes.problems[0]?.words).toContain('Curved Rail fills silence');
 		expect(overSilence.commands).toEqual([]);
-		expect(overSilence.problems[0]?.words).toContain('Try Long Rail');
+		expect(overSilence.problems[0]?.words).toContain('Try Curved Rail');
 	});
 
 	it('should fit later Groups again when an earlier one changes, as one edit', () => {
@@ -254,7 +254,7 @@ describe('runGroupChange function', () => {
 	it('should say when a later Group can not fit any more', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2, 2.6]);
 		const first = apply(project, runGroupChange(project, { ...change, to: 1.8 }, { sim }).commands);
-		const second = apply(first, [{ type: 'addGroup', group: { id: 'late', name: 'Long Rail', marbleId: MARBLE, pieceIds: [], pattern: { kind: 'longRail', hitIds: ['h3', 'h5'], width: 0.14, bounce: 0.5 } } }]);
+		const second = apply(first, [{ type: 'addGroup', group: { id: 'late', name: 'Curved Rail', marbleId: MARBLE, pieceIds: [], pattern: { kind: 'longRail', hitIds: ['h3', 'h5'], width: 0.14, bounce: 0.5 } } }]);
 		const earlier = second.track.groups?.filter(isPatternGroup).find((group) => group.pattern.hitIds[0] === 'h1');
 		const outcome = runGroupChange(second, { ...change, groupId: earlier?.id, to: 1.8, width: 0.16 }, { sim });
 		const later = outcome.later.find((item) => item.groupId === 'late');

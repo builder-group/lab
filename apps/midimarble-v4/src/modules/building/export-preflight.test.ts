@@ -104,8 +104,8 @@ describe('problem workspaces', () => {
 	});
 
 	it('should summarize only the workspace it is asked for', () => {
-		expect(problemSummary(preflight, 'track').label).toBe('1 hit needs attention');
-		expect(problemSummary(preflight, 'film').label).toBe('1 of 2 hits on time · 2 other problems');
+		expect(problemSummary(preflight, 'track').label).toBe('1 note needs attention');
+		expect(problemSummary(preflight, 'film').label).toBe('1 of 2 notes on time · 2 other problems');
 		expect(problemSummary(preflight).problems).toHaveLength(3);
 	});
 });
@@ -129,7 +129,7 @@ describe('checkRun function', () => {
 		const open = hits.map((hit) => ({ ...hit, status: 'open' as const }));
 		expect(checkRun(project, { ...result, hits: open }, []).issues.some((issue) => issue.kind === 'fall')).toBe(false);
 
-		expect(tip?.title).toBe(`${marble?.name} falls 2.1 m at 0:09: a Long Rail fills that gap`);
+		expect(tip?.title).toBe(`${marble?.name} falls 2.1 m at 0:09: a Curved Rail fills that gap`);
 		expect(tip?.severity).toBe('info');
 		expect(problemSummary(preflight).problems.some((issue) => issue.kind === 'fall')).toBe(false);
 	});
@@ -163,8 +163,8 @@ describe('checkRun function', () => {
 
 		const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
 
-		expect(preflight.summary).toMatch(/^\d+ hits? needs? attention( · \d+ other problems?)?( · \d+ tips?)?$/);
-		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Hit \d+ of Marble 1 is Blocked$/) }));
+		expect(preflight.summary).toMatch(/^\d+ notes? needs? attention( · \d+ other problems?)?( · \d+ tips?)?$/);
+		expect(preflight.issues[0]).toEqual(expect.objectContaining({ severity: 'warning', title: expect.stringMatching(/^Note \d+ of Marble 1 is Blocked$/) }));
 		// The camera follows a single marble, so it never leaves the frame
 		expect(preflight.issues.filter((issue) => issue.kind === 'framing')).toEqual([]);
 	});
@@ -175,7 +175,7 @@ describe('checkRun function', () => {
 		const preflight = checkRun(project, simulator.simulate(project), NO_BLENDER_OBJECTS);
 
 		expect(preflight.warnings).toBe(0);
-		expect(preflight.summary).toMatch(/^16 of 16 hits on time( · 1 tip)?$/);
+		expect(preflight.summary).toMatch(/^16 of 16 notes on time( · 1 tip)?$/);
 	});
 
 	it('should say it is checking while pending', () => {
@@ -199,12 +199,12 @@ describe('checkRun function', () => {
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 
 		expect(preflight.issues.map((issue) => [issue.title, issue.detail])).toEqual([
-			['Hit 1 of Melody is Missed', 'Lands 50 ms after the note.'],
-			['Hit 1 of Bass is Blocked', 'Bass already passes through this spot earlier in its run, so the platform is left out.'],
-			['Hit 2 of Melody is Stopped', 'The marble stops on the platform instead of striking it.'],
-			['Hit 3 of Melody is Early', 'Lands 12 ms before the note.']
+			['Note 1 of Melody is Missed', 'Lands 50 ms after the note.'],
+			['Note 1 of Bass is Blocked', 'Bass already passes through this spot earlier in its run, so the platform is left out.'],
+			['Note 2 of Melody is Stopped', 'The marble stops on the platform instead of striking it.'],
+			['Note 3 of Melody is Early', 'Lands 12 ms before the note.']
 		]);
-		expect(preflight.summary).toBe('4 hits need attention');
+		expect(preflight.summary).toBe('4 notes need attention');
 		expect(preflight.issues[0]?.target).toEqual({ ids: ['pa1'], point: { x: -0.1, y: 0.2 }, time: 1 });
 	});
 
@@ -215,7 +215,7 @@ describe('checkRun function', () => {
 
 		expect(preflight.warnings).toBe(0);
 		expect(preflight.issues).toEqual([expect.objectContaining({ severity: 'info', title: 'Open note, Melody at 0:03.00', target: { ids: ['hit:marble-a:a3'], time: 3 } })]);
-		expect(preflight.summary).toBe('3 of 4 hits on time · 1 tip');
+		expect(preflight.summary).toBe('3 of 4 notes on time · 1 tip');
 	});
 
 	it('should not report framing from dots alone: the run without marble motion has no camera', () => {
@@ -352,7 +352,7 @@ describe('problemSummary function', () => {
 		const summary = problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS));
 
 		// Assert
-		expect(summary.label).toBe('3 of 4 hits on time · 2 other problems');
+		expect(summary.label).toBe('3 of 4 notes on time · 2 other problems');
 		expect(summary.problems.map((issue) => issue.title)).toEqual(['Melody hits pb1 of Bass', 'Windmill 1 of Melody is Blocked']);
 	});
 
@@ -401,7 +401,7 @@ describe('problemSummary function', () => {
 
 		const summary = problemSummary(checkRun(project, result, NO_BLENDER_OBJECTS));
 
-		expect(summary.label).toBe('1 hit needs attention · 1 other problem');
+		expect(summary.label).toBe('1 note needs attention · 1 other problem');
 		expect(summary.problems.map((issue) => issue.kind)).toEqual(['scenery', 'hit']);
 	});
 
@@ -418,8 +418,8 @@ describe('problemSummary function', () => {
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 
 		// Assert
-		expect(preflight.issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.title)).toEqual(['Hit 2 of Melody is Out of Reach']);
-		expect(problemSummary(preflight).label).toBe('1 hit needs attention');
+		expect(preflight.issues.filter((issue) => issue.severity === 'warning').map((issue) => issue.title)).toEqual(['Note 2 of Melody is Out of Reach']);
+		expect(problemSummary(preflight).label).toBe('1 note needs attention');
 	});
 	describe('a recording that is missing', () => {
 		let simulator: TSimulator;

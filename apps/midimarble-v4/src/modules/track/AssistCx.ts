@@ -147,7 +147,7 @@ export class AssistCx {
 		const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 		const fix = releaseFixFor(project, hit, reach);
 		const piece = reach.kind === 'resting' ? project.track.pieces.find((item) => item.id === reach.pieceId)?.name : undefined;
-		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble?.name ?? 'The marble', piece }, fix, canMakeBacking(project));
+		const message = reachMessage(reach, { hit: `Note ${index + 1}`, marble: marble?.name ?? 'The marble', piece }, fix, canMakeBacking(project));
 		if (message == null) return;
 		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
@@ -175,7 +175,7 @@ export class AssistCx {
 				return;
 			}
 			this.stuckGap = key;
-			this.studio.notify(`${message} Press N for a platform at the next note, or choose Build Track.`, 'info', { actions: [this.buildAction()] });
+			this.studio.notify(`${message} Press N for a platform at the next note, or choose Build Entire Track.`, 'info', { actions: [this.buildAction()] });
 		} catch (error) {
 			this.studio.notify(error instanceof Error ? error.message : String(error), 'error');
 		} finally {
@@ -191,7 +191,7 @@ export class AssistCx {
 			void this.place(hit, type);
 			return;
 		}
-		this.studio.notify("The marble falls too far to reach the note after this gap. Turn the platform before the gap, or choose Build Track.", 'info', { actions: [this.buildAction()] });
+		this.studio.notify("The marble falls too far to reach the note after this gap. Turn the platform before the gap, or choose Build Entire Track.", 'info', { actions: [this.buildAction()] });
 	}
 
 	private runQueuedNext(): void {
@@ -412,7 +412,7 @@ export class AssistCx {
 	}
 
 	private buildAction(): { label: string; title: string; run: () => void } {
-		return { label: 'Build Track', title: 'Build every open hit, in time order', run: () => void this.buildTrack() };
+		return { label: 'Build Entire Track', title: 'Build every open note, in time order', run: () => void this.buildTrack() };
 	}
 
 	/** The worker calls a build needs. Searches stop between their stages once `isCanceled` says so. */
@@ -438,7 +438,7 @@ export class AssistCx {
 		const project = this.studio.project;
 		if (project == null || this.buildRun != null || this.fixRun != null) return null;
 		if (!project.marbles.some((marble) => marble.hits.length > 0)) {
-			this.studio.notify('Build Track needs notes. Import a song, or press T and tap along.');
+			this.studio.notify('Build Entire Track needs notes. Import a song, or press T and tap along.');
 			return null;
 		}
 		if (from == null && !this.hasOpenHits) {
@@ -467,7 +467,7 @@ export class AssistCx {
 			if (progress !== firstProgress) doneAtStart ??= progress.done;
 			const kept = doneAtStart ?? 0;
 			const left = estimate.update(performance.now() - startedAt, furthest.fraction, furthest.done - kept, progress.total - kept);
-			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'hit' : 'hits'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
+			return ['Building track', `${furthest.done} of ${progress.total} ${progress.total === 1 ? 'note' : 'notes'}`, progress.restarts > 0 ? 'trying another start' : '', left].filter(Boolean).join(' · ');
 		};
 		const total = project.marbles.reduce((sum, marble) => sum + marble.hits.length, 0);
 		const firstProgress: TBuildProgress = { done: 0, total, at: 0, fraction: 0, restarts: 0 };
@@ -482,7 +482,7 @@ export class AssistCx {
 				commit: (commands, isFirst, hit) => {
 					// Another edit since the last step stops the build rather than folding into it
 					if (this.studio.project !== expected) return false;
-					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Track' })) return false;
+					if (!this.studio.simulation.landWorkedOut(commands, { amend: !isFirst, label: 'Build Entire Track' })) return false;
 					expected = this.studio.project ?? expected;
 					if (hit != null && !this.studio.$playing.get()) {
 						this.studio.$playhead.set(hit.targetTime);
@@ -496,7 +496,7 @@ export class AssistCx {
 				}
 			}, { ...(from != null ? { from } : {}), ...(gapPiece != null ? { gapPiece } : {}) });
 		} catch (error: unknown) {
-			this.studio.notifyFailed('Build Track stopped. What it built stays; press ⇧N to go on.', error);
+			this.studio.notifyFailed('Build Entire Track stopped. What it built stays; press ⇧N to go on.', error);
 		} finally {
 			this.buildRun = null;
 			this.$building.set(null);
@@ -521,7 +521,7 @@ export class AssistCx {
 		const shownResult = standing?.result ?? outcome.result;
 		const summary = problemSummary(checkRun(present ?? outcome.project, shownResult, this.studio.film.$blenderObjects.get()));
 		// The hit count alone, which the summary in the timeline reads the same however the camera's problems settle afterward
-		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'hit' : 'hits'} on time`;
+		const hitsLabel = `${summary.onTime} of ${summary.total} ${summary.total === 1 ? 'note' : 'notes'} on time`;
 		await this.studio.lengthenForCatch();
 		if (this.studio.project?.id !== project.id) return null;
 		const reported = standing != null ? { ...outcome, isStopped: true, attention: attentionOf(standing.project, standing.result) } : outcome;
@@ -649,7 +649,7 @@ export class AssistCx {
 			return;
 		}
 		// Counts every hit the edit broke, the edited one included, so "later" would miscount
-		const words = broken.length === 1 ? '1 hit is' : `${broken.length} hits are`;
+		const words = broken.length === 1 ? '1 note is' : `${broken.length} notes are`;
 		const first = [...broken].sort((a, b) => a.targetTime - b.targetTime)[0];
 		const cause = first != null ? strayCause(project, result, first.marbleId, first.targetTime) : null;
 		this.studio.notifyEdit(`${cause != null ? `${cause}: ` : ''}${words} now Blocked, Missed or Stopped`, [action], { isUndoFirst: true });
@@ -719,7 +719,7 @@ export class AssistCx {
 	/** With problems Fix doesn't mend left, says which needs a hand instead of "Nothing to fix" */
 	private nothingToFixWords(project: TProject, result: TSimulationResult): string {
 		const [first] = problemSummary(checkRun(project, result, this.studio.film.$blenderObjects.get())).problems;
-		return first != null ? `Fix mends broken hits, double hits, rolls and touching pieces. ${first.title} needs moving by hand.` : 'Nothing to fix';
+		return first != null ? `Fix mends broken notes, double notes, rolls and touching pieces. ${first.title} needs moving by hand.` : 'Nothing to fix';
 	}
 
 	private async fixOnePiece(project: TProject, result: TSimulationResult, pieceId: string): Promise<void> {
@@ -735,7 +735,7 @@ export class AssistCx {
 			if (fix.commands != null) {
 				if (this.studio.simulation.landWorkedOut(fix.commands, {})) this.studio.notifyEdit(fix.message);
 			} else if (rebuildFrom != null) {
-				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
+				this.studio.notify(fix.message, 'info', { actions: [{ label: 'Rebuild From Here', title: 'Keep the track before this note and build the rest again', run: () => void this.buildTrack(rebuildFrom) }] });
 			} else this.studio.notify(fix.message);
 		} catch (error) {
 			if (!isSuperseded(error)) this.studio.notifyFailed('Fix stopped, so nothing changed. Press Fix to try again.', error);
@@ -756,7 +756,7 @@ export class AssistCx {
 		if (deps == null) return;
 		this.fixRun = run;
 		this.dispatch({ type: 'dismiss' });
-		const stop = { label: 'Stop', title: 'Keep the hits fixed so far', run: () => (run.isCanceled = true) };
+		const stop = { label: 'Stop', title: 'Keep the notes fixed so far', run: () => (run.isCanceled = true) };
 		const progressId = this.studio.notify('Fixing', 'info', { progress: 0, actions: [stop] });
 		const commands: TProjectCommand[] = [];
 		let furthest = 0;
@@ -777,7 +777,7 @@ export class AssistCx {
 						this.$fixing.set({ done, total });
 						// A try that backs up never moves the bar back
 						furthest = Math.max(furthest, Math.min(1, Math.max(0, fraction)));
-						this.studio.updateNotice(progressId, { message: `Fixing · ${done} of ${total} hits`, progress: furthest });
+						this.studio.updateNotice(progressId, { message: `Fixing · ${done} of ${total} notes`, progress: furthest });
 					},
 					isCanceled
 				},
@@ -832,7 +832,7 @@ export class AssistCx {
 			await this.place(open, this.studio.$trackCx.get()?.placementType() ?? 'platform');
 			const marble = project.marbles.find((item) => item.id === open.marbleId);
 			const number = (marble?.hits.findIndex((hit) => hit.id === open.hitId) ?? -1) + 1;
-			if (this.studio.project?.id === project.id && this.studio.project !== project) this.studio.notifyEdit(`Placed a platform at Hit ${number}. Fix again for the pieces still waiting.`);
+			if (this.studio.project?.id === project.id && this.studio.project !== project) this.studio.notifyEdit(`Placed a platform at Note ${number}. Fix again for the pieces still waiting.`);
 			return;
 		}
 		const run = { isCanceled: false };
@@ -865,7 +865,7 @@ export class AssistCx {
 						return isOk ? applied : null;
 					},
 					onProgress: (done, total, fraction) => {
-						this.studio.updateNotice(progressId, { message: `Fixing the break · ${done} of ${total} hits`, progress: Math.min(1, Math.max(0, fraction)) });
+						this.studio.updateNotice(progressId, { message: `Fixing the break · ${done} of ${total} notes`, progress: Math.min(1, Math.max(0, fraction)) });
 					},
 					isCanceled
 				});
@@ -885,7 +885,7 @@ export class AssistCx {
 		const { fixed } = verdict;
 		if (fixed == null) {
 			const from = firstHeld != null ? { marbleId: firstHeld.marbleId, hitId: firstHeld.hitId } : null;
-			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this hit and build the rest again', run: () => void this.buildTrack(from) }] : [];
+			const rebuild = from != null ? [{ label: 'Rebuild From Here', title: 'Keep the track before this note and build the rest again', run: () => void this.buildTrack(from) }] : [];
 			const words = verdict.worse ?? (run.isCanceled ? 'The pieces go on waiting where they were.' : 'No tilt brings the marble back to the pieces waiting for it. Undo the edit, or rebuild from the break.');
 			this.studio.notifyEdit(words, rebuild, { isUndoFirst: true });
 			return;
@@ -984,7 +984,7 @@ function gapFailure(type: TGapPieceType, message: string): string {
 	if (message.includes('fall freely')) return `No ${piece} fits this gap. Tilt the platform before the gap so the marble flies off it, then try again.`;
 	if (message.includes('fall below')) return `No ${piece} fits this gap. The marble doesn't fall far enough before the next note; try a rail or a tunnel.`;
 	if (message.includes('crosses the earlier trajectory')) return `No ${piece} fits this gap. Every spot crosses the marble's earlier fall or another marble's marble; move the pieces around the gap.`;
-	if (message.includes('does not reach the hit')) return `No ${piece} fits this gap. The marble doesn't reach the note before the gap; fix that platform first.`;
+	if (message.includes('does not reach the note')) return `No ${piece} fits this gap. The marble doesn't reach the note before the gap; fix that platform first.`;
 	return `No ${piece} fits this gap. ${message}.`;
 }
 
@@ -1017,14 +1017,14 @@ function buildReport(project: TProject, outcome: TBuildOutcome, label: string, p
 	const nameOf = (marbleId: string): string => project.marbles.find((marble) => marble.id === marbleId)?.name ?? 'The marble';
 	const attention = outcome.attention.map((hit) => ({ marble: nameOf(hit.marbleId), marbleId: hit.marbleId, hitId: hit.hitId, hit: hit.index + 1, time: hit.time, status: hit.status }));
 	const pieces = `${outcome.added} ${outcome.added === 1 ? 'piece' : 'pieces'}`;
-	const named = attention.slice(0, 3).map((hit) => `${hit.marble} hit ${hit.hit}`);
-	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 hit needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
+	const named = attention.slice(0, 3).map((hit) => `${hit.marble} note ${hit.hit}`);
+	const needs = attention.length > 0 ? `${attention.length === 1 ? '1 note needs' : `${attention.length} hits need`} attention: ${named.join(', ')}${attention.length > named.length ? ' and more' : ''}.` : '';
 	const turned = outcome.turned.length > 0 ? `Turned ${outcome.turned.length} of your ${outcome.turned.length === 1 ? 'platform' : 'platforms'}.` : '';
 	const moved = outcome.releaseShift !== 0 ? `Moved the releases ${Math.abs(outcome.releaseShift * 100).toFixed(1)} cm.` : '';
 	const fromMarble = from != null ? project.marbles.find((marble) => marble.id === from.marbleId) : undefined;
-	const rebuilt = from != null ? `Rebuilt after Hit ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
+	const rebuilt = from != null ? `Rebuilt after Note ${(fromMarble?.hits.findIndex((hit) => hit.id === from.hitId) ?? 0) + 1} of ${fromMarble?.name ?? 'the marble'}` : null;
 	const first = outcome.isStopped ? `Stopped building: ${label}. The pieces so far stay.` : problems === 0 ? `${rebuilt ?? 'Built the track'}: ${label}, ${pieces}.` : `${rebuilt ?? 'Built what fits'}: ${label}, ${pieces}.`;
 	const message = [first, turned, moved, outcome.isStopped ? '' : needs].filter(Boolean).join(' ');
-	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} hit ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join('\n');
+	const details = [...outcome.bowls, `Took ${Math.max(1, Math.round(ms / 1000))} s.`, ...attention.map((hit) => `${hit.marble} note ${hit.hit} at ${formatTime(hit.time)}: ${hit.status}.`)].join('\n');
 	return { message, details, isStopped: outcome.isStopped, seconds: Math.round(ms / 100) / 10, added: outcome.added, turned: outcome.turned, releaseShift: outcome.releaseShift, bowls: outcome.bowls, attention };
 }

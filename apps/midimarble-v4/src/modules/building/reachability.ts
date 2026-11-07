@@ -163,7 +163,7 @@ export function reachMessage(reach: THitReach, names: { hit: string; marble: str
 			if (fix != null) return `${names.hit} is too soon for ${names.marble}. Move the release earlier or ${away}.`;
 			return hasSong
 				? `${names.hit} is too soon for ${names.marble}. Make it Backing, or move the note later.`
-				: `${names.hit} is too soon for ${names.marble}. Move the hit later or delete it.`;
+				: `${names.hit} is too soon for ${names.marble}. Move the note later or delete it.`;
 		case 'outOfReach':
 			return fix != null
 				? `${names.marble} has fallen off the track before ${names.hit}. Move the release later or ${away}.`
@@ -199,7 +199,7 @@ export function moveHitLaterFix(project: TProject, hit: THitResult, reach: THitR
 	const time = Math.ceil((reach.earliest + 0.005) * 100) / 100;
 	const next = marble.hits.find((item) => item.id !== hit.hitId && item.time > current.time);
 	if (time <= current.time || (next != null && time >= next.time - 0.01)) return null;
-	return { label: 'Move Hit Later', time, commands: [{ type: 'upsertHits', marbleId: marble.id, hits: [{ ...current, time }] }] };
+	return { label: 'Move Note Later', time, commands: [{ type: 'upsertHits', marbleId: marble.id, hits: [{ ...current, time }] }] };
 }
 
 export interface TReleaseFix {

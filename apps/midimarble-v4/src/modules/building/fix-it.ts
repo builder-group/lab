@@ -61,7 +61,7 @@ export function fixHelps(before: TFixCount, after: TFixCount): boolean {
 
 function countWords(run: TFixCount): string {
 	const broken = run.total - run.onTime;
-	const hits = `${broken} broken ${broken === 1 ? 'hit' : 'hits'}`;
+	const hits = `${broken} broken ${broken === 1 ? 'note' : 'notes'}`;
 	return run.otherProblems > 0 ? `${hits} and ${run.otherProblems} other ${run.otherProblems === 1 ? 'problem' : 'problems'}` : hits;
 }
 
@@ -81,7 +81,7 @@ export function fixMessage(project: TProject, before: THitResult[], outcome: Pic
 	const fixed = fixedCount(counted, outcome.result.hits);
 	const others = [...outcome.moved, ...outcome.cleared].map((id) => pieceName(outcome.project, id));
 	const parts = [
-		total === 0 ? '' : fixed < total ? `Fixed ${fixed} of ${total} hits` : total === 1 ? 'Fixed the hit' : `Fixed ${total} hits`,
+		total === 0 ? '' : fixed < total ? `Fixed ${fixed} of ${total} notes` : total === 1 ? 'Fixed the note' : `Fixed ${total} notes`,
 		outcome.replaced > 0 ? `placed ${outcome.replaced} ${outcome.replaced === 1 ? 'platform' : 'platforms'} again` : '',
 		outcome.releases.length > 0 ? `moved ${outcome.releases.length === 1 ? 'the release' : `${outcome.releases.length} releases`}` : '',
 		others.length > 0 ? `moved ${joinWords(others)}` : '',
@@ -316,7 +316,7 @@ interface TFixTrial {
 
 /** What a refused try would have cost */
 function costOf(what: string, { broken, added }: Pick<TFixTrial, 'broken' | 'added'>): string {
-	return broken > 0 ? `${what} would break ${broken === 1 ? 'a hit' : `${broken} hits`}` : `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
+	return broken > 0 ? `${what} would break ${broken === 1 ? 'a note' : `${broken} hits`}` : `${what} would add a problem (${added[0]?.title ?? 'another marble'})`;
 }
 
 function marbleName(project: TProject, marbleId: string): string {
@@ -418,7 +418,7 @@ async function fixProblemPiece(
 	const before = hits[hits.findIndex((hit) => hit.id === link?.hitId) - 1];
 	return {
 		commands: null,
-		message: `Any new tilt of ${name} moves the hits after it. Rebuild From Here keeps the track before it and builds the rest again.`,
+		message: `Any new tilt of ${name} moves the notes after it. Rebuild From Here keeps the track before it and builds the rest again.`,
 		...(before != null && link != null ? { rebuildFrom: { marbleId: link.marbleId, hitId: before.id } } : {})
 	};
 }

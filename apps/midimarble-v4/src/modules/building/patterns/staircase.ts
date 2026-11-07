@@ -3,7 +3,7 @@ import { fitBarPattern } from './fit-bar-pattern';
 
 export const staircase: TPatternDefinition = {
 	label: 'Staircase',
-	title: 'One way across the wall, a step on every hit',
+	title: 'One way across the wall, a step on every note',
 	takes: 'notes',
 	defaults: { width: 0.09, bounce: 0.5 },
 	widthRange: { min: 0.05, max: 0.16 },

@@ -101,8 +101,8 @@ describe('deleteSongQuestion function', () => {
 
 describe('deleteSongNotice function', () => {
 	it('should say what went and that the marbles keep their hits', () => {
-		expect(deleteSongNotice(firstSong(songProject()))).toBe('Deleted Jingle Bells.mid. The marbles keep their hits.');
-		expect(deleteSongNotice(firstSong(songProject({ backing: 2 })))).toBe('Deleted Jingle Bells.mid and its 2 Backing notes. The marbles keep their hits.');
+		expect(deleteSongNotice(firstSong(songProject()))).toBe('Deleted Jingle Bells.mid. The marbles keep their notes.');
+		expect(deleteSongNotice(firstSong(songProject({ backing: 2 })))).toBe('Deleted Jingle Bells.mid and its 2 Backing notes. The marbles keep their notes.');
 	});
 });
 

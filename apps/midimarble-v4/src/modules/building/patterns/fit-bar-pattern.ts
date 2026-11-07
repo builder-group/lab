@@ -251,7 +251,7 @@ function longFalls(result: TSimulationResult, ids: readonly string[], hits: read
 		const here = result.hits.find((hit) => hit.hitId === hitId)?.dot;
 		const after = result.hits.find((hit) => hit.hitId === ids[index + 1])?.dot;
 		if (here == null || after == null || here.y - after.y < LONG_FALL) return;
-		problems.push({ hitId, fits: false, words: `The marble falls ${(here.y - after.y).toFixed(2)} m after the note at ${wordsForHitTime(hits.find((hit) => hit.id === hitId)?.time ?? 0)}. A Long Rail fills that gap.` });
+		problems.push({ hitId, fits: false, words: `The marble falls ${(here.y - after.y).toFixed(2)} m after the note at ${wordsForHitTime(hits.find((hit) => hit.id === hitId)?.time ?? 0)}. A Curved Rail fills that gap.` });
 	});
 	return problems;
 }

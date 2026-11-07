@@ -254,7 +254,7 @@ function prepareGapPiece(
 	const from = marble?.hits.find((hit) => hit.id === fromHitId);
 	const to = marble?.hits.find((hit) => hit.id === toHitId);
 	if (marble == null || from == null || to == null)
-		return Err(new Error('Both hits must exist in the marble'));
+		return Err(new Error('Both notes must exist in the marble'));
 	if (to.time <= from.time) return Err(new Error('The gap must end after it starts'));
 	const samples = result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	// A new piece may reach over another marble, as long as nothing touches, with the frame as the limit
@@ -318,7 +318,7 @@ function prepareGapPiece(
 	const first = fallback ?? candidates[0];
 	if (first == null)
 		return Err(
-			new Error('The marble does not fall freely after the first hit, or the frame has no room')
+			new Error('The marble does not fall freely after the first note, or the frame has no room')
 		);
 
 	const plan: TGapSearchPlan = { type, id, count, marbleId, fromHitId, fromTime: from.time, candidates, fallback: first, isRefined: false };
@@ -585,7 +585,7 @@ function prepareTurns(
 	const from = marble?.hits.find((hit) => hit.id === fromHitId);
 	const to = marble?.hits.find((hit) => hit.id === toHitId);
 	if (marble == null || from == null || to == null)
-		return Err(new Error('Both hits must exist in the marble'));
+		return Err(new Error('Both notes must exist in the marble'));
 	if (to.time <= from.time) return Err(new Error('The gap must end after it starts'));
 	const samples = result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	const marbleRadius =
@@ -598,7 +598,7 @@ function prepareTurns(
 	const launch =
 		findHitResult(result, marbleId, fromHitId)?.dot ??
 		trajectoryAt(samples, from.time, -GRAVITY)?.position;
-	if (launch == null) return Err(new Error('The marble does not reach the hit before the gap'));
+	if (launch == null) return Err(new Error('The marble does not reach the note before the gap'));
 	const targetY = pace != null ? paceAt(pace, to.time) : null;
 	// The bounce at the hit after the gap rises about v0² / 2g, v0 the pace takeoff for the interval after it
 	const after = marble.hits[marble.hits.findIndex((hit) => hit.id === toHitId) + 1];
@@ -680,7 +680,7 @@ function prepareTurns(
 	if (first == null)
 		return Err(
 			new Error(
-				'The marble does not fall below the hit before the gap ends, or the frame has no room for the turns'
+				'The marble does not fall below the note before the gap ends, or the frame has no room for the turns'
 			)
 		);
 

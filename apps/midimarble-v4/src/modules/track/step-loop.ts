@@ -77,10 +77,10 @@ export function followerAt(
 ): TResult<TPiece, Error> {
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hit = [...(marble?.hits ?? [])].reverse().find((item) => item.time < time - 0.005);
-	if (hit == null) return Err(new Error("A piece can follow this marble only after its first hit. Drop it lower on the marble's fall."));
+	if (hit == null) return Err(new Error("A piece can follow this marble only after its first note. Drop it lower on the marble's fall."));
 	const delay = Math.round((time - hit.time) * 1000) / 1000;
 	const maxDelay = getPieceDefinition(type)?.params['entryDelay']?.max ?? 2;
-	if (delay > maxDelay) return Err(new Error(`This spot is ${delay.toFixed(1)} s after the last hit. Drop the piece within ${maxDelay} s of a hit.`));
+	if (delay > maxDelay) return Err(new Error(`This spot is ${delay.toFixed(1)} s after the last note. Drop the piece within ${maxDelay} s of a note.`));
 	const piece = createLinkedPiece(type, marbleId, hit.id, 0, { pieces: project.track.pieces });
 	piece.params = { ...piece.params, entryDelay: delay };
 	const kind = layoutOf(type);

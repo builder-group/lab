@@ -45,7 +45,7 @@ describe('checkGroupChange function', () => {
 		const check = checkGroupChange(project, outcomeOf(project, { blocking: [{ hitId: 'h2', words: 'The marble lands on this bar a second time.' }] }), MARBLE, sim);
 
 		expect(check.commands).toEqual([]);
-		expect(check.refusal).toEqual({ marbleId: MARBLE, hitId: 'h2', words: expect.stringContaining('Hit 3 of') as string });
+		expect(check.refusal).toEqual({ marbleId: MARBLE, hitId: 'h2', words: expect.stringContaining('Note 3 of') as string });
 		expect(check.refusal?.words).toContain('The marble lands on this bar a second time. Nothing changed.');
 	});
 

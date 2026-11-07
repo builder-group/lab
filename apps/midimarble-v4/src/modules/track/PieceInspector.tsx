@@ -169,7 +169,7 @@ export const FixButton: React.FC<{ cx: StudioCx; pieceId: string }> = (props) =>
 	const trackCx = useFeatureState(cx.$trackCx);
 	const fixing = useFeatureState(cx.assist.$fixing);
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(pieceId)} title="Try to clear this problem without breaking a hit" type="button">
+		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(pieceId)} title="Try to clear this problem without breaking a note" type="button">
 			<WandSparkles size={12} strokeWidth={1.9} />
 			Fix
 		</button>
@@ -203,7 +203,7 @@ function tieLabel(project: TProject, piece: TPiece): string {
 	if (attach.kind === 'anchored') return `Follows ${marble?.name ?? 'a marble'} at ${formatTime(attach.time)}`;
 	const index = marble?.hits.findIndex((item) => item.id === attach.hitId) ?? -1;
 	const hit = marble?.hits[index];
-	const note = hit?.pitch != null ? noteName(hit.pitch) : `Hit ${index + 1}`;
+	const note = hit?.pitch != null ? noteName(hit.pitch) : `Note ${index + 1}`;
 	return hit == null ? 'Plays a note' : `Plays ${note} · ${formatTime(hit.time)}`;
 }
 
@@ -261,11 +261,11 @@ function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulatio
 	if (ride.enter == null) return { tone: 'bad', label: 'Missed', detail: `${starts}\n${marbleName} passes the ${label} without touching it.` };
 	if (ride.leave == null) {
 		return next != null
-			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marbleName} is still on the ${label} at hit ${nextIndex + 1}.` }
+			? { tone: 'warn', label: 'Still Riding', detail: `${starts}\n${marbleName} is still on the ${label} at note ${nextIndex + 1}.` }
 			: { tone: 'neutral', label: 'Rides to End', detail: `${starts}\n${marbleName} stays on the ${label} to the end.` };
 	}
 	const rides = ride.leave - ride.enter;
-	const flight = next == null ? '' : `, then falls ${(next.time - ride.leave).toFixed(2)} s to hit ${nextIndex + 1}`;
+	const flight = next == null ? '' : `, then falls ${(next.time - ride.leave).toFixed(2)} s to note ${nextIndex + 1}`;
 	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marbleName} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
 }
 
@@ -315,7 +315,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; piece: TPiece }
 		>
 			{attach.kind === 'linked' ? (
 				<LinkRow
-					title={`Select Hit ${hitIndex + 1}`}
+					title={`Select Note ${hitIndex + 1}`}
 					onOpen={openHit}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">

@@ -24,7 +24,7 @@ export const exampleGroups: TExampleGroup[] = [
 		title: 'Techniques',
 		hasSong: false,
 		examples: [
-			{ id: 'staircase', title: 'Staircase', detail: 'One marble, eight even hits' },
+			{ id: 'staircase', title: 'Staircase', detail: 'One marble, eight even notes' },
 			{ id: 'zigzag', title: 'Zigzag', detail: 'Mirror Last Platform, Continue Pattern' },
 			{ id: 'long-gap', title: 'Long Gap', detail: 'A rail and a tunnel fill a long pause' },
 			{ id: 'windmill', title: 'Windmill', detail: 'A spinning piece' },

@@ -71,7 +71,7 @@ describe('suggestedHits function with several recordings', () => {
 		const marble = several.marbles[0];
 		if (marble == null) throw new Error('No marble');
 
-		expect(suggestedHitChoices(studio(several, { a: [0.5], b: [0.5, 1] }), marble).map((choice) => choice.label)).toEqual(['Add 1 Suggested Hit from a.wav', 'Add 2 Suggested Hits from b.wav']);
-		expect(suggestedHitChoices(studio(one, { a: [0.5] }), marble).map((choice) => choice.label)).toEqual(['Add 1 Suggested Hit']);
+		expect(suggestedHitChoices(studio(several, { a: [0.5], b: [0.5, 1] }), marble).map((choice) => choice.label)).toEqual(['Add 1 Suggested Note from a.wav', 'Add 2 Suggested Notes from b.wav']);
+		expect(suggestedHitChoices(studio(one, { a: [0.5] }), marble).map((choice) => choice.label)).toEqual(['Add 1 Suggested Note']);
 	});
 });

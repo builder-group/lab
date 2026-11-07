@@ -83,7 +83,7 @@ describe('A Pattern', () => {
 		expect(check.commands).toEqual([]);
 		expect(check.groupId).toBeNull();
 		expect(check.refusal?.hitId).toMatch(/^h\d$/);
-		expect(check.refusal?.words).toMatch(/^Zigzag doesn't fit at Hit \d of .*Nothing changed\.$/);
+		expect(check.refusal?.words).toMatch(/^Zigzag doesn't fit at Note \d of .*Nothing changed\.$/);
 		expect(check.verdicts.find((verdict) => verdict.hitId === check.refusal?.hitId)?.fits).toBe(false);
 	});
 
@@ -93,7 +93,7 @@ describe('A Pattern', () => {
 		const check = checkPattern(project, { marbleId: MARBLE, from: 1.2, to: 2, kind: 'zigzag', width: 0.1, bounce: 0.5 }, { sim });
 
 		expect(check.commands).toEqual([]);
-		expect(check.refusal?.words).toContain('Try Long Rail');
+		expect(check.refusal?.words).toContain('Try Curved Rail');
 	});
 
 	it('should say so for a kind this version of the app does not have', () => {
@@ -147,7 +147,7 @@ describe('checkPattern function', () => {
 		const check = checkPattern(built, { marbleId: MARBLE, from: 3.8, to: 4.6, kind: 'zigzag' }, { sim });
 
 		expect(check.commands).toEqual([]);
-		expect(check.refusal?.words).toMatch(/^Zigzag doesn't fit at Hit 8 of .+\. It's out of order: Hits 4 to 7 have no pieces yet, so the marble falls [\d.]+ m before it\. Nothing changed\.$/);
+		expect(check.refusal?.words).toMatch(/^Zigzag doesn't fit at Note 8 of .+\. It's out of order: Notes 4 to 7 have no pieces yet, so the marble falls [\d.]+ m before it\. Nothing changed\.$/);
 		expect(check.verdicts.find((verdict) => verdict.hitId === 'h8')?.fits).toBe(false);
 	});
 
@@ -168,7 +168,7 @@ describe('checkPattern function', () => {
 		const check = checkPattern(project, { marbleId: MARBLE, from: 1, to: 2.28, kind: 'zigzag', width: 0.1 }, { sim });
 
 		expect(check.commands).toEqual([]);
-		expect(check.offers.map((offer) => offer.label).join()).toContain('Use Hits 1–');
+		expect(check.offers.map((offer) => offer.label).join()).toContain('Use Notes 1–');
 		const offer = check.offers.find((item) => item.from != null);
 		const taken = checkPattern(project, { marbleId: MARBLE, from: offer?.from ?? 0, to: offer?.to ?? 0, kind: 'zigzag', width: 0.1 }, { sim });
 		expect(taken.refusal).toBeNull();

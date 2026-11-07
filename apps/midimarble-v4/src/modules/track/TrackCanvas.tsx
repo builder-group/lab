@@ -494,7 +494,7 @@ const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2;
 		content = (
 			<>
 				<Link2 size={11} strokeWidth={2.2} />
-				<span className="font-medium">Hit {index + 1}</span>
+				<span className="font-medium">Note {index + 1}</span>
 				{pitch != null ? <span className="opacity-70">{noteName(pitch)}</span> : null}
 			</>
 		);
@@ -536,7 +536,7 @@ const WhatIfCount: React.FC<{ trackCx: TrackCx; result: TSimulationResult | null
 	const { trackCx, result, isFirst = false, isInChip = false } = props;
 	const count = trackCx.whatIfBreaks(result);
 	if (count == null) return null;
-	const text = count === 0 ? 'Breaks no hits' : `Breaks ${count} ${count === 1 ? 'hit' : 'hits'}`;
+	const text = count === 0 ? 'Breaks no notes' : `Breaks ${count} ${count === 1 ? 'note' : 'notes'}`;
 	return (
 		<span className="mm-whatif-count" data-bad={count > 0} data-chip={isInChip} data-first={isFirst}>
 			{text}
@@ -797,7 +797,7 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	const isOutside = overshoot > 0;
 	return (
 		<CanvasTooltip position={position}>
-			<span className="font-medium">Hit {index + 1}</span>
+			<span className="font-medium">Note {index + 1}</span>
 			<span className="mm-tabular ml-1.5 text-[var(--text-secondary)]">
 				{formatTime(hit.targetTime)}
 				{pitch != null ? ` · ${noteName(pitch)}` : ''}

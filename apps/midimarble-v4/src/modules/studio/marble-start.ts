@@ -30,8 +30,8 @@ export function moveMarbleStart(cx: StudioCx, marble: TMarble, time: number): vo
 }
 
 function hitsWords(count: number): string {
-	if (count === 1) return 'Hit 1';
-	return count === 2 ? 'Hits 1 and 2' : `Hits 1 to ${count}`;
+	if (count === 1) return 'Note 1';
+	return count === 2 ? 'Notes 1 and 2' : `Notes 1 to ${count}`;
 }
 
 const TIME_EPSILON = 1e-6;

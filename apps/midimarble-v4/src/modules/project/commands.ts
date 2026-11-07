@@ -45,10 +45,10 @@ export const PROJECT_COMMAND_EXAMPLES: Record<TProjectCommand['type'], string> =
 	updateSong: "{ type: 'updateSong', songId, patch: { tempo: { bpm: 120, beatsPerBar: 4 }, backingSound: 0 } }",
 	moveSong: "{ type: 'moveSong', songId, start: 2 }",
 	removeSong: "{ type: 'removeSong', songId }",
-	addMarble: "{ type: 'addMarble', marble: { id, name, labelColor: '#3478f6', sound: 9, radius: 0.012, start: { position: { x, y }, time: 0 }, hits: [] } }",
+	addMarble: "{ type: 'addMarble', marble: { id, name, labelColor: '#3478f6', sound: 9, radius: 0.012, start: { position: { x, y }, time: 0 }, notes: [] } }",
 	updateMarble: "{ type: 'updateMarble', marbleId, patch: { name: 'Melody', start: { position: { x, y }, time: 0 } } }",
 	removeMarble: "{ type: 'removeMarble', marbleId }",
-	upsertHits: "{ type: 'upsertHits', marbleId, hits: [{ id, time }] }",
+	upsertHits: "{ type: 'upsertHits', marbleId, notes: [{ id, time }] }",
 	removeHits: "{ type: 'removeHits', marbleId, hitIds: [] }",
 	assignHits: "{ type: 'assignHits', hitIds: [], marbleId }",
 	addPiece: "{ type: 'addPiece', piece: { id, name, type: 'platform', params: {}, angle: 0, place: { kind: 'free', position: { x, y } } } }",
@@ -307,7 +307,7 @@ function assignHits(project: TProject, hitIds: readonly string[], marbleId: stri
 			});
 	const found = new Set([...moved, ...(isToBacking ? backingOf(project) : (project.marbles.find((marble) => marble.id === marbleId)?.hits ?? []))].map((hit) => hit.id));
 	const missing = hitIds.find((id) => !found.has(id));
-	if (missing != null) return Err(new Error(`Hit ${missing} does not exist`));
+	if (missing != null) return Err(new Error(`Note ${missing} does not exist`));
 	if (isToBacking) return Ok({ ...project, marbles, songs: withBacking(songs, moved) });
 	return Ok({ ...project, songs, marbles: marbles.map((marble) => (marble.id === marbleId ? { ...marble, hits: sortHits([...marble.hits, ...moved]) } : marble)) });
 }

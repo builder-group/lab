@@ -52,7 +52,7 @@ const QuickHelpOverlay: React.FC<{ cx: StudioCx }> = (props) => {
 
 	const wall = rects.find((rect) => rect.key === 'wall') ?? null;
 	const viewport = { width: window.innerWidth, height: window.innerHeight };
-	const panel = wall == null ? undefined : { left: wall.right - 12 - PANEL_WIDTH, top: wall.bottom - 12 - PANEL_HEIGHT, right: wall.right - 12, bottom: wall.bottom - 12 };
+	const panel = wall == null ? undefined : { left: wall.right - 12 - PANEL_WIDTH, top: wall.bottom - BAR_ROOM - PANEL_HEIGHT, right: wall.right - 12, bottom: wall.bottom - BAR_ROOM };
 	const items = rects.flatMap((rect) => {
 		const region = regions.find((item) => item.id === rect.key);
 		return region == null ? [] : [{ region, rect }];
@@ -78,7 +78,7 @@ const QuickHelpOverlay: React.FC<{ cx: StudioCx }> = (props) => {
 				className="mm-qh-panel pointer-events-auto"
 				role="region"
 				aria-label="Quick Help"
-				style={wall != null ? { bottom: window.innerHeight - wall.bottom + 12, right: window.innerWidth - wall.right + 12 } : { bottom: 12, right: 12 }}
+				style={wall != null ? { bottom: window.innerHeight - wall.bottom + BAR_ROOM, right: window.innerWidth - wall.right + 12 } : { bottom: BAR_ROOM, right: 12 }}
 			>
 				<div className="flex items-center">
 					<span className="flex-1 text-[11px] font-semibold text-[var(--text-secondary)]">Quick Help</span>
@@ -103,5 +103,7 @@ const QuickHelpOverlay: React.FC<{ cx: StudioCx }> = (props) => {
 };
 
 // The panel's size, kept clear of the labels
+/** Its panel sits above the floating bar, so the bar can be pointed at */
+const BAR_ROOM = 60;
 const PANEL_WIDTH = 260;
 const PANEL_HEIGHT = 96;

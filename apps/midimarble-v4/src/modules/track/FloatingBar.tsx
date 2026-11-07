@@ -42,7 +42,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 	const piece = target.kind === 'note' ? target.piece : null;
 	const canAdjust = target.kind === 'note' && piece?.type === 'platform' && target.group == null;
 	return (
-		<div className="mm-bar mm-ghost-in" role="toolbar" aria-label="Note" data-quick-help="bar" onPointerDown={(event) => event.stopPropagation()}>
+		<div className="mm-bar mm-ghost-in" role="toolbar" aria-label="Note" onPointerDown={(event) => event.stopPropagation()}>
 			<BarLine cx={cx} project={project} target={target} />
 			<div className="mm-bar-row">
 				<button className="mm-bar-arrow" aria-label="Previous Stop" disabled={!hasStopBeside(project, target, -1)} onClick={() => cx.bar.move(-1)} title="Go to the previous note or rest (←)" type="button">
@@ -78,7 +78,7 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	if (notice != null && cx.bar.carriesNotice(notice)) {
 		return (
 			<div className="mm-bar-line" data-tone={notice.tone === 'error' ? 'bad' : undefined}>
-				<span className="truncate" title={notice.message}>
+				<span title={notice.message}>
 					{notice.message}
 				</span>
 				{(notice.actions ?? []).map((action) => (
@@ -106,7 +106,7 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, canMakeBacking(project) ? releaseFixFor(project, hit, reach) : null) : [];
 		return (
 			<div className="mm-bar-line" data-tone={proposal?.status === 'fits' ? undefined : 'bad'}>
-				<span className="truncate" title={words}>
+				<span title={words}>
 					{words}
 				</span>
 				{fixes.map((action) => (
@@ -121,7 +121,7 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	if (status == null || status.tone === 'good' || status.tone === 'neutral' || status.detail == null) return null;
 	return (
 		<div className="mm-bar-line" data-tone="bad">
-			<span className="truncate" title={status.detail}>
+			<span title={status.detail}>
 				{status.detail}
 			</span>
 		</div>

@@ -128,7 +128,7 @@ function clearSimulate(cx: StudioCx): ((trial: TProject) => Promise<TSimulationR
 
 /** The text that says a copy would break the run, so nothing changed */
 function refusedWords(what: string, breaks: number): string {
-	return `Every spot for a copy of ${what} would break ${breaks === 1 ? 'a hit' : `${breaks} hits`}, so nothing changed`;
+	return `Every spot for a copy of ${what} would break ${breaks === 1 ? 'a note' : `${breaks} hits`}, so nothing changed`;
 }
 
 /**
@@ -483,10 +483,10 @@ export const commands: readonly TCommand[] = [
 	// MARK: - Playback
 	{ id: 'play.toggle', title: 'Play', section: 'Playback', shortcut: 'Space', keywords: 'pause stop', isEnabled: hasProject, run: (cx) => cx.$playing.set(!cx.$playing.get()) },
 	{ id: 'play.start', title: 'Go to Beginning', section: 'Playback', shortcut: '↩', keywords: 'rewind start', isEnabled: hasProject, run: (cx) => cx.seek(0) },
-	{ id: 'play.previousHit', title: 'Previous Hit', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
-	{ id: 'play.nextHit', title: 'Next Hit', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
+	{ id: 'play.previousHit', title: 'Previous Note', section: 'Playback', shortcut: '←', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(-1) },
+	{ id: 'play.nextHit', title: 'Next Note', section: 'Playback', shortcut: '→', keywords: 'jump keyframe', isEnabled: hasProject, run: (cx) => cx.stepHit(1) },
 	{ id: 'play.repeat', title: 'Repeat Range', section: 'Playback', shortcut: 'C', keywords: 'cycle loop repeat rehearse section range', isEnabled: hasProject, isChecked: (cx) => shownRepeatRange(cx.$repeatRange.get(), cx.project?.id, cx.project?.length ?? 0)?.isOn === true, run: (cx) => cx.toggleRepeatRange() },
-	{ id: 'play.tap', title: 'Tap Hit at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
+	{ id: 'play.tap', title: 'Tap Note at Playhead', section: 'Playback', shortcut: 'T', keywords: 'record tap along', isEnabled: hasProject, run: (cx) => cx.tapHit() },
 
 	// MARK: - Tools
 	toolCommand('select', 'Move Tool', 'select pointer arrow'),
@@ -509,7 +509,7 @@ export const commands: readonly TCommand[] = [
 	{ id: 'build.next', title: 'Next', section: 'Track', shortcut: 'N', keywords: 'add platform accept go on step assist', isEnabled: (cx) => trackCx(cx) != null, run: (cx) => trackCx(cx)?.next() },
 	{
 		id: 'build.track',
-		title: 'Build Track',
+		title: 'Build Entire Track',
 		section: 'Track',
 		shortcut: '⇧N',
 		keywords: 'whole song all hits auto build everything bowl solve assist',
@@ -695,11 +695,11 @@ export const commands: readonly TCommand[] = [
 	},
 	{
 		id: 'marble.addSuggestedHits',
-		title: 'Add Suggested Hits',
+		title: 'Add Suggested Notes',
 		currentTitle: (cx) => {
 			const marble = suggestionMarble(cx);
 			const count = marble != null ? suggestedHits(cx, marble).length : 0;
-			return count > 0 ? suggestedHitsLabel(count) : 'Add Suggested Hits';
+			return count > 0 ? suggestedHitsLabel(count) : 'Add Suggested Notes';
 		},
 		section: 'Marble',
 		keywords: 'beats onsets recording audio tap detect found',

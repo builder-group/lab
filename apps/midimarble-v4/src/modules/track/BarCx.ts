@@ -5,7 +5,7 @@ import { type TProject, tieOf } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { displayPiece } from '@/modules/building';
 import type { StudioCx, TNotice } from '@/modules/studio';
-import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, frontierStop, REBUILD, selectionOfStop, stopBeside, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, frontierStop, REBUILD, selectionOfStop, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -41,6 +41,8 @@ interface TBarSession {
 	isAsking: boolean;
 	/** The view has gone to it, once its run said where it is */
 	isRevealed: boolean;
+	/** Asked and given up on, as the dropdown closed: what's still on its way comes to nothing */
+	stopped: Set<TBarChoice>;
 }
 
 /**
@@ -222,18 +224,18 @@ export class BarCx {
 		return stopBeside(project, { kind: 'notes', marbleId: target.marbleId, hitIds: [hit.id], first: number + 1, last: number + 1, total: marble?.hits.length ?? 0, time: hit.time, pieces: [], group: null }, 1);
 	}
 
-	/** Build Up to Here: everything before this note, as one Undo step, and the bar stays on it */
+	/** Build Up to Here: everything up to this note, and to the note before this rest, as one Undo step, and the bar stays on it */
 	private async buildUpToHere(): Promise<void> {
 		const { target } = this.$state.get();
 		const project = this.studio.project;
 		if (target == null || project == null || target.kind === 'notes') return;
 		const time = target.kind === 'note' ? target.time : target.gap.from;
-		const key = this.studio.$selection.get();
-		await this.studio.assist.buildUpTo(target.kind === 'note' ? time - 1e-3 : time);
+		await this.studio.assist.buildUpTo(time);
 		const now = this.studio.project;
 		if (now == null) return;
-		this.studio.$selection.set(key);
-		this.studio.seek(time);
+		const stop = target.kind === 'note' ? stopsOf(now, target.marbleId).find((item) => item.kind === 'note' && item.hitId === target.hitId) : null;
+		if (stop != null) this.goTo(now, stop);
+		else this.sync();
 	}
 
 	/** Chooses a kind: its hint shows, and the next press lands it */
@@ -290,13 +292,15 @@ export class BarCx {
 	closeMenu(): void {
 		const state = this.$state.get();
 		if (state.menu == null) return;
-		this.$state.set({ ...state, menu: null });
 		const session = this.session;
+		// What nobody is looking at stops, and is asked again if they look; the choice's own answer goes on
+		const stopped = Object.values(state.answers).filter((answer) => answer.proposal == null && answer.kind !== state.choice);
+		const answers = Object.fromEntries(Object.entries(state.answers).filter(([kind]) => !stopped.some((answer) => answer.kind === kind)));
+		this.$state.set({ ...state, answers, menu: null });
 		if (session == null) return;
-		// What nobody is looking at stops; the choice's own answer goes on
 		session.waiting = session.waiting.filter((kind) => kind === state.choice);
-		const asking = Object.values(state.answers).some((answer) => answer.proposal == null && answer.kind !== state.choice);
-		if (asking) this.studio.patterns.cancelAsk();
+		for (const answer of stopped) session.stopped.add(answer.kind);
+		if (stopped.length > 0) this.studio.patterns.cancelAsk();
 	}
 
 	/** The pointer or the arrows on a row: its ghost shows, and it's asked next */
@@ -380,9 +384,11 @@ export class BarCx {
 		// An amend that lands the same pieces keeps a press waiting
 		const isSameTarget = session?.key === key;
 		this.studio.patterns.cancelAsk();
-		const next: TBarSession = { project, key, waiting: [], isAsking: false, isRevealed: isSameTarget };
+		const next: TBarSession = { project, key, waiting: [], isAsking: false, isRevealed: isSameTarget, stopped: new Set() };
 		this.session = next;
-		const choice = isSameTarget && state.choice != null && state.choice !== 'flip' ? state.choice : defaultChoice(target);
+		// What was chosen by hand stays through an edit; the default follows the track, so past the built notes it's no more once they're built
+		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target) && state.choice !== 'flip';
+		const choice = isSameTarget && isChosenByHand ? state.choice : defaultChoice(target);
 		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0 });
 		this.revealOnce(next, target);
 		this.askChoice();
@@ -484,9 +490,10 @@ export class BarCx {
 		const options = { result, ...(target.kind === 'note' && target.stage === 'open' ? { isAnyDot: true } : {}) };
 		for (let isRetry = false; ; isRetry = true) {
 			try {
-				return await propose(project, ask, deps, options);
+				const proposal = await propose(project, ask, deps, options);
+				return session.stopped.delete(kind) ? null : proposal;
 			} catch (error) {
-				if (session !== this.session) return null;
+				if (session !== this.session || session.stopped.delete(kind)) return null;
 				if (!isSuperseded(error) && !(error instanceof PatternCanceledError)) {
 					console.warn(error);
 					return null;

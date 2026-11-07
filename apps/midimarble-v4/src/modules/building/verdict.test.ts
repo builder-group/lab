@@ -62,7 +62,7 @@ describe('verdict', () => {
 		expect(verdict.lost).toContainEqual({ marbleId: 'marble', hitId: 'hit-1' });
 		const late = verdict.reasons.find((reason) => reason.kind === 'late');
 		expect(late).toMatchObject({ hitId: 'hit-1' });
-		expect(late != null ? reasonWords(after, late) : '').toMatch(/^Hit 2 of Marble 1 no longer plays on time/);
+		expect(late != null ? reasonWords(after, late) : '').toMatch(/^Note 2 of Marble 1 no longer plays on time/);
 	});
 
 	it('judges nothing by what the run already had', () => {

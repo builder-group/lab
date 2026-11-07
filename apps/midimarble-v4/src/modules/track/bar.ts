@@ -299,7 +299,7 @@ export function effectWords(project: TProject, target: TBarTarget, proposal: TPr
 	const lost = (proposal.facts?.lostNumbers ?? []).filter((number) => !asked.has(number));
 	if (lost.length > 0) return `${lostNotes(lost)} ${lost.length === 1 ? 'stops' : 'stop'} playing.${lost.length > 1 ? ' Their pieces stay.' : ''}`;
 	if (proposal.status === 'problems') return proposal.words;
-	return proposal.ask.kind === 'remove' ? null : laterWords(proposal, isOverBuilt(target));
+	return proposal.ask.kind === 'remove' || proposal.ask.kind === 'flip' ? null : laterWords(proposal, isOverBuilt(target));
 }
 
 function isOverBuilt(target: TBarTarget): boolean {
@@ -322,5 +322,7 @@ function laterWords(proposal: TProposal, isOverBuiltNotes: boolean): string | nu
 
 /** A row's short answer, at its end */
 export function rowWords(project: TProject, target: TBarTarget, proposal: TProposal): string {
-	return effectWords(project, target, proposal) ?? (proposal.status === 'fits' ? '' : (proposal.words ?? ''));
+	const words = effectWords(project, target, proposal) ?? (proposal.status === 'fits' ? '' : (proposal.words ?? ''));
+	// The row already names it, so it says why
+	return proposal.status === 'refused' ? words.replace(/^[^.]* doesn't fit [^.]*\. /, '') : words;
 }

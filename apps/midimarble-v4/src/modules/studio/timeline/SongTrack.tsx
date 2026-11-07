@@ -178,7 +178,7 @@ export const SongTrack: React.FC<TSongTrackProps> = (props) => {
 							data-selected={isSelected}
 							data-moving={moved !== 0}
 							style={{ left: span.from * zoom, width: Math.max(8, (span.to - span.from) * zoom), ['--song-tint' as string]: tint }}
-							title={`Drag to move ${song.name === '' ? 'the song' : song.name} and the hits tied to it`}
+							title={`Drag to move ${song.name === '' ? 'the song' : song.name} and the notes tied to it`}
 							{...clipHandlers}
 						/>
 					) : null}

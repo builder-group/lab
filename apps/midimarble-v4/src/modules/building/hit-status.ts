@@ -24,7 +24,7 @@ export function hitTiming(result: THitResult | undefined, names: THitNames, unre
 		case 'blocked':
 			return { state: 'missed', label: 'Blocked', tooltip: `${names.piece ?? 'The platform'} is in the way of the run before this note` };
 		case 'waiting':
-			return { state: 'open', label: 'Waiting', tooltip: `${names.piece ?? 'Its platform'} waits where it was until the first hit that needs attention is fixed` };
+			return { state: 'open', label: 'Waiting', tooltip: `${names.piece ?? 'Its platform'} waits where it was until the first note that needs attention is fixed` };
 		default:
 			return { state: 'open', label: 'Open', tooltip: 'No platform plays this note yet' };
 	}

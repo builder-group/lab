@@ -20,7 +20,7 @@ export const TrackHeader: React.FC<TTrackHeaderProps> = (props) => {
 	const isMuted = useFeatureState(cx.$mix).muted.includes(marble.id);
 	const conflicts = findMarbleConflicts(marble).size;
 	const isSelected = selection.includes(marble.id) || selection.some((key) => key.startsWith(`hit:${marble.id}:`));
-	const hitCount = `${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`;
+	const hitCount = `${marble.hits.length} ${marble.hits.length === 1 ? 'note' : 'notes'}`;
 	const details = conflicts > 0 ? `${conflicts} too close` : hitCount;
 
 	return (
@@ -74,7 +74,7 @@ const SongChip: React.FC<{ project: TProject; marble: TMarble }> = (props) => {
 	if (song.kind === 'none') return null;
 	const nameOf = (songId: string): string => project.songs.find((item) => item.id === songId)?.name || 'Backing';
 	const tint = song.kind === 'song' ? songTint(project.songs.findIndex((item) => item.id === song.songId)) : 'var(--text-tertiary)';
-	const title = song.kind === 'song' ? `Moves with ${nameOf(song.songId)}` : `${song.tied} of ${marble.hits.length} hits move with ${song.songIds.map(nameOf).join(' and ')}`;
+	const title = song.kind === 'song' ? `Moves with ${nameOf(song.songId)}` : `${song.tied} of ${marble.hits.length} notes move with ${song.songIds.map(nameOf).join(' and ')}`;
 	return (
 		<span className="flex min-w-0 items-center gap-0.5" title={title} data-song-chip={song.kind}>
 			<Link2 size={11} strokeWidth={1.75} className="shrink-0" style={{ color: tint }} />

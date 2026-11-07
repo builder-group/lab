@@ -41,7 +41,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const isRail = pattern?.takes === 'silence';
 	const problems = groupProblems(project, result, group);
 	const count = hitsInRange(marble, span.from, span.to).length;
-	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'hit' : 'hits'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
+	const subtitle = isRail ? `Silence on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'note' : 'notes'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
 	const widthRange = pattern?.widthRange;
 	return (
 		<>

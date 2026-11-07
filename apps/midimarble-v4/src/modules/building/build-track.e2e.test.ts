@@ -74,7 +74,7 @@ describe('buildTrack function', () => {
 		expect(problemsBesidesSong(outcome.project, outcome)).toEqual([]);
 		for (const marble of outcome.project.marbles) expect(bowlOfMarble(outcome.project, marble.id)).not.toBeNull();
 		expect(progress.at(-1)).toMatchObject({ done: 115, total: 115, fraction: 1 });
-		expect(problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS)).label).toBe('115 of 115 hits on time');
+		expect(problemSummary(checkRun(outcome.project, outcome.result, NO_BLENDER_OBJECTS)).label).toBe('115 of 115 notes on time');
 		// How it looks: nothing touches on the wall, each platform is struck once
 		expect(touchingPairs(outcome.project, outcome.result)).toEqual([]);
 		expect(extraStrikes(outcome.project, outcome.result)).toEqual([]);

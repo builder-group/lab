@@ -153,11 +153,11 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarb
 			<InspectorHeader
 				icon={<span className="h-3 w-3 rounded-full" style={{ background: marble.labelColor }} />}
 				title={marble.name}
-				subtitle={`Marble · ${marble.hits.length} ${marble.hits.length === 1 ? 'hit' : 'hits'}`}
+				subtitle={`Marble · ${marble.hits.length} ${marble.hits.length === 1 ? 'note' : 'notes'}`}
 				onRename={(name) => cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { name } }])}
 				status={
 					conflicts > 0 ? (
-						<StatusPill tone="bad" label={`${conflicts} Too Close`} detail={`${conflicts === 1 ? 'A hit is' : `${conflicts} hits are`} less than ${MIN_HIT_GAP * 1000} ms from the next one. Drag them apart or move them to another marble.`} />
+						<StatusPill tone="bad" label={`${conflicts} Too Close`} detail={`${conflicts === 1 ? 'A note is' : `${conflicts} hits are`} less than ${MIN_HIT_GAP * 1000} ms from the next one. Drag them apart or move them to another marble.`} />
 					) : null
 				}
 			/>
@@ -174,7 +174,7 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarb
 				</Panel>
 			) : null}
 			{!isFilm ? (
-				<Panel id="marble.timing" title="Timing" accessory={<HelpTip text="Hits tied to a song move with it; None keeps them where they are, on the marble's own. Start: when the marble is released." />}>
+				<Panel id="marble.timing" title="Timing" accessory={<HelpTip text="Notes tied to a song move with it; None keeps them where they are, on the marble's own. Start: when the marble is released." />}>
 					{marble.hits.length > 0 ? (
 						<SongField
 							cx={cx}
@@ -338,7 +338,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 			<>
 				<InspectorHeader
 					icon={<HitGlyph />}
-					title={`${hits.length} ${ownerIds.has(BACKING_ID) ? 'Notes' : 'Hits'}`}
+					title={`${hits.length} Notes`}
 					subtitle={[...ownerIds].map((id) => owners.find((owner) => owner.id === id)?.name).join(', ')}
 				/>
 				<Panel id="hit.playedBy" title="Played By">
@@ -379,14 +379,14 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 		<>
 			<InspectorHeader
 				icon={<HitGlyph color={marble.labelColor} />}
-				title={isBacking ? `Note ${index + 1}` : `Hit ${index + 1}`}
+				title={isBacking ? `Note ${index + 1}` : `Note ${index + 1}`}
 				subtitle={`${marble.name} · ${formatTime(hit.time)}`}
 				status={timing == null ? null : <StatusPill tone={timing.tone} label={timing.label} detail={timing.detail} />}
 				fix={(timing?.tone === 'bad' || timing?.tone === 'warn') && piece != null && !isBacking ? <FixButton cx={cx} pieceId={piece.id} /> : null}
 			/>
 			<Panel
 				id="hit.note"
-				title={hit.pitch != null ? 'Note' : 'Hit'}
+				title={hit.pitch != null ? 'Note' : 'Note'}
 			>
 				{hit.pitch != null ? (
 					<>
@@ -516,7 +516,7 @@ const SongInspector: React.FC<{ cx: StudioCx; project: TProject; songId: string 
 						</ReadoutField>
 					</>
 				) : null}
-				<button className="mm-button" data-span="2" onClick={() => void (song.path == null ? cx.importSong() : cx.sources.replaceSong(song))} title="Choose another MIDI file or recording; the marbles keep their hits" type="button">
+				<button className="mm-button" data-span="2" onClick={() => void (song.path == null ? cx.importSong() : cx.sources.replaceSong(song))} title="Choose another MIDI file or recording; the marbles keep their notes" type="button">
 					{song.path == null ? 'Import Song…' : 'Replace Song…'}
 				</button>
 			</Panel>
@@ -561,7 +561,7 @@ const SceneInspector: React.FC<{ cx: StudioCx; project: TProject; isFilm: boolea
 					<FormatField cx={cx} project={project} />
 				</Panel>
 			) : (
-				<Panel id="scene.track" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; hits stay on time." />}>
+				<Panel id="scene.track" title="Physics" accessory={<HelpTip text="Gravity: how fast all marbles fall. Lower gives smaller hops and a denser track; notes stay on time." />}>
 					<SliderField
 						id="world-speed"
 						label="Gravity"

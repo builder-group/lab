@@ -43,12 +43,12 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 	if (later != null) {
 		actions.push({
 			label: later.label,
-			title: `Move the hit to ${formatTime(later.time)}, the first moment ${marble()} can strike a platform`,
+			title: `Move the note to ${formatTime(later.time)}, the first moment ${marble()} can strike a platform`,
 			run: () => {
 				studio.dismissNotice();
 				if (!studio.execute(later.commands)) return;
 				studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
-				studio.notifyEdit(`Hit moved to ${formatTime(later.time)}`);
+				studio.notifyEdit(`Note moved to ${formatTime(later.time)}`);
 			}
 		});
 	}
@@ -63,13 +63,13 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 		});
 	} else {
 		actions.push({
-			label: 'Delete Hit',
-			title: 'Remove this hit from the marble',
+			label: 'Delete Note',
+			title: 'Remove this note from the marble',
 			run: () => {
 				studio.dismissNotice();
 				if (!studio.execute([{ type: 'removeHits', marbleId: hit.marbleId, hitIds: [hit.hitId] }])) return;
 				studio.$selection.set([]);
-				studio.notifyEdit('Hit deleted');
+				studio.notifyEdit('Note deleted');
 			}
 		});
 	}

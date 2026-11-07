@@ -121,7 +121,7 @@ export async function findBowl(
 			}
 			const broken = newlyBroken(base.hits, run.hits);
 			if (broken.length) {
-				reason ||= `a Bowl there would break ${broken.length === 1 ? 'a hit' : `${broken.length} hits`}`;
+				reason ||= `a Bowl there would break ${broken.length === 1 ? 'a note' : `${broken.length} hits`}`;
 				continue;
 			}
 			if (

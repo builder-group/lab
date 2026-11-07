@@ -136,7 +136,7 @@ describe('SimulationCx previews', () => {
 			const answered = async (): Promise<void> => {
 				for (let i = 0; i < 3; i++) await Promise.resolve();
 			};
-			const issue: TPreflightIssue = { id: 'hit:marble-1:hit-1', kind: 'hit', severity: 'warning', title: 'Hit 1 of Melody is Missed', target: null };
+			const issue: TPreflightIssue = { id: 'hit:marble-1:hit-1', kind: 'hit', severity: 'warning', title: 'Note 1 of Melody is Missed', target: null };
 
 			// Act
 			cx.simulation.$result.set(result);

@@ -21,7 +21,7 @@ function studio(): { cx: StudioCx; patterns: PatternsCx; target: typeof TARGET; 
 	const piece = createLinkedPiece('platform', marble.id, 'hit1', 0.3, { id: 'bar' });
 	const base = { name: 'Zigzag', problems: [], blocking: [], later: [], laterLateHits: 0, otherMarbleTouches: [], notes: [], madePieces: [], measures: null, movedAfter: 0, ending: null, offers: [], pieces: [] };
 	const fits = { ...base, commands: [{ type: 'addPiece', piece }, { type: 'addGroup', group: { id: 'group-1', name: 'Zigzag', marbleId: marble.id, pieceIds: ['bar'], pattern: { kind: 'zigzag', hitIds: ['hit1'], width: 0.1, bounce: 0.5 } } }], groupId: 'group-1', refusal: null, verdicts: [{ hitId: 'hit1', fits: true, words: null }, { hitId: 'hit2', fits: true, words: null }] } as unknown as TPatternAnswer;
-	const refusal = { marbleId: marble.id, hitId: 'hit2', words: "Zigzag doesn't fit at Hit 2 of Marble 1. The marble can't reach this note on time. Nothing changed." };
+	const refusal = { marbleId: marble.id, hitId: 'hit2', words: "Zigzag doesn't fit at Note 2 of Marble 1. The marble can't reach this note on time. Nothing changed." };
 	const refused = { ...base, commands: [], groupId: null, refusal, offers: [{ label: 'Use Width 12 cm', words: 'Width 12 cm fits this range.', width: 0.12 }], verdicts: [{ hitId: 'hit1', fits: true, words: null }, { hitId: 'hit2', fits: false, words: "The marble can't reach this note on time." }] } as unknown as TPatternAnswer;
 	return { cx, patterns, target: { ...TARGET, marbleId: marble.id }, run, preview, cancelPreview: client.cancelPreview, fits, refused };
 }
@@ -52,7 +52,7 @@ describe('Patterns asked first', () => {
 
 		expect(cx.project).toBe(project);
 		const notice = cx.$notice.get();
-		expect(notice?.message).toContain("Zigzag doesn't fit at Hit 2 of Marble 1.");
+		expect(notice?.message).toContain("Zigzag doesn't fit at Note 2 of Marble 1.");
 		expect(notice?.message).toContain('Width 12 cm fits this range.');
 		expect(notice?.actions?.[0]?.label).toBe('Use Width 12 cm');
 

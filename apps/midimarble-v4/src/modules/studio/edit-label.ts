@@ -99,7 +99,7 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 			// Backing without a file is notes alone
 			{
 			const song = before.songs.find((item) => item.id === command.songId);
-			return song == null || song.path != null ? 'Delete Song' : `Delete ${counted(song.backing.length, 'Hit')}`;
+			return song == null || song.path != null ? 'Delete Song' : `Delete ${counted(song.backing.length, 'Note')}`;
 		}
 		case 'removeMarble':
 			return 'Delete Marble';
@@ -109,12 +109,12 @@ function commandLabel(before: TProject, command: TProjectCommand): string | null
 		case 'upsertHits': {
 			const ids = new Set([...before.marbles.flatMap((marble) => marble.hits), ...backingOf(before)].map((hit) => hit.id));
 			const isNew = command.hits.some((hit) => !ids.has(hit.id));
-			return `${isNew ? 'Add' : 'Move'} ${counted(command.hits.length, 'Hit')}`;
+			return `${isNew ? 'Add' : 'Move'} ${counted(command.hits.length, 'Note')}`;
 		}
 		case 'removeHits':
-			return `Delete ${counted(command.hitIds.length, 'Hit')}`;
+			return `Delete ${counted(command.hitIds.length, 'Note')}`;
 		case 'assignHits':
-			return `Hand Over ${counted(command.hitIds.length, 'Hit')}`;
+			return `Hand Over ${counted(command.hitIds.length, 'Note')}`;
 		case 'addGroup': {
 			const group = before.track.groups.find((item) => item.id === command.group.id);
 			return group != null && group.name !== command.group.name ? 'Rename Group' : 'Change Group';

@@ -9,7 +9,7 @@ function fake(project: TProject) {
 }
 
 function withHit(hit: { id: string; time: number; pitch?: number }, hasSong: boolean): { project: TProject; key: string } {
-	const base = createProject({ title: 'Hits' });
+	const base = createProject({ title: 'Notes' });
 	const marble = base.marbles[0];
 	if (marble == null) throw new Error('A new project has a marble');
 	const songs: TProject['songs'] = hasSong ? [{ id: 'song', name: 'song.mid', kind: 'midi', path: 'song.mid', start: 0, backing: [] }] : [];

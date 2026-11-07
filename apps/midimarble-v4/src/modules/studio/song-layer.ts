@@ -48,7 +48,7 @@ export function deleteSongQuestion(song: TSong): string | null {
 export function deleteSongNotice(song: TSong): string {
 	const count = song.backing.length;
 	const name = songLayerName(song);
-	return count > 0 ? `Deleted ${name} and its ${backingNotes(count)}. The marbles keep their hits.` : `Deleted ${name}. The marbles keep their hits.`;
+	return count > 0 ? `Deleted ${name} and its ${backingNotes(count)}. The marbles keep their notes.` : `Deleted ${name}. The marbles keep their notes.`;
 }
 
 function backingNotes(count: number): string {

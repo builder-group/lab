@@ -135,7 +135,7 @@ export function groupProblems(project: TProject, result: TSimulationResult | nul
 		const hit = result.hits.find((item) => item.marbleId === marble.id && item.hitId === hitId);
 		const isOff = hit?.status === 'missed' || hit?.status === 'blocked' || hit?.status === 'waiting' || (hit?.status === 'open' && !isSilence);
 		if (hit == null || !isOff) return [];
-		return [{ hitId, words: `Hit ${marble.hits.findIndex((item) => item.id === hitId) + 1} of ${marble.name} doesn't play. Fit ${group.name} again, or Flatten it.` }];
+		return [{ hitId, words: `Note ${marble.hits.findIndex((item) => item.id === hitId) + 1} of ${marble.name} doesn't play. Fit ${group.name} again, or Flatten it.` }];
 	});
 }
 
@@ -224,7 +224,7 @@ function outOfOrderProblem(sim: TSimulator, project: TProject, marble: TMarble, 
 	const from = played != null ? arrivalAt(sim, project, marble.id, played.id, played.time) : null;
 	const fall = arrival != null && from != null ? from.position.y - arrival.position.y : Infinity;
 	if (fall < LONG_FALL) return null;
-	const open = firstOpen === index - 1 ? `Hit ${firstOpen + 1} has` : `Hits ${firstOpen + 1} to ${index} have`;
+	const open = firstOpen === index - 1 ? `Note ${firstOpen + 1} has` : `Notes ${firstOpen + 1} to ${index} have`;
 	return { hitId, words: `It's out of order: ${open} no pieces yet, so the marble falls ${Number.isFinite(fall) ? `${fall.toFixed(1)} m` : 'away'} before it.` };
 }
 

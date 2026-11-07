@@ -141,7 +141,7 @@ describe('MCP tools', () => {
 		const { cx } = studio();
 		const unknownHit = await runTool(cx, 'run_command', { id: 'build.track', args: { from: 'no-such-hit' } });
 		expect(unknownHit.isError).toBe(true);
-		expect(textOf(unknownHit)).toContain('no hit called no-such-hit');
+		expect(textOf(unknownHit)).toContain('no note called no-such-hit');
 		const unknownPiece = await runTool(cx, 'run_command', { id: 'build.track', args: { gapPiece: 'tunnel' } });
 		expect(unknownPiece.isError).toBe(true);
 		expect(textOf(unknownPiece)).toContain('gapPiece is rail, switchback or chain');
@@ -221,7 +221,7 @@ describe('MCP tools', () => {
 
 		const missing = await runTool(cx, 'run_command', { id: 'build.rebuildFrom' });
 		expect(missing.isError).toBe(true);
-		expect(textOf(missing)).toContain('Rebuild From Here needs a hit');
+		expect(textOf(missing)).toContain('Rebuild From Here needs a note');
 		expect(buildTrack).not.toHaveBeenCalled();
 
 		let isAnswered = false;
@@ -776,7 +776,7 @@ describe('applyPattern', () => {
 		const dry = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'applyPattern', ...ask, dryRun: true }] } }))) as Record<string, unknown>;
 		const real = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [{ type: 'applyPattern', ...ask }] } }))) as Record<string, unknown>;
 
-		expect(person.refusal?.words).toMatch(/^Zigzag doesn't fit at Hit \d of .*Nothing changed\.$/);
+		expect(person.refusal?.words).toMatch(/^Zigzag doesn't fit at Note \d of .*Nothing changed\.$/);
 		expect(dry).toMatchObject({ changed: false, dryRun: true, fits: false, group: null, refusal: person.refusal, verdicts: person.verdicts });
 		expect(real).toMatchObject({ changed: false, fits: false, group: null, refusal: person.refusal, verdicts: person.verdicts });
 		expect(cx.project).toBe(project);
@@ -838,7 +838,7 @@ describe('expandCommands function', () => {
 	it('should refuse what it can\'t do in plain words', () => {
 		const { project, marbleId, hitId } = projectWithHit();
 		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform', hit: { marbleId, hitId } }])[1]?.message).toContain('no dot yet');
-		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform' }])[1]?.message).toContain('hit or a position');
+		expect(expandCommands(project, null, [], [{ type: 'placePiece', pieceType: 'platform' }])[1]?.message).toContain('note or a position');
 		expect(expandCommands(project, null, [], [{ type: 'applySkin', assetId: 'gone', pieceType: 'platform' }])[1]?.message).toContain('add_asset');
 		expect(expandCommands(project, null, [], [{ type: 'placeDecor', source: 'gone', at: { x: 0, y: 0 } }])[1]?.message).toContain("isn't a Decor item");
 	});

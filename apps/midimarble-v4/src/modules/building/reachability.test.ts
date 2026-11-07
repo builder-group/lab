@@ -36,7 +36,7 @@ describe('hitReach function', () => {
 		const reach = hitReach(withFlat, result, next);
 
 		expect(reach).toEqual({ kind: 'resting', pieceId: 'flat' });
-		expect(reachMessage(reach, { hit: 'Hit 2', marble: 'Marble 1', piece: 'Platform 1' }, null)).toBe('Marble 1 lies still on Platform 1 before Hit 2. Turn or fix Platform 1, or make it Backing.');
+		expect(reachMessage(reach, { hit: 'Note 2', marble: 'Marble 1', piece: 'Platform 1' }, null)).toBe('Marble 1 lies still on Platform 1 before Note 2. Turn or fix Platform 1, or make it Backing.');
 	});
 
 	it('should find a note at 0:01 of a new project reachable', () => {
@@ -97,7 +97,7 @@ describe('moveHitLaterFix function', () => {
 		// Assert
 		expect(releaseFixFor(project, hit, reach)).toBeNull();
 		expect(reach.kind === 'tooSoon' && fix != null && fix.time > reach.earliest && fix.time < 1).toBe(true);
-		expect(fix?.label).toBe('Move Hit Later');
+		expect(fix?.label).toBe('Move Note Later');
 		expect(fix?.commands).toEqual([{ type: 'upsertHits', marbleId: hit.marbleId, hits: [{ id: 'hit-1', time: fix?.time }] }]);
 	});
 
@@ -126,7 +126,7 @@ describe('releaseFixFor function', () => {
 		const command = fix?.commands[0];
 		if (command?.type !== 'updateMarble' || command.patch.start == null) throw new Error('Expected a release change');
 		expect(command.patch.start.time).toBe(0.5);
-		expect(reachMessage(reach, { hit: 'Hit 1', marble: 'Marble 1' }, fix)).toBe('Hit 1 is too soon for Marble 1. Move the release earlier or make it Backing.');
+		expect(reachMessage(reach, { hit: 'Note 1', marble: 'Marble 1' }, fix)).toBe('Note 1 is too soon for Marble 1. Move the release earlier or make it Backing.');
 	});
 
 	it('should offer no release change for a note at the very start of the song', () => {
@@ -135,7 +135,7 @@ describe('releaseFixFor function', () => {
 		const reach = hitReach(project, result, first);
 
 		expect(releaseFixFor(project, first, reach)).toBeNull();
-		expect(reachMessage(reach, { hit: 'Hit 1', marble: 'Marble 1' }, null)).toBe('Hit 1 is too soon for Marble 1. Make it Backing, or move the note later.');
+		expect(reachMessage(reach, { hit: 'Note 1', marble: 'Marble 1' }, null)).toBe('Note 1 is too soon for Marble 1. Make it Backing, or move the note later.');
 	});
 
 	it('should move the release later when the marble falls out of the run before its first note', () => {

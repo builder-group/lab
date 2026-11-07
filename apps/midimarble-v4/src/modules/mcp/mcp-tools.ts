@@ -307,7 +307,7 @@ const ARGUMENT_COMMANDS: Partial<Record<TCommandId, (cx: StudioCx, args: Record<
 		const stopEpoch = cx.mcp.presence.stopEpoch;
 		openTrack(cx);
 		const from = cx.assist.rebuildTarget;
-		if (from == null) throw new Error('Rebuild From Here needs a hit, or a piece that plays one: select it with args.select.');
+		if (from == null) throw new Error('Rebuild From Here needs a note, or a piece that plays one: select it with args.select.');
 		if (cx.mcp.presence.stopEpoch === stopEpoch) await cx.assist.buildTrack(from);
 	},
 	'film.addText': async (cx, args) => {
@@ -619,14 +619,14 @@ function buildFrom(cx: StudioCx, args: Record<string, unknown>): { marbleId: str
 	const hitId = args['from'];
 	if (hitId == null) return null;
 	const marble = cx.project?.marbles.find((item) => item.hits.some((hit) => hit.id === hitId));
-	if (marble == null || typeof hitId !== 'string') return `There is no hit called ${String(hitId)}. get_state lists every marble's hits.`;
+	if (marble == null || typeof hitId !== 'string') return `There is no note called ${String(hitId)}. get_state lists every marble's notes.`;
 	if (cx.assist.isBuilding) return buildRefusal(cx);
 	return { marbleId: marble.id, hitId };
 }
 
 function buildRefusal(cx: StudioCx): string {
-	if (cx.assist.isBuilding) return 'Build Track is already running. get_state shows how far it is; build.stop stops it.';
-	if (cx.project?.marbles.some((marble) => marble.hits.length > 0) !== true) return 'Build Track needs notes. Call add_song first.';
+	if (cx.assist.isBuilding) return 'Build Entire Track is already running. get_state shows how far it is; build.stop stops it.';
+	if (cx.project?.marbles.some((marble) => marble.hits.length > 0) !== true) return 'Build Entire Track needs notes. Call add_song first.';
 	return 'Every hit already has a platform.';
 }
 
@@ -661,7 +661,7 @@ function unknownSelection(cx: StudioCx, args: Record<string, unknown>): string |
 		return key === WALL_KEY || key === CAMERA_KEY || key.includes(':');
 	};
 	const bad = select.filter((key) => !isKnown(key));
-	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a hit key such as hit:marbleId:hitId, wall, light:key, camera or song.` : null;
+	return bad.length > 0 ? `Nothing can be selected as ${bad.join(', ')}. Use a piece or marble ID from get_state, a note key such as hit:marbleId:hitId, wall, light:key, camera or song.` : null;
 }
 
 function applySelection(cx: StudioCx, args: Record<string, unknown>): void {
@@ -692,7 +692,7 @@ async function waitUntilFree(cx: StudioCx): Promise<string | null> {
 }
 
 export function busyReason(cx: StudioCx): string | null {
-	if (cx.assist.isBuilding) return 'Build Track is running. get_state shows how far it is; build.stop stops it.';
+	if (cx.assist.isBuilding) return 'Build Entire Track is running. get_state shows how far it is; build.stop stops it.';
 	if (cx.mcp.isPointerDown) return 'The person is in the middle of a drag in MidiMarble. Try again in a moment.';
 	if (cx.$confirmPrompt.get() != null || cx.$closePrompt.get() != null) return 'MidiMarble is waiting for the person to answer a question. Try again in a moment.';
 	if (cx.sources.$midiImport.get() != null) return 'The person has the Import Song sheet open. Try again in a moment.';

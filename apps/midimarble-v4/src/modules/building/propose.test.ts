@@ -39,7 +39,7 @@ describe('propose', () => {
 		expect(JSON.stringify(project)).toBe(before);
 		expect(proposal.status).toBe('fits');
 		expect(proposal.pieces).toHaveLength(1);
-		expect(proposal.notes).toEqual([{ hitId: 'hit-0', number: 1, time: 0.5, state: 'onTime', words: 'Hit 1 plays on time.' }]);
+		expect(proposal.notes).toEqual([{ hitId: 'hit-0', number: 1, time: 0.5, state: 'onTime', words: 'Note 1 plays on time.' }]);
 		expect(proposal.changes).toEqual([]);
 		expect(proposal.facts).toMatchObject({ onTime: 1, total: 4, lost: 0, hasRoomAtNext: true });
 	});
@@ -180,7 +180,7 @@ describe('propose a Pattern', () => {
 
 	it('names the note when a Pattern is refused, and places nothing', async () => {
 		const project = await regular();
-		const words = "Zigzag doesn't fit at Hit 2 of Marble 1. Nothing changed.";
+		const words = "Zigzag doesn't fit at Note 2 of Marble 1. Nothing changed.";
 		const refusing: TProposeDeps = { ...deps, pattern: () => ({ commands: [], refusal: { marbleId: 'marble', hitId: 'hit-1', words }, verdicts: [{ hitId: 'hit-1', fits: false, words: 'The marble misses this note.' }], ending: null }) };
 		const proposal = await propose(project, { marbleId: 'marble', hitIds: ['hit-1', 'hit-2'], kind: 'zigzag' }, refusing);
 		expect(proposal.commands).toEqual([]);

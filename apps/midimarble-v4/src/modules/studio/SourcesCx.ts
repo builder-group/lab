@@ -144,7 +144,7 @@ export class SourcesCx {
 			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
 		]);
 		const lands = shownSongs(project).length > 0 && replaced == null && this.studio.$playhead.get() > 0 ? ` It starts at the playhead, ${formatTime(source.start)}.` : '';
-		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.${lands}`);
+		this.studio.notify(`${analysis.onsets.length} possible notes found. Add them from a marble's row menu or tap along.${lands}`);
 	}
 
 	// MARK: - Song
@@ -163,7 +163,7 @@ export class SourcesCx {
 		const song = this.studio.project?.songs.find((item) => item.id === songId);
 		if (song == null) return false;
 		const question = deleteSongQuestion(song);
-		if (question != null && !(await this.studio.confirm({ question, detail: 'The marbles keep their hits.', action: 'Delete' }))) return false;
+		if (question != null && !(await this.studio.confirm({ question, detail: 'The marbles keep their notes.', action: 'Delete' }))) return false;
 		// The project may have changed while the alert was open
 		const current = this.studio.project;
 		const still = current?.songs.find((item) => item.id === songId);
@@ -181,7 +181,7 @@ export class SourcesCx {
 		if (project == null) return;
 		const past = project.marbles.flatMap((marble) => marble.hits).filter((hit) => hit.time > project.length).length;
 		if (past === 0) return;
-		const words = past === 1 ? '1 hit now falls' : `${past} hits now fall`;
+		const words = past === 1 ? '1 note now falls' : `${past} notes now fall`;
 		this.studio.notifyEdit(`${words} after the film's end at ${formatTime(project.length)}.`, [{ label: 'Fit to Song', title: 'End the film just after the song', run: () => void this.studio.fitToSong() }], { isUndoFirst: true });
 	}
 
