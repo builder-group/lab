@@ -687,6 +687,9 @@ function evaluatePlacement(
 		return { candidate: null, nextDot: null };
 	}
 	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
+	// A tilt can leave the marble past the frame at this dot. The frame's edge then only stops it going further out, or no
+	// tilt could ever bring it back. Its own band stays a first choice, which the rounds after it let go of.
+	const startOutside = limit === band ? 0 : Math.max(0, outsideShare(dot, limit));
 	const restrikes = trial.contacts.filter(
 		(contact) =>
 			contact.marbleId === marbleId &&
@@ -700,7 +703,8 @@ function evaluatePlacement(
 	let heading = 0;
 	if (nextHit != null) {
 		nextDot = findHitResult(trial, marbleId, nextHit.id)?.dot ?? null;
-		if (nextDot == null || !isInBand(nextDot, limit, limit === band ? 0.9 : dotShare)) {
+		const comesBack = nextDot != null && startOutside > 0 && outsideShare(nextDot, limit) < startOutside;
+		if (nextDot == null || (!comesBack && !isInBand(nextDot, limit, limit === band ? 0.9 : dotShare))) {
 			rejected.push('outOfFrame');
 			return { candidate: null, nextDot: null };
 		}
@@ -729,7 +733,8 @@ function evaluatePlacement(
 		}
 		end = nextDot;
 	} else {
-		if (!staysInBand(trial, marbleId, hit.time, until, limit)) {
+		const staysIn = startOutside > 0 ? furthestOutside(samples, limit, hit.time, until) <= startOutside : staysInBand(trial, marbleId, hit.time, until, limit);
+		if (!staysIn) {
 			rejected.push('outOfFrame');
 			return { candidate: null, nextDot: null };
 		}
@@ -774,7 +779,7 @@ function evaluatePlacement(
 	// A marble that leaves its own marble may cross another's path, but its pieces then stand in that marble's way
 	const outsideMarble = furthestOutside(samples, band, hit.time, until);
 	// With several marbles the limit is a hard wall: the marble, then when nothing passes the frame
-	if (isShared && outside > 0) {
+	if (isShared && outside > startOutside) {
 		rejected.push('outOfFrame');
 		return { candidate: null, nextDot };
 	}
@@ -883,9 +888,14 @@ function furthestOutside(samples: TMarbleSample[], band: TFrameBand, from: numbe
 	let outside = 0;
 	for (const sample of samples) {
 		if (sample.time < from || sample.time > until) continue;
-		outside = Math.max(outside, (Math.abs(sample.position.x - band.centerX) - band.halfWidth) / band.halfWidth);
+		outside = Math.max(outside, outsideShare(sample.position, band));
 	}
 	return outside;
+}
+
+/** How far a point lies outside `band`, as a share of its half width; negative inside */
+function outsideShare(point: TVec2, band: TFrameBand): number {
+	return (Math.abs(point.x - band.centerX) - band.halfWidth) / band.halfWidth;
 }
 
 /** The score of a candidate that passed the hard checks; the lowest wins */
@@ -1046,11 +1056,7 @@ function* autoPlaceSearch(
 	}
 	const found = known.plan;
 	if (coarse == null || found == null) {
-		return Err(
-			new Error(
-				`No angle keeps the next dot on time and in frame (${rejected.blocked} blocked, ${rejected.missed} missed, ${rejected.strayContact} touch something else, ${rejected.otherMarble} change another marble's run, ${rejected.outOfFrame} out of frame, ${rejected.nextBlocked} leave no room at the next dot, ${rejected.offPace} off the descent pace, ${rejected.rising} still rising at the next hit, ${rejected.restrike} strike it twice, ${rejected.rolls} roll on it, ${rejected.touching} touch another piece, ${rejected.passes} pass through a piece)`
-			)
-		);
+		return Err(new Error(`No tilt works for this note: ${refusalWords(rejected)}.`));
 	}
 	const best: TCandidate = coarse;
 	const limits: [number, number] = [Math.min(range[0], best.angle), Math.max(range[1], best.angle)];
@@ -1080,6 +1086,32 @@ function* autoPlaceSearch(
 	};
 	if (chosen.bounce != null) placement.bounce = chosen.bounce;
 	return Ok(placement);
+}
+
+/** Why no tilt works, from the check that refused most tries, in the words a notice shows */
+function refusalWords(rejected: Record<TAutoPlaceRejection, number>): string {
+	const [first] = (Object.entries(rejected) as [TAutoPlaceRejection, number][]).sort((a, b) => b[1] - a[1]);
+	switch (first?.[0]) {
+		case 'outOfFrame':
+			return 'every tilt sends the marble out of the frame';
+		case 'otherMarble':
+			return "every tilt gets in the other marble's way";
+		case 'strayContact':
+		case 'touching':
+		case 'passes':
+			return 'every tilt sends the marble into another piece';
+		case 'nextBlocked':
+			return 'every tilt leaves no room for the note after it';
+		case 'offPace':
+			return 'every tilt sends the marble too far from the other marble';
+		case 'rising':
+			return 'every tilt leaves the marble rising at the note after it';
+		case 'restrike':
+		case 'rolls':
+			return 'every tilt leaves the marble on the platform';
+		default:
+			return 'something stands in the way of the marble here';
+	}
 }
 
 /**

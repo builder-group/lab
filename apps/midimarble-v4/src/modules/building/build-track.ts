@@ -951,9 +951,13 @@ function withSkinsOf(was: TProject, built: TProject): TProject {
 	};
 }
 
-/** One step of the build for the hit next in time, as Next's answer to a gap it cannot bridge. Null when nothing works. */
+/**
+ * One step of the build for the hit next in time, as Next's answer to a gap it cannot bridge, leaving every piece already
+ * there as it is. Null when nothing works.
+ */
 export async function buildOneStep(project: TProject, deps: TBuildTrackDeps): Promise<{ project: TProject; commands: TProjectCommand[]; target: THitResult } | null> {
-	const state = createState(deps, project);
+	// Continue would add several pieces, where a press adds one
+	const state = createState({ ...deps, continueRun: () => null }, project, false);
 	await tolerate(state, project);
 	const target = nextTarget(state, project, await run(state, project));
 	if (target == null) return null;

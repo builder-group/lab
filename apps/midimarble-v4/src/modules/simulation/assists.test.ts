@@ -468,6 +468,41 @@ describe('assists', () => {
 	});
 });
 
+describe('autoPlace after a person tilts a piece', () => {
+	function duet(): TProject {
+		const marble = (x: number): { x: number; y: number; releaseTime: number; hitTimes: number[] } => ({ x, y: 0.6, releaseTime: 0.056, hitTimes: [1, 1.5, 2] });
+		return createBareRunProject({ id: 'tilted', title: 'Tilted', end: 4, gravity: 0.25, marbles: [marble(-0.13), marble(0.13)] });
+	}
+
+	function placed(project: TProject): TProject {
+		const [isOk, error, placement] = autoPlace(project, simulate(project), 'marble-1', 'hit-1-1', { simulate });
+		if (!isOk) throw error;
+		return { ...project, track: { ...project.track, pieces: [placement.piece] } };
+	}
+
+	function tilted(project: TProject, degrees: number): TProject {
+		return { ...project, track: { ...project.track, pieces: project.track.pieces.map((piece) => ({ ...piece, angle: piece.angle + (degrees * Math.PI) / 180 })) } };
+	}
+
+	it('should bring back a marble the tilt sent past the frame', () => {
+		const project = placed(duet());
+		const stage = frameBand(project);
+		const outside = [2, 4, 6, 8, 10, 12].map((degrees) => tilted(project, degrees)).find((item) => {
+			const dot = simulate(item).hits.find((hit) => hit.hitId === 'hit-1-2')?.dot;
+			return dot != null && Math.abs(dot.x - stage.centerX) > stage.halfWidth;
+		});
+		if (outside == null) throw new Error('Expected a tilt that leaves the frame');
+		const before = simulate(outside).hits.find((hit) => hit.hitId === 'hit-1-2')?.dot;
+
+		const [isOk, error, placement] = autoPlace(outside, simulate(outside), 'marble-1', 'hit-1-2', { simulate });
+		if (!isOk) throw error;
+
+		const after = simulate({ ...outside, track: { ...outside.track, pieces: [...outside.track.pieces, placement.piece] } });
+		expect(after.hits.find((hit) => hit.hitId === 'hit-1-2')?.status).toBe('onTime');
+		expect(Math.abs((placement.nextDot?.x ?? Infinity) - stage.centerX)).toBeLessThan(Math.abs((before?.x ?? 0) - stage.centerX));
+	});
+});
+
 describe('crossesOtherMarbles', () => {
 	// Two marbles with a piece each; the new piece `piece-1-2` belongs to marble 1, the other marble's frontier is 2 s
 	const project = createBareRunProject({

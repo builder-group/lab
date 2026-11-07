@@ -14,6 +14,18 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 	if (project == null) return [];
 	const marble = (): string => studio.project?.marbles.find((marble) => marble.id === hit.marbleId)?.name ?? 'The marble';
 	const actions: TNoticeAction[] = [];
+	const reach = hitReach(project, studio.simulation.$result.get(), hit);
+	const restingOn = reach.kind === 'resting' ? project.track.pieces.find((piece) => piece.id === reach.pieceId) : undefined;
+	if (restingOn != null) {
+		actions.push({
+			label: `Fix ${restingOn.name}`,
+			title: `Solve ${restingOn.name} again, so the marble goes on from it`,
+			run: () => {
+				studio.dismissNotice();
+				void studio.assist.fix(restingOn.id);
+			}
+		});
+	}
 	// Fixed from the inspector, the notice that explained the problem goes too
 	if (fix != null) {
 		actions.push({
@@ -27,7 +39,7 @@ export function unreachableActions(studio: StudioCx, hit: THitResult, fix: TRele
 			}
 		});
 	}
-	const later = fix == null ? moveHitLaterFix(project, hit, hitReach(project, studio.simulation.$result.get(), hit)) : null;
+	const later = fix == null ? moveHitLaterFix(project, hit, reach) : null;
 	if (later != null) {
 		actions.push({
 			label: later.label,

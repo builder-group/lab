@@ -3,7 +3,7 @@ import { builtRunCommands } from './group-commands';
 import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
 import { gapPieceReads, hitOwners, isSuperseded, layoutOf, openLongGaps, release, changedPieces, editCommands, withEditAnswer, type TAutoPlaceAnswer, type TContinueAnswer, type TGapPieceType, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, replaceCommands, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, isUnreachable, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
 import { unreachableActions } from './unreachable-fixes';
 import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
 import { commitAtHit, findStepTarget, pieceForHit, selectedPieceIds } from './step-loop';
@@ -14,7 +14,6 @@ const FIX_HELD_BUDGET_MS = 10000;
 const DEGREE = Math.PI / 180;
 
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterward */
-export const AUTO_PLACE_WAIT_MS = 150;
 
 /**
  * Owns the assists of the step loop: Next, Auto place, Continue ghosts and rail suggestions for long
@@ -175,7 +174,8 @@ export class AssistCx {
 		const marble = project.marbles.find((item) => item.id === hit.marbleId);
 		const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 		const fix = releaseFixFor(project, hit, reach);
-		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble?.name ?? 'The marble' }, fix, canMakeBacking(project));
+		const piece = reach.kind === 'resting' ? project.track.pieces.find((item) => item.id === reach.pieceId)?.name : undefined;
+		const message = reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble?.name ?? 'The marble', piece }, fix, canMakeBacking(project));
 		if (message == null) return;
 		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
 		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
@@ -241,10 +241,7 @@ export class AssistCx {
 	}
 
 
-	/**
-	 * Places a piece at an open hit. Platforms and windmills ask Auto place for the angle and wait up to
-	 * 150 ms; a slower answer refines the default angle afterward within the same undo step.
-	 */
+	/** Places a piece at an open hit, as one undo step. Platforms and windmills wait for Auto place's angle; with none it says why and places nothing. */
 	async place(hit: THitResult, type: string): Promise<void> {
 		this.isPlacing = true;
 		try {
@@ -267,38 +264,41 @@ export class AssistCx {
 			commitAtHit(this.studio, hit, pieceForHit(project, hit, type, 'default', id));
 			return;
 		}
-		const ask = (): Promise<TAutoPlaceAnswer | 'failed' | 'superseded'> =>
+		const ask = (): Promise<TAutoPlaceAnswer | { refused: unknown }> =>
 			client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, pieceId: id }).then(
 				(answer) => answer,
-				(error: unknown) => (isSuperseded(error) ? 'superseded' : 'failed')
+				(error: unknown) => ({ refused: error })
 			);
-		const request = ask();
-		const quick = await Promise.race([request, wait(AUTO_PLACE_WAIT_MS).then(() => 'slow' as const)]);
-		const present = this.studio.project;
-		if (present?.id !== project.id) return;
-		if (typeof quick === 'object' && present === project) {
-			commitAtHit(this.studio, hit, quick.piece);
-			return;
-		}
-		// Only the wait for the picture depends on timing: the piece shows at the default tilt until the answer comes, and
-		// the answer then gives it the same tilt and bounce a quick answer would have, so the track is the same either way
-		const fallback = pieceForHit(present, hit, type, 'default', id);
-		if (!commitAtHit(this.studio, hit, fallback)) return;
-		const placed = this.studio.project;
-		const placedGroup = this.studio.editGroup ?? undefined;
-		let answer: TAutoPlaceAnswer | 'failed' | 'superseded' | 'slow' = quick;
-		if (answer === 'slow') answer = await request;
+		let answer = await ask();
 		// A newer request replaced this one in the queue, not an answer about this hit
-		if (answer === 'superseded') answer = await ask();
-		if (answer === 'failed' || answer === 'superseded') {
-			if (this.studio.project === placed) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
+		if ('refused' in answer && isSuperseded(answer.refused)) answer = await ask();
+		// Another edit since: this answer is about a track that no longer stands
+		if (this.studio.project !== project) return;
+		if ('refused' in answer) {
+			this.explainNoTilt(hit, type, answer.refused);
 			return;
 		}
-		const latest = this.studio.project;
-		// Only refine while nothing else happened since the default placement; the tilt undoes with it
-		if (latest == null || latest !== placed) return;
-		const commands = replaceCommands(latest, answer.piece);
-		if (commands.length > 0) this.studio.execute(commands, { group: placedGroup });
+		commitAtHit(this.studio, hit, answer.piece);
+	}
+
+	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */
+	private explainNoTilt(hit: THitResult, type: string, refused: unknown): void {
+		const project = this.studio.project;
+		if (project == null) return;
+		const why = refused instanceof Error && !isSuperseded(refused) ? refused.message : 'No tilt plays this note.';
+		this.clearQueuedNext();
+		this.studio.$selection.set([toHitKey(hit.marbleId, hit.hitId)]);
+		if (!this.studio.$playing.get()) this.studio.$playhead.set(hit.targetTime);
+		const anyway = {
+			label: 'Place Anyway',
+			title: 'A platform at the default tilt, which may not play this note',
+			run: () => {
+				this.studio.dismissNotice();
+				const present = this.studio.project;
+				if (present != null) commitAtHit(this.studio, hit, pieceForHit(present, hit, type, 'default'));
+			}
+		};
+		this.studio.notify(`${why} Turn the platform before it, or:`, 'info', { actions: [anyway, ...unreachableActions(this.studio, hit, null)] });
 	}
 
 	// MARK: - Dot previews
@@ -407,7 +407,7 @@ export class AssistCx {
 		}
 		if (!commitAtHit(this.studio, answer.hit, answer.piece)) return false;
 		this.dispatch({ type: 'accepted' });
-		if (!answer.isOk) this.studio.notify('No tilt keeps the next note in the frame, so the platform has the default tilt. Turn it by hand if the track needs it.');
+		if (!answer.isOk) this.studio.notify('No tilt works for this note, so the platform has the default tilt. Turn it by hand if the track needs it.');
 		return true;
 	}
 
@@ -1044,10 +1044,6 @@ function tiltChange(project: TProject, changed: TPiece[]): string {
 /** The piece that plays this hit, if any */
 function pieceForHitKey(project: TProject, hit: { marbleId: string; hitId: string }): string | undefined {
 	return project.track.pieces.find((piece) => tieOf(piece)?.marbleId === hit.marbleId && tieOf(piece)?.hitId === hit.hitId)?.id;
-}
-
-function wait(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** The simulation's reason a gap piece found no place, in the app's words, with what to do */

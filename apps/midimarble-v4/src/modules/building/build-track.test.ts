@@ -245,4 +245,16 @@ describe('buildOneStep function', () => {
 		expect(step?.target.targetTime).toBe(1);
 		expect(step?.commands.length).toBeGreaterThan(0);
 	});
+
+	it('leaves the pieces already there as they are, and adds one', async () => {
+		const bare = fromHitTimes([[1, 1.5, 2, 2.5]]);
+		const first = await buildOneStep(bare, localBuildDeps(simulator));
+		if (first == null) throw new Error('Expected a first step');
+
+		const step = await buildOneStep(first.project, localBuildDeps(simulator));
+
+		const kept = first.project.track.pieces;
+		expect(kept.every((piece) => step?.project.track.pieces.find((item) => item.id === piece.id) === piece)).toBe(true);
+		expect(step?.project.track.pieces.length).toBe(kept.length + 1);
+	});
 });

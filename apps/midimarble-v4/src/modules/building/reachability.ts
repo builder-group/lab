@@ -14,7 +14,7 @@ export type THitReach =
 	/** The marble has left the run before the note: it fell past the end of the simulation */
 	| { kind: 'outOfReach'; lastTime: number }
 	/** The marble lies still on a piece at the note, so a platform there could only stop it */
-	| { kind: 'resting' };
+	| { kind: 'resting'; pieceId: string | null };
 
 // A release this long before the note gives a marble room to fall onto a platform, like a new marble's
 export const RELEASE_LEAD = 0.5;
@@ -42,11 +42,17 @@ export function hitReach(project: TProject, result: TSimulationResult | null, hi
 	if (waiting) return { kind: 'reachable' };
 	const samples = result?.marbles.find((track) => track.marbleId === hit.marbleId)?.samples ?? [];
 	if (hit.dot == null) return { kind: 'outOfReach', lastTime: samples[samples.length - 1]?.time ?? release.time };
+	// Slower than a strike at the note, nothing placed there can sound it: the marble came down on the piece it left, and lies on it
+	if (hit.velocity != null && Math.hypot(hit.velocity.x, hit.velocity.y) < strikeSpeed(project)) return { kind: 'resting', pieceId: lastPieceTouched(result, hit) };
 	// Still for the last REST_WINDOW seconds, unlike the slow top of a bounce
 	const before = samples.find((sample) => sample.time >= hit.targetTime - REST_WINDOW);
 	if (before != null && before.time < hit.targetTime - REST_WINDOW / 2 && Math.hypot(hit.dot.x - before.position.x, hit.dot.y - before.position.y) < radius / 2)
-		return { kind: 'resting' };
+		return { kind: 'resting', pieceId: lastPieceTouched(result, hit) };
 	return { kind: 'reachable' };
+}
+
+function lastPieceTouched(result: TSimulationResult | null, hit: THitResult): string | null {
+	return result?.contacts.filter((contact) => contact.marbleId === hit.marbleId && contact.kind === 'piece' && contact.time <= hit.targetTime).at(-1)?.otherId ?? null;
 }
 
 function hasPiecesAfter(project: TProject, marbleId: string, time: number): boolean {
@@ -60,12 +66,16 @@ function hasPiecesAfter(project: TProject, marbleId: string, time: number): bool
 /** Seconds from a release until the marble has fallen its diameter and reached the strike speed */
 function strikeDelay(project: TProject, release: { velocity?: TVec2 | undefined }, radius: number): number {
 	const g = -gravityOf(project);
-	// Strike speed scales with gravity in the simulation, so it does here too
-	const strike = IMPACT_SPEED * (g / -gravityOf({}));
+	const strike = strikeSpeed(project);
 	const down = Math.max(0, -(release.velocity?.y ?? 0));
 	const toSpeed = Math.max(0, (strike - down) / g);
 	const toFall = (-down + Math.sqrt(down * down + 4 * g * radius)) / g;
 	return Math.max(toSpeed, toFall);
+}
+
+/** The least speed that sounds a note. It scales with gravity in the simulation, so it does here too */
+function strikeSpeed(project: TProject): number {
+	return IMPACT_SPEED * (gravityOf(project) / gravityOf({}));
 }
 
 /**
@@ -146,7 +156,7 @@ export function reachStatus(reach: THitReach, names: { marble: string; time: str
  * What N says when the next open hit cannot be reached: what happened, then what to do, naming the fixes on
  * offer. Without a song a tapped hit has no note to fall back to, so it is moved or deleted instead of made Backing.
  */
-export function reachMessage(reach: THitReach, names: { hit: string; marble: string }, fix: TReleaseFix | null, hasSong = true): string | null {
+export function reachMessage(reach: THitReach, names: { hit: string; marble: string; piece?: string | undefined }, fix: TReleaseFix | null, hasSong = true): string | null {
 	const away = hasSong ? 'make it Backing' : 'delete it';
 	switch (reach.kind) {
 		case 'tooSoon':
@@ -159,7 +169,7 @@ export function reachMessage(reach: THitReach, names: { hit: string; marble: str
 				? `${names.marble} has fallen off the track before ${names.hit}. Move the release later or ${away}.`
 				: `${names.marble} has fallen off the track before ${names.hit}. Add platforms for the notes before it or ${away}.`;
 		case 'resting':
-			return `${names.marble} lies still before ${names.hit}. Fix the platform it stops on or ${away}.`;
+			return `${names.marble} lies still on ${names.piece ?? 'a piece'} before ${names.hit}. Turn or fix ${names.piece ?? 'it'}, or ${away}.`;
 		case 'noMarble':
 			return `No marble plays ${names.hit}. Add a marble or ${away}.`;
 		case 'reachable':

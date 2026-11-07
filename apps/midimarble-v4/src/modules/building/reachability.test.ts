@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createProject, type TProject } from '@/modules/project';
-import { createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { createLinkedPiece, createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { canMakeBacking, hitReach, moveHitLaterFix, reachMessage, reachStatus, releaseFixFor } from './reachability';
 
 let simulate: (project: TProject) => TSimulationResult;
@@ -23,6 +23,22 @@ function tapped(times: number[], releaseTime = 0): { project: TProject; result: 
 }
 
 describe('hitReach function', () => {
+	it('should say the marble lies still on a flat platform it came back down on, naming the platform', () => {
+		const { project } = tapped([1, 1.5, 2]);
+		const marble = project.marbles[0];
+		if (marble == null) throw new Error('A new project has a marble');
+		const flat = createLinkedPiece('platform', marble.id, 'hit-1', 0, { id: 'flat' });
+		flat.params = { ...flat.params, bounce: 0.2 };
+		const withFlat = { ...project, track: { ...project.track, pieces: [flat] } };
+		const result = simulate(withFlat);
+		const next = result.hits.find((hit) => hit.hitId === 'hit-2') as THitResult;
+
+		const reach = hitReach(withFlat, result, next);
+
+		expect(reach).toEqual({ kind: 'resting', pieceId: 'flat' });
+		expect(reachMessage(reach, { hit: 'Hit 2', marble: 'Marble 1', piece: 'Platform 1' }, null)).toBe('Marble 1 lies still on Platform 1 before Hit 2. Turn or fix Platform 1, or make it Backing.');
+	});
+
 	it('should find a note at 0:01 of a new project reachable', () => {
 		const { project, result, hits } = tapped([1, 1.5]);
 

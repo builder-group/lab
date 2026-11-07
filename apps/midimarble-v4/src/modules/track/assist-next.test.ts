@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createHistory, createMarble, createProject, type TPiece, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TAutoPlaceAnswer, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { StudioCx } from '@/modules/studio';
-import { AssistCx, AUTO_PLACE_WAIT_MS } from './AssistCx';
+import { AssistCx } from './AssistCx';
 
 function studio(assists: Record<string, unknown>): { cx: StudioCx; project: TProject; hit: THitResult } {
 	const created = createProject({ title: 'Song' });
@@ -25,32 +25,34 @@ function solved(marbleId: string, hitId: string, pieceId: string): TAutoPlaceAns
 }
 
 describe('AssistCx place function', () => {
-	it('gives a piece the same tilt and bounce whether Auto place answers quickly or slowly', async () => {
-		const pieces: unknown[] = [];
-		for (const delay of [0, AUTO_PLACE_WAIT_MS * 2]) {
-			const autoPlace = (request: { marbleId: string; hitId: string; pieceId: string }): Promise<TAutoPlaceAnswer> => new Promise((resolve) => setTimeout(() => resolve(solved(request.marbleId, request.hitId, request.pieceId)), delay));
-			const { cx, hit } = studio({ autoPlace });
-			const assist = new AssistCx(cx);
-			await assist.place(hit, 'platform');
-			const placed = cx.project?.track.pieces[0];
-			pieces.push({ angle: placed?.angle, bounce: placed?.params['bounce'] });
-			expect(cx.$history.get()?.past).toHaveLength(1);
-		}
-		expect(pieces[1]).toEqual(pieces[0]);
-		expect(pieces[0]).toEqual({ angle: 0.31, bounce: 0.42 });
-	});
-
-	it('stays busy until a slow answer has landed, so a queued press and an agent see the final piece', async () => {
+	it('adds the piece Auto place answers as one undo step, and nothing before the answer', async () => {
 		let answer: (value: TAutoPlaceAnswer) => void = () => undefined;
 		const { cx, hit } = studio({ autoPlace: () => new Promise((resolve) => (answer = resolve)) });
 		const assist = new AssistCx(cx);
 		const placing = assist.place(hit, 'platform');
-		await vi.waitFor(() => expect(cx.project?.track.pieces.length).toBeGreaterThan(0));
+		await Promise.resolve();
 		expect(assist.isAnswering).toBe(true);
-		const placed = cx.project?.track.pieces[0];
-		answer(solved(hit.marbleId, hit.hitId, placed?.id ?? ''));
+		expect(cx.project?.track.pieces).toEqual([]);
+		answer(solved(hit.marbleId, hit.hitId, 'solved'));
 		await placing;
 		expect(assist.isAnswering).toBe(false);
-		expect(cx.project?.track.pieces.find((piece) => piece.id === placed?.id)?.params['bounce']).toBe(0.42);
+		const placed = cx.project?.track.pieces[0];
+		expect({ angle: placed?.angle, bounce: placed?.params['bounce'] }).toEqual({ angle: 0.31, bounce: 0.42 });
+		expect(cx.$history.get()?.past).toHaveLength(1);
+		expect(cx.$selection.get()).toEqual(['solved']);
+	});
+
+	it('places nothing when no tilt works, says why and offers what to do', async () => {
+		const { cx, hit } = studio({ autoPlace: () => Promise.reject(new Error('No tilt works for this note: every tilt sends the marble out of the frame.')) });
+		const assist = new AssistCx(cx);
+		await assist.place(hit, 'platform');
+		expect(cx.project?.track.pieces).toEqual([]);
+		expect(cx.$history.get()?.past).toHaveLength(0);
+		const notice = cx.$notice.get();
+		expect(notice?.message).toContain('out of the frame');
+		const anyway = notice?.actions?.find((action) => action.label === 'Place Anyway');
+		anyway?.run();
+		expect(cx.project?.track.pieces).toHaveLength(1);
+		expect(cx.$history.get()?.past).toHaveLength(1);
 	});
 });
