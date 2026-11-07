@@ -254,7 +254,7 @@ export function askOf(project: TProject, target: TBarTarget, kind: string): TPro
 	const { marbleId } = target;
 	if (kind === 'zigzag' || kind === 'staircase') return { marbleId, hitIds: stretchOf(project, target), kind };
 	if (target.kind === 'rest') {
-		const settings = kind === 'remove' && target.piece != null ? { settings: { pieceIds: [target.piece.id] } } : {};
+		const settings = (kind === 'remove' || kind === 'fix') && target.piece != null ? { settings: { pieceIds: [target.piece.id] } } : {};
 		return { marbleId, hitIds: [target.gap.toHitId], kind, ...settings };
 	}
 	return { marbleId, hitIds: target.kind === 'notes' ? target.hitIds : [target.hitId], kind };
@@ -321,6 +321,7 @@ export function acceptWords(project: TProject, target: TBarTarget, choice: TBarC
 	if (choice === BUILD_UP_TO) return 'Build Up to Here';
 	if (choice === 'remove') return `Remove${anyway}`;
 	if (choice === 'flip') return `Flip${anyway}`;
+	if (choice === 'fix') return `Fix${anyway}`;
 	const name = KIND_NAMES[choice] ?? choice;
 	const isBuilt = target.kind === 'notes' ? target.pieces.length > 0 : target.stage === 'built';
 	const stretch = choice === 'zigzag' || choice === 'staircase' ? stretchOf(project, target).length : 0;
@@ -340,7 +341,8 @@ export function effectWords(target: TBarTarget, proposal: TProposal): string | n
 	return proposal.ask.kind === 'remove' || proposal.ask.kind === 'flip' ? null : laterWords(proposal, isOverBuilt(target));
 }
 
-function isOverBuilt(target: TBarTarget): boolean {
+/** Whether something stands here to remove or fix */
+export function isOverBuilt(target: TBarTarget): boolean {
 	return target.kind === 'notes' ? target.pieces.length > 0 : target.stage === 'built';
 }
 

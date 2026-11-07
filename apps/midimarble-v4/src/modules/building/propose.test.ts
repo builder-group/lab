@@ -60,6 +60,27 @@ describe('propose', () => {
 		expect(landed(built, proposal).track.pieces[0]?.angle).toBeCloseTo(-before);
 	});
 
+	it('proposes Fix as a hint, changing nothing until it lands, and says when there is nothing to fix', async () => {
+		const project = fourNotes();
+		const built = landed(project, await asked(project, 'hit-0'));
+		const piece = built.track.pieces[0];
+		if (piece == null) throw new Error('No piece');
+		expect((await asked(built, 'hit-0', 'fix')).words).toMatch(/nothing to fix/);
+		// The second platform turned steeply by hand has a Problem, and Fix tilts it again
+		const two = landed(built, await asked(built, 'hit-1'));
+		const second = two.track.pieces[1];
+		if (second == null) throw new Error('No second piece');
+		const [isTurned, , broken] = applyProjectCommands(two, [{ type: 'updatePiece', pieceId: second.id, patch: { angle: 1.2 } }]);
+		if (!isTurned) throw new Error('Not turned');
+		const before = JSON.stringify(broken);
+		const proposal = await asked(broken, 'hit-1', 'fix');
+		expect(JSON.stringify(broken)).toBe(before);
+		expect(proposal.status).toBe('fits');
+		expect(proposal.pieces.map((item) => item.id)).toEqual([second.id]);
+		expect(landed(broken, proposal).track.pieces[1]?.angle).not.toBeCloseTo(1.2);
+		expect(await asked(fourNotes(), 'hit-0', 'fix')).toMatchObject({ status: 'refused', words: 'There is no piece here to fix.' });
+	});
+
 	it('proposes a removal, says which notes stop playing and shows the piece where it stands', async () => {
 		const project = fourNotes();
 		const one = landed(project, await asked(project, 'hit-0'));

@@ -218,7 +218,7 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 			</button>
 			<NoteMark status={status} />
 			{status?.tone === 'bad' || status?.tone === 'warn' ? (
-				<button className="mm-bar-fix" onClick={() => cx.assist.fixSelection()} title={status.detail ?? 'Fix this'} type="button">
+				<button className="mm-bar-fix" onClick={() => cx.bar.fix()} title={`${status.detail ?? 'Show what Fix would change'} (A)`} type="button">
 					<Wand2 size={12} strokeWidth={1.8} />
 					Fix
 				</button>

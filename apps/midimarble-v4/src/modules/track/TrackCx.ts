@@ -2199,7 +2199,8 @@ export class TrackCx {
 			case 'mirror':
 				return this.studio.bar.flip();
 			case 'fix':
-				this.studio.assist.fixSelection();
+				// On what the bar stands on, Fix is its hint first
+				if (!this.studio.bar.fix()) this.studio.assist.fixSelection();
 				return true;
 			case 'finishPath':
 				this.finishPen();

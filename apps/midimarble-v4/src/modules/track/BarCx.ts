@@ -3,7 +3,7 @@ import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, propose,
 import { type TProject, tieOf } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx, TNotice } from '@/modules/studio';
-import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, frontierStop, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, frontierStop, isOverBuilt, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -210,8 +210,8 @@ export class BarCx {
 		if (proposal.status === 'problems' && proposal.words != null) this.studio.notifyEdit(proposal.words);
 		const now = this.studio.project;
 		if (now == null) return;
-		if (choice === 'remove' || choice === 'flip') {
-			if (choice === 'flip') this.$state.set({ ...this.$state.get(), choice: null });
+		if (choice === 'remove' || choice === 'flip' || choice === 'fix') {
+			if (choice !== 'remove') this.$state.set({ ...this.$state.get(), choice: null });
 			return;
 		}
 		const last = proposal.ask.hitIds.at(-1);
@@ -248,6 +248,14 @@ export class BarCx {
 		const { target } = this.$state.get();
 		if (target?.kind !== 'note' || !target.isLastBuilt || target.group != null) return false;
 		this.choose('flip');
+		return true;
+	}
+
+	/** Fix and A on what stands here: a hint of what Fix would change, landed on accept. False when nothing stands here */
+	fix(): boolean {
+		const { target } = this.$state.get();
+		if (!this.isShown || target == null || !isOverBuilt(target)) return false;
+		this.choose('fix');
 		return true;
 	}
 
@@ -384,8 +392,9 @@ export class BarCx {
 		this.studio.patterns.cancelAsk();
 		const next: TBarSession = { project, key, waiting: [], isAsking: false, isRevealed: isSameTarget, stopped: new Set() };
 		this.session = next;
-		// What was chosen by hand stays through an edit; the default follows the track, so past the built notes it's no more once they're built
-		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target, state.passed) && state.choice !== 'flip';
+		// What was chosen by hand stays through an edit; the default follows the track, so past the built notes it's no more
+		// once they're built. Flip and Fix are done once landed
+		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target, state.passed) && state.choice !== 'flip' && state.choice !== 'fix';
 		const choice = isSameTarget && isChosenByHand ? state.choice : defaultChoice(target);
 		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0, passed: [] });
 		this.revealOnce(next, target);

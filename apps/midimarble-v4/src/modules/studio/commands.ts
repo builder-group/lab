@@ -536,7 +536,10 @@ export const commands: readonly TCommand[] = [
 		shortcut: 'A',
 		keywords: 'place again re-place replace repair auto place solve tilt platforms blocked missed stopped broken on time move clear release',
 		isEnabled: (cx) => trackCx(cx) != null && !cx.assist.isFixing && !isOnlyOnTimePiece(cx),
-		run: (cx) => cx.assist.fixSelection()
+		run: (cx) => {
+			// On what the bar stands on, Fix is its hint first
+			if (!cx.bar.fix()) cx.assist.fixSelection();
+		}
 	},
 	{
 		id: 'build.addBowl',

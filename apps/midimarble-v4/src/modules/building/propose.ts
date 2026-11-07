@@ -4,6 +4,7 @@ import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationRes
 import { findLongGaps, hitOwners, openLongGaps } from './assists';
 import { hitReach, isUnreachable, reachMessage } from './reachability';
 import { answerEdit, changedPieces, editCommands, type TEditAnswer, type TEditRequest } from './edit-rule';
+import { fixPiece, hasPieceProblem, type TFixDeps } from './fix-it';
 import { checkPattern, type TPatternAsk, type TPatternCheck } from './patterns/check-pattern';
 import { patternOfKind } from './patterns/registry';
 import { noKnownFaults, addKnownFaults, reasonWords, verdictWithRoom, type TVerdictReason } from './verdict';
@@ -131,6 +132,7 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	const hit = before.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
 	if (marble == null || hitId == null || hit == null) return refused(project, before, ask, 'That note is gone.');
 	if (kind === 'remove' || kind === 'flip') return proposeEdit(project, before, ask, kind, deps);
+	if (kind === 'fix') return proposeFix(project, before, ask, deps);
 	const owners = hitOwners(project, marbleId);
 	const index = marble.hits.findIndex((item) => item.id === hitId);
 	const firstOpen = marble.hits.findIndex((item) => !owners.has(item.id));
@@ -195,6 +197,33 @@ async function proposeEdit(project: TProject, before: TSimulationResult, ask: TP
 	const proposal = await landed(project, before, ask, pieces, [{ type: 'removePieces', pieceIds: pieces.map((piece) => piece.id) }], { checksNext: false }, deps);
 	// They aren't there afterward: the hint draws them where they stand
 	return { ...proposal, shown: before.pieces.filter((piece) => pieces.some((item) => item.id === piece.pieceId)) };
+}
+
+/**
+ * Fix for one piece, as a hint: the first of the pieces asked whose note isn't on time or that has a Problem, or else
+ * the first, solved again by `fixPiece`. Its what-if already kept the later notes, so nothing settles after it
+ */
+async function proposeFix(project: TProject, before: TSimulationResult, ask: TProposeAsk, deps: TProposeDeps): Promise<TProposal> {
+	const owners = hitOwners(project, ask.marbleId);
+	const asked = ask.settings?.pieceIds ?? ask.hitIds.flatMap((hitId) => owners.get(hitId)?.id ?? []);
+	const isWrong = (pieceId: string): boolean => before.hits.some((hit) => hit.pieceId === pieceId && hit.status !== 'onTime' && hit.status !== 'open') || hasPieceProblem(project, before, pieceId);
+	const pieceId = asked.find(isWrong) ?? asked[0];
+	if (pieceId == null) return refused(project, before, ask, 'There is no piece here to fix.');
+	const fix = await fixPiece(project, before, pieceId, fixDepsOf(deps));
+	if (fix.commands == null) return refused(project, before, ask, fix.message);
+	const [isApplied, applyError, after] = applyProjectCommands(project, fix.commands);
+	if (!isApplied) return refused(project, before, ask, applyError.message);
+	return landed(project, before, ask, changedPieces(project, after), fix.commands, { checksNext: false, isSettled: true }, deps);
+}
+
+/** What Fix asks, from the same requests `propose` makes */
+function fixDepsOf(deps: TProposeDeps): Pick<TFixDeps, 'simulate' | 'autoPlace' | 'gapPiece' | 'settle'> {
+	return {
+		simulate: async (next) => deps.simulate(next),
+		autoPlace: async (next, hit, piece) => (await deps.autoPlace({ project: next, marbleId: hit.marbleId, hitId: hit.hitId, type: piece.type ?? 'platform', pieceId: piece.id })).piece,
+		gapPiece: async (next, gap, type, pieceId) => (await deps.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId })).piece,
+		settle: async (from, to) => editCommands(await deps.settle({ before: from, after: to }))
+	};
 }
 
 /** What a rest offers instead of a plain piece: a Long Rail and a Switchback, each with its own answer, and the plain piece only when neither fits */
