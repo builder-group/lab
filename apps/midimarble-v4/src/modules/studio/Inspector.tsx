@@ -2,9 +2,9 @@ import { useFeatureState } from 'feature-react/state';
 import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Sparkles, Type } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
-import { PieceIcon } from '@/modules/canvas';
-import { unreachableActions, GroupInspector, PatternRangeInspector, FixButton, PieceInspector, timingStatus, auditionNote, handNotes } from '@/modules/track';
-import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, unreachableStatus } from '@/modules/building';
+import { PieceIcon, useRunPreflight } from '@/modules/canvas';
+import { unreachableActions, GroupInspector, PatternRangeInspector, FixButton, lookStatus, PieceInspector, struckStatus, timingStatus, auditionNote, handNotes } from '@/modules/track';
+import { canMakeBacking, hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
 import { autoLevelLabel, DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, formatLevel, instruments, LEVEL_CHOICES, marbleSounds, melodyMarbleId, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
@@ -278,6 +278,10 @@ type THitOwner = Pick<TMarble, 'id' | 'name' | 'labelColor' | 'sound' | 'hits'>;
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
+	// What the run says of pieces beyond timing, struck twice, rolled on or touching, so the pill says what the bar's mark does
+	const preflight = useRunPreflight(cx);
+	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
 	// Backing joins the marbles so a Backing note shows like a hit without a marble
 	const backing: THitOwner = { id: BACKING_ID, name: 'Backing', labelColor: BACKING_COLOR, sound: backingSong(project)?.backingSound ?? 0, hits: backingOf(project) };
 	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
@@ -343,7 +347,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					isBacking
 					? null
 					: { tone: 'neutral' as const, label: 'Open', detail: 'No platform plays this note yet' }
-			: timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
+			: lookStatus(struckStatus(timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel }), struck?.get(piece.id)), looks?.get(piece.id));
 
 	function setHit(patch: Partial<THit>): void {
 		cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [{ ...hit, ...patch }] }]);

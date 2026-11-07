@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
-import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, propose, type TProposal, type TProposeDeps } from '@/modules/building';
-import { type TProject, tieOf } from '@/modules/project';
+import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, patternOfPiece, propose, type TProposal, type TProposeDeps } from '@/modules/building';
+import { type TProject, tieOf, toHitKey } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx, TNotice } from '@/modules/studio';
 import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, effectWords, frontierStop, isBadProposal, isOverBuilt, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
@@ -295,6 +295,18 @@ export class BarCx {
 		const state = this.$state.get();
 		if (state.menu != null) this.closeMenu();
 		this.$state.set({ ...this.$state.get(), isDetailsOpen: !state.isDetailsOpen });
+	}
+
+	/**
+	 * What going to a problem selects: a live Pattern's piece by its note, as stepping onto it in the bar does, so Layers,
+	 * the bar and the inspector all stand on that note rather than on the piece, its note and its Pattern at once
+	 */
+	issueSelection(ids: readonly string[]): string[] {
+		const project = this.studio.project;
+		const piece = ids.length === 1 ? project?.track.pieces.find((item) => item.id === ids[0]) : undefined;
+		const tie = tieOf(piece);
+		if (project == null || piece == null || tie?.kind !== 'plays' || patternOfPiece(project, piece.id) == null) return [...ids];
+		return [toHitKey(tie.marbleId, tie.hitId)];
 	}
 
 	/** Opens the status popover on what the bar now stands on, as going to a problem from the summary does */

@@ -159,7 +159,7 @@ One status per hit, shown as a pill on pieces, in the inspector header and on th
 | **Too Soon** | an open note before the marble's release, or so soon after it that the marble cannot fall its diameter and reach strike speed | "Marble 1 can't reach a platform by 0:01.00" |
 | **Out of Reach** | an open note after the marble fell out of the run, or while it lies still on a piece; never while an earlier note of the same marble is still Open, since that note is the next step and the ones after it stay Open | "Marble 1 has fallen off the track by 0:06.00", "Marble 1 lies still on a piece at 0:03.00" |
 
-A Rail's pill, and a Curved Rail's, says how long the marble rides it before it leaves, **Rides 0.6 s**; it isn't a timing status, as no note plays on a rail.
+A Rail's pill, and a Curved Rail's, says how long the marble rides it before it leaves, **Rides 0.6 s**, in gray; it isn't a timing status, as no note plays on a rail.
 
 Too Soon and Out of Reach are drawn hollow with an amber dashed outline and count as needing attention. Their fixes are **Move Release Earlier** (Too Soon: the release moves 0.5 s before the note, never before the song starts) or **Move Release Later** (Out of Reach on the marble's first note), **Move Note Later** (a Too Soon tapped hit whose release cannot move earlier: the hit moves to the first moment the marble can strike), and **Make Backing**; a fix that does not help is not offered. Make Backing needs a song: Backing notes show only on the Song layer, so in a project without a song (tapped hits) it is not offered, and **Delete Note** takes its place.
 

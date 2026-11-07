@@ -50,7 +50,7 @@ export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 					<img alt="" src="/app-icon.svg" className="h-28 w-28" draggable={false} />
 					<h1 className="m-0 text-[28px] font-semibold tracking-tight">MidiMarble</h1>
 					<p className="m-0 text-[var(--text-secondary)]">
-						Build a marble run that plays a song, then make the film
+						Build a marble track that plays a song, then make the film
 					</p>
 				</div>
 				<div className="flex w-[300px] flex-col gap-1">

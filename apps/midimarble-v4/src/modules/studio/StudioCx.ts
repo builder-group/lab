@@ -345,7 +345,7 @@ export class StudioCx {
 		this.$workspace.set(target.workspace ?? 'track');
 		if (target.workspace === 'film') this.$selection.set(target.ids);
 		else {
-			this.$selection.set(target.ids);
+			this.$selection.set(this.bar.issueSelection(target.ids));
 			this.$reveal.set({ ids: target.ids, point: target.point, isFramed: true });
 			// Going to a problem means wanting its details: the bar's popover opens on it at once
 			this.bar.openDetails();

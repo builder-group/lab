@@ -185,9 +185,9 @@ export const FixButton: React.FC<{ cx: StudioCx; pieceId: string }> = (props) =>
 	const trackCx = useFeatureState(cx.$trackCx);
 	const fixing = useFeatureState(cx.assist.$fixing);
 	return (
-		<button className="mm-fix-it mm-fix-it-label" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(pieceId)} title="Try to clear this problem without breaking a note" type="button">
-			<WandSparkles size={12} strokeWidth={1.9} />
-			Fix
+		// The wand beside the pill, its word in the tooltip, so a problem's header stays one row
+		<button className="mm-fix-it" aria-label="Fix" disabled={trackCx == null || fixing != null} onClick={() => void cx.assist.fix(pieceId)} title="Fix: try to clear this problem without breaking a note (A)" type="button">
+			<WandSparkles size={13} strokeWidth={1.9} />
 		</button>
 	);
 };
@@ -282,7 +282,7 @@ function rideStatus(project: TProject, piece: TResolvedPiece, result: TSimulatio
 	}
 	const rides = ride.leave - ride.enter;
 	const flight = next == null ? '' : `, then falls ${(next.time - ride.leave).toFixed(2)} s to note ${nextIndex + 1}`;
-	return { tone: 'good', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marbleName} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
+	return { tone: 'neutral', label: `Rides ${rides.toFixed(1)} s`, detail: `${starts}\n${marbleName} leaves the ${label} after ${rides.toFixed(1)} s${flight}.` };
 }
 
 /**

@@ -362,7 +362,7 @@ const OutlineRow = React.memo(function OutlineRow(props: TRowProps & { cx: Studi
 								<HelpTip text={view.help} />
 							</span>
 						) : null}
-						{view.time != null ? <span>{formatShortTime(view.time)}</span> : null}
+						{view.time != null ? <span>{formatTime(view.time)}</span> : null}
 					</>
 				) : undefined
 			}
@@ -551,7 +551,7 @@ const PieceRow = React.memo(function PieceRow(
 						</span>
 					) : null}
 					{/* A problem's badge takes the time's place, so the name keeps its room */}
-					{isLinked && hitTime != null && !isProblem ? <span>{formatShortTime(hitTime)}</span> : null}
+					{isLinked && hitTime != null && !isProblem ? <span>{formatTime(hitTime)}</span> : null}
 				</>
 			}
 			actions={
@@ -696,11 +696,4 @@ interface TLayerRowProps {
 	/** Clicking the icon or dot opens the layer's Label Color */
 	/** The system color picker over the icon, on a layer that has a color */
 	colorInput?: React.ReactNode;
-}
-
-/** Compact time such as `0:03.2` for a row's secondary column */
-function formatShortTime(seconds: number): string {
-	const safe = Math.max(0, seconds);
-	const minutes = Math.floor(safe / 60);
-	return `${minutes}:${(safe - minutes * 60).toFixed(1).padStart(4, '0')}`;
 }
