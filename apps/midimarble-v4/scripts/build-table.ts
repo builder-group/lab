@@ -1,12 +1,13 @@
-// The comparison table for Build Entire Track: notes on time, Problems, time, camera, and how rests and repeats come
-// out, per song, Gravity and marble count. Run it on two commits and compare the rows; nothing here chooses for the app.
+// The comparison table for Build Entire Track: notes on time, Problems, time, camera, how rests and repeats come out
+// and how close the marbles stay to their lines, per song, Gravity and marble count. Run it on two commits and compare
+// the rows; nothing here chooses for the app.
 // The songs are Jingle Bells and reference-20 from `fixtures/` and Ode to Joy (`songs.ts`), tuned on nothing; no other
 // song has two marbles.
 // Usage: tsx scripts/build-table.ts <out.json> [songs, comma] [gravities, comma] [marbles, comma: 1,2] [save-dir]
 // One marble keeps the first and hands the others' notes to Backing; two runs the fixture as it is, where it has two.
 // With a save folder each built project is written there, for a film of it (`export-blender-fixture.ts`).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { assignNotesCommands, buildTrack, checkRun, localBuildDeps, NO_BLENDER_OBJECTS, problemSummary } from '../src/modules/building';
+import { assignNotesCommands, buildTrack, checkRun, lineDistance, localBuildDeps, NO_BLENDER_OBJECTS, problemSummary } from '../src/modules/building';
 import { filmCamera } from '../src/modules/camera';
 import { applyProjectCommands, BACKING_ID, tieOf, type TProject, type TProjectCommand } from '../src/modules/project';
 import { parseProject, serializeProject } from '../src/modules/project/project-file';
@@ -52,6 +53,16 @@ function standing(project: TProject, result: TSimulationResult): Record<string, 
 	return { notes: `${played.length}/${result.hits.length}`, problems: problems.length, titles: problems.slice(0, 3).map((issue) => issue.title), camera: Number((built[Math.floor(built.length / 2)] ?? 0).toFixed(3)) };
 }
 
+/** How far the marbles stay from their lines from their first note to their last, in cm (`lineDistance`), on average */
+function fromLine(project: TProject, result: TSimulationResult): number | null {
+	const distances = project.marbles.flatMap((marble) => {
+		const [first, last] = [marble.hits[0]?.time, marble.hits.at(-1)?.time];
+		const distance = first != null && last != null ? lineDistance(project, result, marble.id, first, last) : null;
+		return distance != null ? [distance] : [];
+	});
+	return distances.length ? Number(((distances.reduce((sum, value) => sum + value, 0) / distances.length) * 100).toFixed(1)) : null;
+}
+
 /** What fills each rest: a Switchback or Chain is a hook cluster, a path rail one stroke */
 function rests(project: TProject): Record<string, number> {
 	const counts: Record<string, number> = { stroke: 0, hooks: 0, legs: 0, tunnel: 0 };
@@ -76,7 +87,7 @@ for (const song of songsText.split(',')) {
 			const sim = await createSimulator();
 			const started = performance.now();
 			const outcome = await buildTrack(project, localBuildDeps(sim));
-			const line = { song, marbles, gravity, ...standing(outcome.project, outcome.result), seconds: Number(((performance.now() - started) / 1000).toFixed(1)), rests: rests(outcome.project), repeats: repeatShape(outcome.project, outcome.result), counts: Object.fromEntries(Object.entries(outcome.counts).filter(([, count]) => count > 0)) };
+			const line = { song, marbles, gravity, ...standing(outcome.project, outcome.result), seconds: Number(((performance.now() - started) / 1000).toFixed(1)), rests: rests(outcome.project), lineCm: fromLine(outcome.project, outcome.result), repeats: repeatShape(outcome.project, outcome.result), counts: Object.fromEntries(Object.entries(outcome.counts).filter(([, count]) => count > 0)) };
 			sim.dispose();
 			if (saveDir !== '') {
 				mkdirSync(saveDir, { recursive: true });

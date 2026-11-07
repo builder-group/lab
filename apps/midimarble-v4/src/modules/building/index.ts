@@ -13,6 +13,7 @@ export * from './export-preflight';
 export * from './fix-it';
 export * from './gap-pieces';
 export * from './hit-status';
+export * from './line-distance';
 export * from './long-gap';
 export * from './move-song';
 export * from './next-step';
