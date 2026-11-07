@@ -5,7 +5,7 @@ import { hitOwners } from './assists';
 import { hitReach, isUnreachable, reachMessage } from './reachability';
 import { answerEdit, editCommands, type TEditAnswer, type TEditRequest } from './edit-rule';
 import { noKnownFaults, addKnownFaults, reasonWords, verdictWithRoom, type TVerdictReason } from './verdict';
-import { answerWorkerRequest, type TAutoPlaceAnswer } from './worker-protocol';
+import { answerWorkerRequest, type TAutoPlaceAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 
 // `propose` says what would be placed for these notes and what would come of it, and changes nothing. A person or an agent
 // reads it and chooses; `acceptProposal` is what lands. Build Track and whole-run Fix are searches of their own.
@@ -14,7 +14,7 @@ export interface TProposeAsk {
 	marbleId: string;
 	/** The note, or the notes of a stretch */
 	hitIds: string[];
-	/** What to place: a piece type */
+	/** What to place: a piece type for a note, or a gap piece for the rest before the note */
 	kind: string;
 	/** What the kind takes, and the ID its piece gets */
 	settings?: { pieceId?: string };
@@ -26,7 +26,8 @@ export interface TNoteVerdict {
 	/** Its number in the marble */
 	number: number;
 	time: number;
-	isOnTime: boolean;
+	/** It plays on time; the marble reaches it and a piece can still play it; or neither */
+	state: 'onTime' | 'reached' | 'off';
 	words: string;
 }
 
@@ -64,11 +65,14 @@ export interface TProposal {
 	reasons: TVerdictReason[];
 	/** Plain words when something's wrong: the first reason, why nothing fits, or "Build up to here" */
 	words: string | null;
+	/** For a gap piece, what the search said of it: its ghost and how it reads */
+	gap?: TGapAnswer;
 }
 
 export interface TProposeDeps {
 	simulate: (project: TProject) => Promise<TSimulationResult> | TSimulationResult;
 	autoPlace: (request: { project: TProject; marbleId: string; hitId: string; type: string; pieceId: string }) => Promise<TAutoPlaceAnswer> | TAutoPlaceAnswer;
+	gapPiece: (request: { type: TGapPieceType; project: TProject; marbleId: string; fromHitId: string; toHitId: string; pieceId?: string }) => Promise<TGapAnswer> | TGapAnswer;
 	/** What later pieces do about it, asked only when later pieces exist */
 	settle: (request: TEditRequest) => Promise<TEditAnswer> | TEditAnswer;
 }
@@ -85,6 +89,7 @@ export function localProposeDeps(simulator: TSimulator): TProposeDeps {
 	return {
 		simulate: (project) => simulator.simulate(project),
 		autoPlace: (request) => answerWorkerRequest(simulator, { kind: 'autoPlace', ...request }) as TAutoPlaceAnswer,
+		gapPiece: (request) => answerWorkerRequest(simulator, { kind: 'gapPiece', ...request }) as TGapAnswer,
 		settle: (request) => answerEdit(simulator, request)
 	};
 }
@@ -94,19 +99,19 @@ const MOVED = 0.01;
 
 export async function propose(project: TProject, ask: TProposeAsk, deps: TProposeDeps, options: TProposeOptions = {}): Promise<TProposal> {
 	const before = options.result ?? (await deps.simulate(project));
-	const nothing = (status: 'refused' | 'buildUpTo', words: string): TProposal => ({ id: createId('proposal'), base: project, ask, status, commands: [], pieces: [], notes: notesOf(project, ask, before, []), changes: [], facts: null, reasons: [], words });
 	const { marbleId, hitIds, kind } = ask;
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const hitId = hitIds[0];
 	const hit = before.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
-	if (marble == null || hitId == null || hit == null) return nothing('refused', 'That note is gone.');
+	if (marble == null || hitId == null || hit == null) return refused(project, before, ask, 'That note is gone.');
 	const owners = hitOwners(project, marbleId);
 	const index = marble.hits.findIndex((item) => item.id === hitId);
 	const firstOpen = marble.hits.findIndex((item) => !owners.has(item.id));
-	if (options.isAnyDot !== true && firstOpen >= 0 && index > firstOpen) return nothing('buildUpTo', `Build up to here: Hit ${firstOpen + 1} has no piece yet.`);
+	if (options.isAnyDot !== true && firstOpen >= 0 && index > firstOpen) return { ...refused(project, before, ask, `Build up to here: Hit ${firstOpen + 1} has no piece yet.`), status: 'buildUpTo' };
+	if (isGapKind(kind)) return proposeGapPiece(project, before, ask, kind, marble.hits[index - 1]?.id, deps);
 	const reach = hitReach(project, before, hit);
-	if (isUnreachable(reach)) return nothing('refused', reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble.name }, null, false) ?? 'The marble can\'t reach this note.');
-	if (hit.dot == null) return nothing('refused', 'The marble does not reach this note.');
+	if (isUnreachable(reach)) return refused(project, before, ask, reachMessage(reach, { hit: `Hit ${index + 1}`, marble: marble.name }, null, false) ?? "The marble can't reach this note.");
+	if (hit.dot == null) return refused(project, before, ask, 'The marble does not reach this note.');
 
 	let answer: TAutoPlaceAnswer;
 	try {
@@ -114,15 +119,40 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	} catch (error) {
 		// A newer request took this one's place in the queue, which says nothing about the note
 		if (isSuperseded(error)) throw error;
-		return nothing('refused', error instanceof Error ? error.message : String(error));
+		return refused(project, before, ask, error instanceof Error ? error.message : String(error));
 	}
-	return landed(project, before, ask, [answer.piece], [{ type: 'addPiece', piece: answer.piece }], deps);
+	return landed(project, before, ask, [answer.piece], [{ type: 'addPiece', piece: answer.piece }], true, deps);
+}
+
+const GAP_KINDS: readonly string[] = ['rail', 'switchback', 'chain', 'tunnel'] satisfies TGapPieceType[];
+
+function isGapKind(kind: string): kind is TGapPieceType {
+	return GAP_KINDS.includes(kind);
+}
+
+/** A gap piece across the rest before the note. The note itself has no piece yet: wherever the marble arrives is its place */
+async function proposeGapPiece(project: TProject, before: TSimulationResult, ask: TProposeAsk, type: TGapPieceType, fromHitId: string | undefined, deps: TProposeDeps): Promise<TProposal> {
+	const toHitId = ask.hitIds[0];
+	if (fromHitId == null || toHitId == null) return refused(project, before, ask, 'A rest lies between two notes, and this note is the first.');
+	let answer: TGapAnswer;
+	try {
+		const pieceId = ask.settings?.pieceId;
+		answer = await deps.gapPiece({ type, project, marbleId: ask.marbleId, fromHitId, toHitId, ...(pieceId != null ? { pieceId } : {}) });
+	} catch (error) {
+		if (isSuperseded(error)) throw error;
+		return refused(project, before, ask, error instanceof Error ? error.message : String(error));
+	}
+	return { ...(await landed(project, before, ask, [answer.piece], answer.commands, false, deps)), gap: answer };
+}
+
+function refused(project: TProject, before: TSimulationResult, ask: TProposeAsk, words: string): TProposal {
+	return { id: createId('proposal'), base: project, ask, status: 'refused', commands: [], pieces: [], notes: notesOf(project, ask, before, []), changes: [], facts: null, reasons: [], words };
 }
 
 /** Applies a proposal's pieces to its track on paper and states the facts */
-async function landed(project: TProject, before: TSimulationResult, ask: TProposeAsk, pieces: TPiece[], commands: TProjectCommand[], deps: TProposeDeps): Promise<TProposal> {
+async function landed(project: TProject, before: TSimulationResult, ask: TProposeAsk, pieces: TPiece[], commands: TProjectCommand[], checksNext: boolean, deps: TProposeDeps): Promise<TProposal> {
 	const [isApplied, applyError, applied] = applyProjectCommands(project, commands);
-	if (!isApplied) return { id: createId('proposal'), base: project, ask, status: 'refused', commands: [], pieces: [], notes: notesOf(project, ask, before, []), changes: [], facts: null, reasons: [], words: applyError.message };
+	if (!isApplied) return refused(project, before, ask, applyError.message);
 	const last = project.marbles.find((item) => item.id === ask.marbleId)?.hits.findIndex((item) => item.id === ask.hitIds.at(-1)) ?? -1;
 	const owners = hitOwners(project, ask.marbleId);
 	const hasLater = project.marbles.find((item) => item.id === ask.marbleId)?.hits.slice(last + 1).some((item) => owners.has(item.id)) === true;
@@ -134,9 +164,9 @@ async function landed(project: TProject, before: TSimulationResult, ask: TPropos
 	const result = await deps.simulate(after);
 	const known = noKnownFaults();
 	addKnownFaults(known, project, before);
-	const verdict = await verdictWithRoom({ before: { project, result: before }, after: { project: after, result }, marbleId: ask.marbleId, known, checksNext: true }, deps.simulate);
+	const verdict = await verdictWithRoom({ before: { project, result: before }, after: { project: after, result }, marbleId: ask.marbleId, known, checksNext }, deps.simulate);
 	const made = new Set(pieces.map((piece) => piece.id));
-	const nextDotAsked = !verdict.reasons.length || verdict.reasons.every((reason) => reason.kind === 'noRoom');
+	const nextDotAsked = checksNext && (!verdict.reasons.length || verdict.reasons.every((reason) => reason.kind === 'noRoom'));
 	return {
 		id: createId('proposal'),
 		base: project,
@@ -163,16 +193,22 @@ function notesOf(project: TProject, ask: TProposeAsk, result: TSimulationResult,
 	return ask.hitIds.map((hitId) => {
 		const number = (marble?.hits.findIndex((item) => item.id === hitId) ?? -1) + 1;
 		const hit = result.hits.find((item) => item.marbleId === ask.marbleId && item.hitId === hitId);
-		const isPlayed = hit?.pieceId != null;
-		const isOnTime = isPlayed && (hit.status === 'onTime' || hit.status === 'drifting');
+		const state = noteState(project, result, hit);
 		const named = reasons.find((reason) => 'hitId' in reason && reason.hitId === hitId);
-		return { hitId, number, time: hit?.targetTime ?? marble?.hits[number - 1]?.time ?? 0, isOnTime, words: named != null ? reasonWords(project, named) : noteWords(number, hit, isPlayed, isOnTime) };
+		return { hitId, number, time: hit?.targetTime ?? marble?.hits[number - 1]?.time ?? 0, state, words: named != null ? reasonWords(project, named) : noteWords(number, hit, state) };
 	});
 }
 
-function noteWords(number: number, hit: THitResult | undefined, isPlayed: boolean, isOnTime: boolean): string {
-	if (isOnTime) return `Hit ${number} plays on time.`;
-	if (!isPlayed) return `Hit ${number} has no piece here.`;
+function noteState(project: TProject, result: TSimulationResult, hit: THitResult | undefined): TNoteVerdict['state'] {
+	if (hit == null) return 'off';
+	if (hit.status === 'onTime' || hit.status === 'drifting') return 'onTime';
+	return hit.status === 'open' && hit.dot != null && !isUnreachable(hitReach(project, result, hit)) ? 'reached' : 'off';
+}
+
+function noteWords(number: number, hit: THitResult | undefined, state: TNoteVerdict['state']): string {
+	if (state === 'onTime') return `Hit ${number} plays on time.`;
+	if (state === 'reached') return `The marble reaches Hit ${number}, which can take a piece.`;
+	if (hit?.status === 'open') return `The marble doesn't reach Hit ${number}.`;
 	const error = hit?.error != null ? ` by ${Math.round(Math.abs(hit.error) * 1000)} ms` : '';
 	return `Hit ${number} doesn't play on time${error}: ${hit?.reason ?? hit?.status ?? 'missed'}.`;
 }

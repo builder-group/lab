@@ -39,7 +39,7 @@ describe('propose', () => {
 		expect(JSON.stringify(project)).toBe(before);
 		expect(proposal.status).toBe('fits');
 		expect(proposal.pieces).toHaveLength(1);
-		expect(proposal.notes).toEqual([{ hitId: 'hit-0', number: 1, time: 0.5, isOnTime: true, words: 'Hit 1 plays on time.' }]);
+		expect(proposal.notes).toEqual([{ hitId: 'hit-0', number: 1, time: 0.5, state: 'onTime', words: 'Hit 1 plays on time.' }]);
 		expect(proposal.changes).toEqual([]);
 		expect(proposal.facts).toMatchObject({ onTime: 1, total: 4, lost: 0, hasRoomAtNext: true });
 	});
@@ -85,6 +85,37 @@ describe('propose', () => {
 		expect(proposal.pieces[0]?.id).toBe(project.track.pieces[1]?.id);
 		expect(proposal.facts?.total).toBe(4);
 		for (const change of proposal.changes) expect(['changed', 'removed', 'moved']).toContain(change.how);
+	});
+});
+
+describe('propose across a rest', () => {
+	async function rest(): Promise<TProject> {
+		const project = fourNotes();
+		const marble = project.marbles[0];
+		if (marble == null) throw new Error('No marble');
+		const gapped: TProject = { ...project, length: 6, marbles: [{ ...marble, hits: [{ id: 'hit-0', time: 0.5 }, { id: 'hit-1', time: 3 }] }] };
+		return landed(gapped, await asked(gapped, 'hit-0'));
+	}
+
+	it('proposes a rail, whose note the marble then reaches and a piece can play', async () => {
+		const project = await rest();
+		const proposal = await asked(project, 'hit-1', 'switchback');
+		expect(['fits', 'problems']).toContain(proposal.status);
+		expect(proposal.pieces[0]?.layout).toBe('switchback');
+		expect(proposal.gap?.check).not.toBeNull();
+		expect(proposal.facts?.hasRoomAtNext).toBeNull();
+		expect(proposal.notes[0]?.state).toBe('reached');
+		expect(landed(project, proposal).track.pieces.at(-1)?.id).toBe(proposal.pieces[0]?.id);
+	});
+
+	it('says why when no rail fits, and a rest needs a note before it', async () => {
+		const project = await rest();
+		const none = await propose(project, { marbleId: 'marble', hitIds: ['hit-1'], kind: 'rail' }, { ...deps, gapPiece: () => Promise.reject(new Error('The frame has no room')) });
+		expect(none.status).toBe('refused');
+		expect(none.words).toBe('The frame has no room');
+		const first = await asked(project, 'hit-0', 'rail');
+		expect(first.status).toBe('refused');
+		expect(first.words).toMatch(/first/);
 	});
 });
 

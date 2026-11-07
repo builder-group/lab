@@ -30,6 +30,8 @@ export class AssistCx {
 	private continueKey: string | null = null;
 	/** The Continue question on its way, so an agent's next call sees its answer and Next acts the same at any speed */
 	private pendingContinue: string | null = null;
+	/** What the verdict said of the gap piece on offer, said when it lands */
+	private gapWords: string | null = null;
 	/** The gap Next found no way past, for the revision it asked at; the next press places at the note after it */
 	private stuckGap: string | null = null;
 	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
@@ -279,7 +281,7 @@ export class AssistCx {
 	private proposeDeps(): TProposeDeps | null {
 		const client = this.studio.simulation.assists;
 		if (client == null) return null;
-		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request), settle: (request) => client.settle(request) };
+		return { simulate: (project) => client.simulateAssist(project), autoPlace: (request) => client.autoPlace(request), gapPiece: (request) => client.gapPiece(request), settle: (request) => client.settle(request) };
 	}
 
 	/** No tilt plays this note, so Next leaves the track as it is, says why and offers what to do */
@@ -395,6 +397,8 @@ export class AssistCx {
 		} else {
 			this.studio.$selection.set([ghost.answer.piece.id]);
 			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());
+			// It stays placed, as a person may want it: nothing lands without saying so
+			if (this.gapWords != null) this.studio.notifyEdit(`Placed. ${this.gapWords}`);
 		}
 		return true;
 	}
@@ -429,19 +433,23 @@ export class AssistCx {
 	 */
 	suggestGapPiece(type: TGapPieceType, marbleId: string, fromHitId: string, toHitId: string, options: { accept?: boolean; fallback?: TGapPieceType; onFailed?: (message: string) => void } = {}): void {
 		const project = this.studio.project;
-		const client = this.studio.simulation.assists;
-		if (project == null || client == null) return;
+		const deps = this.proposeDeps();
+		if (project == null || deps == null) return;
 		this.dispatch({ type: 'requestGap', revision: project.revision, marbleId, toHitId });
-		client.gapPiece({ type, project, marbleId, fromHitId, toHitId }).then(
-			(answer) => {
+		propose(project, { marbleId, hitIds: [toHitId], kind: type }, deps, { isAnyDot: true }).then(
+			(proposal) => {
+				const answer = proposal.gap;
+				if (answer == null) throw new Error(proposal.words ?? 'No rail fits here.');
 				// A rail the pace or the frame can't follow leaves the gap to the Switchback layout, like Build Track
 				if (options.fallback != null && options.fallback !== type && answer.check != null && !gapPieceReads(answer.check, this.currentResult()?.pace?.limit ?? Infinity)) {
 					this.suggestGapPiece(options.fallback, marbleId, fromHitId, toHitId, { accept: options.accept, onFailed: options.onFailed });
 					return;
 				}
+				this.gapWords = proposal.status === 'problems' ? proposal.words : null;
 				this.dispatch({ type: 'gapAnswer', answer });
 				if (options.accept === true) this.acceptGhosts();
-			},
+			}
+		).catch(
 			(error: unknown) => {
 				this.dispatch({ type: 'gapFailed', revision: project.revision });
 				if (isSuperseded(error)) return;
