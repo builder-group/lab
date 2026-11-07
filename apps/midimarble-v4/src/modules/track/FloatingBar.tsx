@@ -187,13 +187,18 @@ function toneColor(tone: TTimingStatus['tone']): string {
 	return tone === 'good' ? 'var(--good)' : tone === 'warn' ? 'var(--warn)' : tone === 'bad' ? 'var(--bad)' : 'var(--text-tertiary)';
 }
 
-/** A filled diamond on time, a circle off time, a square for what's wrong, a hollow diamond for what's open, as the timeline draws notes */
+/**
+ * A filled circle in the status color, with "!" when it needs attention, like a macOS status light, so a red one never
+ * reads as Stop or Record above the transport; a hollow ring for what's open. The timeline keeps its keyframe shapes
+ */
 const StatusGlyph: React.FC<{ tone: TTimingStatus['tone'] }> = (props) => {
 	const { tone } = props;
 	const color = toneColor(tone);
+	const isAttention = tone === 'bad' || tone === 'warn';
 	return (
-		<svg width={12} height={12} viewBox="-6 -6 12 12" aria-hidden>
-			{tone === 'bad' ? <rect x={-4} y={-4} width={8} height={8} rx={1} fill={color} /> : tone === 'warn' ? <circle r={4} fill={color} /> : <rect x={-3.6} y={-3.6} width={7.2} height={7.2} rx={1} transform="rotate(45)" fill={tone === 'good' ? color : 'none'} stroke={color} strokeWidth={1.3} />}
+		<svg width={14} height={14} viewBox="-7 -7 14 14" aria-hidden>
+			{tone === 'neutral' ? <circle r={4.4} fill="none" stroke={color} strokeWidth={1.3} /> : <circle r={tone === 'good' ? 4.5 : 6} fill={color} />}
+			{isAttention ? <path d="M 0 -3.3 L 0 0.9 M 0 3.1 L 0 3.2" stroke="white" strokeWidth={1.7} strokeLinecap="round" /> : null}
 		</svg>
 	);
 };
