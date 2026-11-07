@@ -113,7 +113,7 @@ Track's 2D, 3D and Camera views show the same wall: 2D faces it, 3D tilts it, Ca
 
 The wall shows a dot grid like FigJam, drawn as pegboard holes. Its spacing adapts to the zoom level and doubles as a ruler at real scale. The grid is only a visual signal that Compose is a draft, not the final scene; nothing snaps to it. Pieces use flat, toy-like colors per type, following [marblie](https://github.com/younghoonam/marblie).
 
-Rotation follows Figma: dragging rotates freely around the hit point with a live angle readout, Shift snaps to 5° steps, arrow keys nudge by 1° and Shift with an arrow by 5°. Double-clicking the readout accepts an exact angle. Brackets adjust their length to reach the wall, so a piece never leaves its hit point.
+Rotation follows Figma: dragging rotates freely around the hit point with a live angle readout beside the pointer, shown only while turning, Shift snaps to 5° steps, arrow keys nudge by 1° and Shift with an arrow by 5°. An exact angle is typed in the bar's Tilt or the inspector's ∠. Brackets adjust their length to reach the wall, so a piece never leaves its hit point.
 
 ### Pieces
 

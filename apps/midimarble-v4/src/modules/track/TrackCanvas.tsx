@@ -5,7 +5,7 @@ import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey } from '@/modules/project';
 import { stageAlongGuide, stageBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { formatDegrees, parseDegrees, toDegrees } from './angles';
+import { formatDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
 import { mapNodes, nodesPathData } from '@/modules/building';
 import { TrackCx, noteLabel, type TTrackDrag } from './TrackCx';
@@ -21,7 +21,7 @@ import { canvasMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
-import { nextOpenHitPerMarble, pieceAngle, pieceAngleCommands, selectedPieceIds } from './step-loop';
+import { nextOpenHitPerMarble, selectedPieceIds } from './step-loop';
 
 /** The Track wall: the wall and its content in WebGL, with screen-space handles on top */
 export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
@@ -208,7 +208,6 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const hoveredPiece = hover?.kind === 'piece' ? hover.pieceId : null;
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
-	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.pieceId) : undefined;
 
 	return (
 		<>
@@ -326,14 +325,7 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 				)
 			) : null}
 			{insertSnap != null && drag == null ? <SnapChip trackCx={trackCx} project={project} position={insertSnap.position} snap={insertSnap.snap} /> : null}
-			{single != null && grip != null && singlePiece != null ? (
-				<AngleReadout
-					trackCx={trackCx}
-					piece={single}
-					position={drag?.kind === 'rotate' ? { x: drag.pointer.x + 14, y: drag.pointer.y + 14 } : { x: grip.grip.x + 10, y: grip.grip.y + 8 }}
-					angle={drag?.kind === 'rotate' ? drag.angle : pieceAngle(singlePiece)}
-				/>
-			) : null}
+			{drag?.kind === 'rotate' ? <AngleReadout position={{ x: drag.pointer.x + 14, y: drag.pointer.y + 14 }} angle={drag.angle} /> : null}
 			{drag?.kind === 'path' && pathHandles != null && single != null ? <PathReadout piece={single} points={drag.points} position={pathHandles.end} /> : null}
 		</>
 	);
@@ -811,49 +803,15 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	);
 };
 
-/** Live angle next to the grip or the pointer. Double-click to type an exact angle. */
-const AngleReadout: React.FC<{ trackCx: TrackCx; piece: TResolvedPiece; position: TVec2; angle: number }> = (props) => {
-	const { trackCx, piece, position, angle } = props;
-	const editing = useFeatureState(trackCx.$editingAngle) === piece.pieceId;
-	const [draft, setDraft] = React.useState('');
-
-	function commit(): void {
-		const value = parseDegrees(draft);
-		const project = trackCx.project;
-		trackCx.$editingAngle.set(null);
-		if (value == null || project == null) return;
-		trackCx.studio.execute(pieceAngleCommands(project, new Map([[piece.pieceId, value]])));
-	}
-
+/**
+ * The angle beside the pointer while a piece is turned, like Figma's rotation readout: only during the drag, since the
+ * bar's Tilt and the inspector show it the rest of the time
+ */
+const AngleReadout: React.FC<{ position: TVec2; angle: number }> = (props) => {
+	const { position, angle } = props;
 	return (
-		<div className="absolute z-10" style={{ left: position.x, top: position.y }}>
-			{editing ? (
-				<input
-					autoFocus
-					className="mm-tabular h-[18px] w-[56px] rounded-[4px] border-0 bg-[var(--content-raised)] px-1 text-[11px] outline-none"
-					style={{ boxShadow: '0 0 0 1.5px var(--accent-strong)' }}
-					value={draft}
-					onChange={(event) => setDraft(event.target.value)}
-					onBlur={commit}
-					onKeyDown={(event) => {
-						event.stopPropagation();
-						if (event.key === 'Enter') event.currentTarget.blur();
-						if (event.key === 'Escape') trackCx.$editingAngle.set(null);
-					}}
-				/>
-			) : (
-				<button
-					className="mm-tabular rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]"
-					title="Double-click to type an angle"
-					onDoubleClick={() => {
-						setDraft(formatDegrees(angle).replace('°', ''));
-						trackCx.$editingAngle.set(piece.pieceId);
-					}}
-					type="button"
-				>
-					{formatDegrees(angle)}
-				</button>
-			)}
+		<div className="mm-tabular pointer-events-none absolute z-10 rounded-[4px] bg-[var(--accent)] px-1 text-[11px] leading-[16px] text-[var(--on-accent)]" style={{ left: position.x, top: position.y }}>
+			{formatDegrees(angle)}
 		</div>
 	);
 };

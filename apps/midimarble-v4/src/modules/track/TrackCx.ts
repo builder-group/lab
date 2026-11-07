@@ -43,8 +43,6 @@ export class TrackCx {
 	readonly $hover = createState<TPick | null>(null);
 	readonly $drag = createState<TTrackDrag | null>(null);
 	readonly $spaceHeld = createState(false);
-	/** Piece whose angle readout is being typed into */
-	readonly $editingAngle = createState<string | null>(null);
 	/** Rail being drawn with the path tool, in world coordinates */
 	readonly $pen = createState<TPen | null>(null);
 	/**
@@ -951,7 +949,6 @@ export class TrackCx {
 		const isPan = event.button === 1 || tool === 'hand' || this.$spaceHeld.get();
 		if (event.button !== 0 && event.button !== 1) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
-		this.$editingAngle.set(null);
 
 		if (isPan) {
 			this.takeView();
