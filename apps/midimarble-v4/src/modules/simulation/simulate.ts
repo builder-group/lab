@@ -69,6 +69,10 @@ export const SEAM_DISTANCE = 0.01;
 export const SEAM_SPEED = 0.1;
 // Steps into a hop in which a touch the hop before ended in may be reported again
 const CARRIED_STEPS = 3;
+// A marble this far off a piece it touched has left it, and this near touches it again (`recordReturns`): a roll's
+// rattle stays under a millimeter, and Rapier's allowed penetration is about one
+const APART = 0.001;
+const TOUCHING = 0.0005;
 // Samples kept across runs, about a minute of song a hundred times over
 const KEPT_SAMPLES = 1_500_000;
 
@@ -1005,10 +1009,17 @@ interface TStretch {
 	fallY: number;
 }
 
-type TColliderInfo =
-	| { kind: 'marble'; track: number }
-	/** `shapes` are what the collider stands for, in the world's coordinates, and relative to the hub for rotors */
-	| { kind: 'piece'; pieceId: string; shapes: TPieceShape[]; rotor: TLiveRotor | null };
+/** `shapes` are what the collider stands for, in the world's coordinates, and relative to the hub for rotors */
+type TPieceColliderInfo = { kind: 'piece'; pieceId: string; shapes: TPieceShape[]; rotor: TLiveRotor | null };
+type TColliderInfo = { kind: 'marble'; track: number } | TPieceColliderInfo;
+
+/** A piece Rapier holds in contact with a marble */
+interface TTouch {
+	/** Its colliders in contact, by handle */
+	colliders: Map<number, TPieceColliderInfo>;
+	/** Whether the marble is still coming, on the piece, or off it again since its last contact (`recordReturns`) */
+	phase: 'coming' | 'on' | 'off';
+}
 
 interface TLiveRotor {
 	run: TRotorRun;
@@ -1046,7 +1057,8 @@ interface TLiveMarble {
 	colliderHandle: number;
 	radius: number;
 	result: THopMarble;
-	touching: Map<string, number>;
+	/** Pieces Rapier holds in contact with the marble, by piece ID */
+	touching: Map<string, TTouch>;
 	/** Pieces the hop before ended touching: their first report here isn't a new touch */
 	carried: Set<string>;
 	ride: TLiveRide | null;
@@ -1141,13 +1153,14 @@ function runStretch(walk: TWalk, stretch: TStretch): THopRecord {
 		queue.drainCollisionEvents((a, b, started) => {
 			recordContact(plan, live, colliders, record, step, a, b, started, meeting);
 		});
+		recordReturns(plan, live, record, step);
 		for (const key of [...meeting]) recordMarbleContact(plan, live, meeting, record, step, key);
 		if (live.every((marble) => marble.result.status === 'ended') && eventIndex >= stretch.events.length) break;
 	}
 	for (const marble of live) {
 		if (marble.result.status === 'ended') continue;
 		marble.result.end = marble.body != null ? bodyState(marble.body) : marble.start;
-		marble.result.touching = [...marble.touching.entries()].filter(([, count]) => count > 0).map(([id]) => id);
+		marble.result.touching = [...marble.touching.keys()];
 	}
 	for (const rotor of liveRotors) {
 		const rotation = rotor.body.rotation();
@@ -1588,20 +1601,50 @@ function recordContact(plan: TPlan, live: TLiveMarble[], colliders: Map<number, 
 	if (pair == null || marble == null) return;
 	// A piece made of several colliders logs a contact only when the marble starts touching any of them
 	const key = pair.piece.pieceId;
-	const count = marble.touching.get(key) ?? 0;
+	const handle = a.kind === 'piece' ? handleA : handleB;
+	const touch = marble.touching.get(key);
 	if (!started) {
-		if (count <= 1) marble.touching.delete(key);
-		else marble.touching.set(key, count - 1);
+		touch?.colliders.delete(handle);
+		if (touch?.colliders.size === 0) marble.touching.delete(key);
 		return;
 	}
-	marble.touching.set(key, count + 1);
-	if (count > 0) return;
+	if (touch != null) {
+		touch.colliders.set(handle, pair.piece);
+		return;
+	}
+	marble.touching.set(key, { colliders: new Map([[handle, pair.piece]]), phase: 'coming' });
 	// A touch the hop before ended in goes on
 	if (marble.carried.delete(key)) return;
 	// Something else in the way ends a ride: from here physics decides what happens
 	const { ride } = marble;
 	if (ride != null && ride.pieceId !== key && !ride.stored.touches.includes(key)) marble.ride = null;
 	recordPieceContact(plan, marble, key, pieceShapesNow(pair.piece), pair.piece.rotor, record, step);
+}
+
+/**
+ * Touches Rapier's events don't report: it keeps a pair in contact while the marble stays within its speculative margin
+ * of 2 cm, so a marble that bounces lower than that and lands on the same piece again, to roll on it or strike it twice,
+ * would start no contact. A piece the marble has touched, left by `APART` and comes back to within `TOUCHING` of is a
+ * new contact. Only the contacts change: the run itself is Rapier's as before.
+ */
+function recordReturns(plan: TPlan, live: TLiveMarble[], record: THopRecord, step: number): void {
+	for (const marble of live) {
+		const at = marble.last;
+		if (marble.body == null || at == null || marble.touching.size === 0) continue;
+		for (const [key, touch] of marble.touching) {
+			let nearest: { info: TPieceColliderInfo; shapes: TPieceShape[]; gap: number } | null = null;
+			for (const info of touch.colliders.values()) {
+				const shapes = pieceShapesNow(info);
+				const gap = nearestShape(shapes, at.position.x, at.position.y).distance - marble.radius;
+				if (nearest == null || gap < nearest.gap) nearest = { info, shapes, gap };
+			}
+			if (nearest == null) continue;
+			if (nearest.gap <= TOUCHING) {
+				if (touch.phase === 'off') recordPieceContact(plan, marble, key, nearest.shapes, nearest.info.rotor, record, step);
+				touch.phase = 'on';
+			} else if (nearest.gap > APART && touch.phase === 'on') touch.phase = 'off';
+		}
+	}
 }
 
 /** World shapes of a piece collider; rotor parts use the pose at the start of the step */

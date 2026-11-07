@@ -117,7 +117,10 @@ describe('simulate', () => {
 			expect(hit.dot).not.toBeNull();
 		}
 		expect(result.pieces.every((piece) => piece.status === 'placed')).toBe(true);
-		expect(result.contacts.filter((contact) => contact.kind === 'piece')).toHaveLength(8);
+		// Every platform is struck at its note, and the second once more: the marble rises 6 mm off it and lands again
+		const struck = result.contacts.filter((contact) => contact.kind === 'piece');
+		expect(new Set(struck.map((contact) => contact.otherId)).size).toBe(8);
+		expect(struck).toHaveLength(9);
 	});
 
 	it('reflows later platforms after a rotation and keeps waiting pieces in place', () => {
@@ -295,7 +298,8 @@ describe('simulate', () => {
 			const gap = projectOnPath(path, sample.position.x, sample.position.y).distance;
 			expect(Math.abs(gap - 0.008 - (resolvePieceParams('rail', {})['radius'] ?? 0))).toBeLessThan(0.002);
 		}
-		expect(result.contacts.filter((contact) => contact.otherId === railId)).toHaveLength(1);
+		// It bounces about 1 cm off the rail and lands on it again for good
+		expect(result.contacts.filter((contact) => contact.otherId === railId).map((contact) => Number(contact.time.toFixed(2)))).toEqual([0.3, 0.4]);
 	});
 
 	it('keeps the marble inside a tunnel', () => {
@@ -388,6 +392,16 @@ describe('simulate', () => {
 		expect(hit?.reason).toBe('resting');
 		const contact = result.contacts.find((item) => item.otherId === pieceId);
 		expect(contact?.speed ?? Infinity).toBeLessThan(0.3);
+	});
+
+	it('records a second strike of a piece the marble bounced off lower than Rapier keeps a contact for', () => {
+		const project = createBareProject(0.6);
+		project.track.pieces.push({ id: 'shelf', type: 'platform', params: { length: 0.2, bounce: 0.3 }, angle: 0, place: { kind: 'free', position: { x: 0, y: 0.4 } } });
+		// 3 cm above the shelf: a bounce of 0.3 rises about 3 mm, inside Rapier's 2 cm margin, and lands again
+		addMarble(project, 0, { position: { x: 0, y: 0.4 + 0.006 + 0.008 + 0.03 }, time: 0 });
+		const strikes = simulator.simulate(project).contacts.filter((contact) => contact.otherId === 'shelf');
+		expect(strikes.length).toBeGreaterThanOrEqual(2);
+		expect((strikes[1]?.time ?? 0) - (strikes[0]?.time ?? 0)).toBeGreaterThan(0.02);
 	});
 
 	it('records the approach speed of a strike and the shared pace', () => {
