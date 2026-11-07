@@ -880,7 +880,8 @@ export class TrackCx {
 
 	/**
 	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit and `isZoomKept` is off.
-	 * Hit keys reveal their dot. `also` comes into view with them when all of it fits at the zoom
+	 * Hit keys reveal their dot. `also`, and a marble's start already in view, come into view with them when all of it fits
+	 * at the zoom
 	 */
 	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false, also: readonly TVec2[] = []): void {
 		const result = this.result;
@@ -919,7 +920,9 @@ export class TrackCx {
 		}
 		// Where a glide under way ends is what counts, or it would carry on past this
 		const goal = this.isNavigating ? this.motion?.state.goal : null;
-		const withAlso = also.reduce((union, item) => unionBounds(union, boundsAround(item, margin)), bounds);
+		// A marble's start in view stays there when it can, so a pan along a new track never slides it under the corner group
+		const starts = (this.project?.marbles ?? []).map((marble) => marble.start.position).filter((start) => isBoundsVisible(goal ?? camera.view, viewport, boundsAround(start, 0)));
+		const withAlso = [...also, ...starts].reduce((union, item) => unionBounds(union, boundsAround(item, margin)), bounds);
 		if (withAlso !== bounds && isBoundsVisible(goal ?? camera.view, viewport, withAlso, 40)) return;
 		if (withAlso !== bounds && fitsAt(withAlso, camera.view.scale, viewport)) {
 			this.navigateTo({ scale: camera.view.scale, center: centerAt(withAlso, camera.view.scale) });
