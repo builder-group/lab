@@ -2995,6 +2995,17 @@ button.mm-bar-mark:hover,
 
 .mm-bar-menu .mm-menu-item {
 	height: 24px;
+	padding-left: 10px;
+}
+
+/* What doesn't fit, greyed out with its reason like a macOS menu item: it never highlights */
+.mm-bar-menu .mm-menu-item[aria-disabled='true'] {
+	color: var(--text-tertiary);
+	cursor: default;
+}
+
+.mm-bar-menu .mm-menu-item[aria-disabled='true'] .mm-bar-row-note {
+	color: var(--text-tertiary);
 }
 
 .mm-bar-row-note {

@@ -1,14 +1,14 @@
 import { useFeatureState } from 'feature-react/state';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Unlink2, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Unlink2 } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
-import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, type TProposal } from '@/modules/building';
+import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
-import type { TBarAnswer } from './BarCx';
+import { isRowRefused, type TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { GroupIcon } from './GroupIcon';
 import { FLATTEN_HELP } from './PatternsCx';
@@ -330,11 +330,23 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 			{rows.map((row, rowIndex) => {
 				const answer = row.isChoice ? answers[row.id] : undefined;
 				const words = row.note ?? (answer?.proposal != null ? rowWords(target, answer.proposal) : row.isChoice && row.id !== BUILD_UP_TO ? 'Checking…' : '');
+				// What doesn't fit is greyed out with its reason, as macOS and Figma menus do: no ✓ that reads as the current choice
+				const isDisabled = isRowRefused(answer);
 				return (
 					<React.Fragment key={row.id}>
 						{row.isSplit === true && rowIndex > 0 ? <div className="mm-menu-separator" role="separator" /> : null}
-						<button className="mm-menu-item" role="menuitem" data-highlighted={rowIndex === index} onPointerEnter={() => cx.bar.hoverRow(rowIndex)} onClick={() => cx.bar.runRow(row)} type="button">
-							<span className="mm-menu-check">{row.isChoice && row.id !== BUILD_UP_TO && row.id !== 'remove' ? <RowMark proposal={answer?.proposal ?? null} /> : null}</span>
+						<button
+							className="mm-menu-item"
+							role="menuitem"
+							aria-disabled={isDisabled}
+							data-highlighted={rowIndex === index && !isDisabled}
+							onPointerEnter={() => cx.bar.hoverRow(rowIndex)}
+							onClick={() => {
+								if (!isDisabled) cx.bar.runRow(row);
+							}}
+							title={isDisabled ? `${row.label}: ${words}` : undefined}
+							type="button"
+						>
 							{row.label}
 							<span className="mm-bar-row-note" data-bad={isBadAnswer(answer)} title={words}>
 								{words}
@@ -348,14 +360,8 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 };
 
 function isBadAnswer(answer: TBarAnswer | undefined): boolean {
-	return answer?.proposal != null && isBadProposal(answer.proposal);
+	return answer?.proposal != null && isBadProposal(answer.proposal) && !isRowRefused(answer);
 }
-
-const RowMark: React.FC<{ proposal: TProposal | null }> = (props) => {
-	const { proposal } = props;
-	if (proposal == null) return null;
-	return proposal.status === 'fits' ? <Check size={11} strokeWidth={2.4} aria-label="Fits" /> : <X size={11} strokeWidth={2} aria-label="Has a reason" />;
-};
 
 /** The hint on the wall: what's chosen, or the row under the pointer. Nothing here is on the track yet */
 export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {

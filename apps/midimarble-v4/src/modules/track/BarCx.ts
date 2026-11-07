@@ -363,6 +363,8 @@ export class BarCx {
 
 	runRow(row: TBarRow | undefined): void {
 		if (row == null) return;
+		// A row that doesn't fit is greyed out: it says why and does nothing
+		if (row.isChoice && isRowRefused(this.$state.get().answers[row.id])) return;
 		if (row.isChoice) {
 			this.choose(row.id);
 			return;
@@ -378,11 +380,19 @@ export class BarCx {
 
 	/** Arrow keys and Enter go to the open dropdown before anything else */
 	handleMenuKey(event: KeyboardEvent): boolean {
-		const { menu } = this.$state.get();
+		const { menu, answers } = this.$state.get();
 		if (menu == null) return false;
 		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 			const step = event.key === 'ArrowDown' ? 1 : -1;
-			this.hoverRow((menu.index + step + menu.rows.length) % menu.rows.length);
+			const count = menu.rows.length;
+			// Arrows pass over greyed-out rows, as in a macOS menu
+			let index = menu.index;
+			for (let tried = 0; tried < count; tried++) {
+				index = (index + step + count) % count;
+				const row = menu.rows[index];
+				if (row != null && !(row.isChoice && isRowRefused(answers[row.id]))) break;
+			}
+			this.hoverRow(index);
 			return true;
 		}
 		if (event.key === 'Enter') {
@@ -567,6 +577,11 @@ export class BarCx {
 			}
 		}
 	}
+}
+
+/** Whether a dropdown row's answer says it doesn't fit here, so the row is greyed out with its reason */
+export function isRowRefused(answer: TBarAnswer | undefined): boolean {
+	return answer?.proposal?.status === 'refused';
 }
 
 /** The selection after the very last stop: what landed, so its Adjust is there */
