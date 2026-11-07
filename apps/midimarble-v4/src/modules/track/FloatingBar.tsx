@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Unlink2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, FolderInput } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
 import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
@@ -71,7 +71,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 					<>
 						<span className="mm-bar-divider" />
 						<button className="mm-bar-arrow" aria-label="Flatten" onClick={() => cx.patterns.flatten(group)} title={`Flatten: ${FLATTEN_HELP.charAt(0).toLowerCase()}${FLATTEN_HELP.slice(1)}`} type="button">
-							<Unlink2 size={14} strokeWidth={1.7} />
+							<FolderInput size={14} strokeWidth={1.7} />
 						</button>
 					</>
 				) : null}
@@ -266,9 +266,9 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		const isChecking = choice !== BUILD_UP_TO && proposal == null;
 		return (
 			<span className="mm-bar-split">
-				<button className="mm-bar-accept" data-tone={isRefused ? 'none' : isProblem ? 'bad' : 'go'} aria-busy={isChecking} disabled={isRefused && target.kind !== 'rest'} onClick={() => cx.bar.enter()} title={isChecking ? 'Checking it. A press takes it once it plays' : `${label} and go on (↩)`} type="button">
+				<button className="mm-bar-accept" data-tone={isRefused ? 'none' : isProblem ? 'bad' : 'go'} aria-busy={isChecking} disabled={isRefused && target.kind !== 'rest'} onClick={() => cx.bar.enter()} title={isChecking ? 'Checking it. A press takes it once it plays' : `${label} and go on (⏎)`} type="button">
 					<span className="mm-bar-label">{queued > 0 ? `${label} ×${queued}` : label}</span>
-					<kbd className="mm-keycap">↩</kbd>
+					<kbd className="mm-keycap">⏎</kbd>
 				</button>
 				{toggle}
 			</span>

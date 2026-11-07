@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, ChevronDown, Focus, Link2, Magnet, Unlink2 } from 'lucide-react';
+import { Anchor, ChevronDown, LocateFixed, Magnet, Music, Unplug } from 'lucide-react';
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey } from '@/modules/project';
@@ -456,7 +456,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 	if (drag.playsDrop === 'frees') {
 		return (
 			<div className="mm-snap-chip" data-snapped={false} style={place}>
-				<Unlink2 size={11} strokeWidth={2.2} />
+				<Unplug size={11} strokeWidth={2.2} />
 				<span className="font-medium">Detaches {label}</span>
 				<WhatIfCount trackCx={trackCx} result={result} isInChip />
 			</div>
@@ -467,7 +467,7 @@ const PlaysChip: React.FC<{ trackCx: TrackCx; project: TProject; drag: Extract<T
 	const status = timingStatus(undefined, hit);
 	return (
 		<div className="mm-snap-chip" data-snapped style={place}>
-			<Link2 size={11} strokeWidth={2.2} />
+			<Music size={11} strokeWidth={2.2} />
 			<span className="font-medium">Plays {label}</span>
 			<span className="mm-chip-timing" data-tone={status.tone}>
 				{status.label}
@@ -489,7 +489,7 @@ const SnapChip: React.FC<{ trackCx: TrackCx; project: TProject; position: TVec2;
 		const pitch = marble?.hits[index]?.pitch;
 		content = (
 			<>
-				<Link2 size={11} strokeWidth={2.2} />
+				<Music size={11} strokeWidth={2.2} />
 				<span className="font-medium">Note {index + 1}</span>
 				{pitch != null ? <span className="opacity-70">{noteName(pitch)}</span> : null}
 			</>
@@ -849,7 +849,7 @@ const CornerControls: React.FC<{ trackCx: TrackCx }> = (props) => {
 					onClick={() => trackCx.toggleFollow()}
 					type="button"
 				>
-					<Focus size={14} strokeWidth={1.7} />
+					<LocateFixed size={14} strokeWidth={1.7} />
 					<span className="mm-tooltip">
 						Follow the marble at the playhead · panning turns it off <kbd>{followKey.key}</kbd>
 					</span>

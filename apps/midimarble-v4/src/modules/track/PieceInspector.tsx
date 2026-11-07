@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
+import { Anchor, Unplug, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import { type TPiece, type TPlace, type TProject, type TProjectCommand, type TVec2, formatTime, freePosition, noteName, toHitKey, tieOf } from '@/modules/project';
@@ -321,7 +321,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; piece: TPiece }
 					onOpen={openHit}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
-							<Unlink2 size={13} strokeWidth={1.9} />
+							<Unplug size={13} strokeWidth={1.9} />
 						</button>
 					}
 				>
@@ -342,7 +342,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; piece: TPiece }
 					onOpen={openMarble}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
-							<Unlink2 size={13} strokeWidth={1.9} />
+							<Unplug size={13} strokeWidth={1.9} />
 						</button>
 					}
 				>
