@@ -13,7 +13,7 @@ import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@
 import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
 import { followKey } from './keys';
-import { BarHint } from './FloatingBar';
+import { BarHint, PastBuiltMarkLayer } from './FloatingBar';
 import { GuideLayer } from './GuideLayer';
 import { HitFlashLayer } from './HitFlashLayer';
 import { PatternMoveHint, PatternMoveReason } from './PatternMoveHint';
@@ -64,6 +64,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 				<GuideLayer trackCx={trackCx} />
 				<PieceLayer trackCx={trackCx} />
 				<BarHint trackCx={trackCx} />
+				<PastBuiltMarkLayer trackCx={trackCx} />
 				<PatternMoveHint trackCx={trackCx} />
 			</svg>
 			<div

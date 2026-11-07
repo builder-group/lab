@@ -1257,6 +1257,8 @@ export interface TReveal {
 	isFramed?: boolean;
 	/** Pans to it only, as a range chosen for a Pattern does: what doesn't fit in view stays cut off rather than the wall zooming out */
 	isZoomKept?: boolean;
+	/** Points that come into view with the rest only when all of it fits at the zoom, such as where a note past what's built would be */
+	also?: TVec2[];
 }
 
 export interface TNotice extends TNoticeOptions {

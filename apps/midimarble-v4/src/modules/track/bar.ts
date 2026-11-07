@@ -303,14 +303,11 @@ export interface TBarRow {
 	isSplit?: boolean;
 }
 
-/** The dropdown: only what fits the selection, with Build Entire Track last */
+/** The dropdown: only what fits the selection, with Build Entire Track last. None past what's built, where the bar offers only Build Up to Here */
 export function barRows(project: TProject, target: TBarTarget, openNotes: number): TBarRow[] {
 	const rows: TBarRow[] = [];
 	const buildEntire: TBarRow = { id: BUILD_ENTIRE, label: 'Build Entire Track', isChoice: false, note: `${openNotes} ${openNotes === 1 ? 'note' : 'notes'} left`, isSplit: true };
-	if (target.kind !== 'notes' && target.stage === 'pastBuilt') {
-		rows.push({ id: BUILD_UP_TO, label: 'Build Up to Here', isChoice: true });
-		return [...rows, buildEntire];
-	}
+	if (target.kind !== 'notes' && target.stage === 'pastBuilt') return rows;
 	const isBuilt = target.kind === 'notes' ? target.pieces.length > 0 : target.stage === 'built';
 	const prefix = isBuilt ? 'Change to ' : '';
 	if (target.kind === 'rest') {

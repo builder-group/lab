@@ -6,11 +6,13 @@ import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } f
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
+import { bandAlongGuide } from '@/modules/simulation';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, plainGroupOf, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import { isRowRefused } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { GroupIcon } from './GroupIcon';
+import { pastBuiltMark } from './past-built';
 import { FLATTEN_HELP } from './PatternsCx';
 import { lookStatus, pieceStatus, struckStatus } from './PieceInspector';
 import { timingStatus, type TTimingStatus } from './timing-status';
@@ -273,7 +275,8 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 						<CornerDownLeft size={11} strokeWidth={2} aria-hidden />
 					</kbd>
 				</button>
-				{toggle}
+				{/* Past what's built, building up to it is all there is to choose */}
+				{choice === BUILD_UP_TO ? null : toggle}
 			</span>
 		);
 	}
@@ -398,3 +401,45 @@ const NextDot: React.FC<{ position: TVec2; color: string }> = (props) => {
 	const { position, color } = props;
 	return <circle cx={position.x} cy={position.y} r={4} fill="var(--canvas)" fillOpacity={0.7} stroke={color} strokeWidth={1.25} strokeDasharray="2 2" />;
 };
+
+/** A note past what's built, on the wall: a quiet mark on the guide line where it would be, saying what the bar offers */
+export const PastBuiltMarkLayer: React.FC<{ trackCx: TrackCx }> = (props) => {
+	const { trackCx } = props;
+	const cx = trackCx.studio;
+	const { target } = useFeatureState(cx.bar.$state);
+	const result = useFeatureState(cx.simulation.$result);
+	const isPlaying = useFeatureState(cx.$playing);
+	const building = useFeatureState(cx.assist.$building);
+	useFeatureState(trackCx.$camera);
+	const viewport = useFeatureState(trackCx.$viewport);
+	const project = cx.project;
+	const mark = project != null && target != null && !isPlaying && building == null ? pastBuiltMark(project, result, target) : null;
+	if (mark == null || project == null || target == null) return null;
+	const color = project.marbles.find((marble) => marble.id === target.marbleId)?.labelColor ?? 'var(--text)';
+	const at = trackCx.toScreen(mark.point);
+	// Further down than the view reaches: the mark waits on the line above the bar, pointing down it, like a map's pin off screen
+	const lowest = viewport.height - MARK_ABOVE_BAR;
+	if (at.y > lowest) {
+		const y = trackCx.toWorld({ x: at.x, y: lowest }).y;
+		const { x } = trackCx.toScreen({ x: bandAlongGuide(project, target.marbleId)(y).centerX, y });
+		return (
+			<g className="mm-ghost-in" data-past-built="below">
+				<path d={`M ${x - 4} ${lowest - 2} L ${x} ${lowest + 2.5} L ${x + 4} ${lowest - 2}`} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+				<text className="mm-wall-mark" x={x + 9} y={lowest} dominantBaseline="central">
+					{mark.words}
+				</text>
+			</g>
+		);
+	}
+	return (
+		<g className="mm-ghost-in" data-past-built>
+			<circle cx={at.x} cy={at.y} r={4} fill="var(--canvas)" stroke={color} strokeWidth={1.25} strokeDasharray="2 2" />
+			<text className="mm-wall-mark" x={at.x + 9} y={at.y} dominantBaseline="central">
+				{mark.words}
+			</text>
+		</g>
+	);
+};
+
+/** How far above the canvas's bottom a mark that's further down waits, clear of the bar, in CSS pixels */
+const MARK_ABOVE_BAR = 92;

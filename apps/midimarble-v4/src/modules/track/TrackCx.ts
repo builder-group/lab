@@ -856,11 +856,14 @@ export class TrackCx {
 	/**
 	 * A typed time or a step to the previous or next hit glides the marble there into view, with Follow on or off:
 	 * the hit dots struck at that moment, or the focused marble between hits. Nothing moves when they are already in
-	 * view or while playing, when only Follow moves the view.
+	 * view or while playing, when only Follow moves the view. The bar on a note past what's built has framed where building
+	 * stands, and the marble's fall there leads nowhere
 	 */
 	private revealPlayhead(): void {
 		const result = this.result;
 		if (result == null || this.studio.$playing.get() || this.$drag.get() != null) return;
+		const target = this.studio.bar.$state.get().target;
+		if (target != null && target.kind !== 'notes' && target.stage === 'pastBuilt') return;
 		const time = this.studio.$playhead.get();
 		const struck = struckAt(result.hits, time);
 		const focus = struck.length ? undefined : (this.marbleFocus() ?? undefined);
@@ -872,14 +875,14 @@ export class TrackCx {
 		const pending = this.studio.$reveal.get();
 		if (pending == null || this.result == null || this.$viewport.get().width <= 1) return;
 		this.studio.$reveal.set(null);
-		this.reveal(pending.ids, pending.point, pending.isFramed === true, pending.isZoomKept === true);
+		this.reveal(pending.ids, pending.point, pending.isFramed === true, pending.isZoomKept === true, pending.also ?? []);
 	}
 
 	/**
 	 * Pans to pieces, hit dots and a point that are out of view, keeping the zoom unless they do not fit and `isZoomKept` is off.
-	 * Hit keys reveal their dot.
+	 * Hit keys reveal their dot. `also` comes into view with them when all of it fits at the zoom
 	 */
-	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false): void {
+	private reveal(ids: string[], point?: TVec2, isFramed = false, isZoomKept = false, also: readonly TVec2[] = []): void {
 		const result = this.result;
 		if (result == null) return;
 		const points: TVec2[] = point != null ? [point] : [];
@@ -916,6 +919,12 @@ export class TrackCx {
 		}
 		// Where a glide under way ends is what counts, or it would carry on past this
 		const goal = this.isNavigating ? this.motion?.state.goal : null;
+		const withAlso = also.reduce((union, item) => unionBounds(union, boundsAround(item, margin)), bounds);
+		if (withAlso !== bounds && isBoundsVisible(goal ?? camera.view, viewport, withAlso, 40)) return;
+		if (withAlso !== bounds && fitsAt(withAlso, camera.view.scale, viewport)) {
+			this.navigateTo({ scale: camera.view.scale, center: centerAt(withAlso, camera.view.scale) });
+			return;
+		}
 		if (isBoundsVisible(goal ?? camera.view, viewport, bounds, 40)) return;
 		const fitted = fitBounds(bounds, viewport, canvasPadding);
 		this.navigateTo(fitted.scale < camera.view.scale && !isZoomKept ? fitted : { scale: camera.view.scale, center: fitted.center });
@@ -2543,6 +2552,26 @@ const MIN_FIT_PLATFORM_PX = 24;
 
 // Keeps framed content clear of the corner controls and the contextual bar
 const canvasPadding: TPadding = { top: 56, right: 56, bottom: 96, left: 56 };
+
+function boundsAround(point: TVec2, margin: number): TBounds {
+	return { minX: point.x - margin, minY: point.y - margin, maxX: point.x + margin, maxY: point.y + margin };
+}
+
+function unionBounds(a: TBounds, b: TBounds): TBounds {
+	return { minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY), maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY) };
+}
+
+/** Whether `bounds` fits inside the padded canvas at this zoom */
+function fitsAt(bounds: TBounds, scale: number, viewport: TViewport): boolean {
+	const { top, right, bottom, left } = canvasPadding;
+	return (bounds.maxX - bounds.minX) * scale <= viewport.width - left - right && (bounds.maxY - bounds.minY) * scale <= viewport.height - top - bottom;
+}
+
+/** The view center that puts `bounds` in the middle of the padded canvas at this zoom */
+function centerAt(bounds: TBounds, scale: number): TVec2 {
+	const { top, right, bottom, left } = canvasPadding;
+	return { x: (bounds.minX + bounds.maxX) / 2 - (left - right) / 2 / scale, y: (bounds.minY + bounds.maxY) / 2 - (bottom - top) / 2 / scale };
+}
 
 /**
  * Each marble's release and where its free fall from there reaches its first note: what the run's first hits

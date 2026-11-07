@@ -186,7 +186,7 @@ Its groups, with separators:
 
 **A Problem that shows at a note may be changed earlier.** When nothing placed here fits, a hint has a Problem or what stands here has one, the status mark turns red and its popover names the piece that sends the marble here, the last of its own pieces it touched before, and offers **Go to Platform 15**, which moves the bar there to tilt or change it.
 
-**Past the built notes** the bar offers **Build Up to Here,** which builds up to and including that note as Build Entire Track does, as one Undo step, and leaves the rest open.
+**Past the built notes** the bar offers **Build Up to Here,** and nothing else, with no dropdown. It builds up to and including that note as Build Entire Track does, as one Undo step, and leaves the rest open. The marble never gets there, so the note has no dot: the wall glides to the last built piece, the guide line goes on down to where the note would be at the pace of what's built, and a quiet mark there reads "Note 31 · build up to here". When that's further down than the view reaches, the mark waits on the line above the bar with a chevron pointing down it.
 
 **What's about the note lands in the bar's status popover,** never in a line that grows the bar: why a note can't play, with its fixes, what a change did to later notes. Accepting something that has a Problem ("Add Zigzag Anyway") goes on and the mark where the bar now stands turns red and pulses once, with the words in its popover. Everything else stays in the notice, which stands above the bar in the same lane. Quick Help's panel sits above the bar on the right.
 

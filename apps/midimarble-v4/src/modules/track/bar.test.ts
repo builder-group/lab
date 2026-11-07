@@ -163,8 +163,8 @@ describe('barRows', () => {
 		expect(rows.map((row) => row.label)).toEqual(['Change to Zigzag', 'Change to Staircase', 'Rebuild From Here', 'Remove']);
 	});
 
-	it('offers past the built notes only building', () => {
-		expect(ids(track(EVEN, 1), [hit('h3')])).toEqual(['buildUpTo', 'buildEntire']);
+	it('has no dropdown past the built notes, where the bar offers only Build Up to Here', () => {
+		expect(ids(track(EVEN, 1), [hit('h3')])).toEqual([]);
 	});
 });
 

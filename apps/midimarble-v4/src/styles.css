@@ -1341,6 +1341,17 @@ button.mm-hit-summary:hover,
 	animation: mm-ghost-in 0.12s ease-out;
 }
 
+/* Quiet words on the wall, such as a note past what's built: secondary text with a halo of the wall so dots never cut it */
+.mm-wall-mark {
+	fill: var(--text-secondary);
+	font-size: 11px;
+	font-weight: 500;
+	paint-order: stroke;
+	stroke: var(--canvas);
+	stroke-width: 3px;
+	stroke-linejoin: round;
+}
+
 @keyframes mm-ghost-in {
 	from {
 		opacity: 0;

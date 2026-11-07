@@ -4,6 +4,7 @@ import { type TProject, tieOf } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx, TNotice } from '@/modules/studio';
 import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, effectWords, frontierStop, isBadProposal, isOverBuilt, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { pastBuiltMark } from './past-built';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -459,11 +460,18 @@ export class BarCx {
 		this.$state.set(EMPTY);
 	}
 
-	/** Brings the note above the bar, as soon as this track's run says where it is. A press never pans again */
+	/**
+	 * Brings the note above the bar, as soon as this track's run says where it is. Past what's built, the last built piece,
+	 * with the note's mark when both fit. A press never pans again
+	 */
 	private revealOnce(session: TBarSession, target: TBarTarget): void {
-		if (session.isRevealed || this.currentResult(session.project) == null) return;
+		const result = this.currentResult(session.project);
+		if (session.isRevealed || result == null) return;
 		session.isRevealed = true;
-		this.studio.$reveal.set({ ids: targetHitKeys(target), isZoomKept: true });
+		const mark = pastBuiltMark(session.project, result, target);
+		// With nothing built yet, where building starts is the marble's release
+		if (mark != null) this.studio.$reveal.set({ ids: [mark.lastPieceId ?? target.marbleId], also: [mark.point], isZoomKept: true });
+		else this.studio.$reveal.set({ ids: targetHitKeys(target), isZoomKept: true });
 	}
 
 	/** A new track with nothing built starts on its first note, so the bar is there at once */
