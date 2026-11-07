@@ -321,10 +321,14 @@ export function barRows(project: TProject, target: TBarTarget, openNotes: number
 	return rows;
 }
 
+/** What a rest's piece is called: a Curved Rail by its Pattern or its one curved stroke, a Switchback by its turns, else its type */
 function restPieceWord(project: TProject, piece: TPiece): string {
-	if (patternOfPiece(project, piece.id)?.pattern.kind === 'longRail') return 'Curved Rail';
+	if (patternOfPiece(project, piece.id)?.pattern.kind === 'longRail' || CURVED_LAYOUTS.has(piece.layout ?? '')) return 'Curved Rail';
 	return piece.layout === 'switchback' ? 'Switchback' : (getPieceDefinition(piece.type)?.label ?? 'Rail');
 }
+
+/** Rail layouts that are one curved stroke, which is what a Curved Rail is */
+const CURVED_LAYOUTS: ReadonlySet<string> = new Set(['curve', 'c']);
 
 /** The What button when nothing is chosen: what stands here */
 export function standingWords(project: TProject, target: TBarTarget): string {

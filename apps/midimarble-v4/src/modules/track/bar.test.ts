@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
+import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, standingWords, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -103,6 +103,16 @@ describe('stops', () => {
 		const rest = track(WITH_REST, 2);
 		expect(senderOf(rest, run(WITH_REST), targetOf(rest, [toRangeKey('m', 1.5, 5)]))).toMatchObject({ piece: { id: 'p2' }, stop: { kind: 'note', number: 2 } });
 		expect(senderOf(open, null, targetOf(open, [hit('h2')]))).toBeNull();
+	});
+
+	it('names a rest\'s rail by what it is: one curved stroke is a Curved Rail, turns a Switchback', () => {
+		const base = track(WITH_REST, 2);
+		const rail = (layout: 'curve' | 'c' | 'switchback' | 'path'): TProject => ({ ...base, track: { ...base.track, pieces: [...base.track.pieces, { ...createLinkedPiece('rail', 'm', 'h2', 0, { id: 'r1' }), layout }] } });
+		const words = (layout: 'curve' | 'c' | 'switchback' | 'path'): string => standingWords(rail(layout), targetOf(rail(layout), [toRangeKey('m', 1.5, 5)]));
+		expect(words('curve')).toBe('Curved Rail');
+		expect(words('c')).toBe('Curved Rail');
+		expect(words('switchback')).toBe('Switchback');
+		expect(words('path')).toBe('Rail');
 	});
 
 	it('takes a dragged silence as a rest', () => {
