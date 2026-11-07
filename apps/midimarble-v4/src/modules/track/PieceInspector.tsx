@@ -11,7 +11,7 @@ import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from '@/modules/scene';
 import { selectedPlainGroup } from './group-commands';
-import { PlainGroupTiles, plainGroupNotes } from './PatternInspector';
+import { plainGroupNotes } from './PatternInspector';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
 
@@ -87,7 +87,6 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 					status == null || link == null ? null : ((status.tone === 'bad' || status.tone === 'warn') && soundsHit(type, link)) || (resolved?.status === 'blocked' && !soundsHit(type, link)) || hitBy != null || isBowlMissed || look != null ? <FixButton cx={cx} pieceId={first.id} /> : null
 				}
 			/>
-			{group != null ? <PlainGroupTiles cx={cx} project={project} group={group} /> : null}
 			<Panel id="piece.position" title="Position">
 				{isSingle && position != null ? (
 					<>
@@ -181,7 +180,7 @@ export const FixButton: React.FC<{ cx: StudioCx; pieceId: string }> = (props) =>
  * "Hit by Bass" when another marble hits the piece and its own status is fine, so the problem the summary lists
  * shows on the piece too; a Blocked, Missed or Stopped status says more and stays
  */
-function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | undefined): TTimingStatus | null {
+export function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | undefined): TTimingStatus | null {
 	const first = hitBy?.[0];
 	if (first == null || status?.tone === 'bad') return status;
 	const marble = first.by ?? 'Another Marble';
@@ -189,7 +188,7 @@ function struckStatus(status: TTimingStatus | null, hitBy: TPreflightIssue[] | u
 }
 
 /** "Hit Twice" or "Touching" when nothing more serious shows, so the problem the list names shows on the piece too */
-function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | undefined): TTimingStatus | null {
+export function lookStatus(status: TTimingStatus | null, look: TPreflightIssue[] | undefined): TTimingStatus | null {
 	const first = look?.[0];
 	if (first == null || status?.tone === 'bad' || status?.tone === 'warn') return status;
 	return { tone: 'warn', label: first.label ?? first.title, detail: look?.map((issue) => `${issue.title}. ${issue.detail ?? ''}`.trim()).join('\n') ?? '' };
@@ -209,7 +208,7 @@ function tieLabel(project: TProject, piece: TPiece): string {
 }
 
 /** The header pill: the hit's timing for a platform that plays a note, what the marble does for a rail or tunnel */
-function pieceStatus(project: TProject, piece: TPiece, resolved: TResolvedPiece | undefined, result: TSimulationResult | null): TTimingStatus | null {
+export function pieceStatus(project: TProject, piece: TPiece, resolved: TResolvedPiece | undefined, result: TSimulationResult | null): TTimingStatus | null {
 	const link = tieOf(piece);
 	const type = piece.type ?? '';
 	if (link == null) return null;

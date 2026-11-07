@@ -1,12 +1,12 @@
 import { createState } from 'feature-state';
 import { Err, Ok, type TResult } from 'tuple-result';
 import { builtRunCommands } from './group-commands';
-import { applyProjectCommands, createId, DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
-import { isSuperseded, layoutOf, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptProposal, findStepTarget, nextStepOf, propose, type TPatternKind, type TProposal, type TProposeAsk, type TProposeDeps, focusedMarbleId, gapPieceReads, hitOwners, release, changedPieces, editCommands, withEditAnswer, type TContinueAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, reachMessage, releaseFixFor, displayPiece, newlyBroken } from '@/modules/building';
+import { applyProjectCommands, createId, type TPiece, type TProject, type TProjectCommand, formatTime, parseHitKey, toHitKey, tieOf } from '@/modules/project';
+import { isSuperseded, layoutOf, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { acceptProposal, findStepTarget, nextStepOf, propose, type TPatternKind, type TProposal, type TProposeAsk, type TProposeDeps, focusedMarbleId, gapPieceReads, hitOwners, release, changedPieces, editCommands, withEditAnswer, type TGapPieceType, attentionOf, checkRun, problemSummary, strayCause, buildOneStep, buildTrack, type TBuildGapPreference, type TBuildOutcome, type TBuildProgress, type TBuildTrackDeps, addedProblems, brokenHits, fixHelps, fixMessage, fixWorseWords, fixPiece, fixTrack, hasFixes, type TFixDeps, type TFixOutcome, findBowl, createEstimate, canMakeBacking, hitReach, reachMessage, releaseFixFor, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
 import { unreachableActions } from './unreachable-fixes';
-import { acceptableCount, ghostReducer, initialGhostState, type TGhostAction, type TGhostState, type TPlaceAnswer } from './ghosts';
+import { ghostReducer, initialGhostState, type TGhostAction, type TGhostState } from './ghosts';
 import { commitAtHit, pieceForHit, selectedPieceIds } from './step-loop';
 
 /** How long Fix tries to bring a marble back to pieces waiting behind a break, before it says it can't */
@@ -19,7 +19,7 @@ const KEPT_PROPOSALS = 16;
 /** Longest wait for Auto place before a clicked dot gets the default angle and is refined afterward */
 
 /**
- * Owns the assists of the step loop: Next, Auto place, Continue ghosts and rail suggestions for long
+ * Owns the assists of the step loop: Next, Auto place and rail suggestions for long
  * gaps. Every question goes to the assist worker with the newest project, so the canvas never waits on
  * a search, and answers for an older revision are dropped.
  */
@@ -30,9 +30,6 @@ export class AssistCx {
 	/** Next presses made while a placement or its run was still on the way, shown on the build bar as "Next ×5" */
 	readonly $queuedNext = createState(0);
 
-	private continueKey: string | null = null;
-	/** The Continue question on its way, so an agent's next call sees its answer and Next acts the same at any speed */
-	private pendingContinue: string | null = null;
 	/** What the verdict said of the gap piece on offer, said when it lands */
 	private gapWords: string | null = null;
 	/** What the verdict said of what Next placed last, for an agent's reply */
@@ -43,27 +40,16 @@ export class AssistCx {
 	private stuckGap: string | null = null;
 	/** Type and time of the latest queued Next press; the presses run one by one as each run arrives */
 	private queuedNext: { type: string; at: number } | null = null;
-	private isMounted = false;
-	/** Selection key of the hit whose click shows the current suggestion; selecting anything else cancels it */
-	private previewKey: string | null = null;
-	/** Counts previews, so an Auto place answer for an older one is dropped */
-	private previewRun = 0;
 
 	constructor(private readonly studio: StudioCx) {}
 
 	mount(): () => void {
 		this.forget();
-		this.isMounted = true;
 		let projectId = this.studio.project?.id;
 		const unlisten = [
 			this.studio.simulation.$result.listen(() => {
 				this.offerFixIt();
 				this.runQueuedNext();
-				this.refresh();
-			}),
-			this.studio.$selection.listen(({ value }) => {
-				if (this.previewKey != null && (value.length !== 1 || value[0] !== this.previewKey)) this.cancelPreview();
-				this.refresh();
 			}),
 			this.studio.$history.listen(({ value }) => {
 				// What was offered belongs to the project that asked, whatever its revision
@@ -72,15 +58,12 @@ export class AssistCx {
 					this.forget();
 				}
 				if (value != null) this.dispatch({ type: 'revision', revision: value.present.revision });
-				if (!this.hasGhosts) this.previewKey = null;
 			})
 		];
 		if (this.studio.project != null) this.dispatch({ type: 'revision', revision: this.studio.project.revision });
 		// The run shown at mount is what the first edit is compared with
 		this.offerFixIt();
-		this.refresh();
 		return () => {
-			this.isMounted = false;
 			for (const stop of unlisten) stop();
 			this.forget();
 		};
@@ -91,12 +74,8 @@ export class AssistCx {
 		this.$ghosts.set(initialGhostState);
 		this.$queuedNext.set(0);
 		this.$lastBuild.set(null);
-		this.continueKey = null;
-		this.pendingContinue = null;
 		this.stuckGap = null;
 		this.queuedNext = null;
-		this.previewKey = null;
-		this.previewRun += 1;
 		this.baseline = null;
 		this.lastGood.clear();
 		this.lastGoodProjectId = null;
@@ -116,9 +95,8 @@ export class AssistCx {
 	 * auto placed piece. Before a long gap Auto place launches the marble into the coming rail.
 	 */
 	next(type = 'platform'): void {
-		// A dot's preview or a gap's bridge is what Next would add; Continue's many are taken with Tab, so one press stays one platform
-		const { ghost } = this.$ghosts.get();
-		if (ghost != null && ghost.kind !== 'continue') {
+		// A gap's bridge is what Next would add
+		if (this.$ghosts.get().ghost != null) {
 			this.acceptGhosts();
 			return;
 		}
@@ -343,126 +321,27 @@ export class AssistCx {
 		this.studio.notify(`${why} Turn the platform before it, or:`, 'info', { actions: [anyway, ...unreachableActions(this.studio, hit, null)] });
 	}
 
-	// MARK: - Dot previews
-
-	/**
-	 * The first click on an open dot: selects the hit and draws the piece it would get, with the next note's dot where
-	 * that piece sends the marble. Nothing changes in the project until it is accepted. It shows at once at the default
-	 * tilt, and Auto place's answer takes its place.
-	 */
-	preview(hit: THitResult, type = 'platform'): void {
-		const project = this.studio.project;
-		const client = this.studio.simulation.assists;
-		const { dot, velocity } = hit;
-		if (project == null || dot == null) return;
-		const run = ++this.previewRun;
-		const key = toHitKey(hit.marbleId, hit.hitId);
-		this.previewKey = key;
-		this.studio.$selection.set([key]);
-		const id = createId('piece');
-		const radius = project.marbles.find((item) => item.id === hit.marbleId)?.radius ?? DEFAULT_MARBLE_RADIUS;
-		const show = (piece: TPiece, angle: number, nextDot: TVec2 | null, isSolved: boolean, isOk: boolean): void => {
-			const resolvedPiece = displayPiece(piece, { pose: { position: dot, angle }, dot, velocity }, radius);
-			this.dispatch({ type: 'preview', answer: { revision: project.revision, marbleId: hit.marbleId, hit, type, piece, resolved: resolvedPiece, nextDot, isSolved, isOk } });
-		};
-		const guess = pieceForHit(project, hit, type, 'default', id);
-		const guessAngle = guess.angle ?? 0;
-		const layout = layoutOf(type);
-		if (client == null || layout === 'path' || layout === 'tube') {
-			show(guess, guessAngle, null, true, true);
-			return;
-		}
-		show(guess, guessAngle, null, false, true);
-		client.autoPlace({ project, marbleId: hit.marbleId, hitId: hit.hitId, type, pieceId: id }).then(
-			(answer) => {
-				if (run === this.previewRun && this.studio.project === project) show(answer.piece, answer.angle, answer.nextDot, true, true);
-			},
-			(error: unknown) => {
-				if (run === this.previewRun && !isSuperseded(error) && this.studio.project === project) show(guess, guessAngle, null, true, false);
-			}
-		);
-	}
-
-	/** The first click on a long gap's dot: selects the hit and shows what bridges the gap, like `preview` */
-	previewGap(hit: THitResult, fromHitId: string): void {
-		const key = toHitKey(hit.marbleId, hit.hitId);
-		this.previewRun++;
-		this.previewKey = key;
-		this.studio.$selection.set([key]);
-		this.suggestGapPiece('rail', hit.marbleId, fromHitId, hit.hitId, { fallback: 'switchback' });
-	}
-
-	/** Whether a click on this dot's hit showed the suggestion that is up */
-	isPreviewing(marbleId: string, hitId: string): boolean {
-		return this.previewKey === toHitKey(marbleId, hitId) && this.hasGhosts;
-	}
-
-	/** The suggested piece a click would add: a dot's preview or a long gap's bridge. Continue ghosts are taken with Tab. */
-	get clickableGhost(): TResolvedPiece | null {
-		const { ghost } = this.$ghosts.get();
-		return ghost == null || ghost.kind === 'continue' ? null : ghost.answer.resolved;
-	}
-
-	/** Takes back what a dot's click showed; a Continue offer it replaced comes back */
-	cancelPreview(): void {
-		if (this.previewKey == null) return;
-		this.previewKey = null;
-		this.previewRun++;
-		this.continueKey = null;
-		this.dispatch({ type: 'previewCanceled' });
-		this.refresh();
-	}
-
 	// MARK: - Ghosts
 
-	/** Tab, or Return and N on a dot's preview or a gap's bridge: adds every acceptable ghost as one edit */
+	/** Next on a gap's bridge: adds it as one edit */
 	acceptGhosts(): boolean {
 		const { ghost } = this.$ghosts.get();
 		const project = this.studio.project;
 		if (ghost == null || project == null || ghost.answer.revision !== project.revision) return false;
-		// Committing selects the new piece, which is no cancel
-		this.previewKey = null;
-		if (ghost.kind === 'place') return this.acceptPreview(ghost.answer);
 		const commands = ghost.answer.commands;
 		if (!commands.length || !this.studio.execute(commands)) return false;
 		this.dispatch({ type: 'accepted' });
-		if (ghost.kind === 'continue') {
-			const last = ghost.answer.suggestions.filter((suggestion) => suggestion.isOk).at(-1);
-			const time = project.marbles.find((marble) => marble.id === ghost.answer.marbleId)?.hits.find((hit) => hit.id === last?.hitId)?.time;
-			if (last != null) this.studio.$selection.set([last.piece.id]);
-			if (time != null && !this.studio.$playing.get()) this.studio.$playhead.set(time);
-			// One is a press of Next, which says nothing
-			if (acceptableCount(ghost) > 1) this.studio.notifyEdit(`Added ${acceptableCount(ghost)} platforms`);
-		} else {
-			this.studio.$selection.set([ghost.answer.piece.id]);
-			if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());
-			// It stays placed, as a person may want it: nothing lands without saying so
-			this.placedWords = this.gapWords;
-			if (this.gapWords != null) this.studio.notifyEdit(`Placed. ${this.gapWords}`);
-		}
+		this.studio.$selection.set([ghost.answer.piece.id]);
+		if (!this.studio.$playing.get()) this.studio.$playhead.set(ghost.answer.resolved?.entryTime ?? this.studio.$playhead.get());
+		// It stays placed, as a person may want it: nothing lands without saying so
+		this.placedWords = this.gapWords;
+		if (this.gapWords != null) this.studio.notifyEdit(`Placed. ${this.gapWords}`);
 		return true;
 	}
 
-	private acceptPreview(answer: TPlaceAnswer): boolean {
-		this.previewRun++;
-		if (!answer.isSolved) {
-			// Auto place hasn't answered: placing waits for it the way a direct placement does, the ghost up meanwhile
-			if (!this.isPlacing) void this.place(answer.hit, answer.type).finally(() => this.dispatch({ type: 'accepted' }));
-			return true;
-		}
-		if (!commitAtHit(this.studio, answer.hit, answer.piece)) return false;
-		this.dispatch({ type: 'accepted' });
-		if (!answer.isOk) this.studio.notify('No tilt works for this note, so the platform has the default tilt. Turn it by hand if the track needs it.');
-		return true;
-	}
-
-	/** Escape: hides the ghosts until the next edit; a dot's preview only goes away */
+	/** Escape: hides the ghosts until the next edit */
 	dismiss(): boolean {
 		if (!this.hasGhosts) return false;
-		if (this.previewKey != null) {
-			this.cancelPreview();
-			return true;
-		}
 		this.dispatch({ type: 'dismiss' });
 		return true;
 	}
@@ -791,7 +670,7 @@ export class AssistCx {
 
 	/** An assist is still working on the latest edit: what it answers next can change the project or what Next does */
 	get isAnswering(): boolean {
-		return this.studio.simulation.isSettling || this.isPlacing || this.fixRun != null || this.buildRun != null || this.pendingContinue != null || this.$ghosts.get().pendingGap != null;
+		return this.studio.simulation.isSettling || this.isPlacing || this.fixRun != null || this.buildRun != null || this.$ghosts.get().pendingGap != null;
 	}
 
 	/** The worker calls Fix and Add Bowl need: runs, Auto place and a new bridge for a long gap */
@@ -1051,41 +930,6 @@ export class AssistCx {
 		} finally {
 			this.$addingBowl.set(null);
 		}
-	}
-
-	/** Asks for Continue ghosts for the focused marble when the shown result is current */
-	private refresh(): void {
-		if (!this.isMounted) return;
-		const project = this.studio.project;
-		const result = this.currentResult();
-		const client = this.studio.simulation.assists;
-		if (project == null || result == null || client == null || this.buildRun != null) return;
-		const state = this.$ghosts.get();
-		if (state.dismissedRevision === project.revision || state.pendingGap != null || state.ghost?.kind === 'gap' || state.ghost?.kind === 'place') return;
-		const target = findStepTarget(project, result, this.studio.$selection.get());
-		const marbleId = target?.marbleId ?? null;
-		const key = `${project.revision}:${marbleId}`;
-		if (key === this.continueKey) return;
-		this.continueKey = key;
-		if (marbleId == null) {
-			this.dispatch({ type: 'continueAnswer', revision: project.revision, answer: null });
-			return;
-		}
-		this.pendingContinue = key;
-		const done = (): void => {
-			if (this.pendingContinue === key) this.pendingContinue = null;
-		};
-		client.continueRun({ project, marbleId }).then(
-			(answer: TContinueAnswer | null) => {
-				done();
-				if (this.studio.project === project) this.dispatch({ type: 'continueAnswer', revision: project.revision, answer });
-			},
-			() => {
-				done();
-				// A failed or replaced search simply offers nothing; a newer request is on its way
-				if (this.continueKey === key) this.continueKey = null;
-			}
-		);
 	}
 
 	/** The result for the project as it is now, outside drag previews */

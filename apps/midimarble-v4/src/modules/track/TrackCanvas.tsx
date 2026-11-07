@@ -13,11 +13,9 @@ import { paletteOf, projectedOutline, toPoints, type TScreenProjection } from '@
 import { Track3DView, TrackViewSwitch } from './Track3DView';
 import { timingStatus } from './timing-status';
 import { followKey } from './keys';
-import { GhostShapes } from './GhostLayer';
-import { PatternGhost } from './PatternInspector';
 import { BarHint } from './FloatingBar';
 import { HitFlashLayer } from './HitFlashLayer';
-import { canvasMenu, dotMenu } from './menus';
+import { canvasMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
 import { badgeStatus, badgeStyles, StatusBadge } from './status';
@@ -53,7 +51,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 		: drag?.kind === 'rotate' || hover?.kind === 'rotate' ? 'grab'
 		: isMoving ? 'grabbing'
 		: isHandle ? 'move'
-		: hover?.kind === 'dot' || hover?.kind === 'ghost' || hover?.kind === 'track' ? 'pointer'
+		: hover?.kind === 'dot' || hover?.kind === 'track' ? 'pointer'
 		: tool !== 'select' ? 'crosshair'
 		: 'default';
 
@@ -62,8 +60,6 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 			<canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
 			<svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
 				<PieceLayer trackCx={trackCx} />
-				<GhostShapes trackCx={trackCx} />
-				<PatternGhost trackCx={trackCx} />
 				<BarHint trackCx={trackCx} />
 			</svg>
 			<div
@@ -112,12 +108,11 @@ function openCanvasMenu(trackCx: TrackCx, event: React.MouseEvent<HTMLElement>):
 		case 'dot': {
 			const marble = trackCx.project?.marbles.find((item) => item.id === target.marbleId);
 			const hit = trackCx.result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId);
-			if (marble != null && hit != null && hit.status !== 'open') {
+			if (marble != null && hit != null) {
 				cx.$selection.set([toHitKey(target.marbleId, target.hitId)]);
 				openContextMenu(event, cx.menus.hit(marble, target.hitId));
 				return;
 			}
-			openContextMenu(event, dotMenu(trackCx, target.marbleId, target.hitId));
 			return;
 		}
 		case 'release': {
@@ -210,10 +205,6 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const hoveredDot = hover?.kind === 'dot' ? result.hits.find((hit) => hit.marbleId === hover.marbleId && hit.hitId === hover.hitId) : undefined;
 	const snap = drag?.kind === 'move' ? drag.snap : (insertSnap?.snap ?? null);
 	const singlePiece = single != null ? project.track.pieces.find((piece) => piece.id === single.pieceId) : undefined;
-	// The first-run hint "Click a note's dot to see its platform" points at the earliest next open dot
-	const firstNext = [...nextDots.values()].filter((hit) => hit.dot != null).sort((a, b) => a.targetTime - b.targetTime)[0];
-	const firstNextScreen = firstNext?.dot != null ? trackCx.toScreen(firstNext.dot) : null;
-	const hintDot = firstNextScreen != null && firstNextScreen.x >= 0 && firstNextScreen.x <= viewport.width && firstNextScreen.y >= 0 && firstNextScreen.y <= viewport.height ? firstNextScreen : null;
 
 	return (
 		<>
@@ -304,9 +295,6 @@ const TrackOverlay: React.FC<{ trackCx: TrackCx }> = (props) => {
 				{marbleGhost != null && drag == null ? <circle cx={marbleGhost.x} cy={marbleGhost.y} r={Math.max(7, DEFAULT_MARBLE_RADIUS * trackCx.screenScale())} fill="var(--text)" fillOpacity={0.3} stroke="var(--text)" strokeOpacity={0.6} /> : null}
 			</svg>
 			{hoveredDot != null && drag == null && hoverPreview == null ? <DotTooltip trackCx={trackCx} project={project} hit={hoveredDot} /> : null}
-			{hintDot != null && drag == null ? (
-				<span data-hint-anchor="dot" className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2" style={{ left: hintDot.x, top: hintDot.y }} />
-			) : null}
 			{hover?.kind === 'track' && drag == null ? (
 				<CanvasTooltip position={hover.position}>
 					{trackCx.followsAt(hover.marbleId, hover.time) ? (

@@ -71,13 +71,12 @@ export class HintsCx {
 	}
 }
 
-export type THintId = 'song' | 'tap' | 'dot' | 'film';
+export type THintId = 'song' | 'tap' | 'film';
 
 /** One line each, in the words of `docs/words.md` (sentence case, no period) */
 export const hintTexts: Record<THintId, string> = {
 	song: 'This is your song: each marble plays some of its notes',
 	tap: 'Press T to add a hit at the playhead, or play and tap along with T',
-	dot: 'Press N for the next platform, or ⇧N to build the whole track',
 	film: 'Switch to Film to choose a theme and export'
 };
 
@@ -149,7 +148,7 @@ export function stepHints(state: THintState, facts: THintFacts): THintState {
 	return { open: next, seen, mark: { editCount: facts.editCount, openCount: facts.openCount ?? 0 } };
 }
 
-const hintOrder: THintId[] = ['song', 'tap', 'dot', 'film'];
+const hintOrder: THintId[] = ['song', 'tap', 'film'];
 
 function isStepDone(id: THintId, mark: THintMark, facts: THintFacts): boolean {
 	switch (id) {
@@ -157,8 +156,6 @@ function isStepDone(id: THintId, mark: THintMark, facts: THintFacts): boolean {
 			return facts.isPlaying || facts.editCount > mark.editCount;
 		case 'tap':
 			return facts.hasHits;
-		case 'dot':
-			return facts.openCount != null && facts.openCount < mark.openCount;
 		case 'film':
 			return facts.workspace === 'film';
 	}
@@ -171,8 +168,6 @@ function canOpen(id: THintId, seen: THintId[], facts: THintFacts): boolean {
 			return facts.hasSong;
 		case 'tap':
 			return facts.hasSong && !facts.hasHits;
-		case 'dot':
-			return (seen.includes('song') || !facts.hasSong) && !facts.hasPieces && (facts.openCount ?? 0) > 0;
 		case 'film':
 			return facts.isAllOnTime && facts.editCount > 0;
 	}

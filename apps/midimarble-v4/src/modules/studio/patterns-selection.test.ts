@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupSelection, patternTargets, rangeSelection } from '@/modules/track';
+import { groupSelection, rangeSelection } from '@/modules/track';
 import { createProject, type TGroup, type TProject, parseRangeKey, toGroupKey, toHitKey, toRangeKey } from '@/modules/project';
 import { inspectorTarget } from './inspector-target';
 import { buildOutline, defaultCollapsed } from './outline';
@@ -22,11 +22,6 @@ describe('Pattern selection', () => {
 		const [key = ''] = rangeSelection(project(), 'marble', 3.2, 4.8);
 		expect(parseRangeKey(key)).toEqual({ marbleId: 'marble', from: 3.2, to: 4.8 });
 		expect(inspectorTarget(project(), [key], 'track')).toEqual({ kind: 'patternRange', marbleId: 'marble', from: 3.2, to: 4.8 });
-		expect(patternTargets(project(), [key])).toEqual([{ marbleId: 'marble', from: 3.2, to: 4.8 }]);
-	});
-
-	it('should offer one range per marble from selected hits', () => {
-		expect(patternTargets(project(), [toHitKey('marble', 'h3'), toHitKey('marble', 'h1')])).toEqual([{ marbleId: 'marble', from: 1, to: 3 }]);
 	});
 
 	it('should show a Group in Track and its pieces in Film', () => {

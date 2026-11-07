@@ -26,24 +26,6 @@ describe('stepHints function', () => {
 		expect(stepHints(opened, facts()).open).toBe('song');
 	});
 
-	it('should open the dot hint after the song hint and close it when a platform fills a note', () => {
-		// Prepare
-		const afterSong: THintState = { ...empty, seen: ['song'] };
-
-		// Act
-		const opened = stepHints(afterSong, facts({ openCount: 3 }));
-		const placed = stepHints(opened, facts({ openCount: 2, editCount: 1 }));
-
-		// Assert
-		expect(opened.open).toBe('dot');
-		expect(placed.open).toBeNull();
-		expect(placed.seen).toEqual(['song', 'dot']);
-	});
-
-	it('should skip the song hint for a project without a song', () => {
-		expect(stepHints(empty, facts({ hasSong: false })).open).toBe('dot');
-	});
-
 	it('should not offer tapping without a song', () => {
 		expect(stepHints(empty, facts({ hasSong: false, hasHits: false, openCount: 0 })).open).toBeNull();
 	});
@@ -56,16 +38,12 @@ describe('stepHints function', () => {
 		// Assert
 		expect(opened.open).toBe('tap');
 		expect(tapped.seen).toContain('tap');
-		expect(tapped.open).toBe('dot');
-	});
-
-	it('should wait for a current run before offering the dot', () => {
-		expect(stepHints({ ...empty, seen: ['song'] }, facts({ openCount: null })).open).toBeNull();
+		expect(tapped.open).toBeNull();
 	});
 
 	it('should offer Film only after an edit leaves every hit on time and close it in Film', () => {
 		// Prepare
-		const earlier: THintState = { ...empty, seen: ['song', 'dot'] };
+		const earlier: THintState = { ...empty, seen: ['song'] };
 
 		// Act
 		const untouched = stepHints(earlier, facts({ isAllOnTime: true, openCount: 0 }));
@@ -80,12 +58,8 @@ describe('stepHints function', () => {
 	});
 
 	it('should never open a hint again once seen', () => {
-		const state: THintState = { ...empty, seen: ['song', 'dot', 'film'] };
+		const state: THintState = { ...empty, seen: ['song', 'film'] };
 		expect(stepHints(state, facts({ isAllOnTime: true, editCount: 4 })).open).toBeNull();
-	});
-
-	it('should not open the hint about the dot once a piece is on the wall', () => {
-		expect(stepHints({ ...empty, seen: ['song', 'tap'] }, facts({ hasPieces: true })).open).toBeNull();
 	});
 
 	it('should not open hints in Film', () => {

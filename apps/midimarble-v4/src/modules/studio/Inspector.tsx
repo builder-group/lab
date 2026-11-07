@@ -1,9 +1,9 @@
 import { useFeatureState } from 'feature-react/state';
-import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Plus, Sparkles, Type } from 'lucide-react';
+import { AudioLines, ChevronDown, ChevronUp, FileMusic, Globe, Sparkles, Type } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ReadoutField, ScrubField, SelectField, SliderField, StatusPill, TextField } from '@/components';
 import { PieceIcon } from '@/modules/canvas';
-import { unreachableActions, GroupInspector, PatternRangeInspector, PatternTiles, FixButton, PieceInspector, placeAtHit, timingStatus, auditionNote, handNotes } from '@/modules/track';
+import { unreachableActions, GroupInspector, PatternRangeInspector, FixButton, PieceInspector, timingStatus, auditionNote, handNotes } from '@/modules/track';
 import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, selectionProblems, unreachableStatus } from '@/modules/building';
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
@@ -76,7 +76,7 @@ const TargetInspector: React.FC<{ cx: StudioCx; project: TProject; target: TInsp
 		case 'group':
 			return <GroupInspector cx={cx} project={project} groupId={target.id} />;
 		case 'patternRange':
-			return <PatternRangeInspector cx={cx} project={project} target={target} />;
+			return <PatternRangeInspector project={project} target={target} />;
 		case 'title': {
 			const title = project.film.titles.find((item) => item.id === target.id);
 			return title == null ? null : <WallTextInspector cx={cx} project={project} piece={title} />;
@@ -302,7 +302,6 @@ type THitOwner = Pick<TMarble, 'id' | 'name' | 'labelColor' | 'sound' | 'hits'>;
 const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[] }> = (props) => {
 	const { cx, project, hitKeys } = props;
 	const result = useFeatureState(cx.simulation.$result);
-	const trackCx = useFeatureState(cx.$trackCx);
 	// Backing joins the marbles so a Backing note shows like a hit without a marble
 	const backing: THitOwner = { id: BACKING_ID, name: 'Backing', labelColor: BACKING_COLOR, sound: backingSong(project)?.backingSound ?? 0, hits: backingOf(project) };
 	// Without a song Backing is not offered: its notes show only in the Song track (see canMakeBacking)
@@ -346,7 +345,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 					{playedBy}
 					<HitSongField cx={cx} project={project} hits={hits} />
 				</Panel>
-				{!ownerIds.has(BACKING_ID) ? <PatternTiles cx={cx} project={project} /> : null}
 			</>
 		);
 	}
@@ -367,7 +365,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 				? null
 				: { tone: 'warn' as const, label: unreachable.label, detail: unreachable.detail }
 			: timingStatus(result?.pieces.find((item) => item.pieceId === piece.id), hitResult, { marble: marble.name, piece: pieceLabel });
-	const openHit = hitResult?.status === 'open' && hitResult.dot != null ? hitResult : null;
 
 	function setHit(patch: Partial<THit>): void {
 		cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: [{ ...hit, ...patch }] }]);
@@ -376,12 +373,6 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 	function setPitch(pitch: number | null): void {
 		setHit({ pitch: pitch ?? undefined });
 		if (pitch != null) auditionNote(cx, marble.id, pitch);
-	}
-
-	function addPlatform(): void {
-		if (openHit == null) return;
-		if (trackCx != null) void cx.assist.place(openHit, 'platform');
-		else placeAtHit(cx, openHit, 'platform');
 	}
 
 	return (
@@ -441,12 +432,7 @@ const HitInspector: React.FC<{ cx: StudioCx; project: TProject; hitKeys: string[
 							{action.label}
 						</button>
 					))
-				) : (
-					<button className="mm-button" data-span="2" disabled={openHit == null} onClick={addPlatform} title={openHit != null ? 'Add an auto-placed platform that plays this hit (A)' : "The marble doesn't reach this hit yet: the hits before it come first. N places the next one"} type="button">
-						<Plus size={12} strokeWidth={2} />
-						Add Platform
-					</button>
-				)}
+				) : null}
 			</Panel>
 		</>
 	);

@@ -196,43 +196,4 @@ describe('AssistCx class', () => {
 			expect(cx.project?.track.pieces).toEqual([]);
 		});
 	});
-
-	describe('Continue ghosts', () => {
-		it('should not show an answer that arrives after another project opened at the same revision', async () => {
-			// Prepare
-			let answer: (value: unknown) => void = () => undefined;
-			const { assist, open } = studio({ continueRun: () => new Promise((resolve) => (answer = resolve)) });
-			const stop = assist.mount();
-			const suggestion = { hitId: 'hit1', piece: { id: 'ghost' }, resolved: null, dot: { x: 0, y: 0 }, status: 'onTime', error: 0, isInFrame: true, isOk: true };
-
-			// Act
-			open();
-			answer({ revision: 0, marbleId: 'marble', computeMs: 1, pattern: 'mirror', commands: [], suggestions: [suggestion] });
-			await Promise.resolve();
-			await Promise.resolve();
-
-			// Assert
-			expect(assist.hasGhosts).toBe(false);
-			stop();
-		});
-	});
-
-	describe('acceptGhosts method', () => {
-		it('should not take what was offered in another project at the same revision', () => {
-			// Prepare
-			const { cx, assist, open } = studio({ autoPlace: () => new Promise(() => undefined), continueRun: () => new Promise(() => undefined) });
-			const stop = assist.mount();
-			assist.preview(HIT);
-			expect(assist.hasGhosts).toBe(true);
-
-			// Act
-			open();
-			assist.acceptGhosts();
-
-			// Assert
-			expect(cx.project?.track.pieces).toEqual([]);
-			expect(assist.hasGhosts).toBe(false);
-			stop();
-		});
-	});
 });

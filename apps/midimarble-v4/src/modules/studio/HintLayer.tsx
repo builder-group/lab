@@ -71,4 +71,4 @@ const HintPopover: React.FC<{ id: THintId; anchor: TAnchorRect; onDismiss: () =>
 	);
 };
 
-const hintSides: Record<THintId, 'right' | 'above' | 'below'> = { song: 'right', tap: 'right', dot: 'right', film: 'below' };
+const hintSides: Record<THintId, 'right' | 'above' | 'below'> = { song: 'right', tap: 'right', film: 'below' };

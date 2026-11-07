@@ -105,7 +105,7 @@ describe('Playback and Piece menus', () => {
 
 	it('should list the transport and the piece assists', () => {
 		expect(section('Playback')).toEqual(['play.toggle', 'play.start', 'play.previousHit', 'play.nextHit', 'play.repeat']);
-		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'pattern.choose', 'build.continue', 'build.mirror', 'build.repeat', 'build.fix', 'piece.detach']);
+		expect(section('Track')).toEqual(['build.next', 'build.track', 'build.rebuildFrom', 'build.repeat', 'build.fix', 'piece.detach']);
 	});
 
 	it('should mirror + in Insert by plain nouns, and leave the agent items out of Help', () => {

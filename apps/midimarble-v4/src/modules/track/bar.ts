@@ -293,7 +293,8 @@ export function acceptWords(project: TProject, target: TBarTarget, choice: TBarC
 
 /** One line on what a proposal does to the notes, in the bar's words; null when there's nothing to say */
 export function effectWords(project: TProject, target: TBarTarget, proposal: TProposal): string | null {
-	if (proposal.status === 'refused' || proposal.status === 'buildUpTo') return proposal.words;
+	// A hint changed nothing, so it needn't say so
+	if (proposal.status === 'refused' || proposal.status === 'buildUpTo') return proposal.words?.replace(/ Nothing changed\.$/, '') ?? null;
 	const asked = new Set(proposal.notes.map((note) => note.number));
 	const lost = (proposal.facts?.lostNumbers ?? []).filter((number) => !asked.has(number));
 	if (lost.length > 0) return `${lostNotes(lost)} ${lost.length === 1 ? 'stops' : 'stop'} playing.${lost.length > 1 ? ' Their pieces stay.' : ''}`;

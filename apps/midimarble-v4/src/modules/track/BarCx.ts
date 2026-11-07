@@ -53,6 +53,8 @@ export class BarCx {
 	private session: TBarSession | null = null;
 	/** Projects whose first note the bar already went to, so it opens on a new track's first note once */
 	private opened = new Set<string>();
+	/** Where the bar stood for each Undo step it landed */
+	private landedFrom = new Map<number, readonly string[]>();
 
 	constructor(private readonly studio: StudioCx) {}
 
@@ -64,7 +66,7 @@ export class BarCx {
 				const isUndo = (value?.future.length ?? 0) > future;
 				future = value?.future.length ?? 0;
 				this.sync();
-				if (isUndo) this.backToBuilt();
+				if (isUndo && value != null) this.backAfterUndo(value.groups.future[0]);
 			}),
 			this.studio.simulation.$result.listen(() => this.sync()),
 			this.studio.$workspace.listen(() => this.sync())
@@ -119,11 +121,18 @@ export class BarCx {
 		if (!this.studio.$playing.get()) this.studio.seek(time);
 	}
 
-	/** After an Undo the bar may stand past what's built now; it goes back to where building goes on */
-	private backToBuilt(): void {
+	/** An Undo of what the bar landed goes back to where it stood. Any other may leave it past what's built, and it goes back to where building goes on */
+	private backAfterUndo(undoneStep: number | undefined): void {
 		const project = this.studio.project;
 		const { target } = this.$state.get();
-		if (project == null || target == null || target.kind === 'notes' || target.stage !== 'pastBuilt') return;
+		if (project == null) return;
+		const stood = undoneStep != null ? this.landedFrom.get(undoneStep) : null;
+		if (stood != null) {
+			this.landedFrom.delete(undoneStep as number);
+			this.studio.$selection.set([...stood]);
+			return;
+		}
+		if (target == null || target.kind === 'notes' || target.stage !== 'pastBuilt') return;
 		const stop = frontierStop(project, target.marbleId);
 		if (stop != null) this.goTo(project, stop);
 	}
@@ -178,14 +187,17 @@ export class BarCx {
 		const { target, choice } = this.$state.get();
 		if (project == null || target == null || choice == null) return;
 		if (!proposal.commands.length) {
-			// Nothing fits this rest: the note after it takes a plain platform
-			if (target.kind === 'rest') this.move(1);
+			// What's chosen doesn't fit this rest: what does is in the dropdown, and ▶ goes on without any
+			if (target.kind === 'rest') this.openMenu();
 			return;
 		}
 		const [isAccepted, , commands] = acceptProposal(project, proposal);
 		if (!isAccepted) return;
 		const label = acceptWords(project, target, choice, false).replace(/ · .*$/, '');
+		const stood = this.studio.$selection.get();
 		if (!this.studio.simulation.landWorkedOut(commands, { label })) return;
+		const step = this.studio.$history.get()?.groups.present;
+		if (step != null) this.landedFrom.set(step, stood);
 		if (target.kind === 'note' && choice !== 'remove') this.studio.audition(target.marbleId, project.marbles.find((marble) => marble.id === target.marbleId)?.hits.find((hit) => hit.id === target.hitId)?.pitch);
 		if (proposal.status === 'problems' && proposal.words != null) this.studio.notifyEdit(proposal.words);
 		const now = this.studio.project;

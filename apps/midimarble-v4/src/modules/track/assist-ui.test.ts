@@ -1,29 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { TResolvedPiece } from '@/modules/simulation';
-import type { TContinueAnswer, TGapAnswer } from '@/modules/building';
-import { acceptableCount, ghostReducer, initialGhostState, type TGhostState } from './ghosts';
+import type { TGapAnswer } from '@/modules/building';
+import { ghostReducer, initialGhostState, type TGhostState } from './ghosts';
 import { trackKeyAction, type TKeyContext, type TKeyInput } from './keys';
 import { pickTrack, pathHandles, pathRun, pathToLocal, pathToWorld, pieceAngleAt, turnPathRun, withPathBend, withPathEnd, withPathRun } from '@/modules/scene';
-
-function continueAnswer(revision: number, okCount: number): TContinueAnswer {
-	return {
-		revision,
-		marbleId: 'marble-1',
-		computeMs: 1,
-		pattern: 'mirror',
-		commands: [],
-		suggestions: Array.from({ length: okCount + 1 }, (_, index) => ({
-			hitId: `hit-${index}`,
-			piece: { id: `ghost-${index}` },
-			resolved: null,
-			dot: { x: 0, y: 0 },
-			status: index < okCount ? 'onTime' : 'missed',
-			error: 0,
-			isInFrame: true,
-			isOk: index < okCount
-		}))
-	} as unknown as TContinueAnswer;
-}
 
 function gapAnswer(revision: number): TGapAnswer {
 	return {
@@ -44,38 +24,14 @@ function gapAnswer(revision: number): TGapAnswer {
 describe('ghost state', () => {
 	const at = (revision: number): TGhostState => ghostReducer(initialGhostState, { type: 'revision', revision });
 
-	it('shows Continue ghosts for the current revision only', () => {
-		const state = ghostReducer(at(3), { type: 'continueAnswer', revision: 3, answer: continueAnswer(3, 4) });
-		expect(state.ghost?.kind).toBe('continue');
-		expect(acceptableCount(state.ghost)).toBe(4);
-		// An answer computed for an older edit is dropped
-		expect(ghostReducer(at(4), { type: 'continueAnswer', revision: 3, answer: continueAnswer(3, 4) }).ghost).toBeNull();
-		// Any edit clears ghosts until the worker answers again
-		expect(ghostReducer(state, { type: 'revision', revision: 4 }).ghost).toBeNull();
-	});
-
-	it('offers nothing when no suggestion is on time', () => {
-		expect(ghostReducer(at(1), { type: 'continueAnswer', revision: 1, answer: continueAnswer(1, 0) }).ghost).toBeNull();
-	});
-
-	it('keeps dismissed ghosts away until the next edit', () => {
-		const shown = ghostReducer(at(2), { type: 'continueAnswer', revision: 2, answer: continueAnswer(2, 3) });
-		const dismissed = ghostReducer(shown, { type: 'dismiss' });
-		expect(dismissed.ghost).toBeNull();
-		expect(ghostReducer(dismissed, { type: 'continueAnswer', revision: 2, answer: continueAnswer(2, 3) }).ghost).toBeNull();
-		const edited = ghostReducer(dismissed, { type: 'revision', revision: 3 });
-		expect(ghostReducer(edited, { type: 'continueAnswer', revision: 3, answer: continueAnswer(3, 3) }).ghost?.kind).toBe('continue');
-	});
-
-	it('lets a requested gap piece win over background Continue answers', () => {
+	it('holds a requested gap piece until it is taken or an edit comes', () => {
 		const pending = ghostReducer(at(5), { type: 'requestGap', revision: 5, marbleId: 'marble-1', toHitId: 'hit-4' });
 		expect(pending.pendingGap).not.toBeNull();
-		expect(ghostReducer(pending, { type: 'continueAnswer', revision: 5, answer: continueAnswer(5, 2) }).ghost).toBeNull();
 		const shown = ghostReducer(pending, { type: 'gapAnswer', answer: gapAnswer(5) });
 		expect(shown.ghost?.kind).toBe('gap');
 		expect(shown.pendingGap).toBeNull();
-		expect(ghostReducer(shown, { type: 'continueAnswer', revision: 5, answer: continueAnswer(5, 2) }).ghost?.kind).toBe('gap');
 		expect(ghostReducer(shown, { type: 'accepted' }).ghost).toBeNull();
+		expect(ghostReducer(shown, { type: 'revision', revision: 6 }).ghost).toBeNull();
 	});
 
 	it('drops a gap answer that arrives after Escape or an edit', () => {
@@ -124,7 +80,8 @@ describe('track keys', () => {
 		expect(press('Enter', { code: 'Enter' }, { ...none, hasSelection: true })).toEqual({ type: 'next' });
 		expect(press('Enter', { code: 'Enter' }, { ...none, hasGhosts: true })).toEqual({ type: 'next' });
 		expect(press('Tab', { code: 'Tab' })).toBeNull();
-		expect(press('Tab', { code: 'Tab' }, { ...none, hasGhosts: true })).toEqual({ type: 'acceptGhosts' });
+		expect(press('Tab', { code: 'Tab' }, { ...none, hasBar: true })).toEqual({ type: 'barMenu' });
+		expect(press('Enter', { code: 'Enter' }, { ...none, hasBar: true })).toEqual({ type: 'next' });
 		expect(press('P', { code: 'KeyP', shiftKey: true })).toBeNull();
 		expect(press('P', { code: 'KeyP', shiftKey: true }, { ...none, hasPieces: true })).toBeNull();
 	});

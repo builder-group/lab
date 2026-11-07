@@ -4,7 +4,7 @@ import { createId, type TPiece, type TMarble, type TSong, type TProject, type TP
 import { problemSummary } from '@/modules/building';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
-import { choosePattern, commandItem, deleteMarble, getCommand, isCommandEnabled, type TCommandId } from './commands';
+import { commandItem, deleteMarble, getCommand, isCommandEnabled, type TCommandId } from './commands';
 import { suggestedHitChoices } from './suggested-hits';
 import type { StudioCx } from './StudioCx';
 
@@ -170,7 +170,6 @@ export function hitMenu(cx: StudioCx, marble: TMarble, hitId: string): TMenuEntr
 			}
 		},
 		piece != null ? { label: `Select ${piece.name ?? 'Piece'}`, onSelect: () => cx.reveal([piece.id]) } : null,
-		{ label: 'Pattern…', disabled: cx.$trackCx.get() == null, onSelect: () => choosePattern(cx, marble.id, hitId) },
 		{ label: 'Rebuild From Here', disabled: cx.$trackCx.get() == null || cx.assist.isBuilding === true, onSelect: () => void cx.assist.buildTrack({ marbleId: marble.id, hitId }) },
 		'separator',
 		...playedByMenu(cx, moving),

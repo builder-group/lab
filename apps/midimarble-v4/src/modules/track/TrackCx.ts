@@ -2,8 +2,8 @@ import { createState } from 'feature-state';
 import type React from 'react';
 import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
-import { isPatternGroup, type TPiece, type TPatternGroup, type TPathNode, type TPlace, type TProject, type TVec2, formatTime, freePosition, noteName, CAMERA_KEY, parseHitKey, parseSongKey, toHitKey, WALL_KEY, tieOf } from '@/modules/project';
-import { trackWall, distanceToSegment, isOnGhost, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack, boundsOfPieces, contentBounds, firstHitsView, fitTargets, marblePositionAt, pathHandles, pathToLocal, pathToWorld, pieceAngleAt, pieceKind, pieceOutline, struckAt, rotationGrip, trackBuffers, withPathBend, withPathEnd, hiddenMarbleIds, boundsOf, fitBounds, isBoundsVisible, panBy, screenToWorld, worldToScreen, zoomAt, ZOOM_100_SCALE, type TBounds, type TPadding, type TView, type TViewport, trackPieceColors } from '@/modules/scene';
+import { isPatternGroup, type TPiece, type TPatternGroup, type TPathNode, type TPlace, type TProject, type TVec2, formatTime, freePosition, noteName, CAMERA_KEY, parseHitKey, parseSongKey, toHitKey, toRangeKey, WALL_KEY, tieOf } from '@/modules/project';
+import { trackWall, distanceToSegment, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack, boundsOfPieces, contentBounds, firstHitsView, fitTargets, marblePositionAt, pathHandles, pathToLocal, pathToWorld, pieceAngleAt, pieceKind, pieceOutline, struckAt, rotationGrip, trackBuffers, withPathBend, withPathEnd, hiddenMarbleIds, boundsOf, fitBounds, isBoundsVisible, panBy, screenToWorld, worldToScreen, zoomAt, ZOOM_100_SCALE, type TBounds, type TPadding, type TView, type TViewport, trackPieceColors } from '@/modules/scene';
 import { stageBand, gravityOf, isMusicalPiece, isPathPieceType, layoutOf, PLACEMENT_LENGTH, resolvePieceParams, resolvePiecePath, soundsHit, shownDepth, trajectoryAt, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { findStepTarget, linkedPieces, anchorHit, linkPieceToHit, findLongGaps, patternOfPiece, dotClickAction, ANCHOR_LEAD, asAnchored, asFree, canLink, clearRotorPosition, createFreePiece, displayPiece, KEEP_PLAYS_REACH, piecePose, playsDrop, railPath, rotateResolved, withPiece, withSnap, type TPlaysDrop, type TPose, type TSnap, rebaseNodes, withNodeHandle, withNodePoint, marblesWithoutBowl, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
@@ -916,7 +916,9 @@ export class TrackCx {
 			this.navigateTo(framed);
 			return;
 		}
-		if (isBoundsVisible(camera.view, viewport, bounds, 40)) return;
+		// Where a glide under way ends is what counts, or it would carry on past this
+		const goal = this.isNavigating ? this.motion?.state.goal : null;
+		if (isBoundsVisible(goal ?? camera.view, viewport, bounds, 40)) return;
 		const fitted = fitBounds(bounds, viewport, canvasPadding);
 		this.navigateTo(fitted.scale < camera.view.scale && !isZoomKept ? fitted : { scale: camera.view.scale, center: fitted.center });
 	}
@@ -1019,7 +1021,6 @@ export class TrackCx {
 				return;
 			}
 			case 'dot':
-			case 'ghost':
 			case 'track':
 				this.$drag.set({ kind: 'click', target, start: point });
 				return;
@@ -1233,10 +1234,6 @@ export class TrackCx {
 
 	private onClick(target: TPick | null, point: TVec2, shiftKey: boolean): void {
 		const tool = this.$tool.get();
-		if (target?.kind === 'ghost') {
-			this.studio.assist.acceptGhosts();
-			return;
-		}
 		if (target?.kind === 'dot') {
 			const { marbleId, hitId } = target;
 			const hit = this.result?.hits.find((item) => item.marbleId === marbleId && item.hitId === hitId);
@@ -1274,32 +1271,20 @@ export class TrackCx {
 	}
 
 	/**
-	 * A click on an open note's dot selects the hit and shows the platform it would get as a ghost, as the first-run
-	 * hint says; a second click, Return or N adds it. A long gap shows what bridges it the same way and a note no
-	 * platform can play says why, as Next does. With the Platform tool armed the piece is already chosen, so it is added
-	 * at once. The other choices are in the dot's right-click menu.
+	 * A click on an open note's dot selects it, so the bar is on it with its hint, or its rest when one comes first.
+	 * With the Platform tool armed the piece is already chosen, so it's added at once.
 	 */
 	private clickOpenDot(hit: THitResult, isArmed: boolean): void {
 		const project = this.project;
 		const result = this.result;
 		if (project == null || result == null) return;
-		if (this.studio.assist.isPreviewing(hit.marbleId, hit.hitId)) {
-			this.studio.assist.acceptGhosts();
+		const action = dotClickAction(project, result, hit, this.longGapKeys(project).get(`${hit.marbleId}:${hit.hitId}`));
+		if (isArmed && action.kind === 'preview') {
+			this.placePlatform(hit);
 			return;
 		}
-		const action = dotClickAction(project, result, hit, this.longGapKeys(project).get(`${hit.marbleId}:${hit.hitId}`));
-		switch (action.kind) {
-			case 'explain':
-				this.studio.assist.cancelPreview();
-				this.studio.assist.explainUnreachable(project, result, hit);
-				return;
-			case 'bridge':
-				this.studio.assist.previewGap(hit, action.fromHitId);
-				return;
-			case 'preview':
-				if (isArmed) this.placePlatform(hit);
-				else this.studio.assist.preview(hit, action.type);
-		}
+		const gap = action.kind === 'bridge' ? findLongGaps(project, hit.marbleId).find((item) => item.toHitId === hit.hitId) : null;
+		this.studio.$selection.set(gap != null ? [toRangeKey(hit.marbleId, gap.from, gap.to)] : [toHitKey(hit.marbleId, hit.hitId)]);
 	}
 
 	/** What a pointer at `point` would act on, in canvas pixels */
@@ -1307,8 +1292,6 @@ export class TrackCx {
 		const found = pick(point, this.pickScene());
 		// The armed piece's own ghost under the pointer isn't there to pick: a click goes to what lies below it
 		const picked = found?.kind === 'piece' && this.project?.track.pieces.some((piece) => piece.id === found.pieceId) !== true ? null : found;
-		const ghost = this.studio.assist.clickableGhost;
-		if (ghost != null && picked?.kind !== 'dot' && this.$tool.get() === 'select' && isOnGhost(point, this.screenOutline(ghost))) return { kind: 'ghost' };
 		if (picked != null || !this.isSceneryTool()) return picked;
 		// Windmills can also start anywhere on a trajectory, not only at a hit
 		return pickTrack(point, this.screenTrackPoints());
@@ -1640,6 +1623,8 @@ export class TrackCx {
 		}
 		const project = this.project;
 		if (selection.length !== 1 || project == null) return;
+		// A run of the track before the last edit says where things were
+		if (this.result?.revision !== project.revision) return;
 		// Selecting in the timeline or the layers pans to it when it is off screen, like Final Cut's viewer
 		const hitKey = parseHitKey(only ?? '');
 		const hit = hitKey != null ? this.result?.hits.find((item) => item.marbleId === hitKey.marbleId && item.hitId === hitKey.hitId) : undefined;
@@ -2212,8 +2197,7 @@ export class TrackCx {
 				this.step('repeat');
 				return true;
 			case 'mirror':
-				if (!this.studio.bar.flip()) this.step('mirror');
-				return true;
+				return this.studio.bar.flip();
 			case 'fix':
 				this.studio.assist.fixSelection();
 				return true;

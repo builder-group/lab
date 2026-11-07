@@ -1,16 +1,12 @@
-import { createState } from 'feature-state';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { applyProjectCommands, createHistory, createProject, pushHistory, type TPiece, type TProject, undoHistory, stepHitTarget, toHitKey, tieOf, backingOf } from '@/modules/project';
-import { createLinkedPiece, createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { type TAutoPlaceAnswer, displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap, replaceCommands, withCommands, dotClickAction } from '@/modules/building';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { applyProjectCommands, createHistory, createProject, pushHistory, type TProject, undoHistory, stepHitTarget, toHitKey, tieOf, backingOf } from '@/modules/project';
+import { createSimulator, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { displayPiece, KEEP_PLAYS_REACH, playsDrop, type TSnap, replaceCommands, withCommands, dotClickAction } from '@/modules/building';
 import { addNoteCommands } from '@/modules/studio/timeline/piano-roll';
 import { deleteHitCommands } from './hand-notes';
-import type { StudioCx } from '@/modules/studio';
-import { AssistCx } from './AssistCx';
 import { createStaircaseProject } from '@/modules/simulation/fixture-projects';
-import { ghostReducer, initialGhostState, type TPlaceAnswer } from './ghosts';
 import { trackKeyAction } from './keys';
-import { isOnGhost, pick, PLACED_DOT_PICK_RADIUS, firstHitsView, isBoundsVisible, worldToScreen } from '@/modules/scene';
+import { pick, PLACED_DOT_PICK_RADIUS, firstHitsView, isBoundsVisible, worldToScreen } from '@/modules/scene';
 import { badgeStatus } from './status';
 
 const viewport = { width: 900, height: 600 };
@@ -68,152 +64,6 @@ describe('dotClickAction', () => {
 		if (hit == null) throw new Error('expected an open note');
 		expect(dotClickAction(without, result, hit, undefined)).toEqual({ kind: 'preview', type: 'platform' });
 		expect(dotClickAction(without, result, hit, { fromHitId: 'before' })).toEqual({ kind: 'bridge', fromHitId: 'before' });
-	});
-});
-
-describe('a dot click before it places', () => {
-	const answer = { revision: 1, marbleId: 'l', type: 'platform', isSolved: true, isOk: true } as unknown as TPlaceAnswer;
-	const atOne = { ...initialGhostState, revision: 1 };
-
-	it('should keep a preview over background Continue ghosts until an edit or a cancel', () => {
-		const shown = ghostReducer(atOne, { type: 'preview', answer });
-		expect(shown.ghost?.kind).toBe('place');
-		expect(ghostReducer(shown, { type: 'continueAnswer', revision: 1, answer: { suggestions: [{ isOk: true }] } as never })).toBe(shown);
-		expect(ghostReducer(shown, { type: 'revision', revision: 2 }).ghost).toBeNull();
-	});
-
-	it('should leave Continue on offer when a preview is canceled, unlike Escape on Continue itself', () => {
-		const canceled = ghostReducer(ghostReducer(atOne, { type: 'preview', answer }), { type: 'previewCanceled' });
-		expect(canceled.ghost).toBeNull();
-		expect(canceled.dismissedRevision).toBeNull();
-	});
-
-	/** AssistCx on a small stand-in for the studio; `autoPlace` answers when the test says so */
-	async function setup(): Promise<{ assist: AssistCx; cx: StudioCx; hit: THitResult; project: () => TProject; edits: () => number; answer: () => void; fail: () => void }> {
-		const simulator = await createSimulator();
-		const start = createStaircaseProject();
-		const without = { ...start, track: { ...start.track, pieces: start.track.pieces.filter((piece) => piece.id !== 'piece-1-5') } };
-		const result = simulator.simulate(without);
-		const hit = result.hits.find((item) => item.status === 'open');
-		if (hit == null) throw new Error('expected an open note');
-		let project: TProject = without;
-		let edits = 0;
-		let settle: { resolve: (value: TAutoPlaceAnswer) => void; reject: (error: Error) => void; pieceId: string } | null = null;
-		const $history = createState<{ present: TProject } | null>({ present: project });
-		const cx = {
-			get project() {
-				return project;
-			},
-			$history,
-			$selection: createState<string[]>([]),
-			$playing: createState(false),
-			$playhead: createState(0),
-			$notice: createState(null),
-			$historyReveal: createState(null),
-			simulation: {
-				isPreviewing: false,
-				$result: createState<TSimulationResult | null>(null),
-				isSettling: false,
-				assists: {
-					autoPlace: (request: { pieceId: string }) => new Promise((resolve, reject) => (settle = { resolve, reject, pieceId: request.pieceId })),
-					continueRun: () => Promise.resolve(null)
-				}
-			},
-			execute: (commands: Parameters<typeof withCommands>[1]) => {
-				project = { ...withCommands(project, commands), revision: project.revision + 1 };
-				edits++;
-				$history.set({ present: project });
-				return true;
-			},
-			audition: vi.fn(),
-			notify: vi.fn(),
-			notifyEdit: vi.fn()
-		} as unknown as StudioCx;
-		const assist = new AssistCx(cx);
-		assist.mount();
-		return {
-			assist,
-			cx,
-			hit,
-			project: () => project,
-			edits: () => edits,
-			answer: () => {
-				const pending = settle as { resolve: (value: TAutoPlaceAnswer) => void; pieceId: string } | null;
-				const piece = pieceRecord(project, hit, pending?.pieceId ?? 'piece');
-				pending?.resolve({ piece, angle: 0.2, nextDot: { x: 0.1, y: -1 }, computeMs: 1 });
-			},
-			fail: () => (settle as { reject: (error: Error) => void } | null)?.reject(new Error('No angle'))
-		};
-	}
-
-	function pieceRecord(project: TProject, hit: THitResult, id: string): TPiece {
-		return createLinkedPiece('platform', hit.marbleId, hit.hitId, 0.2, { pieces: project.track.pieces, id });
-	}
-
-	const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
-
-	it('should select the hit and show the platform without changing the project, then add it in one edit', async () => {
-		const { assist, cx, hit, project, edits, answer } = await setup();
-		const before = project();
-		assist.preview(hit);
-		expect(cx.$selection.get()).toEqual([toHitKey(hit.marbleId, hit.hitId)]);
-		expect(assist.$ghosts.get().ghost?.kind).toBe('place');
-		expect(project()).toBe(before);
-
-		answer();
-		await flush();
-		const { ghost } = assist.$ghosts.get();
-		expect(ghost?.kind === 'place' && ghost.answer.nextDot).toEqual({ x: 0.1, y: -1 });
-		expect(assist.isPreviewing(hit.marbleId, hit.hitId)).toBe(true);
-
-		// Return and N come through next(), a click on the ghost through acceptGhosts()
-		assist.next();
-		expect(edits()).toBe(1);
-		expect(project().track.pieces.some((piece) => tieOf(piece)?.hitId === hit.hitId)).toBe(true);
-		expect(assist.$ghosts.get().ghost).toBeNull();
-		expect(cx.$selection.get()[0]).not.toBe(toHitKey(hit.marbleId, hit.hitId));
-	});
-
-	it('should cancel on Escape and when anything else is selected, leaving the project alone', async () => {
-		const { assist, cx, hit, edits, answer } = await setup();
-		assist.preview(hit);
-		answer();
-		await flush();
-		expect(assist.dismiss()).toBe(true);
-		expect(assist.$ghosts.get().ghost).toBeNull();
-		expect(cx.$selection.get()).toEqual([toHitKey(hit.marbleId, hit.hitId)]);
-
-		assist.preview(hit);
-		cx.$selection.set([]);
-		expect(assist.$ghosts.get().ghost).toBeNull();
-		expect(edits()).toBe(0);
-	});
-
-	it('should drop an answer that arrives after a cancel', async () => {
-		const { assist, cx, hit, answer } = await setup();
-		assist.preview(hit);
-		cx.$selection.set([]);
-		answer();
-		await flush();
-		expect(assist.$ghosts.get().ghost).toBeNull();
-	});
-
-	it('should tint the default tilt when no tilt works and say so when it is added', async () => {
-		const { assist, cx, hit, edits, fail } = await setup();
-		assist.preview(hit);
-		fail();
-		await flush();
-		const { ghost } = assist.$ghosts.get();
-		expect(ghost?.kind === 'place' && ghost.answer.isOk).toBe(false);
-		assist.acceptGhosts();
-		expect(edits()).toBe(1);
-		expect(cx.notify).toHaveBeenCalled();
-	});
-
-	it('should count a click on the ghost by its outline', () => {
-		const corners = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 4 }, { x: 0, y: 4 }];
-		expect(isOnGhost({ x: 10, y: 2 }, corners)).toBe(true);
-		expect(isOnGhost({ x: 10, y: 30 }, corners)).toBe(false);
 	});
 });
 

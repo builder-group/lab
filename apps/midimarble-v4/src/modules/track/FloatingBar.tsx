@@ -2,15 +2,16 @@ import { useFeatureState } from 'feature-react/state';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Wand2, X } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
-import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, type TProposal } from '@/modules/building';
+import { canMakeBacking, hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, type TProposal } from '@/modules/building';
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
-import { toPoints } from '@/modules/canvas';
+import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, effectWords, hasStopBeside, rowWords, standingWords, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import type { TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { FLATTEN_HELP } from './PatternsCx';
+import { lookStatus, pieceStatus, struckStatus } from './PieceInspector';
 import { timingStatus, type TTimingStatus } from './timing-status';
 import type { TrackCx } from './TrackCx';
 import { unreachableActions } from './unreachable-fixes';
@@ -73,6 +74,7 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	const result = useFeatureState(cx.simulation.$result);
 	const state = useFeatureState(cx.bar.$state);
 	const answer = state.choice != null ? state.answers[state.choice] : undefined;
+	const status = useStanding(cx, target);
 	if (notice != null && cx.bar.carriesNotice(notice)) {
 		return (
 			<div className="mm-bar-line" data-tone={notice.tone === 'error' ? 'bad' : undefined}>
@@ -116,7 +118,6 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		);
 	}
 	if (selection.length === 0 || state.choice != null) return null;
-	const status = standingStatus(cx, target);
 	if (status == null || status.tone === 'good' || status.tone === 'neutral' || status.detail == null) return null;
 	return (
 		<div className="mm-bar-line" data-tone="bad">
@@ -127,22 +128,23 @@ const BarLine: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	);
 };
 
-/** How what stands on a note is doing, in the words of the inspector's pill */
-function standingStatus(cx: StudioCx, target: TBarTarget): TTimingStatus | null {
-	const result = cx.simulation.$result.get();
-	if (target.kind === 'rest') {
-		const resolved = result?.pieces.find((item) => item.pieceId === target.piece?.id);
-		return target.piece != null ? timingStatus(resolved, undefined, { piece: target.piece.name ?? 'This piece' }) : null;
-	}
+/** How what stands here is doing, in the words of the inspector's pill and from the same problems */
+function useStanding(cx: StudioCx, target: TBarTarget): TTimingStatus | null {
+	const result = useFeatureState(cx.simulation.$result);
+	const preflight = useRunPreflight(cx);
+	const project = cx.project;
+	const struck = React.useMemo(() => (preflight != null ? struckPieces(preflight) : null), [preflight]);
+	const looks = React.useMemo(() => (preflight != null ? pieceProblems(preflight) : null), [preflight]);
+	if (project == null) return null;
 	if (target.kind === 'notes') {
 		const hits = result?.hits.filter((hit) => hit.marbleId === target.marbleId && target.hitIds.includes(hit.hitId)) ?? [];
 		const worst = hits.find((hit) => hit.status !== 'onTime' && hit.status !== 'open');
 		return worst != null ? timingStatus(undefined, worst) : hits.every((hit) => hit.status === 'onTime') ? { tone: 'good', label: 'On Time' } : { tone: 'neutral', label: 'Open' };
 	}
-	const hit = result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId);
-	const resolved = result?.pieces.find((item) => item.pieceId === target.piece?.id);
-	const marble = cx.project?.marbles.find((item) => item.id === target.marbleId)?.name;
-	return target.piece != null ? timingStatus(resolved, hit, { ...(marble != null ? { marble } : {}), piece: target.piece.name ?? 'This piece' }) : null;
+	const { piece } = target;
+	if (piece == null) return null;
+	const resolved = result?.pieces.find((item) => item.pieceId === piece.id);
+	return lookStatus(struckStatus(pieceStatus(project, piece, resolved, result), struck?.get(piece.id)), looks?.get(piece.id));
 }
 
 const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }> = (props) => {
@@ -151,7 +153,7 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	const { choice, answers, queued } = state;
 	useFeatureState(cx.simulation.$result);
 	const group = target.kind === 'rest' ? null : target.group;
-	const status = standingStatus(cx, target);
+	const status = useStanding(cx, target);
 	const isOpen = state.menu != null;
 	if (group != null && choice == null) {
 		return (

@@ -53,7 +53,6 @@ export type TPick =
 	| { kind: 'rotate' | 'pathEnd' | 'pathBend'; pieceId: string }
 	| { kind: 'node' | 'nodeIn' | 'nodeOut'; pieceId: string; index: number }
 	| { kind: 'dot'; marbleId: string; hitId: string }
-	| { kind: 'ghost' }
 	| { kind: 'piece'; pieceId: string }
 	| { kind: 'track'; marbleId: string; time: number; position: TVec2 };
 
@@ -104,11 +103,6 @@ export function pick(point: TVec2, scene: TPickScene): TPick | null {
 	const placed = nearestWithin(scene.dots.filter((dot) => dot.radius != null), PLACED_DOT_PICK_RADIUS);
 	if (placed != null && (piecePick == null || placed.distance < piecePick.distance)) return { kind: 'dot', marbleId: placed.dot.marbleId, hitId: placed.dot.hitId };
 	return piecePick == null ? null : { kind: 'piece', pieceId: piecePick.pieceId };
-}
-
-/** Whether a point is on a suggested piece's outline */
-export function isOnGhost(point: TVec2, corners: TVec2[]): boolean {
-	return corners.length > 0 && (isPointInPolygon(point, corners) || distanceToPolygon(point, corners) <= PIECE_PICK_SLOP);
 }
 
 // About a fingertip on a trackpad: a click this close to a trajectory still lands on it
