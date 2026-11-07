@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { bowlOfMarble, createLinkedPiece, defaultPlatformAngle, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { bowlOfMarble, createLinkedPiece, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { parseHitKey, tieOf } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { openHits } from '@/modules/building';
@@ -65,6 +65,25 @@ export function findStepTarget(project: TProject, result: TSimulationResult, sel
 export function previousPiece(project: TProject, marbleId: string, time: number): TLinkedPiece | null {
 	const before = linkedPieces(project, marbleId).filter((piece) => piece.time < time);
 	return before[before.length - 1] ?? null;
+}
+
+const DEFAULT_TILT = (15 * Math.PI) / 180;
+// Dots closer than this to the frame center lean against the horizontal motion instead
+const CENTER_DEADBAND = 0.02;
+
+/**
+ * Default surface angle for a new piece at a hit dot. The surface tilts by 15° so its normal leans toward
+ * the frame center. Near the center it leans against the current horizontal motion, which turns the
+ * marble back. A positive angle leans the normal to the left.
+ */
+function defaultPlatformAngle(
+	dot: TVec2,
+	velocity: TVec2 | null,
+	frameCenterX: number
+): number {
+	const offset = dot.x - frameCenterX;
+	if (Math.abs(offset) > CENTER_DEADBAND) return offset > 0 ? DEFAULT_TILT : -DEFAULT_TILT;
+	return (velocity?.x ?? 0) >= 0 ? DEFAULT_TILT : -DEFAULT_TILT;
 }
 
 export type TStepMode = 'default' | 'repeat' | 'mirror';

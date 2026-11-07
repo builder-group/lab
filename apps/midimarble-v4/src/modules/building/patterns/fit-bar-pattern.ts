@@ -1,5 +1,6 @@
 import { tieOf, type THit, type TPiece, type TProject } from '@/modules/project';
-import { frameBand, hasRide, longGapThreshold, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, hasRide, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { longGapThreshold } from '../long-gap';
 import { extraStrikes, LONG_FALL, rollingHits, touchingPairs } from '../track-problems';
 import type { THitVerdict, TPatternFit, TPatternInput, TPatternMoment, TPatternWorld } from './contract';
 import { arrivalAt } from './arrival';

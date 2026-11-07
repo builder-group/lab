@@ -1,5 +1,6 @@
 import { playsOnlySong, type TProject, type TProjectCommand } from '@/modules/project';
-import { PHYSICS_HZ, type TSimulationResult, withRides } from '@/modules/simulation';
+import { PHYSICS_HZ, type TSimulationResult } from '@/modules/simulation';
+import { withRides } from './bake-ride';
 import { changedPieces } from './edit-rule';
 
 /**

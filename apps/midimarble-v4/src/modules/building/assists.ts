@@ -1,6 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, longGapThreshold, paceAt, takeoffSpeed, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, frameBand, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, paceAt, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, frameBand, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { longGapThreshold, takeoffSpeed } from './long-gap';
 import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import { columnOffset } from './build-track-defaults';
 

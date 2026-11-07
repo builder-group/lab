@@ -1,31 +1,13 @@
-import { createId, frameWidthAt, MARBLE_SPACING, type TPiece, type TProject, type TVec2, type TMarble, freePosition } from '@/modules/project';
+import { createId, frameWidthAt, MARBLE_SPACING, type TPiece, type TProject, type TMarble, freePosition } from '@/modules/project';
 import { nextPieceName } from './piece-names';
 import { getPieceDefinition, hitPlace, type TRailLayout } from './pieces';
 
-const DEFAULT_TILT = (15 * Math.PI) / 180;
-// Dots closer than this to the frame center lean against the horizontal motion instead
-const CENTER_DEADBAND = 0.02;
 // Half width of a marble's band with several marbles: two columns of default bars at least a bar and a
 // clearance apart, with half a bar to spare at each side
 const MARBLE_HALF_WIDTH = 0.13;
 // Frame widths a single marble's run may wander across: the camera pans with it. One frame leaves Long Rails no room in
 // the reference's gaps, and 1.5 is what Build Track and Patterns are tuned on, 0.49 m at the default camera
 const BAND_FRAMES = 1.5;
-
-/**
- * Default surface angle for a new piece at a hit dot. The surface tilts by 15° so its normal leans toward
- * the frame center. Near the center it leans against the current horizontal motion, which turns the
- * marble back. A positive angle leans the normal to the left.
- */
-export function defaultPlatformAngle(
-	dot: TVec2,
-	velocity: TVec2 | null,
-	frameCenterX: number
-): number {
-	const offset = dot.x - frameCenterX;
-	if (Math.abs(offset) > CENTER_DEADBAND) return offset > 0 ? DEFAULT_TILT : -DEFAULT_TILT;
-	return (velocity?.x ?? 0) >= 0 ? DEFAULT_TILT : -DEFAULT_TILT;
-}
 
 export interface TCreateLinkedPieceOptions {
 	/** How a Rail gets its paths */

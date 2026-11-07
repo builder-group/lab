@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { MARBLE_SPACING } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
-import { COLUMN_CLEARANCE, columnRate, descentPace, descentPoints, longGapThreshold, paceAt, paceRate, PACE_LIMIT } from './pace';
+import { longGapThreshold } from '@/modules/building/long-gap';
+import { COLUMN_CLEARANCE, columnRate, descentPace, descentPoints, paceAt, paceRate, PACE_LIMIT } from './pace';
 import { frameBand } from './placement';
 
 function evenTimes(count: number, gap: number, start = 0.5): number[] {
