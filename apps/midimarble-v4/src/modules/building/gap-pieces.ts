@@ -1,7 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withPieces, type TSimulateFn } from './assists';
-import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, frameBand, projectOnPath, shapesBounds, trajectoryAt, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, bandAlongGuide, type TFrameBand, projectOnPath, shapesBounds, trajectoryAt, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
 import { extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-problems';
 import { columnOffset } from './build-track-defaults';
 import type { TGapPieceType } from '@/modules/building';
@@ -258,7 +258,7 @@ function prepareGapPiece(
 	if (to.time <= from.time) return Err(new Error('The gap must end after it starts'));
 	const samples = result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	// A new piece may reach over another marble, as long as nothing touches, with the frame as the limit
-	const band = frameBand(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
+	const bandAt = bandAlongGuide(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
 
 	// Replaces an earlier gap piece on the same hit
 	const replaced = findGapPiece(project, marbleId, fromHitId);
@@ -282,6 +282,7 @@ function prepareGapPiece(
 		if (entryTime <= from.time || entryTime >= to.time) continue;
 		const entry = trajectoryAt(samples, entryTime, gravityOf(project));
 		if (entry == null) continue;
+		const band = bandAt(entry.position.y);
 		const travel =
 			Math.abs(entry.velocity.x) > 0.05
 				? Math.sign(entry.velocity.x)
@@ -326,7 +327,7 @@ function prepareGapPiece(
 	const hasPiece = hitOwners(project, marbleId).has(to.id);
 	const frontiers = openFrontiers(project, result);
 	const pace = result.pace ?? descentPace(project, result.hits);
-	const marbleBand = frameBand(project, marbleId);
+	const marbleBandAt = bandAlongGuide(project, marbleId);
 	const evaluate = (item: TGapTry): TGapEvaluation => {
 		const candidate = item as TGapCandidate;
 		const piece = build(candidate);
@@ -353,14 +354,14 @@ function prepareGapPiece(
 		if (crossesOtherMarbles(result, trial, project, marbleId, piece.id, from.time + 0.02, to.time, frontiers)) return null;
 		const isTouching = nearestPieceGap(withPieces(project, [piece]), trial, piece.id, MIN_PIECE_GAP) < MIN_PIECE_GAP;
 		const strikes = strikesOnTheWay(project, trial, piece, from.time);
-		const outsideMarble = marbleOverhang(trial, piece.id, marbleBand);
+		const outsideMarble = marbleOverhang(trial, piece.id, marbleBandAt);
 		const pacePart = played.paceError != null && pace != null ? Math.abs(played.paceError) / pace.limit : 0;
 		const score =
 			STRIKE_WEIGHT * strikes +
-			(hasPiece ? 0 : (isTouching ? 8 : 0) + pacePart + 3 * COLUMN_WEIGHT * columnMiss(played.dot, marbleBand) + MARBLE_WEIGHT * outsideMarble) +
+			(hasPiece ? 0 : (isTouching ? 8 : 0) + pacePart + 3 * COLUMN_WEIGHT * columnMiss(played.dot, marbleBandAt) + MARBLE_WEIGHT * outsideMarble) +
 			(played.isDotInFrame ? 0 : 10) +
 			// At the frame's edge no tilt can send the marble on and keep the next dot in frame
-			(played.dot != null && !hasPiece && !isInBand(played.dot, band, EDGE_SHARE) ? 10 : 0) +
+			(played.dot != null && !hasPiece && !isInBand(played.dot, bandAt(played.dot.y), EDGE_SHARE) ? 10 : 0) +
 			(played.isRunInFrame ? 0 : 5) +
 			(played.leaveTime == null ? 20 : Math.abs(to.time - played.leaveTime - PREFERRED_DROP)) +
 			(played.nextStatus === 'missed' || played.nextStatus === 'blocked' ? 10 : 0);
@@ -439,7 +440,7 @@ function checkGapPiece(
 	toTime: number
 ): TGapPieceCheck {
 	// Leaving the marble counts against a piece in the search, so a piece stays in it wherever one fits
-	const band = frameBand(project, marbleId);
+	const bandAt = bandAlongGuide(project, marbleId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
 	const piece = trial.pieces.find((item) => item.pieceId === pieceId);
 	const marble = trial.marbles.find((item) => item.marbleId === marbleId);
@@ -452,7 +453,7 @@ function checkGapPiece(
 	let isOnPiece = false;
 	for (const sample of marble?.samples ?? []) {
 		if (sample.time < entryTime - 1 / PHYSICS_HZ || sample.time > toTime) continue;
-		if (!isInBand(sample.position, band, 1)) isRunInFrame = false;
+		if (!isInBand(sample.position, bandAt(sample.position.y), 1)) isRunInFrame = false;
 		const isNear =
 			path.length > 0 &&
 			projectOnPath(path, sample.position.x, sample.position.y).distance <= reach;
@@ -462,7 +463,7 @@ function checkGapPiece(
 	}
 	return {
 		dot,
-		isDotInFrame: dot != null && isInBand(dot, band, 1),
+		isDotInFrame: dot != null && isInBand(dot, bandAt(dot.y), 1),
 		isRunInFrame,
 		leaveTime: isOnPiece ? leaveTime : null,
 		pieceStatus: piece?.status ?? 'unreached',
@@ -590,8 +591,8 @@ function prepareTurns(
 	const marbleRadius =
 		project.marbles.find((item) => item.id === marbleId)?.radius ?? 0.008;
 	// A new switchback may reach over another marble, as long as nothing touches, with the frame as the limit
-	const band = frameBand(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
-	const marbleBand = frameBand(project, marbleId);
+	const bandAt = bandAlongGuide(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
+	const marbleBandAt = bandAlongGuide(project, marbleId);
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const GRAVITY = -gravityOf(project);
 	const launch =
@@ -634,6 +635,7 @@ function prepareTurns(
 	for (const entryTime of [...new Set(entryTimes)]) {
 		const entry = trajectoryAt(samples, entryTime, -GRAVITY);
 		if (entry == null) continue;
+		const band = bandAt(entry.position.y);
 		for (const width of SWITCHBACK_WIDTHS.map((share) => share * defaultWidth)) {
 			const fits: Omit<TTurnsCandidate, 'turns' | 'slope'>[] = [];
 			for (const downhill of [1, -1]) {
@@ -720,7 +722,7 @@ function prepareTurns(
 		const score =
 			STRIKE_WEIGHT * strikesOnTheWay(project, trial, piece, from.time) +
 			(played.isStray ? 20 : 0) +
-			(isMending ? 0 : (isTouching ? 8 : 0) + COLUMN_WEIGHT * columnMiss(played.check.dot, marbleBand) + MARBLE_WEIGHT * marbleOverhang(trial, piece.id, marbleBand)) +
+			(isMending ? 0 : (isTouching ? 8 : 0) + COLUMN_WEIGHT * columnMiss(played.check.dot, marbleBandAt) + MARBLE_WEIGHT * marbleOverhang(trial, piece.id, marbleBandAt)) +
 			(played.check.leaveTime == null ? 20 : 0) +
 			// Dropping out as the note is due leaves the next platform right under the switchback
 			(played.check.leaveTime != null && played.check.leaveTime >= to.time - 0.02 ? 2 : 0) +
@@ -752,16 +754,18 @@ function strikesOnTheWay(project: TProject, trial: TSimulationResult, piece: TPi
 }
 
 /** How far a piece reaches past its own marble, in piece lengths: it may, but it then stands in the next marble's way */
-function marbleOverhang(trial: TSimulationResult, pieceId: string, band: { centerX: number; halfWidth: number }): number {
+function marbleOverhang(trial: TSimulationResult, pieceId: string, bandAt: (y: number) => TFrameBand): number {
 	const shapes = trial.pieces.find((piece) => piece.pieceId === pieceId)?.shapes;
 	if (shapes == null || !shapes.length) return 0;
 	const bounds = shapesBounds(shapes);
+	const band = bandAt((bounds.minY + bounds.maxY) / 2);
 	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
 	return Math.max(0, Math.max(bounds.maxX - band.centerX, band.centerX - bounds.minX) - band.halfWidth) / length;
 }
 
-function columnMiss(dot: TVec2 | null, band: { centerX: number; halfWidth: number }): number {
+function columnMiss(dot: TVec2 | null, bandAt: (y: number) => TFrameBand): number {
 	if (dot == null) return 0;
+	const band = bandAt(dot.y);
 	const length = resolvePieceParams('platform', {})['length'] ?? 0.09;
 	return Math.abs(Math.abs(dot.x - band.centerX) - columnOffset(length)) / length;
 }
@@ -809,7 +813,7 @@ function checkSwitchback(
 	toHitId: string,
 	toTime: number
 ): { check: TGapPieceCheck; isStray: boolean } {
-	const band = frameBand(project, marbleId);
+	const bandAt = bandAlongGuide(project, marbleId);
 	const pace = trial.pace ?? descentPace(project, trial.hits);
 	const piece = trial.pieces.find((item) => item.pieceId === pieceId);
 	const marble = trial.marbles.find((item) => item.marbleId === marbleId);
@@ -820,7 +824,7 @@ function checkSwitchback(
 	let isRunInFrame = true;
 	for (const sample of marble?.samples ?? []) {
 		if (sample.time < entryTime - 1 / PHYSICS_HZ || sample.time > toTime) continue;
-		if (!isInBand(sample.position, band, 1)) isRunInFrame = false;
+		if (!isInBand(sample.position, bandAt(sample.position.y), 1)) isRunInFrame = false;
 		if (leaveTime == null && sample.position.y < bottom - (marble?.radius ?? 0))
 			leaveTime = sample.time;
 	}
@@ -832,7 +836,7 @@ function checkSwitchback(
 	return {
 		check: {
 			dot,
-			isDotInFrame: dot != null && isInBand(dot, band, 1),
+			isDotInFrame: dot != null && isInBand(dot, bandAt(dot.y), 1),
 			isRunInFrame,
 			leaveTime,
 			pieceStatus: piece?.status ?? 'unreached',

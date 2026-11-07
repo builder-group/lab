@@ -1,4 +1,4 @@
-import { createId, frameWidthAt, MARBLE_SPACING, type TPiece, type TProject, type TMarble, freePosition } from '@/modules/project';
+import { createId, frameWidthAt, MARBLE_SPACING, type TPiece, type TProject, type TMarble, type TVec2, freePosition } from '@/modules/project';
 import { nextPieceName } from './piece-names';
 import { getPieceDefinition, hitPlace, type TRailLayout } from './pieces';
 
@@ -47,15 +47,6 @@ export interface TFrameBand {
 	halfWidth: number;
 }
 
-/**
- * Horizontal band the run should stay within. With one marble it is `BAND_FRAMES` film frames wide at the camera's
- * distance, centered on the marble's release. With several marbles each marble gets a
- * band `2 · MARBLE_HALF_WIDTH` wide, room for a zigzag of the default kit, and the marbles sit `MARBLE_SPACING`
- * apart in the order of their releases from left to right, centered on the mean release. `marbleId` picks a marble's
- * band, which is only where the marble prefers to stay: a marble may cross another's path as long as it touches
- * neither that marble nor its pieces, which the assists check by simulation. Without it the band covering every marble
- * is returned, the limit every placement stays inside so the run stays in frame.
- */
 /** The ID of the Rail a marble starts on: Build Track makes it, tied to no hit, and it stays the marble's in Layers */
 export function startRailId(marbleId: string): string {
 	return `start-rail-${marbleId}`.slice(0, 64);
@@ -67,7 +58,55 @@ export function startRailOf(project: TProject, marbleId: string): TPiece | undef
 	return project.track.pieces.find((piece) => piece.id === id);
 }
 
-export function frameBand(project: TProject, marbleId?: string): TFrameBand {
+/**
+ * Horizontal band the run should stay within at height `y`, the release's height if none is given. A marble's band
+ * follows its guide line, straight down from the center below unless the marble stores a line. `simulate` never reads
+ * this: the line is how the builder judges closeness, and a run only answers what happens.
+ */
+export function frameBand(project: TProject, marbleId?: string, y?: number): TFrameBand {
+	return bandAlongGuide(project, marbleId)(y ?? project.marbles[0]?.start.position.y ?? 0);
+}
+
+/** `frameBand` at any height, for what asks at many heights */
+export function bandAlongGuide(project: TProject, marbleId?: string): (y: number) => TFrameBand {
+	const straight = straightBand(project, marbleId);
+	const { marbles } = project;
+	if (!marbles.some((marble) => marble.guide != null)) return () => straight;
+	const own = marbleId != null ? marbles.find((marble) => marble.id === marbleId) : marbles.length === 1 ? marbles[0] : undefined;
+	if (own != null) {
+		const points = own.guide?.points;
+		return points == null ? () => straight : (y) => ({ centerX: guideX(points, y), halfWidth: straight.halfWidth });
+	}
+	// The band covering every marble stays around their mean, so it moves as far as they do on average
+	const shifts = marbles.map((marble) => {
+		const points = marble.guide?.points;
+		const center = straightBand(project, marble.id).centerX;
+		return (y: number): number => (points == null ? 0 : guideX(points, y) - center);
+	});
+	return (y) => ({ centerX: straight.centerX + shifts.reduce((sum, shift) => sum + shift(y), 0) / marbles.length, halfWidth: straight.halfWidth });
+}
+
+/** The line's x at a height: straight between its points, and straight down or up past its ends */
+function guideX(points: readonly TVec2[], y: number): number {
+	for (let index = 1; index < points.length; index++) {
+		const [above, below] = [points[index - 1], points[index]];
+		if (above == null || below == null) continue;
+		if (y >= above.y) return above.x;
+		if (y >= below.y) return above.x + ((below.x - above.x) * (above.y - y)) / (above.y - below.y);
+	}
+	return points.at(-1)?.x ?? 0;
+}
+
+/**
+ * The band with no line stored. With one marble it is `BAND_FRAMES` film frames wide at the camera's distance, centered
+ * on the marble's release. With several marbles each marble gets a band `2 · MARBLE_HALF_WIDTH` wide, room for a zigzag
+ * of the default kit, and the marbles sit `MARBLE_SPACING` apart in the order of their releases from left to right,
+ * centered on the mean release. `marbleId` picks a marble's band, which is only where the marble prefers to stay: a
+ * marble may cross another's path as long as it touches neither that marble nor its pieces, which the assists check by
+ * simulation. Without it the band covering every marble is returned, the limit every placement stays inside so the run
+ * stays in frame.
+ */
+function straightBand(project: TProject, marbleId?: string): TFrameBand {
 	const width = BAND_FRAMES * frameWidthAt(project.film.camera.distance, project.format.width / project.format.height);
 	// A marble waiting on its start rail lands `landingOffset` from where it is released, and its column lies there
 	const releaseX = (marble: TMarble): number => {

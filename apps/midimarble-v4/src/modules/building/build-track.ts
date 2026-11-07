@@ -1,5 +1,5 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { isPathPieceType, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { isPathPieceType, paceAt, createLinkedPiece, bandAlongGuide, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { extraStrikes, passThroughs, rollingHits, touchingPairs } from './track-problems';
 import { changedPieces } from './edit-rule';
 import { columnOffset } from './build-track-defaults';
@@ -374,8 +374,8 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	});
 	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleId}/${contact.otherId}`).join(' ')}`);
 	// Every hit of the marble with a piece keeps its dot in frame; its own marble's center is only Auto place's preference
-	const band = frameBand(applied);
-	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, band, 1));
+	const bandAt = bandAlongGuide(applied);
+	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, bandAt(hit.dot.y), 1));
 	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
 	// Each marble strikes each platform once, for its note, up to where its path is final
 	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.pieceId) && strike.time < (frontier.get(strike.marbleId) ?? Infinity));
@@ -393,6 +393,7 @@ async function accept(state: TBuildState, current: TProject, commands: TProjectC
 	const next = nextOpenPerMarble(state, result).get(marbleId);
 	if (next?.dot == null || isBeforeLongGap(applied, next)) return applied;
 	// A tenth of a marble inside the frame's edge, as Auto place asks
+	const band = bandAt(next.dot.y);
 	if (!isInBand(next.dot, band, 1 - (0.1 * frameBand(applied, marbleId).halfWidth) / band.halfWidth)) return reject(state, `out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
 	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
 	const probe = createLinkedPiece('platform', marbleId, next.hitId, 0, { id: 'accept-probe' });
@@ -423,9 +424,9 @@ function staysOnColumn(state: TBuildState, project: TProject, result: TSimulatio
 	const previous = marble?.hits[(marble.hits.findIndex((hit) => hit.id === next.hitId) ?? 0) - 1];
 	const from = result.hits.find((hit) => hit.marbleId === marbleId && hit.hitId === previous?.id)?.dot;
 	if (from == null) return true;
-	const band = frameBand(project, marbleId);
+	const bandAt = bandAlongGuide(project, marbleId);
 	const length = PLACEMENT_LENGTH;
-	const column = band.centerX - Math.sign(from.x - band.centerX) * columnOffset(length);
+	const column = bandAt(next.dot.y).centerX - Math.sign(from.x - bandAt(from.y).centerX) * columnOffset(length);
 	if (Math.abs(next.dot.x - column) > COLUMN_TOLERANCE * length) return false;
 	// Nor may it fall much further than the pace asks: a copy keeps whatever drop it was given, and Auto place corrects it
 	return result.pace == null || previous == null || from.y - next.dot.y <= COPY_DROP_SHARE * result.pace.rate * (next.targetTime - previous.time);
@@ -601,7 +602,8 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		}
 	}
 	if (!canLean) return null;
-	const band = frameBand(current, marbleId);
+	const bandAt = bandAlongGuide(current, marbleId);
+	const { halfWidth } = bandAt(target.dot?.y ?? 0);
 	let best: { project: TProject; angle: number; offset: number } | null = null;
 	for (let degrees = -24; degrees <= 24; degrees += 3) {
 		if (isCanceled(state)) return null;
@@ -609,9 +611,9 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 		const leaned = await accept(state, current, [{ type: 'addPiece', piece }], marbleId, false);
 		if (leaned == null) continue;
 		const dot = nextOpenPerMarble(state, await run(state, leaned)).get(marbleId)?.dot;
-		const offset = dot == null ? 0 : Math.abs(dot.x - band.centerX);
+		const offset = dot == null ? 0 : Math.abs(dot.x - bandAt(dot.y).centerX);
 		// A lean that throws the marble out of its marble only moves the trouble: it lands among the other marble's pieces
-		if (offset > band.halfWidth) continue;
+		if (offset > halfWidth) continue;
 		if (best == null || offset < best.offset - 1e-6) best = { project: leaned, angle: degrees, offset };
 	}
 	if (best == null) return null;
@@ -756,7 +758,8 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 	state.counts.failed++;
 	if (target.dot != null) {
 		const id = newPieceId(current, target.hitId);
-		const band = frameBand(current, target.marbleId);
+		const bandAt = bandAlongGuide(current, target.marbleId);
+		const { halfWidth } = bandAt(target.dot.y);
 		// Of the leans that play it, the one whose next dot stays nearest the marble, or a forced run wanders off in a long diagonal
 		let best: { project: TProject; degrees: number; offset: number } | null = null;
 		for (const degrees of LEANS) {
@@ -768,9 +771,9 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 			const status = result.hits.find((hit) => hit.marbleId === target.marbleId && hit.hitId === target.hitId)?.status;
 			if (status !== 'onTime' && status !== 'drifting') continue;
 			const dot = nextOpenPerMarble(state, result).get(target.marbleId)?.dot;
-			const offset = dot != null ? Math.abs(dot.x - band.centerX) : 0;
+			const offset = dot != null ? Math.abs(dot.x - bandAt(dot.y).centerX) : 0;
 			if (best == null || offset < best.offset - 1e-6) best = { project: placed, degrees, offset };
-			if (offset <= band.halfWidth / 2) break;
+			if (offset <= halfWidth / 2) break;
 		}
 		if (best != null) {
 			state.deps.onLog?.(`  ${target.hitId}: placed at ${best.degrees}° for Fix (${state.reasons.at(-1) ?? ''})`);
@@ -792,8 +795,8 @@ async function tolerate(state: TBuildState, project: TProject): Promise<void> {
 		const marble = marbleOfPiece(project, contact.otherId);
 		if (contact.kind === 'marble' || (marble != null && marble !== contact.marbleId)) state.tolerated.contacts.add(contactKey(contact.marbleId, contact.otherId));
 	}
-	const band = frameBand(project);
-	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, band, 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
+	const bandAt = bandAlongGuide(project);
+	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, bandAt(hit.dot.y), 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
 	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.pieceId);
 	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.pieceId);
 	for (const pass of passThroughs(project, result)) state.tolerated.passes.add(contactKey(pass.marbleId, pass.pieceId));

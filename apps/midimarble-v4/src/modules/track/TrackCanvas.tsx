@@ -3,7 +3,7 @@ import { Anchor, ChevronDown, ChevronsRight, CopyPlus, Focus, Link2, Magnet, Unl
 import React from 'react';
 import { MenuButton, openContextMenu } from '@/components';
 import { DEFAULT_MARBLE_RADIUS, type TPathNode, type TProject, type TVec2, formatTime, noteName, parseHitKey, toHitKey, tieOf } from '@/modules/project';
-import { frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { bandAlongGuide, frameBand, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { formatDegrees, parseDegrees, toDegrees } from './angles';
 import type { TPose, TSnap } from '@/modules/building';
@@ -383,7 +383,7 @@ const ON_TIME_DOT_MIN_SCALE = 180;
 /** Every hit's dot, redrawn when the run, the selection, the hovered dot or the zoom changes and not when the view pans */
 const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; trackCx: TrackCx; projection: TScreenProjection; scale: number; project: TProject; result: TSimulationResult; nextDots: Map<string, THitResult>; selection: string[]; hoveredDot: THitResult | undefined; isDragging: boolean }) {
 	const { hidden, trackCx, projection, scale, project, result, nextDots, selection, hoveredDot, isDragging } = props;
-	const band = frameBand(project);
+	const bandAt = bandAlongGuide(project);
 	const longGaps = trackCx.longGapKeys(project);
 	const focusedKeys = new Set(selection.filter((key) => parseHitKey(key) != null));
 	const hiddenMarbles = hiddenMarbleIds(project, hidden);
@@ -411,6 +411,7 @@ const HitDots = React.memo(function HitDots(props: { hidden: readonly string[]; 
 				}
 				const marble = project.marbles.find((item) => item.id === hit.marbleId);
 				const isNext = nextDots.get(hit.marbleId) === hit;
+				const band = bandAt(hit.dot.y);
 				const isOutside = Math.abs(hit.dot.x - band.centerX) > band.halfWidth;
 				const color = isOutside ? 'var(--bad)' : (marble?.labelColor ?? 'var(--text)');
 				return (
@@ -805,7 +806,7 @@ const DotTooltip: React.FC<{ trackCx: TrackCx; project: TProject; hit: THitResul
 	const marble = project.marbles.find((item) => item.id === hit.marbleId);
 	const index = marble?.hits.findIndex((item) => item.id === hit.hitId) ?? -1;
 	const pitch = marble?.hits[index]?.pitch;
-	const band = frameBand(project);
+	const band = frameBand(project, undefined, hit.dot.y);
 	const overshoot = Math.abs(hit.dot.x - band.centerX) - band.halfWidth;
 	const isOutside = overshoot > 0;
 	return (

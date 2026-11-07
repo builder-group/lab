@@ -1,5 +1,5 @@
 import { type THandOver, type TMarble, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { ballistic, gravityOf, frameBand, getPieceDefinition, soundsHit, handOversOf, SEAM_SPEED, type TBodyState, type TMarbleWalk, type TSimulator, type TWalk, type TWalkHop, hasRide, PHYSICS_HZ } from '@/modules/simulation';
+import { ballistic, gravityOf, bandAlongGuide, getPieceDefinition, soundsHit, handOversOf, SEAM_SPEED, type TBodyState, type TMarbleWalk, type TSimulator, type TWalk, type TWalkHop, hasRide, PHYSICS_HZ } from '@/modules/simulation';
 
 // What an edit does to the run. A hop stands alone from its hand-over, so an edit runs only the hops it reaches. Where the
 // marble then lands differs from the next stored hand-over, and the next bar takes that up: its tilt and bounce are two
@@ -603,14 +603,13 @@ function aimAtDot(simulator: TSimulator, project: TProject, chain: TChain, moved
 // Two bars
 
 function wouldLeaveFrame(simulator: TSimulator, project: TProject, before: TProject, chain: TChain): boolean {
-	const band = frameBand(project, chain.marbleId);
-	const low = band.centerX - band.halfWidth;
-	const high = band.centerX + band.halfWidth;
+	const bandAt = bandAlongGuide(project, chain.marbleId);
 	const stick = (walk: TWalk, index: number): number => {
 		let worst = -Infinity;
 		for (const hop of walk.marbles[index]?.hops ?? []) {
 			const box = hop.record.bounds;
-			worst = Math.max(worst, low - (box.minX + hop.origin.x), box.maxX + hop.origin.x - high);
+			const band = bandAt((box.minY + box.maxY) / 2 + hop.origin.y);
+			worst = Math.max(worst, band.centerX - band.halfWidth - (box.minX + hop.origin.x), box.maxX + hop.origin.x - (band.centerX + band.halfWidth));
 		}
 		return worst;
 	};

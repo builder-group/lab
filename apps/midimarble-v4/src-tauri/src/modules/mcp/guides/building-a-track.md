@@ -19,6 +19,10 @@ Two arguments steer it, and neither is needed by default:
 - `args: { from: hitId }` is **Rebuild From Here**: everything up to that hit stays exactly as it is, on every marble, and the rest is built again as one Undo step. Turn a platform by hand, then rebuild from its hit, and the track follows your edit. The hit IDs are in `get_state.marbles[].hits`. `run_command('build.rebuildFrom', { select: [key] })` does the same from a hit's or piece's key, or from what the person selected, and also answers when the build is done.
 - `args: { gapPiece: 'rail' }`, `'switchback'` or `'chain'` tries that Rail layout first across every long gap. Without it, a straight Rail where one reads well and the Switchback layout where nothing else bridges the gap. `'chain'` is curved turns, always simulated, and falls back to the Switchback layout when its turns would hold the marble. `get_state.lastBuild` and `hits` say what happened.
 
+## A line to follow
+
+Each marble's band of the wall runs straight down from where it starts. To send it another way, store a line: `project.execute` with `{ type: 'updateMarble', marbleId, patch: { guide: { points: [{ x, y }, ...] } } }`, points from highest to lowest. Auto place, gap pieces and Build Track then keep the marble near the line at each height, and refuse a dot that leaves its band. A run never reads the line, so setting it moves nothing already placed. Keep it straight down to the first note, since nothing steers the marble before its first piece. Up to about 2 m sideways per meter of drop every note still plays on the songs measured; at 3 notes are lost.
+
 ## How a track should look
 
 Build Track, `build.next`, Continue and `build.fix` share these rules. A hit's timing comes first; a person's hand edit is never undone to meet them.

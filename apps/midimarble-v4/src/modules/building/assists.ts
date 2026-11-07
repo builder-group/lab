@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, paceAt, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, frameBand, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, paceAt, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, bandAlongGuide, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { longGapThreshold, takeoffSpeed } from './long-gap';
 import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import { columnOffset } from './build-track-defaults';
@@ -444,7 +444,8 @@ interface TPlacementContext {
 	allowed: number;
 	takeoff: number | null;
 	band: TFrameBand;
-	stage: TFrameBand;
+	bandAt: (y: number) => TFrameBand;
+	stageAt: (y: number) => TFrameBand;
 	dotShare: number;
 	marbleRadius: number;
 	fallingSpeed: number;
@@ -538,11 +539,12 @@ function placementContext(
 								: (g * interval * bounceSpec.default) / (1 + bounceSpec.default)
 						)
 					: null;
-	const band = frameBand(project, marbleId);
+	const bandAt = bandAlongGuide(project, marbleId);
+	const band = bandAt(dot.y);
 	// The limit of what stays in frame, whichever marble's center the marble prefers
-	const stage = frameBand(project);
+	const stageAt = bandAlongGuide(project);
 	// A dot stays a tenth of a marble inside the frame's edge
-	const dotShare = 1 - (0.1 * band.halfWidth) / stage.halfWidth;
+	const dotShare = 1 - (0.1 * band.halfWidth) / stageAt(dot.y).halfWidth;
 	// The next strike must come from above. Several marbles in narrow marbles need it firm, so a slow
 	// arrival cannot end as a resting contact; one marble only needs it falling.
 	// A next hit that launches into a long gap needs a firm strike to throw the marble; a slow arrival there
@@ -597,7 +599,8 @@ function placementContext(
 		allowed,
 		takeoff,
 		band,
-		stage,
+		bandAt,
+		stageAt,
 		dotShare,
 		marbleRadius,
 		fallingSpeed,
@@ -619,9 +622,9 @@ function placementContext(
  * the target up or down, which the fallback search uses to try higher and lower arcs.
  */
 function evaluateAngle(context: TPlacementContext, { angle, shift, round }: TAngleTry): TAngleEvaluation {
-	const { targetY, takeoff, g, interval, speedScale, dot, bounceSpec, velocity, band, stage } = context;
+	const { targetY, takeoff, g, interval, speedScale, dot, bounceSpec, velocity, bandAt, stageAt } = context;
 	const isRelaxed = round === 'relaxed';
-	const limit = round == null ? band : stage;
+	const limitAt = round == null ? bandAt : stageAt;
 	const rejected: TAutoPlaceRejection[] = [];
 	const answer = (candidate: Omit<TCandidate, 'angle'> | null): TAngleEvaluation => ({ candidate, rejected });
 	const target = targetY != null ? targetY + shift : null;
@@ -631,13 +634,13 @@ function evaluateAngle(context: TPlacementContext, { angle, shift, round }: TAng
 			: takeoff;
 	const solved =
 		lift != null && bounceSpec != null ? paceBounce(velocity, angle, lift, bounceSpec) : null;
-	const first = evaluatePlacement(context, angle, solved?.bounce ?? null, rejected, isRelaxed, limit);
+	const first = evaluatePlacement(context, angle, solved?.bounce ?? null, rejected, isRelaxed, limitAt);
 	if (solved == null || target == null || first.nextDot == null) return answer(first.candidate);
 	const error = first.nextDot.y - target;
 	if (Math.abs(error) <= PACE_TOLERANCE) return answer(first.candidate);
 	const corrected = clampBounce(solved.bounce - error / (interval * solved.gain), bounceSpec);
 	if (bounceSpec == null || Math.abs(corrected - solved.bounce) < 0.01) return answer(first.candidate);
-	const second = evaluatePlacement(context, angle, corrected, rejected, isRelaxed, limit).candidate;
+	const second = evaluatePlacement(context, angle, corrected, rejected, isRelaxed, limitAt).candidate;
 	if (second == null) return answer(first.candidate);
 	return answer(first.candidate == null || second.score < first.candidate.score ? second : first.candidate);
 }
@@ -649,9 +652,9 @@ function evaluatePlacement(
 	bounce: number | null,
 	rejected: TAutoPlaceRejection[],
 	isRelaxed: boolean,
-	limit: TFrameBand
+	limitAt: (y: number) => TFrameBand
 ): { candidate: Omit<TCandidate, 'angle'> | null; nextDot: TVec2 | null } {
-	const { project, result, simulate, marbleId, hitId, hit, dot, velocity, owners, base, followingHit, nextHit, pace, isBox, isShared, allowed, band, dotShare, fallingSpeed, until, isMending, frontiers } = context;
+	const { project, result, simulate, marbleId, hitId, hit, dot, velocity, owners, base, followingHit, nextHit, pace, isBox, isShared, allowed, band, bandAt, dotShare, fallingSpeed, until, isMending, frontiers } = context;
 	// The marble's other column, and whether the tilt leans toward it: a positive angle leans the normal to the left
 	const side = dot.x - band.centerX;
 	const toward = Math.abs(side) > COLUMN_DEADBAND ? -Math.sign(side) : Math.sign(velocity?.x ?? 0) || -1;
@@ -682,7 +685,7 @@ function evaluatePlacement(
 	const samples = trial.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	// A tilt can leave the marble past the frame at this dot. The frame's edge then only stops it going further out, or no
 	// tilt could ever bring it back. Its own band stays a first choice, which the rounds after it let go of.
-	const startOutside = limit === band ? 0 : Math.max(0, outsideShare(dot, limit));
+	const startOutside = limitAt === bandAt ? 0 : Math.max(0, outsideShare(dot, limitAt(dot.y)));
 	const restrikes = trial.contacts.filter(
 		(contact) =>
 			contact.marbleId === marbleId &&
@@ -696,8 +699,8 @@ function evaluatePlacement(
 	let heading = 0;
 	if (nextHit != null) {
 		nextDot = findHitResult(trial, marbleId, nextHit.id)?.dot ?? null;
-		const comesBack = nextDot != null && startOutside > 0 && outsideShare(nextDot, limit) < startOutside;
-		if (nextDot == null || (!comesBack && !isInBand(nextDot, limit, limit === band ? 0.9 : dotShare))) {
+		const comesBack = nextDot != null && startOutside > 0 && outsideShare(nextDot, limitAt(nextDot.y)) < startOutside;
+		if (nextDot == null || (!comesBack && !isInBand(nextDot, limitAt(nextDot.y), limitAt === bandAt ? 0.9 : dotShare))) {
 			rejected.push('outOfFrame');
 			return { candidate: null, nextDot: null };
 		}
@@ -708,7 +711,7 @@ function evaluatePlacement(
 		}
 		// A dot in the outer half of the band that the marble reaches moving further out leaves the next
 		// piece little room. Zigzag columns sit inside the inner half, where reaching them outward is normal.
-		const side = (nextDot.x - band.centerX) / band.halfWidth;
+		const side = (nextDot.x - bandAt(nextDot.y).centerX) / band.halfWidth;
 		if (isShared)
 			heading =
 				2 * Math.max(0, side * Math.sign(arrival.x) - 0.5) * Math.min(1, Math.abs(arrival.x) / 0.3);
@@ -726,7 +729,7 @@ function evaluatePlacement(
 		}
 		end = nextDot;
 	} else {
-		const staysIn = startOutside > 0 ? furthestOutside(samples, limit, hit.time, until) <= startOutside : staysInBand(trial, marbleId, hit.time, until, limit);
+		const staysIn = startOutside > 0 ? furthestOutside(samples, limitAt, hit.time, until) <= startOutside : staysInBand(trial, marbleId, hit.time, until, limitAt);
 		if (!staysIn) {
 			rejected.push('outOfFrame');
 			return { candidate: null, nextDot: null };
@@ -768,9 +771,9 @@ function evaluatePlacement(
 		}
 	}
 	const shortfall = clearanceShortfall(context, own, next, placed, samples);
-	const outside = furthestOutside(samples, limit, hit.time, until);
+	const outside = furthestOutside(samples, limitAt, hit.time, until);
 	// A marble that leaves its own marble may cross another's path, but its pieces then stand in that marble's way
-	const outsideMarble = furthestOutside(samples, band, hit.time, until);
+	const outsideMarble = furthestOutside(samples, bandAt, hit.time, until);
 	// With several marbles the limit is a hard wall: the marble, then when nothing passes the frame
 	if (isShared && outside > startOutside) {
 		rejected.push('outOfFrame');
@@ -792,7 +795,7 @@ function evaluatePlacement(
 		outsideMarble,
 		restrikes,
 		isRolling,
-		limit
+		limitAt
 	});
 	return {
 		candidate: {
@@ -877,11 +880,11 @@ function clearanceShortfall(context: TPlacementContext, own: TResolvedPiece | un
 }
 
 /** How far the marble gets outside `band` between two times, as a share of the band's half width */
-function furthestOutside(samples: TMarbleSample[], band: TFrameBand, from: number, until: number): number {
+function furthestOutside(samples: TMarbleSample[], bandAt: (y: number) => TFrameBand, from: number, until: number): number {
 	let outside = 0;
 	for (const sample of samples) {
 		if (sample.time < from || sample.time > until) continue;
-		outside = Math.max(outside, outsideShare(sample.position, band));
+		outside = Math.max(outside, outsideShare(sample.position, bandAt(sample.position.y)));
 	}
 	return outside;
 }
@@ -910,13 +913,14 @@ function placementScore(
 		outsideMarble: number;
 		restrikes: number;
 		isRolling: boolean;
-		limit: TFrameBand;
+		limitAt: (y: number) => TFrameBand;
 	}
 ): number {
-	const { band, length, isLaunch, pattern, previousAngle, interval, isMending, columns, rhythmAngle, targetY, pace, minTravel, isShared } = context;
-	const { angle, travel, end, nextDot, side, toward, heading, visualShortfall, shortfall, shorter, ownLength, outside, outsideMarble, restrikes, isRolling, limit } = placement;
+	const { band, bandAt, length, isLaunch, pattern, previousAngle, interval, isMending, columns, rhythmAngle, targetY, pace, minTravel, isShared } = context;
+	const { angle, travel, end, nextDot, side, toward, heading, visualShortfall, shortfall, shorter, ownLength, outside, outsideMarble, restrikes, isRolling, limitAt } = placement;
 	const distance = Math.abs(travel);
-	const centrality = end != null ? (end.x - band.centerX) / band.halfWidth : 0;
+	const endCenter = end != null ? bandAt(end.y).centerX : band.centerX;
+	const centrality = end != null ? (end.x - endCenter) / band.halfWidth : 0;
 	// A centered zigzag travels about the band's half width per hit, which caps the default in narrow marbles
 	const comfort = isLaunch
 		? LAUNCH_TRAVEL * length
@@ -927,7 +931,7 @@ function placementScore(
 		previousAngle != null
 			? Math.min(Math.abs(angle - previousAngle), Math.abs(angle + previousAngle)) / (40 * DEGREE)
 			: 0;
-	const columnMiss = nextDot != null && !isMending ? (Math.min(1, interval / FULL_COLUMN_INTERVAL) * Math.abs(nextDot.x - (band.centerX + toward * columns))) / length : 0;
+	const columnMiss = nextDot != null && !isMending ? (Math.min(1, interval / FULL_COLUMN_INTERVAL) * Math.abs(nextDot.x - (bandAt(nextDot.y).centerX + toward * columns))) / length : 0;
 	const isOffTilt = nextDot != null && !isMending && Math.sign(angle) === toward;
 	const repeat = rhythmAngle != null && !isMending ? Math.abs(Math.abs(angle) - rhythmAngle) / (40 * DEGREE) : 0;
 	const offPace =
@@ -942,10 +946,10 @@ function placementScore(
 		(isMending ? 0 : (STEEP_WEIGHT * Math.max(0, Math.abs(angle) - STEEP_TILT)) / (10 * DEGREE)) +
 		(shorter != null ? SHORTER_WEIGHT * (1 + SHORTER_LENGTHS.findIndex((share) => Math.abs(share * ownLength - shorter) < 1e-3)) : 0) +
 		BAND_WEIGHT * centrality * centrality +
-		(isLaunch && end != null && Math.abs(end.x - band.centerX) > Math.abs(side) ? LAUNCH_OUT_WEIGHT * Math.abs(centrality) : 0) +
+		(isLaunch && end != null && Math.abs(end.x - endCenter) > Math.abs(side) ? LAUNCH_OUT_WEIGHT * Math.abs(centrality) : 0) +
 		HEADING_WEIGHT * heading +
 		TRAVEL_WEIGHT * outside +
-		(isShared && limit !== band ? MARBLE_WEIGHT * Math.max(0, outsideMarble) : 0) +
+		(isShared && limitAt !== bandAt ? MARBLE_WEIGHT * Math.max(0, outsideMarble) : 0) +
 		PACE_WEIGHT * offPace * offPace +
 		(COMFORT_WEIGHT * Math.abs(distance - comfort)) / comfort +
 		(isAgainstPattern ? PATTERN_WEIGHT : 0) +
@@ -1315,7 +1319,7 @@ export function continueSuggestions(
 		after != null && !owners.has(after.id) && after.time - last.hit.time <= longGap
 			? createLinkedPiece('platform', marbleId, after.id, 0, { id: `${idFor(after.id)}-probe` })
 			: null;
-	const band = frameBand(project);
+	const bandAt = bandAlongGuide(project);
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const openDot = open.result?.dot ?? null;
 	const allowed =
@@ -1337,7 +1341,7 @@ export function continueSuggestions(
 		for (const [index, ghost] of list.entries()) {
 			const hitResult = findHitResult(trial, marbleId, ghost.hit.id);
 			const dot = hitResult?.dot ?? null;
-			const isInFrame = dot != null && isInBand(dot, band, 1);
+			const isInFrame = dot != null && isInBand(dot, bandAt(dot.y), 1);
 			const status = hitResult?.status ?? 'missed';
 			const paceError = dot != null && pace != null ? dot.y - paceAt(pace, ghost.hit.time) : null;
 			const isPlaying = isOnTime(status) && isInFrame && Math.abs(paceError ?? 0) <= allowed && !(index === list.length - 1 && isProbeBlocked);
@@ -1750,10 +1754,10 @@ function staysInBand(
 	marbleId: string,
 	from: number,
 	until: number,
-	band: TFrameBand
+	bandAt: (y: number) => TFrameBand
 ): boolean {
 	const samples = result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	return samples.every(
-		(sample) => sample.time < from || sample.time > until || isInBand(sample.position, band, 1)
+		(sample) => sample.time < from || sample.time > until || isInBand(sample.position, bandAt(sample.position.y), 1)
 	);
 }

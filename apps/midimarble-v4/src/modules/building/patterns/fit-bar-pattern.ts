@@ -51,10 +51,10 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		...(world.barDepth != null ? { barDepth: world.barDepth } : {}),
 		bounce: world.fixedBounce ?? settings.bounce,
 		...(settings.maxTilt != null ? { maxTilt: settings.maxTilt } : {}),
-		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: frameBand(project).centerX } : {}),
+		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: frameBand(project, undefined, arrival.position.y).centerX } : {}),
 		...(world.stopsAtBadBar === true ? { stopsAtBadBar: true } : {})
 	};
-	if (kind === 'staircase') shape.dir = Math.sign(frameBand(project).centerX - arrival.position.x) || 1;
+	if (kind === 'staircase') shape.dir = Math.sign(frameBand(project, undefined, arrival.position.y).centerX - arrival.position.x) || 1;
 
 	const drops = askedDrop != null ? [askedDrop, askedDrop * 1.2, askedDrop * 0.85] : [null];
 	const maxTries = world.maxTries ?? drops.length;
@@ -130,7 +130,7 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 		const hops = ids.length - 1;
 		const sideOf = (x: number): number => Math.sign(x - start.position.x) || 1;
 		const secondDot = along?.dots.get(ids[1] ?? '');
-		const center = frameBand(world.project).centerX;
+		const center = frameBand(world.project, undefined, start.position.y).centerX;
 		// A Zigzag crosses the way the track does; a Staircase goes where the end is if that's far, and otherwise stays in frame
 		const firstSide = secondDot != null ? -sideOf(secondDot.x) : end != null ? -sideOf(end.x) : 1;
 		const stairs = end != null && Math.abs(end.x - start.position.x) > (shape.width * hops) / 2 ? sideOf(end.x) : sideOf(center);
@@ -140,7 +140,7 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 		const fit = fitBars(sim, made.project, marbleId, ids, start, {
 			...shape,
 			...(ender != null ? { stopBefore: true } : {}),
-			...(following != null && keptRail == null ? { exitToFrame: frameBand(world.project).centerX } : {}),
+			...(following != null && keptRail == null ? { exitToFrame: frameBand(world.project, undefined, start.position.y).centerX } : {}),
 			...(leave != null ? { leaveLike: leave } : {}),
 			...(end != null && hops > 0 ? {
 				endAt: end,

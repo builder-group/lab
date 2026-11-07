@@ -247,7 +247,7 @@ export function clearRotorPosition(project: TProject, result: TSimulationResult,
 	const speed = Math.hypot(at.velocity.x, at.velocity.y);
 	const across = speed > 1e-6 ? { x: -at.velocity.y / speed, y: at.velocity.x / speed } : { x: 1, y: 0 };
 	const marbleRadius = result.marbles.find((track) => track.marbleId === marbleId)?.radius ?? DEFAULT_MARBLE_RADIUS;
-	const centerX = frameBand(project, marbleId).centerX;
+	const centerX = frameBand(project, marbleId, at.position.y).centerX;
 	const inward = Math.sign((centerX - at.position.x) * across.x) || 1;
 	const shapes = result.pieces.flatMap(pieceShapes);
 	const base = reach + marbleRadius + ROTOR_CLEARANCE;

@@ -93,7 +93,7 @@ export function stepAngle(project: TProject, hit: THitResult, mode: TStepMode): 
 	const previous = mode === 'default' ? null : previousPiece(project, hit.marbleId, hit.targetTime);
 	if (previous != null) return mode === 'mirror' ? -previous.angle : previous.angle;
 	const dot = hit.dot ?? { x: 0, y: 0 };
-	return defaultPlatformAngle(dot, hit.velocity, frameBand(project, hit.marbleId).centerX);
+	return defaultPlatformAngle(dot, hit.velocity, frameBand(project, hit.marbleId, dot.y).centerX);
 }
 
 /**
@@ -161,7 +161,7 @@ export function asMarbleBowl(project: TProject, piece: TPiece, velocity: TVec2 |
 function withRunDirection(project: TProject, piece: TPiece, position: TVec2 | null, velocity: TVec2 | null): TPiece {
 	const points = resolvePiecePath(piece.type, undefined);
 	const reach = Math.max(...points.map((point) => point.x));
-	const band = frameBand(project);
+	const band = frameBand(project, undefined, position?.y);
 	const x = position?.x ?? band.centerX;
 	let direction = Math.abs(velocity?.x ?? 0) > 0.05 ? Math.sign(velocity?.x ?? 1) : x <= band.centerX ? 1 : -1;
 	if (Math.abs(x + direction * reach - band.centerX) > band.halfWidth) direction = -direction;

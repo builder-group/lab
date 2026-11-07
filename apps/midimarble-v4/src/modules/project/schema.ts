@@ -182,6 +182,11 @@ const SHandOver = z.strictObject({
 	rotors: z.array(z.strictObject({ pieceId: SId, rotation: z.tuple([z.number(), z.number()]), spin: z.number() })).optional()
 });
 
+// A line down the wall, from its highest point to its lowest: one x at every height, and straight down past its ends
+const SGuideLine = z.strictObject({
+	points: z.array(SVec2).min(2).refine((points) => points.every((point, index) => index === 0 || point.y < (points[index - 1]?.y ?? Infinity)), 'A guide line goes down: each point lower than the one before.')
+});
+
 // One marble: a name and color that organize it, what it sounds like, its body, where it starts, and the hits it plays
 export const SMarble = z.strictObject({
 	id: SId,
@@ -195,6 +200,8 @@ export const SMarble = z.strictObject({
 	level: z.number().optional(),
 	radius: z.number().positive(),
 	start: SMarbleStart,
+	// The line its run stays near; absent is straight down from where it starts. Only the builder reads it, never a run.
+	guide: SGuideLine.optional(),
 	skin: SSkin.optional(),
 	hits: z.array(SHit),
 	handOvers: z.array(SHandOver).optional(),
