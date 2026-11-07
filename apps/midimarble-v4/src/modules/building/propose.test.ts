@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { applyProjectCommands, createMarble, createProject, type TProject } from '@/modules/project';
+import { applyProjectCommands, createMarble, createProject, tieOf, type TProject } from '@/modules/project';
 import { createSimulator, type TSimulator } from '@/modules/simulation';
 import { nextStepOf } from './next-step';
-import { acceptProposal, localProposeDeps, propose, type TProposal, type TProposeDeps } from './propose';
+import { acceptProposal, localProposeDeps, MOVE_PATTERN, propose, type TProposal, type TProposeDeps } from './propose';
 
 let simulator: TSimulator;
 let deps: TProposeDeps;
@@ -212,6 +212,41 @@ describe('propose a Pattern', () => {
 		expect(next.track.groups.at(-1)?.pattern?.kind).toBe('zigzag');
 		const played = simulator.simulate(next).hits.filter((hit) => ids.includes(hit.hitId));
 		expect(played.every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
+	});
+
+	it('moves a live Pattern on the wall: the piece before sends the marble to its new first dot and it fits again from there', async () => {
+		const project = await regular();
+		const zigzag = landed(project, await propose(project, { marbleId: 'marble', hitIds: ['hit-1', 'hit-2', 'hit-3', 'hit-4'], kind: 'zigzag' }, deps));
+		const group = zigzag.track.groups.at(-1);
+		const dot = simulator.simulate(zigzag).hits.find((hit) => hit.hitId === 'hit-1')?.dot;
+		if (group == null || dot == null) throw new Error('No Zigzag');
+		const before = JSON.stringify(zigzag);
+		const proposal = await propose(zigzag, { marbleId: 'marble', hitIds: ['hit-1'], kind: MOVE_PATTERN, settings: { groupId: group.id, dot: { x: dot.x + 0.03, y: dot.y } } }, deps);
+		expect(JSON.stringify(zigzag)).toBe(before);
+		expect(proposal.status).toBe('fits');
+		const moved = landed(zigzag, proposal);
+		const run = simulator.simulate(moved);
+		expect(run.hits.find((hit) => hit.hitId === 'hit-1')?.dot?.x).toBeCloseTo(dot.x + 0.03, 2);
+		expect(run.hits.filter((hit) => ['hit-1', 'hit-2', 'hit-3', 'hit-4'].includes(hit.hitId)).every((hit) => hit.status === 'onTime' || hit.status === 'drifting')).toBe(true);
+		expect(moved.track.groups.find((item) => item.id === group.id)?.pattern?.kind).toBe('zigzag');
+	});
+
+	it('moves a live Pattern along its row; the notes it leaves keep their pieces as plain ones', async () => {
+		const project = await regular();
+		const zigzag = landed(project, await propose(project, { marbleId: 'marble', hitIds: ['hit-1', 'hit-2', 'hit-3'], kind: 'zigzag' }, deps));
+		const group = zigzag.track.groups.at(-1);
+		if (group == null) throw new Error('No Zigzag');
+		const ask = (shift: number) => propose(zigzag, { marbleId: 'marble', hitIds: ['hit-1'], kind: MOVE_PATTERN, settings: { groupId: group.id, shift } }, deps);
+		expect((await ask(9)).words).toMatch(/no notes that far/);
+		for (const [shift, hitIds] of [[1, ['hit-2', 'hit-3', 'hit-4']], [-1, ['hit-0', 'hit-1', 'hit-2']]] as const) {
+			const proposal = await ask(shift);
+			expect(proposal.status).toBe('fits');
+			const moved = landed(zigzag, proposal);
+			const now = moved.track.groups.find((item) => item.id === group.id);
+			expect(now?.pattern?.hitIds).toEqual(hitIds);
+			const left = shift > 0 ? 'hit-1' : 'hit-3';
+			expect(moved.track.pieces.some((piece) => tieOf(piece)?.hitId === left && !(now?.pieceIds ?? []).includes(piece.id))).toBe(true);
+		}
 	});
 
 	it('names the note when a Pattern is refused, and places nothing', async () => {

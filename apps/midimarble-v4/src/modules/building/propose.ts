@@ -1,5 +1,5 @@
 import { Err, Ok, type TResult } from 'tuple-result';
-import { applyProjectCommands, createId, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
+import { applyProjectCommands, createId, isPatternGroup, tieOf, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult, type TSimulator } from '@/modules/simulation';
 import { findLongGaps, hitOwners, openLongGaps } from './assists';
 import { hitReach, isUnreachable, reachMessage } from './reachability';
@@ -7,6 +7,7 @@ import { answerEdit, changedPieces, editCommands, type TEditAnswer, type TEditRe
 import { fixPiece, hasPieceProblem, type TFixDeps } from './fix-it';
 import { checkPattern, type TPatternAsk, type TPatternCheck } from './patterns/check-pattern';
 import { patternOfKind } from './patterns/registry';
+import { hitsInRange, patternSpan } from './patterns/run-group';
 import { noKnownFaults, addKnownFaults, reasonWords, verdictWithRoom, type TVerdictReason } from './verdict';
 import { answerWorkerRequest, type TAutoPlaceAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 
@@ -19,8 +20,11 @@ export interface TProposeAsk {
 	hitIds: string[];
 	/** What to place: a piece type for a note, a gap piece for the rest before the note, or a Pattern over these notes or that rest. `flip` turns the note's platform the other way and `remove` takes its piece */
 	kind: string;
-	/** What the kind takes, the ID its piece gets, and for `remove` the pieces it takes when they don't play these notes */
-	settings?: { pieceId?: string; pieceIds?: string[]; width?: number; bounce?: number; maxTilt?: number };
+	/**
+	 * What the kind takes, the ID its piece gets, and for `remove` the pieces it takes when they don't play these notes. For
+	 * `movePattern`, the live Pattern and where it goes: its first note's dot dragged to `dot`, or `shift` notes along its row
+	 */
+	settings?: { pieceId?: string; pieceIds?: string[]; width?: number; bounce?: number; maxTilt?: number; groupId?: string; dot?: TVec2; shift?: number };
 }
 
 /** What one note makes of it, in plain words */
@@ -133,6 +137,7 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	if (marble == null || hitId == null || hit == null) return refused(project, before, ask, 'That note is gone.');
 	if (kind === 'remove' || kind === 'flip') return proposeEdit(project, before, ask, kind, deps);
 	if (kind === 'fix') return proposeFix(project, before, ask, deps);
+	if (kind === MOVE_PATTERN) return proposeMovePattern(project, before, ask, deps);
 	const owners = hitOwners(project, marbleId);
 	const index = marble.hits.findIndex((item) => item.id === hitId);
 	const firstOpen = marble.hits.findIndex((item) => !owners.has(item.id));
@@ -224,6 +229,51 @@ function fixDepsOf(deps: TProposeDeps): Pick<TFixDeps, 'simulate' | 'autoPlace' 
 		gapPiece: async (next, gap, type, pieceId) => (await deps.gapPiece({ type, project: next, marbleId: gap.marbleId, fromHitId: gap.fromHitId, toHitId: gap.toHitId, pieceId })).piece,
 		settle: async (from, to) => editCommands(await deps.settle({ before: from, after: to }))
 	};
+}
+
+/** The kind that moves a live Pattern as a whole */
+export const MOVE_PATTERN = 'movePattern';
+
+/**
+ * A live Pattern moved as a whole. On the wall its first note's dot goes to `dot`: the piece before sends the marble there,
+ * as dragging a platform off its dot does, and the Pattern fits again from there with its own Width and Bounce. Along its
+ * row it fits again `shift` notes later or earlier. The notes it plays are asked; its verdict says the rest
+ */
+async function proposeMovePattern(project: TProject, before: TSimulationResult, ask: TProposeAsk, deps: TProposeDeps): Promise<TProposal> {
+	const { marbleId, settings } = ask;
+	const group = project.track.groups.filter(isPatternGroup).find((item) => item.id === settings?.groupId);
+	const marble = project.marbles.find((item) => item.id === marbleId);
+	const span = group != null && marble != null ? patternSpan(marble, group) : null;
+	if (group == null || marble == null || span == null) return refused(project, before, ask, 'That Pattern is gone.');
+	const label = patternOfKind(group.pattern.kind)?.label ?? 'Pattern';
+	if (patternOfKind(group.pattern.kind)?.takes !== 'notes') return refused(project, before, ask, `A ${label} fills its rest, so it moves with the notes around it.`);
+	const hits = hitsInRange(marble, span.from, span.to);
+	const [firstHit] = hits;
+	const lastHit = hits.at(-1);
+	if (firstHit == null || lastHit == null) return refused(project, before, ask, 'That Pattern is gone.');
+	const shift = settings?.shift ?? 0;
+	const [from, to] = [marble.hits[marble.hits.indexOf(firstHit) + shift], marble.hits[marble.hits.indexOf(lastHit) + shift]];
+	if (from == null || to == null) return refused(project, before, ask, `${label} has no room there: the marble has no notes that far ${shift > 0 ? 'on' : 'back'}.`);
+	// Notes it leaves keep their pieces as they stand, as plain pieces, so the marble's way past them stays
+	const range = new Set(marble.hits.slice(marble.hits.indexOf(from), marble.hits.indexOf(to) + 1).map((hit) => hit.id));
+	const left = new Set(hits.filter((hit) => !range.has(hit.id)).map((hit) => hit.id));
+	const kept = project.track.pieces.filter((piece) => group.pieceIds.includes(piece.id) && left.has(tieOf(piece)?.hitId ?? ''));
+	let moved: TProjectCommand[] = left.size > 0 ? [{ type: 'addGroup', group: { ...group, pieceIds: group.pieceIds.filter((id) => !kept.some((piece) => piece.id === id)), pattern: { ...group.pattern, hitIds: group.pattern.hitIds.filter((id) => !left.has(id)) } } }] : [];
+	if (settings?.dot != null) {
+		if (marble.hits.indexOf(firstHit) === 0) return refused(project, before, ask, `${label} starts at the marble's first note, whose spot the release decides: move the marble's start instead.`);
+		moved = [...moved, ...editCommands(await deps.settle({ before: project, after: project, movedDot: { marbleId, hitId: firstHit.id, dot: settings.dot } }))];
+	}
+	const [isMoved, movedError, start] = applyProjectCommands(project, moved);
+	if (!isMoved) return refused(project, before, ask, movedError.message);
+	const { width, bounce, maxTilt } = group.pattern;
+	const answer = await deps.pattern(start, { marbleId, kind: group.pattern.kind, groupId: group.id, from: from.time, to: to.time, width, bounce, ...(maxTilt != null ? { maxTilt } : {}) });
+	if (answer == null) return refused(project, before, ask, 'The Pattern was stopped.');
+	if (answer.refusal != null || !answer.commands.length) return { ...refused(project, before, ask, answer.refusal?.words ?? answer.ending?.words ?? `${label} doesn't fit there.`), shown: answer.pieces ?? [] };
+	const commands = [...moved, ...answer.commands];
+	const [isApplied, applyError, after] = applyProjectCommands(project, commands);
+	if (!isApplied) return refused(project, before, ask, applyError.message);
+	// Pieces after it take up the change as any edit's do
+	return landed(project, before, ask, changedPieces(project, after), commands, { checksNext: true }, deps);
 }
 
 /** What a rest offers instead of a plain piece: a Long Rail and a Switchback, each with its own answer, and the plain piece only when neither fits */

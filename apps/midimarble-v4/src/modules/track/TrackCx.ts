@@ -1117,7 +1117,8 @@ export class TrackCx {
 				return;
 			}
 			case 'livePiece':
-				if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4) this.studio.patterns.tellLocked(drag.group, drag.pieceId);
+				if (drag.moved !== true && Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < 4) return;
+				this.moveLivePattern(drag, point);
 				return;
 			case 'click': {
 				// A placed hit's dot sits on its platform: pressing there and dragging still moves the platform
@@ -1221,7 +1222,43 @@ export class TrackCx {
 				this.onClick(drag.target, point, event.shiftKey);
 				return;
 			}
+			case 'livePiece': {
+				const dot = drag.moved === true ? this.movedPatternDot(drag, point) : null;
+				if (dot != null) void this.studio.patterns.endMove(drag.group, { dot });
+				return;
+			}
 		}
+	}
+
+	/** How often a moved Pattern is asked again while the pointer moves, in milliseconds */
+	private static readonly MOVE_ASK_MS = 120;
+	private moveAskAt = 0;
+
+	/**
+	 * Dragging a live Pattern moves it whole: its pieces follow the pointer at once, and `propose` is asked, now and then,
+	 * where it would really stand with the piece before sending the marble to its first note's new dot. Nothing changes until the release
+	 */
+	private moveLivePattern(drag: Extract<TTrackDrag, { kind: 'livePiece' }>, point: TVec2): void {
+		const result = this.result;
+		if (drag.moved !== true) this.$drag.set({ ...drag, moved: true });
+		const dot = this.movedPatternDot(drag, point);
+		if (result == null || dot == null) return;
+		const offset = { x: this.toWorld(point).x - this.toWorld(drag.start).x, y: this.toWorld(point).y - this.toWorld(drag.start).y };
+		const shifted = result.pieces.filter((piece) => drag.group.pieceIds.includes(piece.pieceId)).map((piece) => ({ ...piece, position: { x: piece.position.x + offset.x, y: piece.position.y + offset.y } }));
+		this.studio.patterns.showMove(drag.group, shifted);
+		const now = performance.now();
+		if (now - this.moveAskAt < TrackCx.MOVE_ASK_MS) return;
+		this.moveAskAt = now;
+		void this.studio.patterns.askMove(drag.group, { dot });
+	}
+
+	/** Where the Pattern's first note's dot goes for the pointer at `point` */
+	private movedPatternDot(drag: Extract<TTrackDrag, { kind: 'livePiece' }>, point: TVec2): TVec2 | null {
+		const [first] = drag.group.pattern.hitIds;
+		const dot = this.result?.hits.find((hit) => hit.marbleId === drag.group.marbleId && hit.hitId === first)?.dot;
+		if (dot == null) return null;
+		const [from, to] = [this.toWorld(drag.start), this.toWorld(point)];
+		return { x: dot.x + to.x - from.x, y: dot.y + to.y - from.y };
 	}
 
 	onPointerLeave(): void {
@@ -2258,6 +2295,7 @@ export class TrackCx {
 		} else if (this.$libraryOpen.get()) {
 			this.$libraryOpen.set(false);
 		} else if (this.$drag.get() != null) {
+			if (this.$drag.get()?.kind === 'livePiece') this.studio.patterns.cancelMove();
 			this.$drag.set(null);
 			this.$override.set(null);
 			this.studio.simulation.endPreview();
@@ -2488,7 +2526,8 @@ interface TNodeDrag {
 }
 
 export type TTrackDrag =
-	| { kind: 'livePiece'; group: TPatternGroup; pieceId: string; start: TVec2 }
+	/** A press on a live Pattern's piece, which moves the whole Pattern once dragged */
+	| { kind: 'livePiece'; group: TPatternGroup; pieceId: string; start: TVec2; moved?: boolean }
 	| { kind: 'pan'; last: TVec2 }
 	| TRotateDrag
 	| TMoveDrag

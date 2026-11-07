@@ -16,6 +16,7 @@ import { followKey } from './keys';
 import { BarHint } from './FloatingBar';
 import { GuideLayer } from './GuideLayer';
 import { HitFlashLayer } from './HitFlashLayer';
+import { PatternMoveHint } from './PatternMoveHint';
 import { canvasMenu } from './menus';
 import { PieceLayer, usePannedProjection } from './PieceLayer';
 import { ZOOM_100_SCALE, hiddenMarbleIds, pathRun, pathToWorld, pieceKind } from '@/modules/scene';
@@ -63,6 +64,7 @@ export const TrackCanvas: React.FC<TTrackCanvasProps> = (props) => {
 				<GuideLayer trackCx={trackCx} />
 				<PieceLayer trackCx={trackCx} />
 				<BarHint trackCx={trackCx} />
+				<PatternMoveHint trackCx={trackCx} />
 			</svg>
 			<div
 				className="absolute inset-0 touch-none"

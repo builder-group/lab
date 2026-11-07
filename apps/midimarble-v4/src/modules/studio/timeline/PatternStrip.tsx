@@ -15,7 +15,8 @@ const MIN_DRAG_PX = 3;
 /**
  * The slim strip above a marble's hits: nearly invisible while empty, "Drag to choose a Pattern" on
  * hover. Dragging out a range selects its notes, the same as dragging over them below, or the silence itself. A block is
- * a Group: a click selects it; a Pattern's edges resize it, which fits it again.
+ * a Group: a click selects it; a Pattern's edges resize it, which fits it again, and dragging its body moves it along the
+ * row to other notes, with its hint on the wall, landed on release when it fits.
  */
 /** Pixels a block needs to show a short name whole, after its icon */
 const MIN_NAMED_BLOCK = 58;
@@ -31,6 +32,9 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const [range, setRange] = React.useState<{ from: number; to: number } | null>(null);
 	const [hoverX, setHoverX] = React.useState<number | null>(null);
 	const [resize, setResize] = React.useState<{ groupId: string; edge: 'from' | 'to'; time: number } | null>(null);
+	const [shiftDrag, setShiftDrag] = React.useState<{ groupId: string; startX: number; shift: number } | null>(null);
+	// A drag's release also clicks; that click doesn't select again
+	const wasDraggedRef = React.useRef(false);
 	const stripRef = React.useRef<HTMLDivElement>(null);
 	if (project == null) return null;
 
@@ -75,6 +79,24 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 		if (isPatternKind(group.pattern.kind)) void cx.patterns.apply({ marbleId: marble.id, from, to, group }, group.pattern.kind);
 	}
 
+	/** How many notes along the row a block dragged by `dx` pixels goes: its first note snaps to the nearest note */
+	function shiftOf(group: TPatternGroup, dx: number): number {
+		const first = marble.hits.findIndex((hit) => hit.id === group.pattern.hitIds[0]);
+		const firstHit = marble.hits[first];
+		if (firstHit == null) return 0;
+		const time = firstHit.time + dx / zoom;
+		const nearest = marble.hits.reduce((best, hit, index) => (Math.abs(hit.time - time) < Math.abs((marble.hits[best]?.time ?? Infinity) - time) ? index : best), first);
+		return nearest - first;
+	}
+
+	/** The span of a block moved `shift` notes along the row */
+	function shiftedSpan(group: TPatternGroup, span: { from: number; to: number }, shift: number): { from: number; to: number } {
+		const indexOf = (time: number): number => marble.hits.findIndex((hit) => Math.abs(hit.time - time) < 1e-6);
+		const from = marble.hits[indexOf(span.from) + shift]?.time;
+		const to = marble.hits[indexOf(span.to) + shift]?.time;
+		return from != null && to != null ? { from, to } : span;
+	}
+
 	const isHinting = hoverX != null && range == null && selectedRange == null;
 	const shownRange = range ?? selectedRange;
 
@@ -102,8 +124,10 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 				const span = isPatternGroup(group) ? patternSpan(marble, group) : plainGroupSpan(project, marble, group);
 				if (span == null) return null;
 				const isResizing = resize?.groupId === group.id;
-				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, span.to) : span.from;
-				const to = isResizing && resize.edge === 'to' ? Math.max(resize.time, span.from) : span.to;
+				const isShifting = shiftDrag?.groupId === group.id && isPatternGroup(group);
+				const moved = isShifting ? shiftedSpan(group, span, shiftDrag.shift) : span;
+				const from = isResizing && resize.edge === 'from' ? Math.min(resize.time, span.to) : moved.from;
+				const to = isResizing && resize.edge === 'to' ? Math.max(resize.time, span.from) : moved.to;
 				// A rail's block stops short of the notes around its silence, whose blocks reach past them
 				const isSilence = group.pattern != null && patternOfKind(group.pattern.kind)?.takes === 'silence';
 				const pad = isSilence ? -BLOCK_PAD : BLOCK_PAD;
@@ -112,17 +136,45 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						key={group.id}
 						className="mm-pattern-block"
 						data-selected={selectedGroupIds.has(group.id)}
+						data-moving={isShifting}
 						data-problem={isPatternGroup(group) && groupProblems(project, result, group).length > 0}
 						role="button"
 						tabIndex={-1}
 						aria-label={`${group.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`}
 						title={Math.abs(span.to - span.from) < 1e-6 ? `${group.name} · ${formatTime(span.from)}` : `${group.name} · ${formatTime(span.from)} to ${formatTime(span.to)}`}
 						style={{ left: from * zoom - pad, width: Math.max(10, (to - from) * zoom + 2 * pad), ['--row-color' as string]: marble.labelColor }}
-						onPointerDown={(event) => event.stopPropagation()}
+						onPointerDown={(event) => {
+							event.stopPropagation();
+							wasDraggedRef.current = false;
+							// A live Pattern's block drags along the row to other notes, asked of `propose` as it goes
+							if (event.button !== 0 || !isPatternGroup(group) || isSilence) return;
+							event.currentTarget.setPointerCapture(event.pointerId);
+							setShiftDrag({ groupId: group.id, startX: event.clientX, shift: 0 });
+						}}
 						onPointerEnter={() => setHoverX(null)}
-						onPointerMove={(event) => event.stopPropagation()}
-						onPointerUp={(event) => event.stopPropagation()}
-						onClick={() => cx.$selection.set(groupSelection(group))}
+						onPointerMove={(event) => {
+							event.stopPropagation();
+							if (shiftDrag?.groupId !== group.id || !isPatternGroup(group)) return;
+							const shift = shiftOf(group, event.clientX - shiftDrag.startX);
+							if (shift === shiftDrag.shift) return;
+							wasDraggedRef.current = true;
+							setShiftDrag({ ...shiftDrag, shift });
+							if (shift !== 0) void cx.patterns.askMove(group, { shift });
+							else cx.patterns.cancelMove();
+						}}
+						onPointerUp={(event) => {
+							event.stopPropagation();
+							const drag = shiftDrag;
+							setShiftDrag(null);
+							if (drag?.groupId === group.id && drag.shift !== 0 && isPatternGroup(group)) void cx.patterns.endMove(group, { shift: drag.shift });
+						}}
+						onPointerCancel={() => {
+							setShiftDrag(null);
+							cx.patterns.cancelMove();
+						}}
+						onClick={() => {
+							if (!wasDraggedRef.current) cx.$selection.set(groupSelection(group));
+						}}
 						onContextMenu={(event) => {
 							cx.$selection.set(groupSelection(group));
 							openContextMenu(event, pieceMenu(cx));

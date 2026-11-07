@@ -1,8 +1,8 @@
 import { createState } from 'feature-state';
-import { createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitKey, hitsInRange, isPatternKind, patternLabel, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, playingNotes, type TGroupRunProgress, type TPatternAsk, type TPatternClient, type TPatternKind } from '@/modules/building';
+import { acceptProposal, createEstimate, createPatternClient, flattenCommands, groupsOfMarble, hitKey, hitsInRange, isPatternKind, MOVE_PATTERN, patternLabel, patternOfPiece, patternSpan, PATTERNS, PatternCanceledError, playingNotes, propose, type TGroupRunProgress, type TPatternAsk, type TPatternClient, type TPatternKind, type TProposal, type TProposeDeps } from '@/modules/building';
 import { type TPatternAnswer } from '@/modules/building/patterns/pattern.worker';
-import { type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
-import type { TGroup, TPatternGroup, TProject, TProjectHistory } from '@/modules/project';
+import { isSuperseded, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import type { TGroup, TPatternGroup, TProject, TProjectHistory, TVec2 } from '@/modules/project';
 import { toGroupKey, toHitKey, toRangeKey } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 
@@ -46,6 +46,8 @@ export class PatternsCx {
 			unlisten();
 			this.client?.dispose();
 			this.client = null;
+			this.moveClient?.dispose();
+			this.moveClient = null;
 		};
 	}
 
@@ -163,6 +165,74 @@ export class PatternsCx {
 
 	cancelAsk(): void {
 		this.client?.cancelPreview();
+	}
+
+	// MARK: - Moving a Pattern
+
+	/** A live Pattern being moved: its hint on the wall, what `propose` answered once it has */
+	readonly $move = createState<{ groupId: string; shape: TResolvedPiece[]; proposal: TProposal | null } | null>(null);
+	private moveAsk = 0;
+	/** A move's fits run in a worker of their own, so the bar's hints and a drag never end each other's */
+	private moveClient: TPatternClient | null = null;
+
+	/** Shows where a moved Pattern would stand before it's asked, such as its pieces shifted with the pointer */
+	showMove(group: TPatternGroup, shape: TResolvedPiece[]): void {
+		const shown = this.$move.get();
+		if (shown?.groupId !== group.id || shown.proposal == null) this.$move.set({ groupId: group.id, shape, proposal: null });
+	}
+
+	/**
+	 * Asks `propose` where a live Pattern would go, on the wall (`dot`, its first note's) or along its row (`shift` notes).
+	 * The newest ask wins and its hint shows; nothing changes. Null when a newer ask took its place
+	 */
+	async askMove(group: TPatternGroup, move: { dot?: TVec2; shift?: number }): Promise<TProposal | null> {
+		const project = this.studio.project;
+		const ask = ++this.moveAsk;
+		const isCurrent = (): boolean => ask === this.moveAsk;
+		const base = this.studio.assist.proposeDeps({ isCanceled: () => !isCurrent() });
+		const [first] = group.pattern.hitIds;
+		if (project == null || base == null || first == null) return null;
+		this.moveClient ??= createPatternClient();
+		const client = this.moveClient;
+		const deps: TProposeDeps = { ...base, pattern: (asked, change) => client.preview(asked, change, () => undefined) };
+		const result = this.studio.simulation.$result.get();
+		try {
+			const proposal = await propose(project, { marbleId: group.marbleId, hitIds: [first], kind: MOVE_PATTERN, settings: { groupId: group.id, ...move } }, deps, result?.revision === project.revision ? { result } : {});
+			if (!isCurrent()) return null;
+			this.$move.set({ groupId: group.id, shape: proposal.shown, proposal });
+			return proposal;
+		} catch (error) {
+			if (isCurrent() && !isSuperseded(error) && !(error instanceof PatternCanceledError)) console.warn(error);
+			return null;
+		}
+	}
+
+	/** The release: lands where it was moved, as one Undo step, if that fits; otherwise nothing changes and the notice says why */
+	async endMove(group: TPatternGroup, move: { dot?: TVec2; shift?: number }): Promise<void> {
+		const proposal = await this.askMove(group, move);
+		this.$move.set(null);
+		const project = this.studio.project;
+		if (proposal == null || project == null) return;
+		if (proposal.status !== 'fits') {
+			const words = proposal.words ?? `${group.name} doesn't fit there.`;
+			this.studio.notify(words.endsWith('Nothing changed.') ? words : `${words} Nothing changed.`, 'error');
+			return;
+		}
+		const [isAccepted, refusal, commands] = acceptProposal(project, proposal);
+		if (!isAccepted) {
+			this.studio.notify(refusal.message, 'error');
+			return;
+		}
+		if (!this.studio.simulation.landWorkedOut(commands, { label: `Move ${group.name}` })) return;
+		const moved = this.studio.project?.track.groups.find((item) => item.id === group.id);
+		if (moved != null) this.studio.$selection.set(groupSelection(moved));
+	}
+
+	/** Esc or a drag that ends nowhere: the hint goes and nothing is asked any more */
+	cancelMove(): void {
+		this.moveAsk++;
+		this.$move.set(null);
+		this.moveClient?.cancelPreview();
 	}
 
 	/** The same run with nothing applied, for an agent's dry run */
