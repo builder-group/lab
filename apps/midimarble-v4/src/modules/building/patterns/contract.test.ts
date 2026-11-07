@@ -185,7 +185,7 @@ describe('checkPattern function', () => {
 		const check = checkPattern(played, { marbleId: MARBLE, from: 1, to: 2.2, kind: 'zigzag' }, { sim });
 
 		expect(check.refusal).toBeNull();
-		expect(check.problems.filter((problem) => problem.words.includes('another bar'))).toEqual([]);
+		expect(check.problems.filter((problem) => problem.words.includes('another platform'))).toEqual([]);
 	});
 
 	it('should follow a built track, leaving what comes after where it stands', () => {
@@ -271,7 +271,7 @@ describe('PATTERNS', () => {
 			expect(isPatternKind(kind)).toBe(true);
 		}
 		expect(patternKinds('notes')).toEqual(['zigzag', 'staircase']);
-		expect(patternKinds('silence')).toEqual(['longRail']);
+		expect(patternKinds('silence')).toEqual(['longRail', 'switchback']);
 		expect(isPatternKind('toString')).toBe(false);
 	});
 });

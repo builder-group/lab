@@ -323,7 +323,8 @@ export function checkGroupChange(before: TProject, outcome: TGroupRunOutcome, ma
 	const worst = freeRun.summary.problems.length <= settledRun.summary.problems.length ? freeRun : settledRun;
 	const first = firstNew(was.summary, worst.summary);
 	const named = namedHit(after, first?.target?.ids ?? []);
-	return refused({ marbleId: named?.marbleId ?? marbleId, hitId: named?.hitId ?? null, words: `${label} would break what follows: ${first?.title ?? 'a later hit no longer plays'}. Nothing changed.` });
+	const hit = named != null ? hitWords(before, named.hitId) : null;
+	return refused({ marbleId: named?.marbleId ?? marbleId, hitId: named?.hitId ?? null, words: `${label} doesn't fit ${hit != null ? `at Note ${hit.number} of ${hit.name}` : 'here'}. ${first?.title ?? 'A later note no longer plays'}. Nothing changed.` });
 }
 
 /** How many pieces outside the Pattern stand somewhere else in the run */

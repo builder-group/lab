@@ -42,11 +42,11 @@ describe('checkGroupChange function', () => {
 	it('should refuse a Pattern a hit can\'t fit, naming the hit and why', () => {
 		const project = smallProject([1, 1.4, 1.8, 2.2]);
 
-		const check = checkGroupChange(project, outcomeOf(project, { blocking: [{ hitId: 'h2', words: 'The marble lands on this bar a second time.' }] }), MARBLE, sim);
+		const check = checkGroupChange(project, outcomeOf(project, { blocking: [{ hitId: 'h2', words: 'The marble lands on this platform a second time.' }] }), MARBLE, sim);
 
 		expect(check.commands).toEqual([]);
 		expect(check.refusal).toEqual({ marbleId: MARBLE, hitId: 'h2', words: expect.stringContaining('Note 3 of') as string });
-		expect(check.refusal?.words).toContain('The marble lands on this bar a second time. Nothing changed.');
+		expect(check.refusal?.words).toContain('The marble lands on this platform a second time. Nothing changed.');
 	});
 
 	it('should land a Pattern that keeps the song as good as it was', () => {
@@ -72,6 +72,6 @@ describe('checkGroupChange function', () => {
 		const check = checkGroupChange(project, worse, MARBLE, sim);
 
 		expect(check.commands).toEqual([]);
-		expect(check.refusal?.words).toMatch(/Zigzag would break what follows: .+\. Nothing changed\./);
+		expect(check.refusal?.words).toMatch(/Zigzag doesn't fit (at Note \d+ of .+|here)\. .+\. Nothing changed\./);
 	});
 });

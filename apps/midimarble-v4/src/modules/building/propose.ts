@@ -161,7 +161,8 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	return landed(project, before, ask, [answer.piece], [{ type: 'addPiece', piece: answer.piece }], { checksNext: true }, deps);
 }
 
-const GAP_KINDS: readonly string[] = ['rail', 'switchback', 'chain', 'tunnel'] satisfies TGapPieceType[];
+// A Switchback asked of `propose` is a Pattern, as the Curved Rail is: Build's own gap search places the plain one
+const GAP_KINDS: readonly string[] = ['rail', 'chain', 'tunnel'] satisfies TGapPieceType[];
 
 function isGapKind(kind: string): kind is TGapPieceType {
 	return GAP_KINDS.includes(kind);
@@ -242,37 +243,39 @@ export const MOVE_PATTERN = 'movePattern';
  */
 async function proposeMovePattern(project: TProject, before: TSimulationResult, ask: TProposeAsk, deps: TProposeDeps): Promise<TProposal> {
 	const { marbleId, settings } = ask;
+	// A move that doesn't fit leaves the Pattern where it stands, and says so
+	const notMoved = (words: string): TProposal => refused(project, before, ask, `${words.replace(/ Nothing changed\.$/, '')} Nothing moved.`);
 	const group = project.track.groups.filter(isPatternGroup).find((item) => item.id === settings?.groupId);
 	const marble = project.marbles.find((item) => item.id === marbleId);
 	const span = group != null && marble != null ? patternSpan(marble, group) : null;
-	if (group == null || marble == null || span == null) return refused(project, before, ask, 'That Pattern is gone.');
+	if (group == null || marble == null || span == null) return notMoved('That Pattern is gone.');
 	const label = patternOfKind(group.pattern.kind)?.label ?? 'Pattern';
-	if (patternOfKind(group.pattern.kind)?.takes !== 'notes') return refused(project, before, ask, `A ${label} fills its rest, so it moves with the notes around it.`);
+	if (patternOfKind(group.pattern.kind)?.takes !== 'notes') return notMoved(`A ${label} fills its rest, so it moves with the notes around it.`);
 	const hits = hitsInRange(marble, span.from, span.to);
 	const [firstHit] = hits;
 	const lastHit = hits.at(-1);
-	if (firstHit == null || lastHit == null) return refused(project, before, ask, 'That Pattern is gone.');
+	if (firstHit == null || lastHit == null) return notMoved('That Pattern is gone.');
 	const shift = settings?.shift ?? 0;
 	const [from, to] = [marble.hits[marble.hits.indexOf(firstHit) + shift], marble.hits[marble.hits.indexOf(lastHit) + shift]];
-	if (from == null || to == null) return refused(project, before, ask, `${label} has no room there: the marble has no notes that far ${shift > 0 ? 'on' : 'back'}.`);
+	if (from == null || to == null) return notMoved(`${label} has no room there: the marble has no notes that far ${shift > 0 ? 'on' : 'back'}.`);
 	// Notes it leaves keep their pieces as they stand, as plain pieces, so the marble's way past them stays
 	const range = new Set(marble.hits.slice(marble.hits.indexOf(from), marble.hits.indexOf(to) + 1).map((hit) => hit.id));
 	const left = new Set(hits.filter((hit) => !range.has(hit.id)).map((hit) => hit.id));
 	const kept = project.track.pieces.filter((piece) => group.pieceIds.includes(piece.id) && left.has(tieOf(piece)?.hitId ?? ''));
 	let moved: TProjectCommand[] = left.size > 0 ? [{ type: 'addGroup', group: { ...group, pieceIds: group.pieceIds.filter((id) => !kept.some((piece) => piece.id === id)), pattern: { ...group.pattern, hitIds: group.pattern.hitIds.filter((id) => !left.has(id)) } } }] : [];
 	if (settings?.dot != null) {
-		if (marble.hits.indexOf(firstHit) === 0) return refused(project, before, ask, `${label} starts at the marble's first note, whose spot the release decides: move the marble's start instead.`);
+		if (marble.hits.indexOf(firstHit) === 0) return notMoved(`${label} starts at the marble's first note, whose spot the release decides: move the marble's start instead.`);
 		moved = [...moved, ...editCommands(await deps.settle({ before: project, after: project, movedDot: { marbleId, hitId: firstHit.id, dot: settings.dot } }))];
 	}
 	const [isMoved, movedError, start] = applyProjectCommands(project, moved);
-	if (!isMoved) return refused(project, before, ask, movedError.message);
+	if (!isMoved) return notMoved(movedError.message);
 	const { width, bounce, maxTilt } = group.pattern;
 	const answer = await deps.pattern(start, { marbleId, kind: group.pattern.kind, groupId: group.id, from: from.time, to: to.time, width, bounce, ...(maxTilt != null ? { maxTilt } : {}) });
-	if (answer == null) return refused(project, before, ask, 'The Pattern was stopped.');
-	if (answer.refusal != null || !answer.commands.length) return { ...refused(project, before, ask, answer.refusal?.words ?? answer.ending?.words ?? `${label} doesn't fit there.`), shown: answer.pieces ?? [] };
+	if (answer == null) return notMoved('The Pattern was stopped.');
+	if (answer.refusal != null || !answer.commands.length) return { ...notMoved(answer.refusal?.words ?? answer.ending?.words ?? `${label} doesn't fit there.`), shown: answer.pieces ?? [] };
 	const commands = [...moved, ...answer.commands];
 	const [isApplied, applyError, after] = applyProjectCommands(project, commands);
-	if (!isApplied) return refused(project, before, ask, applyError.message);
+	if (!isApplied) return notMoved(applyError.message);
 	// Pieces after it take up the change as any edit's do
 	return landed(project, before, ask, changedPieces(project, after), commands, { checksNext: true }, deps);
 }

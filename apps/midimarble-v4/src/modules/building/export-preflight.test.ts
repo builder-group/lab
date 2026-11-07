@@ -254,7 +254,7 @@ describe('checkRun function', () => {
 
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 
-		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Melody hits pa1 twice', 'Bass hits pa2 of Melody', 'Melody collides with Bass']);
+		expect(preflight.issues.map((issue) => issue.title)).toEqual(['Melody strikes pa1 twice', 'Bass hits pa2 of Melody', 'Melody collides with Bass']);
 		expect(preflight.issues[1]?.detail).toBe('Hits it 2 times from 0:02.10, without a note.');
 		expect(preflight.issues[2]?.target?.ids).toEqual(['marble-a', 'marble-b']);
 	});
@@ -271,7 +271,7 @@ describe('checkRun function', () => {
 
 		const preflight = checkRun(project, result, NO_BLENDER_OBJECTS);
 
-		expect(preflight.issues.find((issue) => issue.kind === 'strike')).toMatchObject({ title: 'Melody hits pa1 twice', severity: 'warning', label: 'Hit Twice', detail: 'Hits it 2 times from 0:01.20, with one note.' });
+		expect(preflight.issues.find((issue) => issue.kind === 'strike')).toMatchObject({ title: 'Melody strikes pa1 twice', severity: 'warning', label: 'Hit Twice', detail: 'Strikes it twice from 0:01.20, with one note.' });
 		expect(preflight.issues.find((issue) => issue.kind === 'touching')).toMatchObject({ title: 'pa1 touches pa2', severity: 'warning', label: 'Touching' });
 		expect(pieceProblems(preflight).get('pa1')?.map((issue) => issue.kind)).toEqual(['touching', 'strike']);
 	});

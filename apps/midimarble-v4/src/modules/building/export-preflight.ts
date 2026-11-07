@@ -560,22 +560,28 @@ function contactIssues(project: TProject, result: TSimulationResult, names: TNam
 
 // MARK: - What's physically wrong with the run
 
+/** How many times, in words: "twice", "three times", up to ten, then in digits */
+export function timesWords(times: number): string {
+	if (times === 2) return 'twice';
+	const words = ['three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][times - 3];
+	return `${words ?? times} times`;
+}
+
 /**
- * A marble striking its own platform outside the note: "Melody hits Platform 12 twice". It sounds like nothing in the
+ * A marble striking its own platform outside the note: "Melody strikes Platform 12 twice". It sounds like nothing in the
  * film but reads as a mistake, so it counts as a problem. Rests and rolls after the last note and rides on a rail
  * or in a Bowl don't count (`extraStrikes`).
  */
 function strikeIssues(project: TProject, result: TSimulationResult, names: TNames): TPreflightIssue[] {
 	return extraStrikes(project, result).map((strike) => {
-		const count = strike.times === 2 ? 'twice' : `${strike.times} times`;
 		return {
 			id: `strike:${strike.pieceId}`,
 			kind: 'strike' as const,
 			severity: 'warning' as const,
 			marbleId: strike.marbleId,
-			title: `${names.marble(strike.marbleId)} hits ${names.piece(strike.pieceId)} ${count}`,
-			label: strike.times === 2 ? 'Hit Twice' : `Note ${strike.times} Times`,
-			detail: `Hits it ${strike.times} times from ${formatTime(strike.time)}, with one note.`,
+			title: `${names.marble(strike.marbleId)} strikes ${names.piece(strike.pieceId)} ${timesWords(strike.times)}`,
+			label: strike.times === 2 ? 'Hit Twice' : `Hit ${strike.times} Times`,
+			detail: `Strikes it ${timesWords(strike.times)} from ${formatTime(strike.time)}, with one note.`,
 			time: strike.time,
 			target: { ids: [strike.pieceId], point: strike.position, time: strike.time }
 		};

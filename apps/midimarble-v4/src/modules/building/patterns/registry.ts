@@ -1,10 +1,11 @@
 import type { TPatternDefinition } from './contract';
 import { longRail } from './long-rail';
 import { staircase } from './staircase';
+import { switchback } from './switchback';
 import { zigzag } from './zigzag';
 
 /** Every Pattern. A new one is its file and a line here */
-export const PATTERNS = { zigzag, staircase, longRail } satisfies Record<string, TPatternDefinition>;
+export const PATTERNS = { zigzag, staircase, longRail, switchback } satisfies Record<string, TPatternDefinition>;
 
 export type TPatternKind = keyof typeof PATTERNS;
 

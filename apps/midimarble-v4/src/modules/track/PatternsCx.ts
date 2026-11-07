@@ -219,8 +219,7 @@ export class PatternsCx {
 		const project = this.studio.project;
 		if (proposal == null || project == null) return;
 		if (proposal.status !== 'fits') {
-			const words = proposal.words ?? `${group.name} doesn't fit there.`;
-			this.studio.notify(words.endsWith('Nothing changed.') ? words : `${words} Nothing changed.`, 'error');
+			this.studio.notify(proposal.words ?? `${group.name} doesn't fit there. Nothing moved.`, 'error');
 			return;
 		}
 		const [isAccepted, refusal, commands] = acceptProposal(project, proposal);

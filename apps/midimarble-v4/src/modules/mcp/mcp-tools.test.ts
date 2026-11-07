@@ -792,7 +792,7 @@ describe('applyPattern', () => {
 		const before = cx.$history.get()?.past.length;
 		const real = JSON.parse(textOf(await runTool(cx, 'run_command', { id: 'project.execute', args: { commands: [ask] } }))) as { fits: boolean; group: { name: string } };
 
-		expect(state.patterns.map((item) => item.kind)).toEqual(['zigzag', 'staircase', 'longRail']);
+		expect(state.patterns.map((item) => item.kind)).toEqual(['zigzag', 'staircase', 'longRail', 'switchback']);
 		expect(dry.fits).toBe(true);
 		expect(dry.verdicts).toHaveLength(3);
 		expect(real.fits).toBe(true);
