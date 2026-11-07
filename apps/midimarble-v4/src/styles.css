@@ -2908,7 +2908,7 @@ button.mm-lcd-length:hover {
 	flex: 0 1 auto;
 	align-items: center;
 	gap: 2px;
-	min-width: 132px;
+	min-width: 116px;
 	max-width: 240px;
 }
 
