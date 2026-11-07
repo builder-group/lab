@@ -106,7 +106,7 @@ export class SourcesCx {
 		this.studio.$fitFirstHits.set(true);
 		const marbles = `${preview.marbles.length} ${preview.marbles.length === 1 ? 'marble' : 'marbles'}`;
 		const backing = preview.backing.length;
-		const lands = shownSongs(project).length > 0 && pending.replaces == null ? ` It starts at ${formatTime(preview.offset)}, at the playhead.` : '';
+		const lands = shownSongs(project).length > 0 && pending.replaces == null && this.studio.$playhead.get() > 0 ? ` It starts at the playhead, ${formatTime(this.studio.$playhead.get())}.` : '';
 		this.studio.notify(`${backing > 0 ? `Imported ${marbles}. ${backing} ${backing === 1 ? 'note plays' : 'notes play'} as Backing.` : `Imported ${marbles}.`}${lands}`);
 	}
 
@@ -143,7 +143,7 @@ export class SourcesCx {
 			{ type: 'addSong', song: source },
 			{ type: 'updateProject', patch: { length: Math.max(project.length, Math.ceil(source.start + analysis.duration)) } }
 		]);
-		const lands = shownSongs(project).length > 0 && replaced == null ? ` It starts at ${formatTime(source.start)}, at the playhead.` : '';
+		const lands = shownSongs(project).length > 0 && replaced == null && this.studio.$playhead.get() > 0 ? ` It starts at the playhead, ${formatTime(source.start)}.` : '';
 		this.studio.notify(`${analysis.onsets.length} possible hits found. Add them from a marble's row menu or tap along.${lands}`);
 	}
 
