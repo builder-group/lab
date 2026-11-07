@@ -1977,6 +1977,23 @@ button.mm-hit-summary:hover,
 /* MARK: - Layers (Figma UI3 layer list) */
 
 /* Layers and Library tabs like Figma UI3's Layers and Assets: plain words, the open one in a quiet pill */
+/* Which build this is, at Layers' foot: small and tertiary, like Blender's status line */
+.mm-build-tag {
+	align-self: flex-start;
+	flex-shrink: 0;
+	margin: 4px 8px 6px;
+	padding: 1px 8px;
+	border-radius: 4px;
+	color: var(--text-tertiary);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-build-tag:hover {
+	background: var(--hover);
+	color: var(--text-secondary);
+}
+
 .mm-sidebar-head {
 	display: flex;
 	align-items: center;
