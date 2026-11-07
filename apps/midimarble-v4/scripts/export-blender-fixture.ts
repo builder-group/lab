@@ -1,6 +1,6 @@
 // Simulates a fixture and writes a package the Blender worker can apply headless: the scene description,
 // motion files and the soundtrack WAV. Used by the Blender look and film checks.
-// Usage: tsx scripts/export-blender-fixture.ts <fixture> <package-dir> [theme] [fps]
+// Usage: tsx scripts/export-blender-fixture.ts <fixture or path to a .marble.json> <package-dir> [theme] [fps]
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { SoundBankLoader } from 'spessasynth_core';
@@ -12,7 +12,7 @@ import { createSimulator } from '../src/modules/simulation/simulate';
 const [fixture = 'zigzag', packageDir, theme = 'brass', fpsText = '60'] = process.argv.slice(2);
 if (packageDir == null) throw new Error('Usage: export-blender-fixture <fixture> <package-dir> [theme] [fps]');
 
-const json = readFileSync(new URL(`../fixtures/${fixture}.marble.json`, import.meta.url), 'utf8');
+const json = readFileSync(fixture.endsWith('.json') ? fixture : new URL(`../fixtures/${fixture}.marble.json`, import.meta.url), 'utf8');
 const [isProjectOk, projectErr, parsed] = parseProject(json);
 if (!isProjectOk) throw projectErr;
 const project = { ...parsed, film: { ...parsed.film, theme: { base: theme } } };
