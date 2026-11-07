@@ -11,6 +11,7 @@ import { autoLevelLabel, DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findM
 import { BACKING_ID, type THit, type TMarble, type TMarbleSong, type TProject, type TVec2, formatSignedTime, formatTime, parseSignedTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, marbleSong, shownSongs, tiedToSong, tieLabel, tieOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
+import { moveMarbleStart, withMarbleStart } from './marble-start';
 import { SONG_LAYER_LABEL } from './song-layer';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -172,14 +173,36 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarb
 					<LevelField id="marble-level" value={marble.level} autoLabel={autoLevelLabel(marble.id, melodyMarbleId(project))} onChange={(level) => cx.execute([{ type: 'updateMarble', marbleId: marble.id, patch: { level } }])} />
 				</Panel>
 			) : null}
-			{!isFilm && marble.hits.length > 0 && shownSongs(project).length > 0 ? (
-				<Panel id="marble.song" title="Song" accessory={<HelpTip text="Hits tied to a song move with it. None keeps them where they are, on the marble's own." />}>
-					<SongField
-						cx={cx}
-						project={project}
-						id="marble-song"
-						value={songValue(marbleSong(marble))}
-						onChange={(songId) => cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: tiedToSong(marble.hits, songId) }], { label: tieLabel(songId) })}
+			{!isFilm ? (
+				<Panel id="marble.timing" title="Timing" accessory={<HelpTip text="Hits tied to a song move with it; None keeps them where they are, on the marble's own. Start: when the marble is released." />}>
+					{marble.hits.length > 0 ? (
+						<SongField
+							cx={cx}
+							project={project}
+							id="marble-song"
+							value={songValue(marbleSong(marble))}
+							onChange={(songId) => cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: tiedToSong(marble.hits, songId) }], { label: tieLabel(songId) })}
+						/>
+					) : null}
+					<ScrubField
+						id="marble-start"
+						label="Start"
+						name="Start Time"
+						span={2}
+						value={release.time}
+						unit=""
+						step={0.01}
+						precision={2}
+						min={0}
+						max={project.length}
+						format={formatTime}
+						parse={parseTime}
+						onPreview={(time) => cx.simulation.startPreview(withMarbleStart(project, marble.id, time))}
+						onCommit={(time) => {
+							moveMarbleStart(cx, marble, time);
+							cx.simulation.endPreview();
+						}}
+						onCancel={() => cx.simulation.endPreview()}
 					/>
 				</Panel>
 			) : null}

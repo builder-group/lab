@@ -139,6 +139,8 @@ Each piece type is one self-contained definition with a physics shape, a few par
 
 Each marble has a release with its own position on the wall and time on the timeline, independent of the first hit. The MIDI import releases each marble 0.5 s before its first note, a short drop, so the film does not open on a long empty fall. Like a clip in a video editor, the release can be moved earlier to leave a gap before the first hit, and that stretch can hold any pieces.
 
+The time is a ring on the marble's timeline row, the one the marble has on the wall, which drags in time, and **Start** in its inspector's Timing. The run follows live as a what-if on the wall and the row, and the drop is one Undo step. A longer fall means a faster arrival lower down: pieces that play or follow a note slide with it and stay on time, about 13 cm lower for the first 0.06 s of an 0.94 s fall on Jingle Bells, and 49 cm higher for 0.24 s less. A free piece stays where it is, so the new run can meet it. A marble held on a start rail keeps its timing when it starts earlier and is late when it starts later. Past the first note the time is kept, as asked: the chip says "Hits 1 to 3 come before this start", and those notes keep their hits and platforms, read Too Soon or Missed in the hit summary and on the row, and a notice says so with Undo and Fix.
+
 ### Patterns
 
 Patterns make building tracks easier: select some hits and a shape is built over them, on a song with or without pieces. Track only; one marble worked out at a time. Build Track and Next don't use them, but what Build Track places shows in the strip as plain Groups: a Zigzag, a Rail or a neutral Run of the marble's notes.

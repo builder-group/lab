@@ -3,7 +3,7 @@ import React from 'react';
 import { openContextMenu } from '@/components';
 import { unreachableStatus, hitTiming, type THitTiming } from '@/modules/building';
 import { findMarbleConflicts, isHitAudible, MIN_HIT_GAP, type TMix } from '@/modules/music';
-import { type THit, type TMarble, toSongKey } from '@/modules/project';
+import { playsOnlySong, type THit, type TMarble, toSongKey } from '@/modules/project';
 import type { THitResult } from '@/modules/simulation';
 import { formatTime, noteName, toHitKey } from '@/modules/project';
 import { hitMenu, marbleMenu } from '../menus';
@@ -13,6 +13,7 @@ import { offsetLabel } from '@/modules/canvas';
 import { PatternStrip } from './PatternStrip';
 import type { TPitchRange } from './piano-roll';
 import type { TSongMove } from './SongTrack';
+import { StartMarker } from './StartMarker';
 import { PATTERN_STRIP_HEIGHT, ROW_HEIGHT, tieSpans } from './timeline-layout';
 
 /**
@@ -74,6 +75,15 @@ export const MarbleTrack: React.FC<TMarbleTrackProps> = (props) => {
 				const shift = move?.songId === tie.songId ? move.delta : 0;
 				return <span key={`${tie.songId}:${tie.from}`} className="mm-tie-line" data-selected={selection.includes(toSongKey(tie.songId))} style={{ left: (tie.from + shift) * zoom - 3, width: (tie.to - tie.from) * zoom + 6, background: songTints.get(tie.songId) }} aria-hidden />;
 			})}
+			<StartMarker
+				cx={cx}
+				marble={marble}
+				zoom={zoom}
+				top={hitsTop + (ROW_HEIGHT - hitsTop) / 2}
+				shift={move != null && playsOnlySong(marble, move.songId) ? move.delta : 0}
+				isSelected={selection.includes(marble.id)}
+				length={cx.project?.length ?? Number.POSITIVE_INFINITY}
+			/>
 			{marble.hits.map((hit, index) => {
 				const key = toHitKey(marble.id, hit.id);
 				const offset = (drag?.keys.includes(key) === true ? drag.delta : 0) + (move != null && hit.songId === move.songId ? move.delta : 0);
