@@ -6,16 +6,15 @@
 // One marble keeps the first and hands the others' notes to Backing; two runs the fixture as it is, where it has two.
 // With a save folder each built project is written there, for a film of it (`export-blender-fixture.ts`).
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { assignNotesCommands, buildTrack, checkRun, hitOwners, localBuildDeps, NO_BLENDER_OBJECTS, problemSummary } from '../src/modules/building';
+import { assignNotesCommands, buildTrack, checkRun, localBuildDeps, NO_BLENDER_OBJECTS, problemSummary } from '../src/modules/building';
 import { filmCamera } from '../src/modules/camera';
 import { applyProjectCommands, BACKING_ID, tieOf, type TProject, type TProjectCommand } from '../src/modules/project';
 import { parseProject, serializeProject } from '../src/modules/project/project-file';
 import { createSimulator, type TSimulationResult } from '../src/modules/simulation';
-import { repeatedStretches, STRETCH } from '../src/modules/building/repeats';
+import { repeatShape } from './repeat-shape';
 import { odeToJoy } from './songs';
 
 const [out = '', songsText = 'jingle-bells,reference-20,ode-to-joy',gravitiesText = '0.25,0.3,0.35,0.5', marblesText = '1,2', saveDir = ''] = process.argv.slice(2);
-const DEGREE = Math.PI / 180;
 
 function applied(project: TProject, commands: TProjectCommand[]): TProject {
 	if (!commands.length) return project;
@@ -68,36 +67,6 @@ function rests(project: TProject): Record<string, number> {
 	return counts;
 }
 
-/**
- * How alike a repeated stretch comes out (`repeatedStretches`), each against its first time: tilts within 3°, and how
- * far each dot lies from where the first time's did, both measured from the stretch's first note, in cm
- */
-function repeats(project: TProject, result: TSimulationResult): Record<string, unknown> {
-	let pairs = 0;
-	const tilts: number[] = [];
-	const offsets: number[] = [];
-	for (const marble of project.marbles) {
-		const { hits } = marble;
-		const owners = hitOwners(project, marble.id);
-		for (const { first: earlier, again: start } of repeatedStretches(project, marble.id)) {
-			pairs++;
-			const dotOf = (index: number) => result.hits.find((hit) => hit.marbleId === marble.id && hit.hitId === hits[index]?.id)?.dot ?? null;
-			const [a0, b0] = [dotOf(earlier), dotOf(start)];
-			for (let index = 0; index < STRETCH; index++) {
-				const [a, b] = [owners.get(hits[earlier + index]?.id ?? ''), owners.get(hits[start + index]?.id ?? '')];
-				if (a?.type === 'platform' && b?.type === 'platform') {
-					const turn = Math.abs(((a.angle - b.angle + Math.PI) % (2 * Math.PI)) - Math.PI);
-					tilts.push(turn / DEGREE);
-				}
-				const [da, db] = [dotOf(earlier + index), dotOf(start + index)];
-				if (index > 0 && a0 != null && b0 != null && da != null && db != null) offsets.push(Math.hypot(da.x - a0.x - (db.x - b0.x), da.y - a0.y - (db.y - b0.y)) * 100);
-			}
-		}
-	}
-	const median = (values: number[]): number | null => (values.length ? Number(([...values].sort((x, y) => x - y)[Math.floor(values.length / 2)] ?? 0).toFixed(1)) : null);
-	return { pairs, within3: tilts.length ? `${Math.round((tilts.filter((value) => value <= 3).length / tilts.length) * 100)}%` : null, apartCm: median(offsets) };
-}
-
 const rows: unknown[] = [];
 for (const song of songsText.split(',')) {
 	for (const marbles of marblesText.split(',').map(Number)) {
@@ -107,7 +76,7 @@ for (const song of songsText.split(',')) {
 			const sim = await createSimulator();
 			const started = performance.now();
 			const outcome = await buildTrack(project, localBuildDeps(sim));
-			const line = { song, marbles, gravity, ...standing(outcome.project, outcome.result), seconds: Number(((performance.now() - started) / 1000).toFixed(1)), rests: rests(outcome.project), repeats: repeats(outcome.project, outcome.result), counts: Object.fromEntries(Object.entries(outcome.counts).filter(([, count]) => count > 0)) };
+			const line = { song, marbles, gravity, ...standing(outcome.project, outcome.result), seconds: Number(((performance.now() - started) / 1000).toFixed(1)), rests: rests(outcome.project), repeats: repeatShape(outcome.project, outcome.result), counts: Object.fromEntries(Object.entries(outcome.counts).filter(([, count]) => count > 0)) };
 			sim.dispose();
 			if (saveDir !== '') {
 				mkdirSync(saveDir, { recursive: true });
