@@ -1,11 +1,12 @@
 import { useFeatureState } from 'feature-react/state';
-import { Folder, Spline } from 'lucide-react';
+import { Spline } from 'lucide-react';
 import React from 'react';
 import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
 import { isPatternGroup, type TGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf } from '@/modules/project';
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, patternOfKind, patternSpan, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
+import { GroupIcon } from './GroupIcon';
 import { type TPatternTarget } from './PatternsCx';
 
 /** A silence dragged out in the strip */
@@ -45,7 +46,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const widthRange = pattern?.widthRange;
 	return (
 		<>
-			<InspectorHeader icon={<Folder size={16} strokeWidth={1.7} />} title={group.name} subtitle={subtitle} />
+			<InspectorHeader icon={<GroupIcon group={group} size={16} />} title={group.name} subtitle={subtitle} />
 			<Panel id="pattern" title="Pattern" isGrid={false}>
 				{isPatternKind(kind) && widthRange != null ? (
 					<div className="mm-insp-grid mm-pattern-fields">

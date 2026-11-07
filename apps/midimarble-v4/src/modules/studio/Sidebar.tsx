@@ -4,7 +4,7 @@ import React from 'react';
 import { HelpTip, openContextMenu, RenameField } from '@/components';
 import { attachState, decorTips, pieceProblems, struckPieces, type TPreflightIssue, patternOfPiece } from '@/modules/building';
 import { PieceIcon, useRunPreflight } from '@/modules/canvas';
-import { badgeStatus, StatusIcon, type TBadgeStatus, groupSelection } from '@/modules/track';
+import { badgeStatus, GroupIcon, StatusIcon, type TBadgeStatus, groupSelection } from '@/modules/track';
 import { madeInBlenderCommands, madeInBlenderLayer, selectedDecorIds, updateDecorCommands, updateLightCommands } from '@/modules/scene';
 import { $scatterPanel, revealMadeInBlender } from '@/modules/film';
 import { isPatternGroup, type TPiece, type TProject, formatTime, SCENE_KEY, tieOf } from '@/modules/project';
@@ -378,7 +378,7 @@ function outlineRowView(row: TOutlineRow): { icon: React.ReactNode; label: strin
 		case 'group':
 			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.label, help: row.help, isOpen: row.isOpen };
 		case 'patternGroup':
-			return { icon: <Folder size={14} strokeWidth={1.75} />, label: row.group.name, ...(isPatternGroup(row.group) ? { title: `${row.group.name}: made by a Pattern; Flatten to edit its pieces one by one` } : {}), isOpen: row.hasChildren ? row.isOpen : undefined };
+			return { icon: <GroupIcon group={row.group} />, label: row.group.name, title: isPatternGroup(row.group) ? `${row.group.name}: a live Pattern; Flatten to edit its pieces one by one` : `${row.group.name}: a Group`, isOpen: row.hasChildren ? row.isOpen : undefined };
 		case 'wall':
 			return { icon: <BrickWall size={14} strokeWidth={1.75} style={{ color: row.labelColor }} />, label: 'Wall' };
 		case 'light':

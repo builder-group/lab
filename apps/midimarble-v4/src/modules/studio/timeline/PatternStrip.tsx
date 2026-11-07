@@ -2,7 +2,7 @@ import { useFeatureState } from 'feature-react/state';
 import React from 'react';
 import { openContextMenu } from '@/components';
 import { groupProblems, isPatternKind, patternOfKind, patternSpan } from '@/modules/building';
-import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
+import { GroupIcon, groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
 import { isPatternGroup, type TPatternGroup, type TMarble, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
 import { pieceMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
@@ -17,8 +17,10 @@ const MIN_DRAG_PX = 3;
  * hover. Dragging out a range selects its notes, the same as dragging over them below, or the silence itself. A block is
  * a Group: a click selects it; a Pattern's edges resize it, which fits it again.
  */
-/** Pixels a block needs to show a short name whole */
-const MIN_NAMED_BLOCK = 44;
+/** Pixels a block needs to show a short name whole, after its icon */
+const MIN_NAMED_BLOCK = 58;
+/** Pixels a block needs to show its icon */
+const MIN_ICON_BLOCK = 22;
 
 export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 	const { cx, marble, zoom, timeAt } = props;
@@ -126,7 +128,8 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 							openContextMenu(event, pieceMenu(cx));
 						}}
 					>
-						{/* A block too short for its name shows none, not "Zig…"; the tooltip has it */}
+						{/* Its icon says Pattern or plain Group; a block too short for its name shows none, not "Zig…", and the tooltip has it */}
+						{(to - from) * zoom + 2 * pad >= MIN_ICON_BLOCK ? <GroupIcon group={group} size={10} /> : null}
 						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}
 						{/* A Long Rail always fills its silence, and a plain Group has no Pattern to fit, so only a Pattern on notes has edges to drag */}
 						{isPatternGroup(group) && !isSilence

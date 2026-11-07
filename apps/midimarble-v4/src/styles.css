@@ -2830,9 +2830,18 @@ button.mm-lcd-length:hover {
 }
 
 .mm-bar-what-text {
-	overflow: hidden;
-	padding: 0 4px;
-	text-overflow: ellipsis;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	padding: 0 4px 0 6px;
+	font-weight: 500;
+}
+
+.mm-group-icon,
+.mm-bar-what-text > svg,
+.mm-pattern-block > svg {
+	flex: none;
 }
 
 .mm-bar-split {
@@ -3168,6 +3177,7 @@ button.mm-lcd-length:hover {
 	bottom: 1px;
 	display: flex;
 	align-items: center;
+	gap: 4px;
 	overflow: hidden;
 	padding: 0 6px;
 	border-radius: 3px;

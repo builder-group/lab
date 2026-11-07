@@ -10,6 +10,7 @@ import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
 import type { TBarAnswer } from './BarCx';
 import { GhostPiece } from './GhostLayer';
+import { GroupIcon } from './GroupIcon';
 import { FLATTEN_HELP } from './PatternsCx';
 import { lookStatus, pieceStatus, struckStatus } from './PieceInspector';
 import { timingStatus, type TTimingStatus } from './timing-status';
@@ -225,7 +226,14 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	useFeatureState(cx.simulation.$result);
 	const group = target.kind === 'rest' ? null : target.group;
 	const isOpen = state.menu != null;
-	if (group != null && choice == null) return <span className="mm-bar-what-text">Part of {group.name}</span>;
+	if (group != null && choice == null) {
+		return (
+			<span className="mm-bar-what-text" title={`Part of ${group.name}, a live Pattern`}>
+				<GroupIcon group={group} />
+				<span className="mm-bar-label">{group.name}</span>
+			</span>
+		);
+	}
 	const toggle = (
 		<button className="mm-bar-chevron" aria-label="Choose" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Choose what goes here (⇥)" type="button">
 			<ChevronDown size={13} strokeWidth={1.8} />
