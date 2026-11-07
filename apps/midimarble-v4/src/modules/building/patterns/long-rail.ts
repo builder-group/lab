@@ -1,7 +1,7 @@
 import { type THit, type TPiece, type TProject, tieOf } from '@/modules/project';
 import { hasRide, soundsHit, startRailOf, type TSimulator } from '@/modules/simulation';
 import type { TPatternDefinition, TPatternFit, TPatternInput, TPatternWorld, THitVerdict } from './contract';
-import { fitLongRail } from './fit-rail';
+import { fitLongRail, HOLD_LIMIT } from './fit-rail';
 import { exitAt, verdictsFor } from './verdicts';
 import { formatSeconds, wordsForHitTime } from './words';
 
@@ -32,13 +32,15 @@ function fitRailPattern(input: TPatternInput, world: TPatternWorld): TPatternFit
 	const hitId = previous?.id ?? to.id;
 	const gap = to.time - startTime;
 	let tries = 0;
-	const { fit, why } = fitLongRail(sim, project, marbleId, { hitId: previous?.id ?? null, time: startTime }, to.id, () => {
-		tries++;
-		world.onProgress?.(Math.min(0.95, tries / 80));
+	const { fit, why } = fitLongRail(sim, project, marbleId, { hitId: previous?.id ?? null, time: startTime }, to.id, {
+		onTry: () => {
+			tries++;
+			world.onProgress?.(Math.min(0.95, tries / 80));
+		}
 	});
 	if (fit == null) return { ...nothing({ hitId, fits: false, words: `No rail holds the marble for ${formatSeconds(gap)} here${why != null ? `: ${why}` : ''}.` }), sims: tries };
 	const said: THitVerdict[] = [];
-	if (Math.abs(fit.holdErr) > 0.05) said.push({ hitId, fits: false, words: `The rail lets go ${formatSeconds(Math.abs(fit.holdErr))} ${fit.holdErr > 0 ? 'late' : 'early'} for the note at ${wordsForHitTime(to.time)}.` });
+	if (Math.abs(fit.holdErr) > HOLD_LIMIT) said.push({ hitId, fits: false, words: `The rail lets go ${formatSeconds(Math.abs(fit.holdErr))} ${fit.holdErr > 0 ? 'late' : 'early'} for the note at ${wordsForHitTime(to.time)}.` });
 	if (fit.isTouching) said.push({ hitId, fits: false, words: `The rail touches a piece beside it at ${wordsForHitTime(startTime)}.` });
 	return {
 		pieces: [fit.piece],

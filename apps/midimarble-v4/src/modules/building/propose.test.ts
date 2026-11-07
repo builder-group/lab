@@ -162,6 +162,21 @@ describe('propose across a rest', () => {
 		expect(landed(project, proposal).track.pieces.at(-1)?.id).toBe(proposal.pieces[0]?.id);
 	});
 
+	it('fills a rest a single rail can hold with one stroke, and says why not past that', async () => {
+		const project = await rest();
+		const marble = project.marbles[0];
+		if (marble == null) throw new Error('No marble');
+		// 2.5 s of silence is more than a single rail holds
+		await expect((async () => deps.gapPiece({ type: 'curve', project, marbleId: 'marble', fromHitId: 'hit-0', toHitId: 'hit-1' }))()).rejects.toThrow(/1.55 s at most/);
+		const shorter: TProject = { ...project, marbles: [{ ...marble, hits: [{ id: 'hit-0', time: 0.5 }, { id: 'hit-1', time: 1.7 }] }] };
+		const answer = await deps.gapPiece({ type: 'curve', project: shorter, marbleId: 'marble', fromHitId: 'hit-0', toHitId: 'hit-1' });
+		expect(answer.piece.layout).toBeUndefined();
+		expect(answer.piece.path?.points).toHaveLength(3);
+		// It lets go before the note, within what a Curved Rail may be off
+		expect(answer.check?.leaveTime).toBeGreaterThan(1.5);
+		expect(answer.check?.leaveTime).toBeLessThan(1.7);
+	});
+
 	it('says why when no rail fits, and a rest needs a note before it', async () => {
 		const project = await rest();
 		const none = await propose(project, { marbleId: 'marble', hitIds: ['hit-1'], kind: 'rail' }, { ...deps, gapPiece: () => Promise.reject(new Error('The frame has no room')) });

@@ -69,7 +69,8 @@ export function createSimulationClient(): TSimulationClient {
 			return assists.queue.enqueue<TContinueAnswer | null>('continue', { kind: 'continue', ...request });
 		},
 		gapPiece(request, options) {
-			if (poolSize < 2) return assists.queue.enqueue<TGapAnswer>('gapPiece', { kind: 'gapPiece', ...request });
+			// A single Curved Rail is one fit, not a search the pool shares out
+			if (poolSize < 2 || request.type === 'curve') return assists.queue.enqueue<TGapAnswer>('gapPiece', { kind: 'gapPiece', ...request });
 			return startPool().gapPiece(request, options);
 		},
 		dispose() {

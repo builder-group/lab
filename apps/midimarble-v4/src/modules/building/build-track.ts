@@ -74,6 +74,8 @@ const SWITCHBACK_IN_A_ROW_COST = 0.3;
 
 export interface TBuildCounts {
 	next: number;
+	/** A single Curved Rail across a rest */
+	curve: number;
 	switchback: number;
 	chain: number;
 	rail: number;
@@ -229,7 +231,7 @@ interface TSearchBudget {
 }
 
 function emptyCounts(): TBuildCounts {
-	return { next: 0, switchback: 0, chain: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
+	return { next: 0, curve: 0, switchback: 0, chain: 0, rail: 0, continue: 0, continued: 0, mirror: 0, autoPlace: 0, launch: 0, wide: 0, lean: 0, backtrack: 0, unblock: 0, rewind: 0, frame: 0, failed: 0 };
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
@@ -448,12 +450,12 @@ async function buildStep(state: TBuildState, current: TProject, target: THitResu
 			const log = `  ${gap.fromHitId} -> ${gap.toHitId}: ${type} over ${gap.duration.toFixed(2)} s${type === 'switchback' || type === 'chain' ? ` (${params['turns']} turns at ${(Math.abs(answer?.piece.angle ?? 0) / DEGREE).toFixed(0)}°)` : ''}, next dot ${pace != null ? `${pace.toFixed(2)} m from y*` : 'without pace'}`;
 			const isAsked = state.gapPiece === type;
 			options.push({ project: accepted, type, log, label: type, cost: isAsked || (type !== 'switchback') ? 0 : SWITCHBACK_COST + (rodeSwitchback ? SWITCHBACK_IN_A_ROW_COST : 0) });
-			// Asked for by name, or trying ahead already: the first that fits
-			if (isAsked || state.isLooking) break;
+			// Asked for by name, or trying ahead already: the first that fits. A single Curved Rail that fits goes before any hook
+			if (isAsked || state.isLooking || type === 'curve') break;
 		}
 		const chosen = options.length > 1 ? await chooseAhead(state, options, marbleId) : options[0];
 		if (chosen != null) {
-			counts[chosen.type === 'switchback' || chosen.type === 'chain' ? chosen.type : 'rail']++;
+			counts[chosen.type === 'switchback' || chosen.type === 'chain' || chosen.type === 'curve' ? chosen.type : 'rail']++;
 			deps.onLog?.(chosen.log);
 			return chosen.project;
 		}

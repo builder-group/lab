@@ -1,7 +1,9 @@
+import { Err, Ok, type TResult } from 'tuple-result';
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, stageBand, startRailId, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, stageBand, startRailId, type TSimulationResult } from '@/modules/simulation';
+import type { TSimulateFn } from '../assists';
 import { touchingPairs } from '../track-problems';
-import { findEntryTime } from '../gap-pieces';
+import { checkGapPiece, findEntryTime, type TGapPieceProposal } from '../gap-pieces';
 import { sampleAt, withPiece } from './fit-bars';
 
 // Long Rail: a rail whose shape is solved so the marble leaves it a chosen time before the next hit, against the real
@@ -36,11 +38,23 @@ interface TTrial extends TRailFit {
 	why: string | null;
 }
 
+/** Seconds a rail may let go off its time and still fit, as the Curved Rail's verdict says */
+export const HOLD_LIMIT = 0.05;
+
+export interface TLongRailOptions {
+	onTry?: () => void;
+	/** Only the single ramp, never the Switchback layout */
+	isSingle?: boolean;
+	id?: string;
+}
+
 /**
  * The rail up to a hit, or why none holds the marble: the longest hold tried and what went wrong with it. It starts at
- * the note before, or at the marble's release with no hit: then it's the marble's start rail, tied to no hit.
+ * the note before, or at the marble's release with no hit: then it's the marble's start rail, tied to no hit. Up to
+ * `RAMP_LIMIT` a single ramp is tried first and kept when it fits, before the Switchback layout's hooks
  */
-export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, start: { hitId: string | null; time: number }, toHitId: string, onTry?: () => void): TRailAnswer {
+export function fitLongRail(sim: { simulate: (project: TProject) => TSimulationResult }, base: TProject, marbleId: string, start: { hitId: string | null; time: number }, toHitId: string, options: TLongRailOptions = {}): TRailAnswer {
+	const { onTry, isSingle = false } = options;
 	let sims = 0;
 	const whys = new Map<string, number>();
 	const marble = base.marbles.find((item) => item.id === marbleId);
@@ -49,9 +63,10 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 	if (to == null) return { fit: null, why: null };
 	const gap = to - from;
 	const tail = 0.1;
-	const id = fromHitId != null ? `long-rail-${fromHitId}` : startRailId(marbleId);
+	const id = options.id ?? (fromHitId != null ? `long-rail-${fromHitId}` : startRailId(marbleId));
 	const entryDrop = gap <= RAMP_LIMIT ? 0.002 : 0.006;
-	const kinds: ('ramp' | 'switchback')[] = gap <= RAMP_LIMIT ? ['ramp', 'switchback'] : ['switchback', 'ramp'];
+	if (isSingle && gap > RAMP_LIMIT) return { fit: null, why: `it holds the marble ${RAMP_LIMIT.toFixed(2)} s at most` };
+	const kinds: ('ramp' | 'switchback')[] = isSingle ? ['ramp'] : gap <= RAMP_LIMIT ? ['ramp', 'switchback'] : ['switchback', 'ramp'];
 	const run = (next: TProject, until: number): TSimulationResult => {
 		sims++;
 		onTry?.();
@@ -186,11 +201,30 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 			}
 		}
 		if (results.some((item) => item.kind === kind && Math.abs(item.holdErr) < 0.02 && !item.isTouching)) break;
+		// A single ramp that fits is kept: one stroke before the hooks of the Switchback layout
+		if (kind === 'ramp' && results.some((item) => item.kind === 'ramp' && Math.abs(item.holdErr) <= HOLD_LIMIT && !item.isTouching)) break;
 	}
 	const cost = (item: TTrial): number => Math.abs(item.holdErr) + (item.isTouching ? 0.05 : 0);
 	const best = results.sort((a, b) => cost(a) - cost(b))[0];
 	if (best == null) return { fit: null, why: [...whys].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null };
 	return { fit: { ...best, sims }, why: null };
+}
+
+/**
+ * A single Curved Rail across the long gap before `toHitId`, as a gap piece: one ramp that holds the marble through the
+ * silence and lets go in time, or an error saying why none does. The note after it is placed where the marble arrives
+ */
+export function createCurveForGap(project: TProject, _result: TSimulationResult, marbleId: string, fromHitId: string, toHitId: string, options: { simulate: TSimulateFn; id?: string }): TResult<TGapPieceProposal, Error> {
+	const hits = project.marbles.find((item) => item.id === marbleId)?.hits ?? [];
+	const [from, to] = [hits.find((hit) => hit.id === fromHitId), hits.find((hit) => hit.id === toHitId)];
+	if (from == null || to == null) return Err(new Error('That note is gone.'));
+	const { fit, why } = fitLongRail({ simulate: options.simulate }, project, marbleId, { hitId: fromHitId, time: from.time }, toHitId, { isSingle: true, ...(options.id != null ? { id: options.id } : {}) });
+	if (fit == null) return Err(new Error(`No single rail holds the marble here${why != null ? `: ${why}` : ''}`));
+	if (Math.abs(fit.holdErr) > HOLD_LIMIT) return Err(new Error(`The single rail lets go ${Math.abs(fit.holdErr).toFixed(2)} s ${fit.holdErr > 0 ? 'late' : 'early'}`));
+	if (fit.isTouching) return Err(new Error('The single rail touches a piece beside it'));
+	const entryTime = from.time + (fit.piece.params['entryDelay'] ?? 0);
+	const trial = options.simulate({ ...withPiece(project, fit.piece), length: to.time + 0.02 });
+	return Ok({ piece: fit.piece, commands: [{ type: 'addPiece', piece: fit.piece }], entryTime, length: fit.width, slope: fit.slope, check: checkGapPiece(trial, project, marbleId, fit.piece.id, entryTime, toHitId, to.time) });
 }
 
 function marbleRadius(project: TProject, marbleId: string): number {

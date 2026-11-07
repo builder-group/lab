@@ -57,9 +57,10 @@ describe('Rail layouts', () => {
 });
 
 describe('asking for a gap piece', () => {
-	it('should fall back from a Chain to the Switchback layout, and leave the default alone', () => {
+	it('should fall back from a Chain to the Switchback layout, and try a single Curved Rail first by default', () => {
 		expect(gapPieceOrder('chain')).toEqual(['chain', 'switchback']);
-		expect(gapPieceOrder()).toEqual(['rail', 'switchback']);
+		expect(gapPieceOrder()).toEqual(['curve', 'rail', 'switchback']);
+		expect(gapPieceOrder('rail')).toEqual(['rail', 'switchback']);
 		expect(gapPieceTypeOf({ type: 'rail', layout: 'chain' })).toBe('chain');
 		expect(gapPieceTypeOf({ type: 'rail' })).toBe('rail');
 		expect(gapPieceTypeOf({ type: 'tunnel' })).toBe('tunnel');

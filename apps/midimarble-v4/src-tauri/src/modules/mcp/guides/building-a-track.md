@@ -17,7 +17,7 @@ A hit it can't solve is named in the reply (`lastBuild.attention`) and it builds
 Two arguments steer it, and neither is needed by default:
 
 - `args: { from: hitId }` is **Rebuild From Here**: everything up to that hit stays exactly as it is, on every marble, and the rest is built again as one Undo step. Turn a platform by hand, then rebuild from its hit, and the track follows your edit. The hit IDs are in `get_state.marbles[].hits`. `run_command('build.rebuildFrom', { select: [key] })` does the same from a hit's or piece's key, or from what the person selected, and also answers when the build is done.
-- `args: { gapPiece: 'rail' }`, `'switchback'` or `'chain'` tries that Rail layout first across every long gap. Without it, a straight Rail where one reads well and the Switchback layout where nothing else bridges the gap. `'chain'` is curved turns, always simulated, and falls back to the Switchback layout when its turns would hold the marble. `get_state.lastBuild` and `hits` say what happened.
+- `args: { gapPiece: 'rail' }`, `'switchback'` or `'chain'` tries that Rail layout first across every long gap. Without it, a single Curved Rail where one holds the marble through a silence of up to 1.55 s, then a straight Rail where one reads well and the Switchback layout where nothing else bridges the gap. `'chain'` is curved turns, always simulated, and falls back to the Switchback layout when its turns would hold the marble. `get_state.lastBuild` and `hits` say what happened.
 
 ## A line to follow
 
@@ -62,7 +62,7 @@ The reply has `status`: `fits`, every fact holds; `problems`, it would land with
 
 ## Long gaps
 
-Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Entire Track and `build.next` bridge them with a rail where one reads well, or a Rail with the Switchback layout, which holds the marble while it descends, where nothing else does. A rail or tunnel never plays a note.
+Two notes further apart than about 0.7 s are a long gap: a marble in free fall drops about 5 m in a 2 s gap at the default speed and leaves the track. Build Entire Track first tries a single Curved Rail that holds the marble through the silence; it and `build.next` bridge them with a rail where one reads well, or a Rail with the Switchback layout, which holds the marble while it descends, where nothing else does. A rail or tunnel never plays a note.
 
 To choose the piece yourself, place it on the hit before the gap with `project.execute`: `{ type: 'placePiece', pieceType: 'rail', hit: { marbleId, hitId }, params: { entryDelay: 0.3 } }`, where `entryDelay` is how many seconds after that hit the marble meets it, and `path` sets its shape, or `layout: 'switchback'`, `'chain'`, `'c'` or `'curve'` with `params` such as `turns`, `width` and `drop` generates its paths. A `rail` or `tunnel` counts as bridging the gap, and Build Entire Track then keeps it and builds around it.
 

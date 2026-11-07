@@ -12,7 +12,8 @@ import type { TGapPieceType } from '@/modules/building';
  */
 export function gapPieceOrder(preferred?: 'rail' | 'switchback' | 'chain' | null): TGapPieceType[] {
 	if (preferred === 'chain') return ['chain', 'switchback'];
-	return preferred === 'switchback' ? ['switchback', 'rail'] : ['rail', 'switchback'];
+	if (preferred === 'switchback') return ['switchback', 'rail'];
+	return preferred === 'rail' ? ['rail', 'switchback'] : ['curve', 'rail', 'switchback'];
 }
 
 /** What a gap search asks for to make a piece like this one again */
@@ -219,6 +220,8 @@ export function prepareGapSearch(
 	toHitId: string,
 	options: TGapPieceOptions = {}
 ): TResult<TGapSearch, Error> {
+	// A single Curved Rail is one fit in one worker, never a pooled search
+	if (type === 'curve') return Err(new Error('A Curved Rail has no gap search'));
 	return type === 'switchback' || type === 'chain'
 		? prepareTurns(type, project, result, marbleId, fromHitId, toHitId, options)
 		: prepareGapPiece(type, project, result, marbleId, fromHitId, toHitId, options);
@@ -430,7 +433,7 @@ function round(value: number): number {
 	return Math.round(value * 1e5) / 1e5;
 }
 
-function checkGapPiece(
+export function checkGapPiece(
 	trial: TSimulationResult,
 	project: TProject,
 	marbleId: string,

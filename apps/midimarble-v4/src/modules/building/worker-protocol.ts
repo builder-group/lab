@@ -4,6 +4,7 @@ import { type TSimulator, type TResolvedPiece, type TSimulationResult } from '@/
 import { autoPlace, autoPlaceHorizon, continueSuggestions, findHitResult, prepareAutoPlace, simulateTrial, withPieces, type TAngleEvaluation, type TAngleTry, type TAutoPlacePlan, type TContinueResult, type TSimulateFn } from './assists';
 import { createRailForGap, createChainForGap, createSwitchbackForGap, createTunnelForGap, prepareGapSearch, type TGapEvaluation, type TGapPieceCheck, type TGapPieceProposal, type TGapSearchPlan, type TGapTry } from './gap-pieces';
 import { answerEdit, reconnect, type TEditAnswer, type TEditRequest } from './edit-rule';
+import { createCurveForGap } from './patterns/fit-rail';
 
 // Messages between the UI and the simulation worker. Every request carries the project it asks about,
 // so the worker always answers for the newest edit. Assists first simulate that project, which resumes
@@ -73,7 +74,8 @@ export interface TSearchBatch {
 }
 
 /** Pieces that bridge a long gap */
-export type TGapPieceType = 'switchback' | 'chain' | 'rail' | 'tunnel';
+/** `curve` is a single Curved Rail, tried before the others at a rest */
+export type TGapPieceType = 'curve' | 'switchback' | 'chain' | 'rail' | 'tunnel';
 
 export interface TAutoPlaceAnswer {
 	piece: TPiece;
@@ -172,7 +174,7 @@ export function answerWorkerRequest(
 		}
 		case 'gapPiece': {
 			const { project, marbleId, fromHitId, toHitId, pieceId, type } = request;
-			const create = type === 'switchback' ? createSwitchbackForGap : type === 'chain' ? createChainForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
+			const create = type === 'curve' ? createCurveForGap : type === 'switchback' ? createSwitchbackForGap : type === 'chain' ? createChainForGap : type === 'rail' ? createRailForGap : createTunnelForGap;
 			const [isOk, error, proposal] = create(project, result, marbleId, fromHitId, toHitId, { simulate, id: pieceId });
 			if (!isOk) throw error;
 			return gapAnswer(simulate, request, proposal, startedAt);
