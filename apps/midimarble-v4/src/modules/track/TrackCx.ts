@@ -1629,14 +1629,29 @@ export class TrackCx {
 	private followSelection(selection: string[]): void {
 		const only = selection.length === 1 ? selection[0] : undefined;
 		this.placedId = only != null && this.result?.pieces.some((piece) => piece.pieceId === only) !== true ? only : null;
-		if (selection.length !== 1 || this.studio.$playing.get()) return;
+		if (this.studio.$playing.get()) return;
+		if (selection.length > 1) {
+			this.revealGroup(selection);
+			return;
+		}
 		const project = this.project;
-		if (project == null) return;
+		if (selection.length !== 1 || project == null) return;
 		// Selecting in the timeline or the layers pans to it when it is off screen, like Final Cut's viewer
 		const hitKey = parseHitKey(only ?? '');
 		const hit = hitKey != null ? this.result?.hits.find((item) => item.marbleId === hitKey.marbleId && item.hitId === hitKey.hitId) : undefined;
 		const piece = this.result?.pieces.find((item) => item.pieceId === only);
 		this.revealPoint(hit?.dot ?? piece?.contactPoint ?? piece?.position ?? null, 0, 0);
+	}
+
+	/** A Group chosen in the timeline or Layers comes into view when none of its pieces is on screen */
+	private revealGroup(selection: string[]): void {
+		const chosen = new Set(selection);
+		const points = (this.result?.pieces ?? []).filter((piece) => chosen.has(piece.pieceId)).map((piece) => piece.contactPoint ?? piece.position);
+		if (!points.length) return;
+		const camera = this.$camera.get();
+		const viewport = this.$viewport.get();
+		if (points.some((point) => isBoundsVisible(camera.view, viewport, { minX: point.x, minY: point.y, maxX: point.x, maxY: point.y }, 0))) return;
+		this.navigateTo({ ...camera.view, center: { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length } });
 	}
 
 	// MARK: - Moving, placing and turning
