@@ -68,7 +68,7 @@ describe('stops', () => {
 		const selection = selectionOfStop(project, stop);
 		const rest = targetOf(project, selection);
 		expect(rest.kind).toBe('rest');
-		expect(whereWords(rest)).toBe('Rest 3.5 s');
+		expect(whereWords(rest)).toBe('Rest · 3.5 s');
 		expect(stopBeside(project, rest, -1)).toMatchObject({ kind: 'note', number: 2 });
 		expect(stopBeside(project, rest, 1)).toMatchObject({ kind: 'note', number: 3 });
 	});

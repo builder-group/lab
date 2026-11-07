@@ -1,14 +1,14 @@
 import { useFeatureState } from 'feature-react/state';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Unlink2, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, CornerDownLeft, FlipHorizontal2, FolderInput } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
-import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, type TProposal } from '@/modules/building';
+import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces } from '@/modules/building';
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { toPoints, useRunPreflight } from '@/modules/canvas';
 import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
-import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
-import type { TBarAnswer } from './BarCx';
+import { acceptWords, causeWords, defaultChoice, effectWords, hasStopBeside, isBadProposal, isOverBuilt, passedWords, plainGroupOf, rowWords, senderOf, standingWords, whereTitle, whereWords, BUILD_UP_TO, type TBarRow, type TBarTarget } from './bar';
+import { isRowRefused } from './BarCx';
 import { GhostPiece } from './GhostLayer';
 import { GroupIcon } from './GroupIcon';
 import { FLATTEN_HELP } from './PatternsCx';
@@ -27,9 +27,10 @@ export const FloatingBar: React.FC<{ cx: StudioCx }> = (props) => {
 	const building = useFeatureState(cx.assist.$building);
 	const trackView = useFeatureState(cx.$trackView);
 	const workspace = useFeatureState(cx.$workspace);
-	// A drag or a drawn rail has the wall to itself
+	const isStripDragging = useFeatureState(cx.$isStripDragging);
+	// A drag, on the wall or in the strip, or a drawn rail has the wall to itself until release
 	const { target } = state;
-	if (target == null || project == null || trackCx == null || workspace !== 'track' || trackView !== '2d' || isPlaying || building != null) return null;
+	if (target == null || project == null || trackCx == null || workspace !== 'track' || trackView !== '2d' || isPlaying || building != null || isStripDragging) return null;
 	return <BarBody cx={cx} trackCx={trackCx} project={project} target={target} />;
 };
 
@@ -70,7 +71,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 					<>
 						<span className="mm-bar-divider" />
 						<button className="mm-bar-arrow" aria-label="Flatten" onClick={() => cx.patterns.flatten(group)} title={`Flatten: ${FLATTEN_HELP.charAt(0).toLowerCase()}${FLATTEN_HELP.slice(1)}`} type="button">
-							<Unlink2 size={14} strokeWidth={1.7} />
+							<FolderInput size={14} strokeWidth={1.7} />
 						</button>
 					</>
 				) : null}
@@ -78,7 +79,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 				<StatusMark cx={cx} status={status} isOpen={isDetailsOpen} />
 			</div>
 			{menu != null ? <BarMenu cx={cx} target={target} rows={menu.rows} index={menu.index} /> : null}
-			{isDetailsOpen ? <BarDetails cx={cx} status={status} /> : null}
+			{isDetailsOpen && status.hasDetails ? <BarDetails cx={cx} status={status} /> : null}
 		</div>
 	);
 };
@@ -95,6 +96,8 @@ interface TBarStatus {
 	label: string;
 	words: string | null;
 	actions: TBarAction[];
+	/** Whether the mark opens a popover: only when there's more to say than its color, so On Time is just the mark */
+	hasDetails: boolean;
 }
 
 /** Kinds that change what stands here rather than place something new: the marble's way here doesn't decide them */
@@ -113,9 +116,12 @@ function useBarStatus(cx: StudioCx, project: TProject, target: TBarTarget): TBar
 	const name = sender?.piece.name ?? 'the piece before';
 	const goToSender: TBarAction[] = sender != null ? [{ label: `Go to ${name}`, title: `${name} sends the marble here. Change it there`, run: () => cx.bar.goToStop(sender.stop) }] : [];
 	const base: TTimingStatus = standing ?? { tone: 'neutral', label: target.kind === 'rest' ? 'Rest' : 'Open', detail: target.kind === 'rest' ? 'Nothing fills this rest yet' : 'No platform plays this note yet' };
+	const fix: TBarAction[] = isOverBuilt(target) ? [{ label: 'Fix', title: 'Show what Fix would change (A)', run: () => cx.bar.fix() }] : [];
 	if (notice != null && cx.bar.carriesNotice(notice)) {
+		const tone = notice.tone === 'error' ? 'bad' : base.tone;
 		const actions = (notice.actions ?? []).map((action) => ({ label: action.label, ...(action.title != null ? { title: action.title } : {}), run: () => { cx.dismissNotice(notice.id); action.run(); } }));
-		return { tone: notice.tone === 'error' ? 'bad' : base.tone, label: notice.tone === 'error' ? 'Problem' : base.label, words: notice.message, actions };
+		// The problem's Fix is here, never on the notice
+		return { tone, label: notice.tone === 'error' ? 'Problem' : base.label, words: notice.message, actions: tone === 'bad' || tone === 'warn' ? [...fix, ...actions] : actions, hasDetails: true };
 	}
 	const proposal = state.choice != null ? state.answers[state.choice]?.proposal : undefined;
 	if (state.choice != null && proposal != null) {
@@ -127,14 +133,11 @@ function useBarStatus(cx: StudioCx, project: TProject, target: TBarTarget): TBar
 		const hit = target.kind === 'note' && isRefused ? result?.hits.find((item) => item.marbleId === target.marbleId && item.hitId === target.hitId) : undefined;
 		const reach = hit != null ? hitReach(project, result, hit) : null;
 		const fixes = hit != null && reach != null && isUnreachable(reach) ? unreachableActions(cx, hit, releaseFixFor(project, hit, reach)) : [];
-		if (isBad) return { tone: 'bad', label: isRefused ? "Doesn't Fit" : 'Problem', words, actions: [...fixes, ...(EDITS.has(proposal.ask.kind) ? [] : goToSender)] };
-		if (words != null) return { tone: base.tone, label: base.label, words, actions: [] };
+		if (isBad) return { tone: 'bad', label: isRefused ? "Doesn't Fit" : 'Problem', words, actions: [...fixes, ...(EDITS.has(proposal.ask.kind) ? [] : goToSender)], hasDetails: true };
+		if (words != null) return { tone: base.tone, label: base.label, words, actions: [], hasDetails: true };
 	}
-	if (base.tone === 'bad' || base.tone === 'warn') {
-		const fix: TBarAction[] = isOverBuilt(target) ? [{ label: 'Fix', title: 'Show what Fix would change (A)', run: () => cx.bar.fix() }] : [];
-		return { tone: base.tone, label: base.label, words: causeWords(project, target, sender, base), actions: [...fix, ...goToSender] };
-	}
-	return { tone: base.tone, label: base.label, words: base.detail ?? null, actions: [] };
+	if (base.tone === 'bad' || base.tone === 'warn') return { tone: base.tone, label: base.label, words: causeWords(project, target, sender, base), actions: [...fix, ...goToSender], hasDetails: true };
+	return { tone: base.tone, label: base.label, words: base.detail ?? null, actions: [], hasDetails: false };
 }
 
 /** How what stands here is doing, in the words of the inspector's pill and from the same problems */
@@ -165,6 +168,14 @@ const StatusMark: React.FC<{ cx: StudioCx; status: TBarStatus; isOpen: boolean }
 	const pulsedAt = useFeatureState(cx.bar.$pulsedAt);
 	const isPulsing = pulsedAt > 0 && performance.now() - pulsedAt < PULSE_MS && status.tone === 'bad';
 	const title = status.words != null ? `${status.label}: ${status.words}` : status.label;
+	// Nothing more to say than its color: just the mark, its words in the tooltip
+	if (!status.hasDetails) {
+		return (
+			<span className="mm-bar-mark" data-tone={status.tone} role="img" aria-label={title} title={title}>
+				<StatusGlyph tone={status.tone} />
+			</span>
+		);
+	}
 	return (
 		<button key={isPulsing ? pulsedAt : 'still'} className="mm-bar-mark" data-tone={status.tone} data-open={isOpen} data-pulse={isPulsing} aria-label={title} aria-haspopup="dialog" aria-expanded={isOpen} onClick={() => cx.bar.toggleDetails()} title={title} type="button">
 			<StatusGlyph tone={status.tone} />
@@ -176,13 +187,18 @@ function toneColor(tone: TTimingStatus['tone']): string {
 	return tone === 'good' ? 'var(--good)' : tone === 'warn' ? 'var(--warn)' : tone === 'bad' ? 'var(--bad)' : 'var(--text-tertiary)';
 }
 
-/** A filled diamond on time, a circle off time, a square for what's wrong, a hollow diamond for what's open, as the timeline draws notes */
+/**
+ * A filled circle in the status color, with "!" when it needs attention, like a macOS status light, so a red one never
+ * reads as Stop or Record above the transport; a hollow ring for what's open. The timeline keeps its keyframe shapes
+ */
 const StatusGlyph: React.FC<{ tone: TTimingStatus['tone'] }> = (props) => {
 	const { tone } = props;
 	const color = toneColor(tone);
+	const isAttention = tone === 'bad' || tone === 'warn';
 	return (
-		<svg width={12} height={12} viewBox="-6 -6 12 12" aria-hidden>
-			{tone === 'bad' ? <rect x={-4} y={-4} width={8} height={8} rx={1} fill={color} /> : tone === 'warn' ? <circle r={4} fill={color} /> : <rect x={-3.6} y={-3.6} width={7.2} height={7.2} rx={1} transform="rotate(45)" fill={tone === 'good' ? color : 'none'} stroke={color} strokeWidth={1.3} />}
+		<svg width={14} height={14} viewBox="-7 -7 14 14" aria-hidden>
+			{tone === 'neutral' ? <circle r={4.4} fill="none" stroke={color} strokeWidth={1.3} /> : <circle r={tone === 'good' ? 4.5 : 6} fill={color} />}
+			{isAttention ? <path d="M 0 -3.3 L 0 0.9 M 0 3.1 L 0 3.2" stroke="white" strokeWidth={1.7} strokeLinecap="round" /> : null}
 		</svg>
 	);
 };
@@ -250,16 +266,21 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		const isChecking = choice !== BUILD_UP_TO && proposal == null;
 		return (
 			<span className="mm-bar-split">
-				<button className="mm-bar-accept" data-tone={isRefused ? 'none' : isProblem ? 'bad' : 'go'} aria-busy={isChecking} disabled={isRefused && target.kind !== 'rest'} onClick={() => cx.bar.enter()} title={isChecking ? 'Checking it. A press takes it once it plays' : `${label} and go on (↩)`} type="button">
+				<button className="mm-bar-accept" data-tone={isRefused ? 'none' : isProblem ? 'bad' : 'go'} aria-busy={isChecking} disabled={isRefused && target.kind !== 'rest'} onClick={() => cx.bar.enter()} title={isChecking ? 'Checking it. A press takes it once it plays' : `${label} and go on (⏎)`} type="button">
 					<span className="mm-bar-label">{queued > 0 ? `${label} ×${queued}` : label}</span>
-					<kbd className="mm-keycap">↩</kbd>
+					{/* The Return key's own ⏎, drawn so no font turns it into Undo's ↩ */}
+					<kbd className="mm-keycap" aria-label="Return">
+						<CornerDownLeft size={11} strokeWidth={2} aria-hidden />
+					</kbd>
 				</button>
 				{toggle}
 			</span>
 		);
 	}
+	const plain = plainGroupOf(project, target);
 	return (
 		<button className="mm-bar-type" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Change what stands here (⇥)" type="button">
+			{plain != null ? <GroupIcon group={plain} /> : null}
 			<span className="mm-bar-label">{standingWords(project, target)}</span>
 			<ChevronDown size={13} strokeWidth={1.8} />
 		</button>
@@ -314,13 +335,25 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 			{rows.map((row, rowIndex) => {
 				const answer = row.isChoice ? answers[row.id] : undefined;
 				const words = row.note ?? (answer?.proposal != null ? rowWords(target, answer.proposal) : row.isChoice && row.id !== BUILD_UP_TO ? 'Checking…' : '');
+				// What doesn't fit is greyed out with its reason, as macOS and Figma menus do: no ✓ that reads as the current choice
+				const isDisabled = isRowRefused(answer);
 				return (
 					<React.Fragment key={row.id}>
 						{row.isSplit === true && rowIndex > 0 ? <div className="mm-menu-separator" role="separator" /> : null}
-						<button className="mm-menu-item" role="menuitem" data-highlighted={rowIndex === index} onPointerEnter={() => cx.bar.hoverRow(rowIndex)} onClick={() => cx.bar.runRow(row)} type="button">
-							<span className="mm-menu-check">{row.isChoice && row.id !== BUILD_UP_TO && row.id !== 'remove' ? <RowMark proposal={answer?.proposal ?? null} /> : null}</span>
+						<button
+							className="mm-menu-item"
+							role="menuitem"
+							aria-disabled={isDisabled}
+							data-highlighted={rowIndex === index && !isDisabled}
+							onPointerEnter={() => cx.bar.hoverRow(rowIndex)}
+							onClick={() => {
+								if (!isDisabled) cx.bar.runRow(row);
+							}}
+							title={isDisabled ? `${row.label}: ${words}` : undefined}
+							type="button"
+						>
 							{row.label}
-							<span className="mm-bar-row-note" data-bad={isBadAnswer(answer)} title={words}>
+							<span className="mm-bar-row-note" title={words}>
 								{words}
 							</span>
 						</button>
@@ -331,15 +364,6 @@ const BarMenu: React.FC<{ cx: StudioCx; target: TBarTarget; rows: TBarRow[]; ind
 	);
 };
 
-function isBadAnswer(answer: TBarAnswer | undefined): boolean {
-	return answer?.proposal != null && isBadProposal(answer.proposal);
-}
-
-const RowMark: React.FC<{ proposal: TProposal | null }> = (props) => {
-	const { proposal } = props;
-	if (proposal == null) return null;
-	return proposal.status === 'fits' ? <Check size={11} strokeWidth={2.4} aria-label="Fits" /> : <X size={11} strokeWidth={2} aria-label="Has a reason" />;
-};
 
 /** The hint on the wall: what's chosen, or the row under the pointer. Nothing here is on the track yet */
 export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {
@@ -348,7 +372,11 @@ export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 	const state = useFeatureState(cx.bar.$state);
 	const camera = useFeatureState(trackCx.$camera);
 	useFeatureState(trackCx.$viewport);
-	const isDragging = useFeatureState(trackCx.$override) != null;
+	const override = useFeatureState(trackCx.$override);
+	const drag = useFeatureState(trackCx.$drag);
+	const isStripDragging = useFeatureState(cx.$isStripDragging);
+	// Any drag has the wall to itself: the hint of what's selected waits for the release
+	const isDragging = override != null || (drag != null && drag.kind !== 'pan') || isStripDragging;
 	const answer = cx.bar.shownAnswer;
 	if (answer == null || isDragging || state.target == null) return null;
 	const { proposal, shape } = answer;
@@ -359,7 +387,7 @@ export const BarHint: React.FC<{ trackCx: TrackCx }> = (props) => {
 		<g className="mm-ghost-in" data-bar-hint={answer.kind} data-shape-ms={answer.shapeMs != null ? Math.round(answer.shapeMs) : undefined} data-answer-ms={answer.answerMs != null ? Math.round(answer.answerMs) : undefined}>
 			{flight.length > 1 ? <polyline points={toPoints(flight.map((point) => trackCx.toScreen(point)))} fill="none" stroke={color} strokeWidth={1.25} strokeDasharray="2 4" strokeLinecap="round" opacity={0.7} /> : null}
 			{shape.map((piece) => (
-				<GhostPiece key={piece.pieceId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk && answer.kind !== 'remove'} />
+				<GhostPiece key={piece.pieceId} trackCx={trackCx} piece={piece} scale={camera.view.scale} isOk={isOk && answer.kind !== 'remove'} color={color} />
 			))}
 			{proposal?.nextDot != null ? <NextDot position={trackCx.toScreen(proposal.nextDot)} color={color} /> : null}
 		</g>

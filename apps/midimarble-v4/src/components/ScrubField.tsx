@@ -17,6 +17,7 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 		min = Number.NEGATIVE_INFINITY,
 		max = Number.POSITIVE_INFINITY,
 		disabled = false,
+		disabledReason,
 		span,
 		format: formatValue,
 		parse,
@@ -54,14 +55,14 @@ export const ScrubField: React.FC<TScrubFieldProps> = (props) => {
 	const [fieldRef, isCompact] = useCompactUnit(unit, draft.length);
 
 	return (
-		<div ref={fieldRef} className="mm-ifield" data-disabled={disabled} data-span={span} data-compact={isCompact}>
+		<div ref={fieldRef} className="mm-ifield" data-disabled={disabled} data-span={span} data-compact={isCompact} title={disabled ? disabledReason : undefined}>
 			<label
 				htmlFor={id}
 				className="mm-ifield-label"
 				data-scrub={!disabled}
 				data-glyph={isGlyph}
 				// A name that already explains the field stays that one sentence, rather than a stack of clauses
-				title={name.length > NAME_ONLY_LENGTH ? name : `${name}${unit.length > 0 ? ` (${unit})` : ''}${disabled ? '' : ': drag to change, hold Shift for larger steps'}`}
+				title={disabled && disabledReason != null ? disabledReason : name.length > NAME_ONLY_LENGTH ? name : `${name}${unit.length > 0 ? ` (${unit})` : ''}${disabled ? '' : ': drag to change, hold Shift for larger steps'}`}
 				onPointerDown={(event) => {
 					if (event.button !== 0 || disabled) return;
 					event.preventDefault();
@@ -167,6 +168,8 @@ interface TScrubFieldProps {
 	max?: number;
 	/** Shows the value without letting it change, such as the position of a piece that follows its hit */
 	disabled?: boolean;
+	/** Why it can't change, in its tooltip while disabled, such as "Follows its note" */
+	disabledReason?: string;
 	/** `2` spans both columns of the inspector grid */
 	span?: 2;
 	/**

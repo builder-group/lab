@@ -1,7 +1,7 @@
 import { decorList, type TBlenderObject } from '@/modules/scene';
 import type { TDecor, TPiece, TGroup, TMarble, TLight, TProject, TShot, TSong, TTitle } from '@/modules/project';
 import { startRailOf } from '@/modules/simulation';
-import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, shownSongs, toSongKey, toDecorKey, toLightKey, toGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
+import { CAMERA_KEY, KEY_LIGHT_KEY, SCENE_KEY, shownSongs, toSongKey, toDecorKey, toLightKey, toGroupKey, parseGroupKey, toMadeInBlenderKey, toShotKey, WALL_KEY, tieOf } from '@/modules/project';
 import { songRowLabel } from './song-layer';
 import type { TWorkspace } from './StudioCx';
 
@@ -109,6 +109,12 @@ export function collapsedGroups(project: TProject, workspace: 'track' | 'film', 
 export function groupsOfSelection(project: TProject, selection: readonly string[]): string[] {
 	return selection.flatMap((key) => {
 		if (key.startsWith('decor:') || key.startsWith('blender:')) return [DECOR_KEY];
+		// A Group selected whole, such as from its block in the strip, opens the marble it belongs to
+		const selectedGroupId = parseGroupKey(key);
+		if (selectedGroupId != null) {
+			const selected = project.track.groups.find((item) => item.id === selectedGroupId);
+			return selected == null ? [] : [selected.marbleId ?? FREE_PIECES_KEY];
+		}
 		const marbleId = tieOf(project.track.pieces.find((piece) => piece.id === key))?.marbleId ?? project.marbles.find((marble) => startRailOf(project, marble.id)?.id === key)?.id;
 		const group = project.track.groups.find((item) => item.pieceIds.includes(key));
 		if (marbleId != null && group?.marbleId != null) return [marbleId, group.id];

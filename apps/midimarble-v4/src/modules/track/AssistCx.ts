@@ -48,7 +48,7 @@ export class AssistCx {
 		let projectId = this.studio.project?.id;
 		const unlisten = [
 			this.studio.simulation.$result.listen(() => {
-				this.offerFixIt();
+				this.reportBroken();
 				this.runQueuedNext();
 			}),
 			this.studio.$history.listen(({ value }) => {
@@ -62,7 +62,7 @@ export class AssistCx {
 		];
 		if (this.studio.project != null) this.dispatch({ type: 'revision', revision: this.studio.project.revision });
 		// The run shown at mount is what the first edit is compared with
-		this.offerFixIt();
+		this.reportBroken();
 		return () => {
 			for (const stop of unlisten) stop();
 			this.forget();
@@ -533,10 +533,9 @@ export class AssistCx {
 		const report = end !== project.length ? { ...built, message: `${built.message} The film now runs to ${formatTime(end)}, to show the catch.` } : built;
 		this.$lastBuild.set(report);
 		const changed = present?.revision !== project.revision;
-		if (changed) {
-			const broken = brokenHits(shownResult.hits).length;
-			this.studio.notifyEdit(report.message, broken > 0 && present != null ? [this.fixAction()] : [], { details: report.details });
-		} else this.studio.notify(report.message);
+		// Fix lives on each problem, in the inspector's pill and the bar's popover, and in the Track menu for the whole run
+		if (changed) this.studio.notifyEdit(report.message, [], { details: report.details });
+		else this.studio.notify(report.message);
 		// A build, a person's or an agent's, ends from the top at a zoom that reads with Follow on, so Space shows what was
 		// built. A person's rebuild keeps the zoom, back at the hit it started from; an agent's leaves the view alone
 		if (!this.studio.$playing.get()) {
@@ -621,15 +620,12 @@ export class AssistCx {
 	private lastGoodProjectId: string | null = null;
 	private lastFixRevision: number | null = null;
 
-	private fixAction(): { label: string; title: string; run: () => void } {
-		return { label: 'Fix', title: 'Try to play every note again; Undo goes back', run: () => void this.fix() };
-	}
-
 	/**
-	 * After an edit, compares the new run with the one before it. When later hits became Blocked or Missed, the
-	 * edit's notice gets Fix, or a notice says so; undo, redo and Fix itself do not ask.
+	 * After an edit, compares the new run with the one before it. When later hits became Blocked, Missed or Stopped, a
+	 * notice names which, with Undo; Fix lives on the problem itself, in the inspector's pill and the bar's popover. Undo,
+	 * redo and Fix itself say nothing.
 	 */
-	private offerFixIt(): void {
+	private reportBroken(): void {
 		const project = this.studio.project;
 		const result = this.currentResult();
 		if (project == null || result == null || this.studio.simulation.isSettling) return;
@@ -643,19 +639,12 @@ export class AssistCx {
 		// A note past the film's end has nothing Fix could do: it's the length, which the move that did this says
 		const broken = newlyBroken(previous.hits, result.hits).filter((hit) => hit.targetTime <= result.duration);
 		if (!broken.length) return;
-		const action = this.fixAction();
 		const notice = this.studio.$notice.get();
-		// A run under way, such as Gravity's re-fit, keeps its progress and Stop
-		if (notice?.progress != null) return;
-		if (notice != null && notice.revision === result.revision) {
-			this.studio.updateNotice(notice.id, { actions: [...(notice.actions ?? []), action] });
-			return;
-		}
-		// Counts every hit the edit broke, the edited one included, so "later" would miscount
-		const words = broken.length === 1 ? '1 note is' : `${broken.length} notes are`;
+		// A run under way, such as Gravity's re-fit, keeps its progress and Stop; the edit's own notice already speaks for it
+		if (notice?.progress != null || (notice != null && notice.revision === result.revision)) return;
 		const first = [...broken].sort((a, b) => a.targetTime - b.targetTime)[0];
 		const cause = first != null ? strayCause(project, result, first.marbleId, first.targetTime) : null;
-		this.studio.notifyEdit(`${cause != null ? `${cause}: ` : ''}${words} now Blocked, Missed or Stopped`, [action], { isUndoFirst: true });
+		this.studio.notifyEdit(`${cause != null ? `${cause}: ` : ''}${brokenWords(broken)}`, [], { isUndoFirst: true });
 	}
 
 	private rememberGood(project: TProject, result: TSimulationResult): void {
@@ -951,6 +940,21 @@ export class AssistCx {
 
 }
 
+/**
+ * The notes an edit broke, named by their actual status, most first: "1 note is now Blocked", "2 notes are now
+ * Missed and 1 Stopped". Counts every hit the edit broke, the edited one included, so "later" would miscount
+ */
+export function brokenWords(hits: readonly THitResult[]): string {
+	const counts = new Map<string, number>();
+	for (const hit of hits) {
+		const label = hit.status === 'blocked' ? 'Blocked' : hit.reason === 'resting' ? 'Stopped' : 'Missed';
+		counts.set(label, (counts.get(label) ?? 0) + 1);
+	}
+	const [first, ...rest] = [...counts].sort((a, b) => b[1] - a[1]);
+	if (first == null) return '';
+	const lead = `${first[1] === 1 ? '1 note is' : `${first[1]} notes are`} now ${first[0]}`;
+	return [lead, ...rest.map(([label, count]) => `${count} ${label}`)].join(rest.length > 1 ? ', ' : ' and ').replace(/, ([^,]*)$/, ' and $1');
+}
 
 /** The earliest hit whose piece waits behind a break */
 function heldHit(project: TProject): { marbleId: string; hitId: string; time: number } | null {

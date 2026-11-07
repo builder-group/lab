@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Anchor, Unlink2, WandSparkles } from 'lucide-react';
+import { Anchor, Unplug, WandSparkles } from 'lucide-react';
 import React from 'react';
 import { HelpTip, InspectorHeader, LinkRow, Panel, ScrubField, SelectField, StatusPill } from '@/components';
 import { type TPiece, type TPlace, type TProject, type TProjectCommand, type TVec2, formatTime, freePosition, noteName, toHitKey, tieOf } from '@/modules/project';
@@ -11,6 +11,7 @@ import { normalizeSurfaceAngle, toDegrees, toRadians } from './angles';
 import { pieceParamPanels, showsLinkPanel } from './piece-panels';
 import { pathRide, pathRun, pieceKind, pieceTime, turnPathRun, withPathRun, worldRunSlope } from '@/modules/scene';
 import { selectedPlainGroup } from './group-commands';
+import { GroupIcon } from './GroupIcon';
 import { plainGroupNotes } from './PatternInspector';
 import { pieceAngle } from './step-loop';
 import { timingStatus, type TTimingStatus } from './timing-status';
@@ -68,7 +69,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	const group = selectedPlainGroup(project, selection);
 	const groupNotes = group != null ? plainGroupNotes(project, group) : null;
 	const title = group?.name ?? (isSingle ? (first.name ?? label) : isSameType ? `${pieces.length} ${label}s` : `${pieces.length} Pieces`);
-	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} hits` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
+	const subtitle = group != null ? `Group · ${pieces.length} ${pieces.length === 1 ? 'piece' : 'pieces'}${groupNotes != null ? `, ${groupNotes.count} notes` : ''}` : isSingle ? tieLabel(project, first) : isSameType ? 'Multiple selection' : 'Different piece types';
 	const position = free ?? resolved?.position ?? null;
 	const hitBy = isSingle ? struck.get(first.id) : undefined;
 	const look = isSingle ? looks.get(first.id) : undefined;
@@ -79,7 +80,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 	return (
 		<>
 			<InspectorHeader
-				icon={<PieceIcon type={isSameType ? type : 'platform'} size={16} />}
+				icon={group != null ? <GroupIcon group={group} size={16} /> : <PieceIcon type={isSameType ? type : 'platform'} size={16} />}
 				title={title}
 				subtitle={subtitle}
 				onRename={isSingle ? (name) => cx.execute([{ type: 'addPiece', piece: { ...first, name } }]) : undefined}
@@ -101,6 +102,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 							step={0.1}
 							precision={1}
 							disabled={!isFree}
+							disabledReason={FOLLOWS_REASON}
 							onPreview={(value) => preview(positionEdit('x', value))}
 							onCommit={(value) => commit(positionEdit('x', value))}
 							onCancel={cancel}
@@ -114,6 +116,7 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 							step={0.1}
 							precision={1}
 							disabled={!isFree}
+							disabledReason={FOLLOWS_REASON}
 							onPreview={(value) => preview(positionEdit('y', value))}
 							onCommit={(value) => commit(positionEdit('y', value))}
 							onCancel={cancel}
@@ -158,6 +161,9 @@ export const PieceInspector: React.FC<TPieceInspectorProps> = (props) => {
 		</>
 	);
 };
+
+/** Why X and Y are greyed out on a tied piece */
+const FOLLOWS_REASON = 'Follows its note: drag it on the wall to move it, or Detach it to place it freely';
 
 interface TPieceInspectorProps {
 	cx: StudioCx;
@@ -321,7 +327,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; piece: TPiece }
 					onOpen={openHit}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
-							<Unlink2 size={13} strokeWidth={1.9} />
+							<Unplug size={13} strokeWidth={1.9} />
 						</button>
 					}
 				>
@@ -342,7 +348,7 @@ const AttachSection: React.FC<{ cx: StudioCx; project: TProject; piece: TPiece }
 					onOpen={openMarble}
 					action={
 						<button className="mm-icon-button" onClick={detach} title="Detach: keep it where it is, tied to nothing" aria-label="Detach" type="button">
-							<Unlink2 size={13} strokeWidth={1.9} />
+							<Unplug size={13} strokeWidth={1.9} />
 						</button>
 					}
 				>

@@ -1,4 +1,5 @@
 import { isPatternGroup, type TProject, CAMERA_KEY, KEY_LIGHT_ID, parseDecorKey, parseGroupKey, parseHitKey, parseLightKey, parseMadeInBlenderKey, parseRangeKey, parseShotKey, parseSongKey, shownSongs, WALL_KEY } from '@/modules/project';
+import { findLongGaps } from '@/modules/building';
 import type { TWorkspace } from './StudioCx';
 
 /**
@@ -15,10 +16,19 @@ export function inspectorTarget(project: TProject, selection: readonly string[],
 		const group = project.track.groups.filter(isPatternGroup).find((item) => selection.some((key) => parseGroupKey(key) === item.id || item.pieceIds.includes(key)));
 		if (group != null) return { kind: 'group', id: group.id };
 		const range = selection.flatMap((key) => parseRangeKey(key) ?? [])[0];
-		if (range != null) return { kind: 'patternRange', ...range };
+		if (range != null) return restHolding(project, range) ?? { kind: 'patternRange', ...range };
 	}
 	const target = selectedTarget(project, selection);
 	return workspace === 'track' && FILM_ONLY_TARGETS.includes(target.kind) ? { kind: 'scene' } : target;
+}
+
+/** A rest that holds a piece shows that piece, or its Pattern, rather than the empty rest */
+function restHolding(project: TProject, range: { marbleId: string; from: number; to: number }): TInspectorTarget | null {
+	const gap = findLongGaps(project, range.marbleId).find((item) => item.from <= range.from + 1e-3 && item.to >= range.to - 1e-3);
+	const pieceId = gap?.bridgedBy;
+	if (pieceId == null) return null;
+	const group = project.track.groups.filter(isPatternGroup).find((item) => item.pieceIds.includes(pieceId));
+	return group != null ? { kind: 'group', id: group.id } : { kind: 'pieces', ids: [pieceId] };
 }
 
 const FILM_ONLY_TARGETS: readonly TInspectorTarget['kind'][] = ['light', 'decor', 'decorItems', 'madeInBlender'];
