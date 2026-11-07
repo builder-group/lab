@@ -45,30 +45,35 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const count = hitsInRange(marble, span.from, span.to).length;
 	const subtitle = isRail ? `${restWords(span.to - span.from)} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}` : `${count} ${count === 1 ? 'note' : 'notes'} on ${marble.name}, ${formatTime(span.from)} to ${formatTime(span.to)}`;
 	const widthRange = pattern?.widthRange;
+	const hasFields = isPatternKind(kind) && widthRange != null;
+	// A Curved Rail has nothing to set: no empty Pattern section under it
+	const hasPanel = hasFields || problems.length > 0 || !isRail;
 	return (
 		<>
 			<InspectorHeader icon={<GroupIcon group={group} size={16} />} title={group.name} subtitle={subtitle} />
-			<Panel id="pattern" title="Pattern" isGrid={false}>
-				{isPatternKind(kind) && widthRange != null ? (
-					<div className="mm-insp-grid mm-pattern-fields">
-						<SliderField
-							id="pattern-width"
-							label="Width"
-							value={group.pattern.width}
-							min={widthRange.min}
-							max={widthRange.max}
-							step={0.01}
-							unit="cm"
-							format={(value) => (value * 100).toFixed(0)}
-							onCommit={(width) => void trackCx.studio.patterns.apply(target, kind, { width })}
-						/>
-						<SliderField id="pattern-bounce" label="Bounce" value={group.pattern.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.studio.patterns.apply(target, kind, { bounce })} />
-						<SliderField id="pattern-tilt" label="Tilt limit" value={group.pattern.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.studio.patterns.apply(target, kind, { maxTilt })} />
-					</div>
-				) : null}
-				<TiltNote project={project} group={group} />
-				<GroupProblems problems={problems} />
-			</Panel>
+			{hasPanel ? (
+				<Panel id="pattern" title="Pattern" isGrid={false}>
+					{hasFields && widthRange != null ? (
+						<div className="mm-insp-grid mm-pattern-fields">
+							<SliderField
+								id="pattern-width"
+								label="Width"
+								value={group.pattern.width}
+								min={widthRange.min}
+								max={widthRange.max}
+								step={0.01}
+								unit="cm"
+								format={(value) => (value * 100).toFixed(0)}
+								onCommit={(width) => void trackCx.studio.patterns.apply(target, kind, { width })}
+							/>
+							<SliderField id="pattern-bounce" label="Bounce" value={group.pattern.bounce} min={0.3} max={0.7} step={0.05} unit="" format={(value) => value.toFixed(2)} onCommit={(bounce) => void trackCx.studio.patterns.apply(target, kind, { bounce })} />
+							<SliderField id="pattern-tilt" label="Tilt limit" value={group.pattern.maxTilt ?? MAX_TILT} min={20} max={70} step={5} unit="°" format={(value) => value.toFixed(0)} onCommit={(maxTilt) => void trackCx.studio.patterns.apply(target, kind, { maxTilt })} />
+						</div>
+					) : null}
+					<TiltNote project={project} group={group} />
+					<GroupProblems problems={problems} />
+				</Panel>
+			) : null}
 			{!isRail ? <BarDepthPanel cx={cx} project={project} group={group} /> : null}
 		</>
 	);
