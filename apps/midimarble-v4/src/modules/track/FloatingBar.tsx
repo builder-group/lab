@@ -1,5 +1,5 @@
 import { useFeatureState } from 'feature-react/state';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, FlipHorizontal2, Unlink2, X } from 'lucide-react';
 import React from 'react';
 import { ScrubField } from '@/components';
 import { hitReach, isUnreachable, pieceProblems, releaseFixFor, struckPieces, type TProposal } from '@/modules/building';
@@ -41,6 +41,7 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 	const status = useBarStatus(cx, project, target);
 	if (drag != null || pen != null || tool === 'path') return null;
 	const piece = target.kind === 'note' ? target.piece : null;
+	const group = target.kind === 'rest' ? null : target.group;
 	const canAdjust = target.kind === 'note' && piece?.type === 'platform' && target.group == null;
 	return (
 		<div className="mm-bar mm-ghost-in" role="toolbar" aria-label="Note" onPointerDown={(event) => event.stopPropagation()}>
@@ -62,6 +63,14 @@ const BarBody: React.FC<{ cx: StudioCx; trackCx: TrackCx; project: TProject; tar
 					<>
 						<span className="mm-bar-divider" />
 						<BarAdjust cx={cx} piece={piece} isLastBuilt={target.isLastBuilt} />
+					</>
+				) : null}
+				{group != null ? (
+					<>
+						<span className="mm-bar-divider" />
+						<button className="mm-bar-arrow" aria-label="Flatten" onClick={() => cx.patterns.flatten(group)} title={`Flatten: ${FLATTEN_HELP.charAt(0).toLowerCase()}${FLATTEN_HELP.slice(1)}`} type="button">
+							<Unlink2 size={14} strokeWidth={1.7} />
+						</button>
 					</>
 				) : null}
 				<span className="mm-bar-divider" />
@@ -216,16 +225,7 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	useFeatureState(cx.simulation.$result);
 	const group = target.kind === 'rest' ? null : target.group;
 	const isOpen = state.menu != null;
-	if (group != null && choice == null) {
-		return (
-			<>
-				<span className="mm-bar-what-text">Part of {group.name}</span>
-				<button className="mm-notice-action" onClick={() => cx.patterns.flatten(group)} title={FLATTEN_HELP} type="button">
-					Flatten
-				</button>
-			</>
-		);
-	}
+	if (group != null && choice == null) return <span className="mm-bar-what-text">Part of {group.name}</span>;
 	const toggle = (
 		<button className="mm-bar-chevron" aria-label="Choose" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Choose what goes here (⇥)" type="button">
 			<ChevronDown size={13} strokeWidth={1.8} />

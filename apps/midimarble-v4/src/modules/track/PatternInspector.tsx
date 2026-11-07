@@ -6,7 +6,7 @@ import { isPatternGroup, type TGroup, type TPiece, type TPatternGroup, type TPro
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, patternOfKind, patternSpan, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
-import { FLATTEN_HELP, type TPatternTarget } from './PatternsCx';
+import { type TPatternTarget } from './PatternsCx';
 
 /** A silence dragged out in the strip */
 export const PatternRangeInspector: React.FC<{ project: TProject; target: { marbleId: string; from: number; to: number } }> = (props) => {
@@ -65,9 +65,6 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 					</div>
 				) : null}
 				<TiltNote project={project} group={group} />
-				<button className="mm-button" onClick={() => trackCx.studio.patterns.flatten(group)} title={FLATTEN_HELP} type="button">
-					Flatten
-				</button>
 				<GroupProblems problems={problems} />
 			</Panel>
 			{!isRail ? <BarDepthPanel cx={cx} project={project} group={group} /> : null}
