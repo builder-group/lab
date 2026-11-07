@@ -1,6 +1,6 @@
 import { createId, isPatternGroup, type TPiece, type TGroup, type TMarble, type TPatternGroup,  type TProject, type TProjectCommand, parseGroupKey, tieOf, toGroupKey } from '@/modules/project';
 import { startRailOf, type THitResult } from '@/modules/simulation';
-import { patternLockWords, patternOfPiece } from '@/modules/building';
+import { patternOfPiece } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
 import { groupSelection } from './PatternsCx';
 
@@ -72,7 +72,7 @@ export function groupSelected(cx: StudioCx): void {
 	const pieces = selectedPieces(project, cx.$selection.get());
 	const live = pieces.flatMap((piece) => patternOfPiece(project, piece.id) ?? [])[0];
 	if (live != null) {
-		cx.notify(patternLockWords(live));
+		cx.patterns.tellLocked(live);
 		return;
 	}
 	if (!pieces.length) return;
@@ -87,7 +87,7 @@ export function ungroupSelected(cx: StudioCx): void {
 	const groups = selectedGroups(project, cx.$selection.get());
 	const live = groups.find(isPatternGroup);
 	if (live != null) {
-		cx.notify(patternLockWords(live));
+		cx.patterns.tellLocked(live);
 		return;
 	}
 	if (!groups.length) return;

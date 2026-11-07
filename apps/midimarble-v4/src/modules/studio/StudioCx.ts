@@ -122,7 +122,7 @@ export class StudioCx {
 	};
 	/** The context menus the canvases open */
 	readonly menus = {
-		piece: () => pieceMenu(this),
+		piece: (pieceId?: string) => pieceMenu(this, pieceId),
 		hit: (marble: TMarble, hitId: string) => hitMenu(this, marble, hitId),
 		marble: (marble: TMarble) => marbleMenu(this, marble),
 		film: () => filmMenu(this),

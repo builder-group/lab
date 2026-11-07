@@ -323,7 +323,7 @@ export class SimulationCx {
 	/** Says plainly when a bar the person didn't touch changed, and how far the later notes moved with it */
 	private sayTakers(answer: Pick<TEditAnswer, 'absorbedBy' | 'shifts' | 'heldFrom'>, project: TProject): void {
 		if (answer.heldFrom.length > 0) return;
-		const names = answer.absorbedBy.map((id) => project.track.pieces.find((piece) => piece.id === id)?.name ?? 'A platform');
+		const names = [...new Set(answer.absorbedBy.map((id) => project.track.pieces.find((piece) => piece.id === id)?.name ?? 'A platform'))];
 		const furthest = Math.max(0, ...answer.shifts.map((shift) => shift.distance));
 		const moved = furthest >= NOTICED_SHIFT ? ` The later notes moved ${(furthest * 100).toFixed(1)} cm with it.` : '';
 		if (names.length === 1) this.studio.notifyEdit(`${names[0] ?? ''} changed too, so the notes after it stay on time.${moved}`, [], { isUndoFirst: true });

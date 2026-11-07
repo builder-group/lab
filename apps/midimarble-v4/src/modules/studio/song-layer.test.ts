@@ -35,7 +35,7 @@ describe('hasSongLayer function', () => {
 
 		expect(hasSongLayer(project)).toBe(true);
 		expect(songLayerName(firstSong(project))).toBe('Jingle Bells.mid');
-		expect(buildOutline(project)[1]).toMatchObject({ kind: 'song', id: toSongKey('source-1'), label: 'Song' });
+		expect(buildOutline(project).find((row) => row.kind === 'song')).toMatchObject({ id: toSongKey('source-1'), label: 'Song' });
 	});
 
 	it('should keep a Song layer named Song for Backing notes without a file', () => {
@@ -43,7 +43,7 @@ describe('hasSongLayer function', () => {
 
 		expect(hasSongLayer(project)).toBe(true);
 		expect(songLayerName(firstSong(project))).toBe('Song');
-		expect(buildOutline(project)[1]).toMatchObject({ kind: 'song', source: { id: 'song-notes' }, label: 'Song' });
+		expect(buildOutline(project).find((row) => row.kind === 'song')).toMatchObject({ source: { id: 'song-notes' }, label: 'Song' });
 	});
 });
 

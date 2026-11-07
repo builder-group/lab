@@ -597,6 +597,50 @@ textarea {
 	cursor: grabbing;
 }
 
+/* When a marble starts: the ring it has on the wall, at its time on the row */
+.mm-start-marker {
+	position: absolute;
+	display: grid;
+	place-items: center;
+	width: 16px;
+	height: 16px;
+	transform: translate(-50%, -50%);
+	cursor: ew-resize;
+}
+
+.mm-start-marker > span {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	border: 2px solid var(--row-color);
+	background: var(--content);
+}
+
+.mm-start-marker[data-selected='true'] > span,
+.mm-start-marker:hover > span,
+.mm-start-marker[data-dragging='true'] > span {
+	box-shadow: 0 0 0 1.5px var(--accent-strong);
+}
+
+.mm-start-chip {
+	position: absolute;
+	z-index: 12;
+	transform: translateY(-50%);
+	padding: 0 6px;
+	border-radius: 4px;
+	background: var(--content-raised);
+	box-shadow: 0 0 0 0.5px var(--separator), 0 1px 3px rgb(0 0 0 / 0.15);
+	font-size: 11px;
+	line-height: 18px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.mm-start-chip[data-bad='true'] {
+	color: var(--bad);
+}
+
 /* The hairline under a marble's hits that are tied to a song; hits of its own have none */
 .mm-tie-line {
 	position: absolute;

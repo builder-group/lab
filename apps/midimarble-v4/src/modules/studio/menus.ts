@@ -1,6 +1,6 @@
 import { tidyMenu, type TMenuEntry } from '@/components';
 import { canUngroup, selectedPattern, canFollow, canPlayNote, detachSelection, followItems, hasTiedSelection, deleteHits, playedByMenu } from '@/modules/track';
-import { createId, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, toHitKey, tieOf } from '@/modules/project';
+import { createId, type TPiece, type TMarble, type TSong, type TProject, type TProjectCommand, type TTitle, formatTime, parseDecorKey, tiedToSong, tieLabel, toHitKey, tieOf } from '@/modules/project';
 import { problemSummary } from '@/modules/building';
 import { selectedDecorIds, updateDecorCommands } from '@/modules/scene';
 import { moveDecorClearAction } from '@/modules/film';
@@ -61,6 +61,11 @@ function clearLabelItem(cx: StudioCx, isSet: boolean, commands: () => TProjectCo
 	return isSet ? { label: 'Clear Label Color', onSelect: () => cx.execute(commands()) } : null;
 }
 
+function flattenItem(cx: StudioCx, pieceId: string | undefined): TMenuEntry | null {
+	const group = selectedPattern(cx);
+	return group != null ? { ...commandItem(cx, 'edit.flatten'), onSelect: () => cx.patterns.flatten(group, pieceId) } : null;
+}
+
 /** Clear Label Color for the selected pieces' and titles' menu */
 function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	const selection = cx.$selection.get();
@@ -68,8 +73,8 @@ function selectionLabelItem(cx: StudioCx): TMenuEntry | null {
 	return first != null ? clearLabelItem(cx, first.labelColor != null, () => layerLabelCommands(cx, first, null)) : null;
 }
 
-/** Right-click on a piece, on the canvas or in the sidebar */
-export function pieceMenu(cx: StudioCx): TMenuEntry[] {
+/** Right-click on a piece, on the canvas or in the sidebar. `pieceId` is the one under the pointer, which Flatten leaves selected. */
+export function pieceMenu(cx: StudioCx, pieceId?: string): TMenuEntry[] {
 	// Film shows what works there: Track's edits ask for the wall
 	if (cx.$workspace.get() !== 'track') return tidyMenu([canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null, 'separator', commandItem(cx, 'edit.rename'), selectionLabelItem(cx)]);
 	const selection = cx.$selection.get();
@@ -85,7 +90,7 @@ export function pieceMenu(cx: StudioCx): TMenuEntry[] {
 		commandItem(cx, 'edit.duplicate'),
 		commandItem(cx, 'edit.group'),
 		canUngroup(cx) ? commandItem(cx, 'edit.ungroup') : null,
-		selectedPattern(cx) != null ? commandItem(cx, 'edit.flatten') : null,
+		flattenItem(cx, pieceId),
 		commandItem(cx, 'edit.rename'),
 		selectionLabelItem(cx),
 		'separator',
@@ -184,6 +189,7 @@ export function marbleMenu(cx: StudioCx, marble: TMarble, time?: number): TMenuE
 		time != null ? { label: `Add Hit at ${formatTime(time)}`, onSelect: () => addHit(cx, marble, time) } : null,
 		{ label: 'Select All Hits', disabled: !marble.hits.length, onSelect: () => cx.$selection.set(marble.hits.map((hit) => toHitKey(marble.id, hit.id))) },
 		...suggestedHitChoices(cx, marble),
+		marble.hits.some((hit) => hit.songId != null) ? { label: tieLabel(null), onSelect: () => cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: tiedToSong(marble.hits, null) }], { label: tieLabel(null) }) } : null,
 		'separator',
 		{
 			label: 'Rename…',

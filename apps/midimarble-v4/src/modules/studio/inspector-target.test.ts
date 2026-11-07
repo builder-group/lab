@@ -43,10 +43,10 @@ describe('inspectorTarget function', () => {
 
 		expect(kinds).toEqual([
 			[SCENE_KEY, 'scene'],
-			[toSongKey('source-1'), 'song'],
 			[CAMERA_KEY, 'camera'],
 			[toShotKey('shot-1'), 'shot'],
 			[WALL_KEY, 'wall'],
+			[toSongKey('source-1'), 'song'],
 			[project.marbles[0]?.id, 'marble'],
 			['platform-1', 'pieces'],
 			['group:free', 'pieces'],
@@ -124,10 +124,10 @@ describe('selectionEnteringFilm function', () => {
 });
 
 describe('buildOutline function in Track', () => {
-	it('should list the Song, the Camera, the Wall and the marbles with their pieces; Film lists every layer', () => {
+	it('should list the Camera, the Wall, the Song and the marbles with their pieces; Film lists every layer', () => {
 		const project = fullProject();
 
-		expect(buildOutline(project, { workspace: 'track' }).map((row) => row.kind)).toEqual(['scene', 'song', 'camera', 'shot', 'wall', 'marble', 'piece', 'group', 'piece']);
+		expect(buildOutline(project, { workspace: 'track' }).map((row) => row.kind)).toEqual(['scene', 'camera', 'shot', 'wall', 'song', 'marble', 'piece', 'group', 'piece']);
 		expect(buildOutline(project, { workspace: 'film' }).map((row) => row.kind)).toContain('camera');
 		expect(buildOutline(project, { workspace: 'film' }).map((row) => row.kind)).toContain('title');
 	});

@@ -8,7 +8,7 @@ import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import type { TrackCx } from './TrackCx';
 import { GhostPiece } from './GhostLayer';
-import { patternTargets, verdictKey, type TPatternTarget } from './PatternsCx';
+import { FLATTEN_HELP, patternTargets, verdictKey, type TPatternTarget } from './PatternsCx';
 
 /** The Pattern tiles for selected hits: "9 Hits" in the header above them, one result however they were selected */
 export const PatternTiles: React.FC<{ cx: StudioCx; project: TProject }> = (props) => {
@@ -92,7 +92,7 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 					</div>
 				) : null}
 				<TiltNote project={project} group={group} />
-				<button className="mm-button" onClick={() => trackCx.studio.patterns.flatten(group)} title="Keep these pieces as they are, as a plain Group, and remove the Pattern" type="button">
+				<button className="mm-button" onClick={() => trackCx.studio.patterns.flatten(group)} title={FLATTEN_HELP} type="button">
 					Flatten
 				</button>
 			</TilesPanel>

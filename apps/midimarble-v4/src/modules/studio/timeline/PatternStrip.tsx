@@ -1,8 +1,10 @@
 import { useFeatureState } from 'feature-react/state';
 import React from 'react';
+import { openContextMenu } from '@/components';
 import { groupProblems, isPatternKind, patternOfKind, patternSpan, type THitVerdict } from '@/modules/building';
 import { groupSelection, rangeSelection, plainGroupSpan } from '@/modules/track';
 import { isPatternGroup, type TPatternGroup, type TMarble, formatTime, parseGroupKey, parseHitKey, parseRangeKey } from '@/modules/project';
+import { pieceMenu } from '../menus';
 import type { StudioCx } from '../StudioCx';
 import { PATTERN_STRIP_HEIGHT } from './timeline-layout';
 
@@ -121,6 +123,10 @@ export const PatternStrip: React.FC<TPatternStripProps> = (props) => {
 						onPointerMove={(event) => event.stopPropagation()}
 						onPointerUp={(event) => event.stopPropagation()}
 						onClick={() => cx.$selection.set(groupSelection(group))}
+						onContextMenu={(event) => {
+							cx.$selection.set(groupSelection(group));
+							openContextMenu(event, pieceMenu(cx));
+						}}
 					>
 						{/* A block too short for its name shows none, not "Zig…"; the tooltip has it */}
 						{(to - from) * zoom + 2 * pad >= MIN_NAMED_BLOCK ? <span className="mm-pattern-block-name">{group.name}</span> : null}

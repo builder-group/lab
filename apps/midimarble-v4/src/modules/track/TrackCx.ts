@@ -971,7 +971,7 @@ export class TrackCx {
 		if (target != null && 'pieceId' in target) {
 			const group = patternOfPiece(project, target.pieceId);
 			if (group != null) {
-				this.pressLivePiece(group, target.kind, point, event.shiftKey);
+				this.pressLivePiece(group, target.pieceId, target.kind, point, event.shiftKey);
 				return;
 			}
 		}
@@ -1037,18 +1037,21 @@ export class TrackCx {
 	}
 
 	private lastPiecePress: { id: string; at: number } | null = null;
+	/** The live Pattern's piece last pressed, which Flatten leaves selected, as the whole Group's selection doesn't say */
+	private lastLivePiece: string | null = null;
 
 	/** A press on a live Pattern's piece selects its Group, as Blender's Array modifier has no pieces of its own to grab */
-	private pressLivePiece(group: TPatternGroup, kind: string, point: TVec2, isShift: boolean): void {
+	private pressLivePiece(group: TPatternGroup, pieceId: string, kind: string, point: TVec2, isShift: boolean): void {
+		this.lastLivePiece = pieceId;
 		if (kind !== 'piece') {
-			this.studio.patterns.tellLocked(group);
+			this.studio.patterns.tellLocked(group, pieceId);
 			return;
 		}
 		const whole = groupSelection(group);
 		const selection = this.studio.$selection.get();
 		if (!isShift) this.studio.$selection.set(whole);
 		else this.studio.$selection.set(selection.includes(whole[0] ?? '') ? selection.filter((id) => !whole.includes(id)) : [...new Set([...selection, ...whole])]);
-		this.$drag.set({ kind: 'livePiece', group, start: point });
+		this.$drag.set({ kind: 'livePiece', group, pieceId, start: point });
 	}
 
 	onPointerMove(event: React.PointerEvent<HTMLElement>): void {
@@ -1112,7 +1115,7 @@ export class TrackCx {
 				return;
 			}
 			case 'livePiece':
-				if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4) this.studio.patterns.tellLocked(drag.group);
+				if (Math.hypot(point.x - drag.start.x, point.y - drag.start.y) >= 4) this.studio.patterns.tellLocked(drag.group, drag.pieceId);
 				return;
 			case 'click': {
 				// A placed hit's dot sits on its platform: pressing there and dragging still moves the platform
@@ -1120,7 +1123,7 @@ export class TrackCx {
 				if (pieceId == null || Math.hypot(point.x - drag.start.x, point.y - drag.start.y) < 4) return;
 				const group = project != null ? patternOfPiece(project, pieceId) : null;
 				if (group != null) {
-					this.pressLivePiece(group, 'piece', drag.start, false);
+					this.pressLivePiece(group, pieceId, 'piece', drag.start, false);
 					return;
 				}
 				this.studio.$selection.set([pieceId]);
@@ -2023,7 +2026,7 @@ export class TrackCx {
 		const targets = this.tiltTargets(project);
 		const ids = targets.filter((id) => patternOfPiece(project, id) == null);
 		const live = targets.map((id) => patternOfPiece(project, id)).find((group) => group != null);
-		if (live != null) this.studio.patterns.tellLocked(live);
+		if (live != null) this.studio.patterns.tellLocked(live, this.lastLivePiece ?? undefined);
 		if (live != null && !ids.length) return true;
 		const angles = new Map<string, number>();
 		for (const piece of project.track.pieces) {
@@ -2483,7 +2486,7 @@ interface TNodeDrag {
 }
 
 export type TTrackDrag =
-	| { kind: 'livePiece'; group: TPatternGroup; start: TVec2 }
+	| { kind: 'livePiece'; group: TPatternGroup; pieceId: string; start: TVec2 }
 	| { kind: 'pan'; last: TVec2 }
 	| TRotateDrag
 	| TMoveDrag

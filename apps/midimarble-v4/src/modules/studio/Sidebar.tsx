@@ -46,7 +46,7 @@ interface TSidebarProps {
 /**
  * The project's layers like Figma UI3's layer list. Each layer with a row in the timeline shares its selection
  * with that row. The Scene comes first, like Blender's Scene Collection, and a
- * click on empty space selects it, then the Song, the Camera with its shots, the Wall and the marbles with their pieces;
+ * click on empty space selects it, then the Camera with its shots, the Wall, the Song and the marbles with their pieces;
  * Film adds the Lights, the titles and Decor. Up and Down move the selection, Left and Right
  * fold a group.
  */

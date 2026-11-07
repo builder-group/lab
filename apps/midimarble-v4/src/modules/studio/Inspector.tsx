@@ -8,9 +8,10 @@ import { canMakeBacking, hitReach, isUnreachable, releaseFixFor, selectionProble
 import { CameraInspector, FormatField, PieceSkin, ShotInspector, WallTextInspector, MarbleSkin, ThemeRow, DecorInspector, MadeInBlenderInspector, ScatterPanel, KeyLightInspector, LightInspector, WallInspector } from '@/modules/film';
 import { THEME_HELP } from '@/modules/scene';
 import { autoLevelLabel, DEFAULT_BACKING_INSTRUMENT, DEFAULT_HIT_VELOCITY, findMarbleConflicts, formatLevel, instruments, LEVEL_CHOICES, marbleSounds, melodyMarbleId, MIN_HIT_GAP, BACKING_COLOR } from '@/modules/music';
-import { BACKING_ID, type THit, type TMarble, type TProject, type TVec2, formatSignedTime, formatTime, parseSignedTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, shownSongs, tieOf } from '@/modules/project';
+import { BACKING_ID, type THit, type TMarble, type TMarbleSong, type TProject, type TVec2, formatSignedTime, formatTime, parseSignedTime, noteName, parseNoteName, stepPitch, KEY_LIGHT_ID, parseHitKey, parseTime, backingSong, backingOf, marbleSong, shownSongs, tiedToSong, tieLabel, tieOf } from '@/modules/project';
 import { getPieceDefinition } from '@/modules/simulation';
 import { inspectorTarget, type TInspectorTarget } from './inspector-target';
+import { moveMarbleStart, withMarbleStart } from './marble-start';
 import { SONG_LAYER_LABEL } from './song-layer';
 import type { StudioCx, TWorkspace } from './StudioCx';
 
@@ -173,6 +174,39 @@ const MarbleInspector: React.FC<{ cx: StudioCx; project: TProject; marble: TMarb
 				</Panel>
 			) : null}
 			{!isFilm ? (
+				<Panel id="marble.timing" title="Timing" accessory={<HelpTip text="Hits tied to a song move with it; None keeps them where they are, on the marble's own. Start: when the marble is released." />}>
+					{marble.hits.length > 0 ? (
+						<SongField
+							cx={cx}
+							project={project}
+							id="marble-song"
+							value={songValue(marbleSong(marble))}
+							onChange={(songId) => cx.execute([{ type: 'upsertHits', marbleId: marble.id, hits: tiedToSong(marble.hits, songId) }], { label: tieLabel(songId) })}
+						/>
+					) : null}
+					<ScrubField
+						id="marble-start"
+						label="Start"
+						name="Start Time"
+						span={2}
+						value={release.time}
+						unit=""
+						step={0.01}
+						precision={2}
+						min={0}
+						max={project.length}
+						format={formatTime}
+						parse={parseTime}
+						onPreview={(time) => cx.simulation.startPreview(withMarbleStart(project, marble.id, time))}
+						onCommit={(time) => {
+							moveMarbleStart(cx, marble, time);
+							cx.simulation.endPreview();
+						}}
+						onCancel={() => cx.simulation.endPreview()}
+					/>
+				</Panel>
+			) : null}
+			{!isFilm ? (
 				<Panel id="marble.release" title="Position" accessory={<HelpTip text="Start Position: where the marble is released on the wall." />}>
 					<ScrubField id="release-x" label="Start X" name="Start Position X" value={round1(release.position.x * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ x: value / 100 })} onCommit={(value) => commitRelease({ x: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
 					<ScrubField id="release-y" label="Start Y" name="Start Position Y" value={round1(release.position.y * 100)} unit="cm" step={0.1} precision={1} onPreview={(value) => previewRelease({ y: value / 100 })} onCommit={(value) => commitRelease({ y: value / 100 })} onCancel={() => cx.simulation.endPreview()} />
@@ -215,36 +249,53 @@ function firstPitch(hits: readonly THit[]): number | undefined {
 /** Which song the selected hits move with: None for the marble's own, like Blender's parent field */
 const HitSongField: React.FC<{ cx: StudioCx; project: TProject; hits: { marble: THitOwner; hit: THit }[] }> = (props) => {
 	const { cx, project, hits } = props;
-	const songs = shownSongs(project);
-	if (!songs.length || hits.some((item) => item.marble.id === BACKING_ID)) return null;
+	if (hits.some((item) => item.marble.id === BACKING_ID)) return null;
 	const tied = new Set(hits.map((item) => item.hit.songId ?? NO_SONG));
 	return (
-		<SelectField
+		<SongField
+			cx={cx}
+			project={project}
 			id="hit-song"
-			label="Song"
 			value={tied.size === 1 ? ([...tied][0] ?? '') : ''}
-			options={[...(tied.size === 1 ? [] : [{ value: '', label: 'Several' }]), { value: NO_SONG, label: 'None' }, ...songs.map((song) => ({ value: song.id, label: song.name === '' ? 'Backing' : song.name }))]}
-			onChange={(value) => {
-				if (value === '') return;
+			onChange={(songId) => {
 				const marbleIds = [...new Set(hits.map((item) => item.marble.id))];
 				cx.execute(
 					marbleIds.map((marbleId) => ({
 						type: 'upsertHits' as const,
 						marbleId,
-						hits: hits
-							.filter((item) => item.marble.id === marbleId)
-							.map(({ hit }) => {
-								const { songId: _songId, ...own } = hit;
-								return value === NO_SONG ? own : { ...own, songId: value };
-							})
-					}))
+						hits: tiedToSong(hits.filter((item) => item.marble.id === marbleId).map((item) => item.hit), songId)
+					})),
+					{ label: tieLabel(songId) }
 				);
 			}}
 		/>
 	);
 };
 
+/** One Song field for a marble and for hits: a song, None, or Mixed. Choosing changes only the tie, as one Undo step. */
+const SongField: React.FC<{ cx: StudioCx; project: TProject; id: string; value: string; onChange: (songId: string | null) => void }> = (props) => {
+	const { project, id, value, onChange } = props;
+	const songs = shownSongs(project);
+	if (!songs.length) return null;
+	return (
+		<SelectField
+			id={id}
+			label="Song"
+			value={value}
+			options={[...(value === '' ? [{ value: '', label: 'Mixed' }] : []), { value: NO_SONG, label: 'None' }, ...songs.map((song) => ({ value: song.id, label: song.name === '' ? 'Backing' : song.name }))]}
+			onChange={(next) => {
+				if (next !== '') onChange(next === NO_SONG ? null : next);
+			}}
+		/>
+	);
+};
+
 const NO_SONG = 'none';
+
+function songValue(song: TMarbleSong): string {
+	if (song.kind === 'song') return song.songId;
+	return song.kind === 'none' ? NO_SONG : '';
+}
 
 type THitOwner = Pick<TMarble, 'id' | 'name' | 'labelColor' | 'sound' | 'hits'>;
 

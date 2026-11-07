@@ -41,7 +41,8 @@ describe('Group by hand', () => {
 
 		groupSelected(cx);
 		expect(cx.project?.track.groups.map((group) => group.id)).toEqual(['live']);
-		expect(cx.$notice.get()?.message).toBe('Part of Zigzag. Flatten to edit it.');
+		expect(cx.$notice.get()?.message).toBe('Part of Zigzag.');
+		expect(cx.$notice.get()?.actions?.map((action) => action.label)).toEqual(['Flatten']);
 
 		ungroupSelected(cx);
 		expect(cx.project?.track.groups.map((group) => group.id)).toEqual(['live']);

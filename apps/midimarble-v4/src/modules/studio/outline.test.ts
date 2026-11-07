@@ -26,11 +26,11 @@ describe('buildOutline function', () => {
 		const rows = buildOutline(project({ pieces: [piece('p-a', { marbleId: 'marble-1', hitId: 'a' }), piece('free-1'), piece(startRailId('marble-1'))] }), { workspace: 'track' });
 		const rail = rows.find((row) => row.id === startRailId('marble-1'));
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, toSongKey('source'), CAMERA_KEY, WALL_KEY, 'marble-1', startRailId('marble-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, CAMERA_KEY, WALL_KEY, toSongKey('source'), 'marble-1', startRailId('marble-1'), 'p-a', 'marble-2', FREE_PIECES_KEY, 'free-1']);
 		expect(rail).toMatchObject({ kind: 'piece', parentId: 'marble-1', marbleId: 'marble-1', depth: 1 });
 	});
 
-	it('should order Song, Camera with shots, Wall, marbles with their pieces in hit order, Pieces, Lights and Titles, leaving out empty groups', () => {
+	it('should order Camera with shots, Wall, Song, marbles with their pieces in hit order, Pieces, Lights and Titles, leaving out empty groups', () => {
 		const title = { id: 'title-1', text: 'Jingle Bells' } as TTitle;
 		const rows = buildOutline(
 			project({
@@ -45,11 +45,11 @@ describe('buildOutline function', () => {
 
 		expect(rows.map((row) => row.id)).toEqual([
 			SCENE_KEY,
-			toSongKey('source'),
 			CAMERA_KEY,
 			toShotKey('early'),
 			toShotKey('late'),
 			WALL_KEY,
+			toSongKey('source'),
 			'marble-1',
 			'p-a',
 			'p-b',
@@ -100,7 +100,7 @@ describe('buildOutline function', () => {
 	});
 
 	it('should name the Song row Song, whatever its file is called', () => {
-		expect(buildOutline(project({}))[1]).toMatchObject({ kind: 'song', label: 'Song' });
+		expect(buildOutline(project({})).find((row) => row.kind === 'song')).toMatchObject({ label: 'Song' });
 	});
 
 	it('should leave out the children of collapsed groups', () => {
@@ -108,7 +108,7 @@ describe('buildOutline function', () => {
 			collapsed: ['marble-1', FREE_PIECES_KEY, CAMERA_KEY]
 		});
 
-		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, toSongKey('source'), CAMERA_KEY, WALL_KEY, 'marble-1', 'marble-2', FREE_PIECES_KEY, LIGHTS_KEY, KEY_LIGHT_KEY]);
+		expect(rows.map((row) => row.id)).toEqual([SCENE_KEY, CAMERA_KEY, WALL_KEY, toSongKey('source'), 'marble-1', 'marble-2', FREE_PIECES_KEY, LIGHTS_KEY, KEY_LIGHT_KEY]);
 		expect(rows.find((row) => row.id === 'marble-1')).toMatchObject({ hasChildren: true, isOpen: false });
 	});
 

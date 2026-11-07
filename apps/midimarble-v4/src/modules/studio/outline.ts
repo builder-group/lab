@@ -7,18 +7,16 @@ import type { TWorkspace } from './StudioCx';
 
 /**
  * The project's layers in display order, which the Layers list draws and Shift ranges and arrow keys follow, the same in
- * both workspaces where they have the row: the Scene, the Song while the project has one, the Camera with its shots, the
- * Wall, each marble with the Rail it starts on and the pieces it plays or that follow it in hit order, Track Pieces (those no
+ * both workspaces where they have the row: the Scene, the Camera with its shots, the Wall, the Song while the project has
+ * one, each marble with the Rail it starts on and the pieces it plays or that follow it in hit order, Track Pieces (those no
  * marble plays, follows or starts on), then in Film the Lights, Titles and Decor. Track is the skeleton and stops after the
  * pieces; Film is what the viewer sees. A group with nothing in it has no row: what it holds is added through Insert. Rows of
- * a collapsed group leave out their children. The timeline shows only what changes over time: the Song, the Camera, the
+ * a collapsed group leave out their children. The timeline shows only what changes over time: the Camera, the Song, the
  * marbles, and in Film Titles.
  */
 export function buildOutline(project: TProject, options: TOutlineOptions = {}): TOutlineRow[] {
 	const { collapsed = [], workspace = 'film', blenderObjects = [] } = options;
 	const rows: TOutlineRow[] = [{ kind: 'scene', id: SCENE_KEY, depth: 0, parentId: null }];
-
-	for (const song of shownSongs(project)) rows.push({ kind: 'song', id: toSongKey(song.id), depth: 0, parentId: null, source: song, label: songRowLabel(project, song) });
 
 	const shots = [...project.film.camera.shots].sort((a, b) => a.time - b.time);
 	const isCameraOpen = !collapsed.includes(CAMERA_KEY);
@@ -26,6 +24,9 @@ export function buildOutline(project: TProject, options: TOutlineOptions = {}): 
 	if (isCameraOpen) for (const shot of shots) rows.push({ kind: 'shot', id: toShotKey(shot.id), depth: 1, parentId: CAMERA_KEY, shot });
 
 	rows.push({ kind: 'wall', id: WALL_KEY, depth: 0, parentId: null, labelColor: project.film.wall.labelColor });
+
+	// The marbles sit directly under the song they play
+	for (const song of shownSongs(project)) rows.push({ kind: 'song', id: toSongKey(song.id), depth: 0, parentId: null, source: song, label: songRowLabel(project, song) });
 
 	// A plain Group across marbles or of free pieces lists its pieces under Track Pieces, like one layer of them
 	const looseGroups = project.track.groups.filter((group) => group.marbleId == null);

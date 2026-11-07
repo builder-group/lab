@@ -43,6 +43,17 @@ describe('Flatten and Undo', () => {
 		expect(cx.$notice.get()).toBeNull();
 	});
 
+	it('should leave the piece a person went for selected, from the notice that says it is locked', () => {
+		const { cx, patterns, group } = studio();
+		patterns.tellLocked(group, 'piece-1');
+		const flatten = cx.$notice.get()?.actions?.find((action) => action.label === 'Flatten');
+		expect(cx.$notice.get()?.message).toBe('Part of Zigzag.');
+
+		flatten?.run();
+		expect(cx.$selection.get()).toEqual(['piece-1']);
+		expect(cx.project?.track.groups[0]).not.toHaveProperty('pattern');
+	});
+
 	it('should flatten again with Redo', () => {
 		const { cx, patterns, group } = studio();
 		patterns.flatten(group);
