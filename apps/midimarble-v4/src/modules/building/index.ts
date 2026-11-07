@@ -20,5 +20,6 @@ export * from './progress-estimate';
 export * from './reachability';
 export * from './simulation-client';
 export * from './track-problems';
+export * from './verdict';
 export * from './worker-protocol';
 export * from './patterns';

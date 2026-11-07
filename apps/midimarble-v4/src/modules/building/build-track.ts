@@ -1,10 +1,10 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { isPathPieceType, paceAt, createLinkedPiece, bandAlongGuide, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
-import { extraStrikes, passThroughs, rollingHits, touchingPairs } from './track-problems';
+import { isPathPieceType, paceAt, createLinkedPiece, bandAlongGuide, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
 import { changedPieces } from './edit-rule';
 import { columnOffset } from './build-track-defaults';
 import { gapPieceOrder, gapPieceReads } from './gap-pieces';
-import { findLongGaps, isInBand, mirrorPiece, openLongGaps } from './assists';
+import { findLongGaps, mirrorPiece, openLongGaps } from './assists';
+import { addKnownFaults, hitKey, noKnownFaults, reasonWords, verdictWithRoom, type TKnownFaults } from './verdict';
 import { answerWorkerRequest, type TAutoPlaceAnswer, type TContinueAnswer, type TGapAnswer, type TGapPieceType } from './worker-protocol';
 import { checkFraming } from './export-preflight';
 import { withBowls } from './bowl-assist';
@@ -208,7 +208,7 @@ interface TBuildState {
 	/** Hits left without a piece, which every check looks past */
 	skipped: Set<string>;
 	/** Problems the run already had, which no step is judged by: the person's, and what a forced step left */
-	tolerated: { hits: Set<string>; pieces: Set<string>; contacts: Set<string>; strikes: Set<string>; rolls: Set<string>; passes: Set<string>; touching: Set<string> };
+	known: TKnownFaults;
 	/** Whether a piece that was there before the build may be turned when nothing else solves a hit */
 	canTurnOwn: boolean;
 	gapPiece: TBuildGapPreference | null;
@@ -231,12 +231,8 @@ function emptyCounts(): TBuildCounts {
 }
 
 function createState(deps: TBuildTrackDeps, project: TProject, canTurnOwn = true, gapPiece: TBuildGapPreference | null = null, searches: TSearchBudget = { used: 0, limit: Infinity }): TBuildState {
-	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), tolerated: { hits: new Set(), pieces: new Set(), contacts: new Set(), strikes: new Set(), rolls: new Set(), passes: new Set(), touching: new Set() }, canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
+	return { deps, counts: emptyCounts(), reasons: [], inTheWay: [], own: new Set(project.track.pieces.map((piece) => piece.id)), skipped: new Set(), known: noKnownFaults(), canTurnOwn, gapPiece, isLooking: false, mayLeavePace: false, searches, runs: new WeakMap() };
 }
-
-const hitKey = (marbleId: string, hitId: string): string => `${marbleId}/${hitId}`;
-const contactKey = (marble: string, other: string): string => `${marble}/${other}`;
-const pairKey = (a: string, b: string): string => (a < b ? `${a}/${b}` : `${b}/${a}`);
 
 /** A project is never changed once made, so one run answers for it */
 function run(state: TBuildState, project: TProject): Promise<TSimulationResult> {
@@ -269,10 +265,6 @@ function reject(state: TBuildState, reason: string): null {
 function apply(current: TProject, commands: TProjectCommand[]): TProject | null {
 	const [isAppliedOk, , applied] = applyProjectCommands(current, commands);
 	return isAppliedOk ? applied : null;
-}
-
-function marbleOfPiece(current: TProject, pieceId: string): string | null {
-	return tieOf(current.track.pieces.find((item) => item.id === pieceId))?.marbleId ?? null;
 }
 
 function isShared(current: TProject): boolean {
@@ -319,97 +311,17 @@ function gapPieceId(state: TBuildState, current: TProject, type: TGapPieceType, 
 	return freeId(current, `${type}-${marble}-${state.counts.switchback + state.counts.chain + state.counts.rail + 1}`);
 }
 
-/**
- * Applies the commands when every hit with a piece stays on time afterward (a resting first contact counts as
- * missed), in the marble being built and in the other marbles up to the other marbles' next open hits, no switchback,
- * rail or tunnel is blocked, each marble touches only its own pieces, every placed dot of the marble lies in its band,
- * and the marble's next open dot lies in its band and, with several marbles, within the pace limit of y* (or no further
- * than the target dot already was). Before a long gap the dot cannot do either until a gap piece exists.
- */
-async function accept(state: TBuildState, current: TProject, commands: TProjectCommand[], marbleId: string, checkFrame = true): Promise<TProject | null> {
+/** Applies the commands when every fact holds, stated by the verdict: with `checksNext`, the marble's next open dot counts too */
+async function accept(state: TBuildState, current: TProject, commands: TProjectCommand[], marbleId: string, checksNext = true): Promise<TProject | null> {
 	const applied = apply(current, commands);
 	if (applied == null) return reject(state, 'commands do not apply');
 	const result = await run(state, applied);
-	const { tolerated } = state;
-	// Each marble's path is final up to its next open hit; beyond that it is free flight that later pieces change,
-	// and it may pass through or bump into what the other marble has built
-	const frontier = new Map<string, number>();
-	for (const hit of result.hits) {
-		if (hit.status !== 'open' || state.skipped.has(hitKey(hit.marbleId, hit.hitId))) continue;
-		frontier.set(hit.marbleId, Math.min(frontier.get(hit.marbleId) ?? Infinity, hit.targetTime));
+	const { reasons } = await verdictWithRoom({ before: { project: current, result: await run(state, current) }, after: { project: applied, result }, marbleId, known: state.known, skipped: state.skipped, checksNext, stopsAtFirst: true }, state.deps.simulate);
+	if (!reasons.length) return applied;
+	for (const reason of reasons) {
+		if (reason.kind === 'late' && (reason.why === 'blocked' || reason.why === 'resting')) state.inTheWay.push({ marbleId: reason.marbleId, hitId: reason.hitId });
 	}
-	// Across a long gap that nothing bridges yet the marble falls freely until its switchback exists
-	for (const marble of applied.marbles) {
-		for (const gap of openLongGaps(applied, marble.id)) {
-			if (!state.skipped.has(hitKey(marble.id, gap.toHitId))) frontier.set(marble.id, Math.min(frontier.get(marble.id) ?? Infinity, gap.from + 0.3));
-		}
-	}
-	const othersFrontier = (marble: string): number =>
-		Math.min(Infinity, ...applied.marbles.filter((item) => item.id !== marble).map((item) => frontier.get(item.id) ?? Infinity));
-	// The marble being built keeps all its placed hits on time; another marble's hits only count up to where this marble's
-	// path is final
-	const late = result.hits.filter((hit) => hit.status !== 'open' && hit.status !== 'onTime' && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && (hit.marbleId === marbleId || hit.targetTime < othersFrontier(hit.marbleId)));
-	if (late.length > 0) {
-		for (const hit of late) {
-			const why = hit.reason ?? hit.status;
-			if (why === 'blocked' || why === 'resting') state.inTheWay.push({ marbleId: hit.marbleId, hitId: hit.hitId });
-		}
-		return reject(state, `late ${late.map((hit) => `${hit.hitId}:${hit.reason ?? hit.status}`).join(' ')}`);
-	}
-	// A switchback, rail or tunnel the marble's run now passes through earlier is left out, like a blocked hit
-	const blocked = result.pieces.filter((piece) => {
-		const marble = marbleOfPiece(applied, piece.pieceId);
-		const time = piece.entryTime ?? piece.hitTime ?? 0;
-		return piece.status === 'blocked' && !tolerated.pieces.has(piece.pieceId) && marble != null && (marble === marbleId || time < othersFrontier(marble));
-	});
-	if (blocked.length > 0) return reject(state, `blocked ${blocked.map((piece) => piece.pieceId).join(' ')}`);
-	// Each marble may only touch its own marble's pieces and never the other marble; a free piece is the person's scenery
-	const crossed = result.contacts.filter((contact) => {
-		if (tolerated.contacts.has(contactKey(contact.marbleId, contact.otherId))) return false;
-		const reach = Math.min(frontier.get(contact.marbleId) ?? Infinity, contact.kind === 'marble' ? (frontier.get(contact.otherId) ?? Infinity) : Infinity);
-		if (contact.time >= reach) return false;
-		if (contact.kind === 'marble') return true;
-		const marble = marbleOfPiece(applied, contact.otherId);
-		return contact.kind === 'piece' && marble != null && marble !== contact.marbleId;
-	});
-	if (crossed.length > 0) return reject(state, `crossing ${crossed.map((contact) => `${contact.marbleId}/${contact.otherId}`).join(' ')}`);
-	// Every hit of the marble with a piece keeps its dot in frame; its own marble's center is only Auto place's preference
-	const bandAt = bandAlongGuide(applied);
-	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null && !tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, bandAt(hit.dot.y), 1));
-	if (outside.length > 0) return reject(state, `outside the band ${outside.map((hit) => hit.hitId).join(' ')}`);
-	// Each marble strikes each platform once, for its note, up to where its path is final
-	const struck = extraStrikes(applied, result).filter((strike) => !tolerated.strikes.has(strike.pieceId) && strike.time < (frontier.get(strike.marbleId) ?? Infinity));
-	if (struck.length > 0) return reject(state, `struck twice ${struck.map((strike) => strike.hitId).join(' ')}`);
-	// And bounces off it, a platform not being for rolling
-	const rolling = rollingHits(applied, result).filter((roll) => !tolerated.rolls.has(roll.pieceId) && roll.time < (frontier.get(roll.marbleId) ?? Infinity));
-	if (rolling.length > 0) return reject(state, `rolls ${rolling.map((roll) => roll.hitId).join(' ')}`);
-	// And goes through no piece's skin on its way
-	const passing = passThroughs(applied, result).filter((pass) => !tolerated.passes.has(contactKey(pass.marbleId, pass.pieceId)) && pass.time < (frontier.get(pass.marbleId) ?? Infinity));
-	if (passing.length > 0) return reject(state, `passes through ${passing.map((pass) => pass.pieceId).join(' ')}`);
-	// No two pieces touch on the wall
-	const touching = touchingPairs(applied, result).filter((pair) => !tolerated.touching.has(pairKey(pair.a, pair.b)));
-	if (touching.length > 0) return reject(state, `touching ${touching.map((pair) => `${pair.a}/${pair.b}`).join(' ')}`);
-	if (!checkFrame) return applied;
-	const next = nextOpenPerMarble(state, result).get(marbleId);
-	if (next?.dot == null || isBeforeLongGap(applied, next)) return applied;
-	// A tenth of a marble inside the frame's edge, as Auto place asks
-	const band = bandAt(next.dot.y);
-	if (!isInBand(next.dot, band, 1 - (0.1 * frameBand(applied, marbleId).halfWidth) / band.halfWidth)) return reject(state, `out of band ${next.hitId}@${next.dot.x.toFixed(2)}`);
-	// A flat platform must still fit at the next dot, as Auto place checks for its own pieces
-	const probe = createLinkedPiece('platform', marbleId, next.hitId, 0, { id: 'accept-probe' });
-	const probed = await state.deps.simulate({ ...applied, track: { ...applied.track, pieces: [...applied.track.pieces, probe] }, length: Math.min(applied.length, next.targetTime + 0.05) });
-	if (probed.pieces.find((piece) => piece.pieceId === probe.id)?.status === 'blocked') return reject(state, `no room at ${next.hitId}`);
-	const pace = result.pace;
-	if (pace != null && isShared(applied)) {
-		const before = (await run(state, current)).hits.find((hit) => hit.marbleId === marbleId && hit.status === 'open' && hit.dot != null);
-		if (before?.dot != null) {
-			// Beyond the limit a dot may not get further from the pace than the one before it
-			const allowed = Math.max(pace.limit, Math.abs(before.dot.y - paceAt(pace, before.targetTime)));
-			const off = Math.abs(next.dot.y - paceAt(pace, next.targetTime));
-			if (off > allowed) return reject(state, `off pace ${next.hitId} by ${off.toFixed(2)} m`);
-		}
-	}
-	return applied;
+	return reject(state, reasons.map((reason) => reasonWords(applied, reason)).join(' '));
 }
 
 /**
@@ -668,7 +580,7 @@ async function unblock(state: TBuildState, current: TProject, target: THitResult
 			const turned = apply(current, [{ type: 'addPiece', piece: rotated }]);
 			if (turned == null) continue;
 			const result = await run(state, turned);
-			if (result.hits.some((hit) => hit.status !== 'open' && hit.status !== 'onTime' && hit.targetTime <= target.targetTime && !state.tolerated.hits.has(hitKey(hit.marbleId, hit.hitId)))) continue;
+			if (result.hits.some((hit) => hit.status !== 'open' && hit.status !== 'onTime' && hit.targetTime <= target.targetTime && !state.known.hits.has(hitKey(hit.marbleId, hit.hitId)))) continue;
 			const moved = result.hits.find((hit) => hit.marbleId === target.marbleId && hit.hitId === target.hitId);
 			if (moved == null) continue;
 			const next = (await buildStep(state, turned, moved, false)) ?? (moved.dot != null ? await backtrack(state, turned, moved) : null);
@@ -788,19 +700,7 @@ async function forceHit(state: TBuildState, current: TProject, target: THitResul
 
 /** Problems of this run stay as they are; steps after it are judged by what they add */
 async function tolerate(state: TBuildState, project: TProject): Promise<void> {
-	const result = await run(state, project);
-	for (const hit of result.hits) if (hit.status !== 'open' && hit.status !== 'onTime') state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
-	for (const piece of result.pieces) if (piece.status === 'blocked') state.tolerated.pieces.add(piece.pieceId);
-	for (const contact of result.contacts) {
-		const marble = marbleOfPiece(project, contact.otherId);
-		if (contact.kind === 'marble' || (marble != null && marble !== contact.marbleId)) state.tolerated.contacts.add(contactKey(contact.marbleId, contact.otherId));
-	}
-	const bandAt = bandAlongGuide(project);
-	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, bandAt(hit.dot.y), 1)) state.tolerated.hits.add(hitKey(hit.marbleId, hit.hitId));
-	for (const strike of extraStrikes(project, result)) state.tolerated.strikes.add(strike.pieceId);
-	for (const roll of rollingHits(project, result)) state.tolerated.rolls.add(roll.pieceId);
-	for (const pass of passThroughs(project, result)) state.tolerated.passes.add(contactKey(pass.marbleId, pass.pieceId));
-	for (const pair of touchingPairs(project, result)) state.tolerated.touching.add(pairKey(pair.a, pair.b));
+	addKnownFaults(state.known, project, await run(state, project));
 }
 
 /**
