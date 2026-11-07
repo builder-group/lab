@@ -1,7 +1,7 @@
 import type { TLibraryItem } from '@/modules/scene';
 import { createId, type TProject, type TProjectCommand, type TSkin, type TVec2, type TTitle } from '@/modules/project';
 import { sampleCameraTrack, filmCamera } from '@/modules/camera';
-import { frameBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
+import { stageBand, getPieceDefinition, gravityOf, trajectoryAt, type TSimulationResult } from '@/modules/simulation';
 import { imageToWall } from './image-to-wall';
 import { BUILT_IN_THEMES, resolveTheme, resetKeyLightCommands, wallCommands, skinCommand, skinnedOf, type TSkinElement, type TSkinned } from '@/modules/scene';
 
@@ -321,7 +321,7 @@ export function previewPointToWall(
 	const camera = result != null ? filmCamera(project, result).track : null;
 	const point = camera != null ? imageToWall(sampleCameraTrack(camera, time), project.format.width / project.format.height, u, v) : null;
 	if (point != null) return point;
-	const band = frameBand(project);
+	const band = stageBand(project);
 	const marble = project.marbles[0];
 	const track = result?.marbles.find((item) => item.marbleId === marble?.id);
 	const focus = (track == null ? null : trajectoryAt(track.samples, time, gravityOf(project))?.position) ?? marble?.start.position ?? { x: band.centerX, y: 0 };

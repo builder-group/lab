@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { isEditingTarget } from '@/lib';
 import { isPatternGroup, type TPiece, type TPatternGroup, type TPathNode, type TPlace, type TProject, type TVec2, formatTime, freePosition, noteName, CAMERA_KEY, parseHitKey, parseSongKey, toHitKey, WALL_KEY, tieOf } from '@/modules/project';
 import { trackWall, distanceToSegment, isOnGhost, pick, pickTrack, PLACED_DOT_PICK_RADIUS, piecesInRect, rectFromPoints, TRACK_PICK_RADIUS, type TPick, type TPickScene, type TScreenTrack, boundsOfPieces, contentBounds, firstHitsView, fitTargets, marblePositionAt, pathHandles, pathToLocal, pathToWorld, pieceAngleAt, pieceKind, pieceOutline, struckAt, rotationGrip, trackBuffers, withPathBend, withPathEnd, hiddenMarbleIds, boundsOf, fitBounds, isBoundsVisible, panBy, screenToWorld, worldToScreen, zoomAt, ZOOM_100_SCALE, type TBounds, type TPadding, type TView, type TViewport, trackPieceColors } from '@/modules/scene';
-import { frameBand, gravityOf, isMusicalPiece, isPathPieceType, layoutOf, PLACEMENT_LENGTH, resolvePieceParams, resolvePiecePath, soundsHit, shownDepth, trajectoryAt, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { stageBand, gravityOf, isMusicalPiece, isPathPieceType, layoutOf, PLACEMENT_LENGTH, resolvePieceParams, resolvePiecePath, soundsHit, shownDepth, trajectoryAt, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { findStepTarget, linkedPieces, anchorHit, linkPieceToHit, findLongGaps, patternOfPiece, dotClickAction, ANCHOR_LEAD, asAnchored, asFree, canLink, clearRotorPosition, createFreePiece, displayPiece, KEEP_PLAYS_REACH, piecePose, playsDrop, railPath, rotateResolved, withPiece, withSnap, type TPlaysDrop, type TPose, type TSnap, rebaseNodes, withNodeHandle, withNodePoint, marblesWithoutBowl, newlyBroken } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
 import { dragRotation, normalizeSurfaceAngle, screenAngle, snapAngle, toRadians, type TRotationDrag } from './angles';
@@ -556,7 +556,7 @@ export class TrackCx {
 		const project = this.project;
 		const viewport = this.$viewport.get();
 		if (project == null || viewport.width <= 1) return;
-		const band = frameBand(project);
+		const band = stageBand(project);
 		const focus = this.marbleFocus() ?? { x: band.centerX, y: 0 };
 		const halfWidth = band.halfWidth * 1.35;
 		this.fit({ minX: band.centerX - halfWidth, maxX: band.centerX + halfWidth, minY: focus.y - 0.02, maxY: focus.y + 0.02 });
@@ -826,7 +826,7 @@ export class TrackCx {
 	/** Fits the film frame's width widened to `bounds`, with room below for the fall after them */
 	private fitAround(project: TProject, bounds: TBounds | null): void {
 		if (bounds == null) return;
-		const band = frameBand(project);
+		const band = stageBand(project);
 		const halfWidth = band.halfWidth * 1.35;
 		const whole = {
 			minX: Math.min(band.centerX - halfWidth, bounds.minX),
@@ -2360,7 +2360,7 @@ export class TrackCx {
 		if (this.renderer == null || project == null || !this.isFlatShown()) return;
 		const bounds = contentBounds(project, this.result);
 		const height = bounds.maxY - bounds.minY;
-		this.renderer.setFrameGuides(frameBand(project), bounds.minY - height - 1, bounds.maxY + height + 1);
+		this.renderer.setFrameGuides(stageBand(project), bounds.minY - height - 1, bounds.maxY + height + 1);
 	}
 }
 

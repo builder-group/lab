@@ -3,7 +3,7 @@ import { MARBLE_SPACING } from '@/modules/project';
 import { createBareRunProject } from './fixture-projects';
 import { longGapThreshold } from '@/modules/building/long-gap';
 import { COLUMN_CLEARANCE, columnRate, descentPace, descentPoints, paceAt, paceRate, PACE_LIMIT } from './pace';
-import { frameBand } from './placement';
+import { frameBand, stageBand } from './placement';
 
 function evenTimes(count: number, gap: number, start = 0.5): number[] {
 	return Array.from({ length: count }, (_, i) => Math.round((start + gap * i) * 1000) / 1000);
@@ -119,7 +119,7 @@ describe('pace', () => {
 					{ x: -0.0825, y: 0.6, releaseTime: 0, hitTimes: [0.5] }
 				]
 			});
-			const whole = frameBand(project);
+			const whole = stageBand(project);
 			expect(whole.centerX).toBeCloseTo(0, 12);
 			// The band covering every marble is at least the film frame, the limit of what stays in view
 			expect(whole.halfWidth).toBeGreaterThanOrEqual(MARBLE_SPACING / 2 + frameBand(project, 'marble-1').halfWidth);

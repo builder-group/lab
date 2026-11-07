@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, createMarble, createProject, type TMarble, type TProject } from '@/modules/project';
-import { bandAlongGuide, frameBand } from './placement';
+import { bandAlongGuide, frameBand, stageAlongGuide, stageBand } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
 
 const LINE = { points: [{ x: 0, y: 0.6 }, { x: -0.3, y: 0 }, { x: 0.1, y: -0.4 }] };
@@ -18,20 +18,21 @@ describe('guide line', () => {
 
 	it('leaves the band alone without a stored line', () => {
 		const project = withMarbles([createMarble(0, { x: 0.1, y: 0.6 })]);
-		expect(frameBand(project, project.marbles[0]?.id, -2)).toEqual(frameBand(project, project.marbles[0]?.id));
-		expect(frameBand(project, undefined, -2)).toEqual(frameBand(project));
+		const marbleId = project.marbles[0]?.id ?? '';
+		expect(frameBand(project, marbleId, -2)).toEqual(frameBand(project, marbleId));
+		expect(stageBand(project, -2)).toEqual(stageBand(project));
 	});
 
 	it('centers the band on the line at the height asked, straight past its ends', () => {
 		const project = withMarbles([{ ...createMarble(0, { x: 0, y: 0.6 }), guide: LINE }]);
-		const at = bandAlongGuide(project, project.marbles[0]?.id);
+		const at = bandAlongGuide(project, project.marbles[0]?.id ?? '');
 		expect(at(0.3).centerX).toBeCloseTo(-0.15);
 		expect(at(-0.2).centerX).toBeCloseTo(-0.1);
 		expect(at(2).centerX).toBeCloseTo(0);
 		expect(at(-5).centerX).toBeCloseTo(0.1);
-		expect(at(0.3).halfWidth).toBe(frameBand(project).halfWidth);
+		expect(at(0.3).halfWidth).toBe(stageBand(project).halfWidth);
 		// With one marble its band and the band covering every marble are the same
-		expect(bandAlongGuide(project)(0).centerX).toBeCloseTo(-0.3);
+		expect(stageAlongGuide(project)(0).centerX).toBeCloseTo(-0.3);
 	});
 
 	it('moves only its own marble, and the band covering them by the mean', () => {
@@ -41,7 +42,7 @@ describe('guide line', () => {
 		expect(frameBand(project, b.id, 0)).toEqual(frameBand(plain, b.id));
 		expect(frameBand(project, a.id, 0).centerX).toBeCloseTo(-0.3);
 		const shift = -0.3 - frameBand(plain, a.id).centerX;
-		expect(frameBand(project, undefined, 0).centerX).toBeCloseTo(frameBand(plain).centerX + shift / 2);
+		expect(stageBand(project, 0).centerX).toBeCloseTo(stageBand(plain).centerX + shift / 2);
 	});
 
 	it('is set by the project command and refused going up', () => {

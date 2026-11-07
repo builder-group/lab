@@ -1,5 +1,5 @@
 import { tieOf, type TPiece, type TProject, type TVec2 } from '@/modules/project';
-import { bandAlongGuide, createLinkedPiece, frameBand, paceAt, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { createLinkedPiece, frameBand, paceAt, stageAlongGuide, stageBand, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { findLongGaps, isInBand, openLongGaps } from './assists';
 import { changedPieces } from './edit-rule';
 import { openHits } from './reachability';
@@ -61,7 +61,7 @@ export function addKnownFaults(known: TKnownFaults, project: TProject, result: T
 		const marble = marbleOfPiece(project, contact.otherId);
 		if (contact.kind === 'marble' || (marble != null && marble !== contact.marbleId)) known.contacts.add(contactKey(contact.marbleId, contact.otherId));
 	}
-	const bandAt = bandAlongGuide(project);
+	const bandAt = stageAlongGuide(project);
 	for (const hit of result.hits) if (hit.pieceId != null && hit.dot != null && !isInBand(hit.dot, bandAt(hit.dot.y), 1)) known.hits.add(hitKey(hit.marbleId, hit.hitId));
 	for (const strike of extraStrikes(project, result)) known.strikes.add(strike.pieceId);
 	for (const roll of rollingHits(project, result)) known.rolls.add(roll.pieceId);
@@ -207,7 +207,7 @@ function reasonsOf(ask: TVerdictAsk): TVerdictReason[] {
 	});
 	if (add(crossed.map((contact): TVerdictReason => ({ kind: 'crossing', marbleId: contact.marbleId, otherId: contact.otherId })))) return reasons;
 	// Every hit of the marble with a piece keeps its dot in frame; its own marble's center is only Auto place's preference
-	const bandAt = bandAlongGuide(project);
+	const bandAt = stageAlongGuide(project);
 	const outside = result.hits.filter((hit) => hit.marbleId === marbleId && hit.pieceId != null && hit.dot != null && !known.hits.has(hitKey(hit.marbleId, hit.hitId)) && !isInBand(hit.dot, bandAt(hit.dot.y), 1));
 	if (add(outside.map((hit): TVerdictReason => ({ kind: 'outsideBand', marbleId, hitId: hit.hitId })))) return reasons;
 	// Each marble strikes each platform once, for its note, up to where its path is final
@@ -239,7 +239,7 @@ function nextDotReasons(ask: TVerdictAsk): TVerdictReason[] {
 	const next = nextDotOf(project, result, ask);
 	if (next == null) return [];
 	// A tenth of a marble inside the frame's edge, as Auto place asks
-	const band = bandAlongGuide(project)(next.dot.y);
+	const band = stageBand(project, next.dot.y);
 	if (!isInBand(next.dot, band, 1 - (0.1 * frameBand(project, marbleId).halfWidth) / band.halfWidth)) return [{ kind: 'nextOutOfBand', marbleId, hitId: next.hitId, x: next.dot.x }];
 	const { pace } = result;
 	if (pace == null || project.marbles.length <= 1) return [];

@@ -1,7 +1,7 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withPieces, type TSimulateFn } from './assists';
-import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, bandAlongGuide, type TFrameBand, projectOnPath, shapesBounds, trajectoryAt, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, bandAlongGuide, stageAlongGuide, type TFrameBand, projectOnPath, shapesBounds, trajectoryAt, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
 import { extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-problems';
 import { columnOffset } from './build-track-defaults';
 import type { TGapPieceType } from '@/modules/building';
@@ -258,7 +258,7 @@ function prepareGapPiece(
 	if (to.time <= from.time) return Err(new Error('The gap must end after it starts'));
 	const samples = result.marbles.find((marble) => marble.marbleId === marbleId)?.samples ?? [];
 	// A new piece may reach over another marble, as long as nothing touches, with the frame as the limit
-	const bandAt = bandAlongGuide(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
+	const bandAt = hitOwners(project, marbleId).has(toHitId) ? bandAlongGuide(project, marbleId) : stageAlongGuide(project);
 
 	// Replaces an earlier gap piece on the same hit
 	const replaced = findGapPiece(project, marbleId, fromHitId);
@@ -591,7 +591,7 @@ function prepareTurns(
 	const marbleRadius =
 		project.marbles.find((item) => item.id === marbleId)?.radius ?? 0.008;
 	// A new switchback may reach over another marble, as long as nothing touches, with the frame as the limit
-	const bandAt = bandAlongGuide(project, hitOwners(project, marbleId).has(toHitId) ? marbleId : undefined);
+	const bandAt = hitOwners(project, marbleId).has(toHitId) ? bandAlongGuide(project, marbleId) : stageAlongGuide(project);
 	const marbleBandAt = bandAlongGuide(project, marbleId);
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const GRAVITY = -gravityOf(project);

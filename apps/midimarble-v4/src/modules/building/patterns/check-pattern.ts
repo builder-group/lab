@@ -1,6 +1,6 @@
 import { checkRun, NO_BLENDER_OBJECTS, problemSummary, type TProblemSummary } from '../export-preflight';
 import { type TMarble, type TProject, type TProjectCommand, type TVec2, parseHitKey, tieOf } from '@/modules/project';
-import { frameBand, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { soundsHit, stageBand, type TSimulator, type TSimulationResult } from '@/modules/simulation';
 import { answerSettle, changedPieces, editCommands, withEditAnswer } from '../edit-rule';
 import { playingNotes } from '../verdict';
 import type { THitVerdict, TPatternCourse, TPatternLeaving } from './contract';
@@ -191,7 +191,7 @@ function attemptsOf(project: TProject, ask: TPatternAsk, sim: TSimulator): TAtte
 /** Without a Width asked: for a Zigzag what the track's own hops span, then the usual one and a little wider; for a Staircase steps that stay in frame */
 function widthsOf(project: TProject, kind: string, hits: readonly { id: string }[], course: ReadonlyMap<string, TVec2>, nextId: string | null, usual: number): number[] {
 	if (kind === 'staircase') {
-		const inFrame = Math.max(MIN_STEP, Math.min(usual, (frameBand(project).halfWidth * 2) / Math.max(1, hits.length)));
+		const inFrame = Math.max(MIN_STEP, Math.min(usual, (stageBand(project).halfWidth * 2) / Math.max(1, hits.length)));
 		return [inFrame, Math.max(MIN_STEP, inFrame * 0.7)];
 	}
 	if (kind !== 'zigzag') return [usual];

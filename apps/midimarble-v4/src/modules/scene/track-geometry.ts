@@ -1,5 +1,5 @@
 import type { TProject, TVec2 } from '@/modules/project';
-import { frameBand, layoutOf, PHYSICS_HZ, projectOnPath, smoothPath, type THitResult, type TMarbleTrack, type TPieceLayoutKind, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { stageBand, layoutOf, PHYSICS_HZ, projectOnPath, smoothPath, type THitResult, type TMarbleTrack, type TPieceLayoutKind, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { toHitKey } from '@/modules/project';
 import { fitBounds, isBoundsVisible, type TBounds, type TPadding, type TView, type TViewport } from './view';
 
@@ -170,7 +170,7 @@ export function contentBounds(project: TProject, result: TSimulationResult | nul
 	const points: TVec2[] = project.marbles.map((marble) => marble.start.position);
 	for (const piece of result?.pieces ?? []) points.push(...pieceOutline(piece));
 	for (const hit of result?.hits ?? []) if (hit.dot != null) points.push(hit.dot);
-	const band = frameBand(project);
+	const band = stageBand(project);
 	let minX = band.centerX - band.halfWidth;
 	let maxX = band.centerX + band.halfWidth;
 	let minY = Number.POSITIVE_INFINITY;
@@ -233,7 +233,7 @@ export function fitTargets(project: TProject, result: TSimulationResult | null):
 			points.push(sample.position);
 		}
 	}
-	const band = frameBand(project);
+	const band = stageBand(project);
 	const bounds = boundsOfPoints(points);
 	let minY = bounds?.minY ?? -0.2;
 	const maxY = bounds?.maxY ?? 0.2;
@@ -262,7 +262,7 @@ export function firstHitsView(project: TProject, result: TSimulationResult, view
 	}
 	const dots = boundsOfPoints([...next.values()].flatMap((hit) => (hit.dot != null ? [hit.dot] : [])));
 	if (dots == null || isBoundsVisible(view, viewport, dots, FIRST_HITS_MARGIN)) return null;
-	const band = frameBand(project);
+	const band = stageBand(project);
 	const around = (bounds: TBounds): TBounds => ({
 		minX: Math.min(band.centerX - band.halfWidth * 1.35, bounds.minX),
 		maxX: Math.max(band.centerX + band.halfWidth * 1.35, bounds.maxX),

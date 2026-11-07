@@ -59,25 +59,36 @@ export function startRailOf(project: TProject, marbleId: string): TPiece | undef
 }
 
 /**
- * Horizontal band the run should stay within at height `y`, the release's height if none is given. A marble's band
- * follows its guide line, straight down from the center below unless the marble stores a line. `simulate` never reads
- * this: the line is how the builder judges closeness, and a run only answers what happens.
+ * Where a marble prefers to stay at height `y`, the release's height if none is given: the band's center is where to aim.
+ * It follows the marble's guide line, straight down from the center below unless the marble stores a line. `simulate`
+ * never reads this: the line is how the builder judges closeness, and a run only answers what happens.
  */
-export function frameBand(project: TProject, marbleId?: string, y?: number): TFrameBand {
+export function frameBand(project: TProject, marbleId: string, y?: number): TFrameBand {
 	return bandAlongGuide(project, marbleId)(y ?? project.marbles[0]?.start.position.y ?? 0);
 }
 
 /** `frameBand` at any height, for what asks at many heights */
-export function bandAlongGuide(project: TProject, marbleId?: string): (y: number) => TFrameBand {
+export function bandAlongGuide(project: TProject, marbleId: string): (y: number) => TFrameBand {
 	const straight = straightBand(project, marbleId);
+	const points = project.marbles.find((marble) => marble.id === marbleId)?.guide?.points;
+	return points == null ? () => straight : (y) => ({ centerX: guideX(points, y), halfWidth: straight.halfWidth });
+}
+
+/**
+ * The stage at height `y`: what every placement stays inside so the run stays in frame, and what a view fits around. With
+ * one marble it is that marble's band. Never where to aim with several, as its center lies between them.
+ */
+export function stageBand(project: TProject, y?: number): TFrameBand {
+	return stageAlongGuide(project)(y ?? project.marbles[0]?.start.position.y ?? 0);
+}
+
+/** `stageBand` at any height */
+export function stageAlongGuide(project: TProject): (y: number) => TFrameBand {
+	const straight = straightBand(project);
 	const { marbles } = project;
 	if (!marbles.some((marble) => marble.guide != null)) return () => straight;
-	const own = marbleId != null ? marbles.find((marble) => marble.id === marbleId) : marbles.length === 1 ? marbles[0] : undefined;
-	if (own != null) {
-		const points = own.guide?.points;
-		return points == null ? () => straight : (y) => ({ centerX: guideX(points, y), halfWidth: straight.halfWidth });
-	}
-	// The band covering every marble stays around their mean, so it moves as far as they do on average
+	if (marbles.length === 1 && marbles[0] != null) return bandAlongGuide(project, marbles[0].id);
+	// It stays around the marbles' mean, so it moves as far as they do on average
 	const shifts = marbles.map((marble) => {
 		const points = marble.guide?.points;
 		const center = straightBand(project, marble.id).centerX;
@@ -103,8 +114,7 @@ function guideX(points: readonly TVec2[], y: number): number {
  * of the default kit, and the marbles sit `MARBLE_SPACING` apart in the order of their releases from left to right,
  * centered on the mean release. `marbleId` picks a marble's band, which is only where the marble prefers to stay: a
  * marble may cross another's path as long as it touches neither that marble nor its pieces, which the assists check by
- * simulation. Without it the band covering every marble is returned, the limit every placement stays inside so the run
- * stays in frame.
+ * simulation. Without it the band covering every marble is returned.
  */
 function straightBand(project: TProject, marbleId?: string): TFrameBand {
 	const width = BAND_FRAMES * frameWidthAt(project.film.camera.distance, project.format.width / project.format.height);

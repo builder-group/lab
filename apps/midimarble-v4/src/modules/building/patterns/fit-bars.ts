@@ -48,6 +48,8 @@ export interface TBarShape {
 	dir?: number;
 	/** Fixed column center instead of the arrival's */
 	center?: number;
+	/** The marble's line, its x at a height: a Zigzag's columns stand either side of it and a Staircase's steps on it, in place of `center` and `width` */
+	line?: (y: number) => number;
 	minTakeoff?: number;
 	/** The last bar sends the marble toward this x, where a following rail should start */
 	exitToFrame?: number;
@@ -129,7 +131,11 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 	const sideOf = (index: number): number => (shape.kind === 'zigzag' ? (index % 2 === 0 ? firstSide : -firstSide) : firstSide);
 	const span = shape.width - 2 * shape.strike;
 	const center = shape.center ?? (shape.kind === 'zigzag' ? firstDot.x - (sideOf(0) * span) / 2 : firstDot.x);
-	const dotX = (index: number): number => (shape.kind === 'zigzag' ? center + (sideOf(index) * span) / 2 : center + index * firstSide * shape.width);
+	const { line } = shape;
+	const dotX = (index: number, y: number): number => {
+		if (line != null) return line(y) + (shape.kind === 'zigzag' ? (sideOf(index) * span) / 2 : 0);
+		return shape.kind === 'zigzag' ? center + (sideOf(index) * span) / 2 : center + index * firstSide * shape.width;
+	};
 	const total = shape.stopBefore === true ? hitIds.length - 1 : hitIds.length;
 	const radius = base.marbles.find((item) => item.id === marbleId)?.radius ?? 0.012;
 	const heights: number[] = [];
@@ -150,7 +156,7 @@ export function fitBars(sim: TSimulator, base: TProject, marbleId: string, hitId
 		const incoming: TVelocity = sample?.velocity ?? { x: 0, y: -1 };
 		const toward = nextId == null && shape.exitToFrame != null ? Math.sign(shape.exitToFrame - dot.x) || 1 : shape.kind === 'zigzag' ? -sideOf(index) : firstSide;
 		const isEnd = shape.endAt != null && nextId != null && nextId === hitIds.at(-1);
-		const targetX = isEnd ? (shape.endAt?.x ?? 0) : nextId != null ? dotX(index + 1) : leave != null ? dot.x + leave.offset.x : dot.x + toward * 0.05;
+		const targetX = isEnd ? (shape.endAt?.x ?? 0) : nextId != null ? dotX(index + 1, dot.y - (planned[index] ?? shape.drop ?? 0.05)) : leave != null ? dot.x + leave.offset.x : dot.x + toward * 0.05;
 
 		// The drop aimed for stays small enough for a real bounce: the takeoff the rule asks, with a little to spare
 		const sideways = Math.abs(((nextId != null ? targetX : dot.x) - dot.x) / hop);

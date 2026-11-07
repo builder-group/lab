@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import type { TPiece, TProject, TProjectCommand, TVec2 } from '@/modules/project';
-import { bowlOfMarble, createLinkedPiece, frameBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { bowlOfMarble, createLinkedPiece, frameBand, stageBand, getPieceDefinition, layoutOf, resolvePiecePath, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { tieOf } from '@/modules/project';
 import type { StudioCx } from '@/modules/studio';
 import { linkedPieces, openHits, type TLinkedPiece } from '@/modules/building';
@@ -114,7 +114,7 @@ export function asMarbleBowl(project: TProject, piece: TPiece, velocity: TVec2 |
 function withRunDirection(project: TProject, piece: TPiece, position: TVec2 | null, velocity: TVec2 | null): TPiece {
 	const points = resolvePiecePath(piece.type, undefined);
 	const reach = Math.max(...points.map((point) => point.x));
-	const band = frameBand(project, undefined, position?.y);
+	const band = stageBand(project, position?.y);
 	const x = position?.x ?? band.centerX;
 	let direction = Math.abs(velocity?.x ?? 0) > 0.05 ? Math.sign(velocity?.x ?? 1) : x <= band.centerX ? 1 : -1;
 	if (Math.abs(x + direction * reach - band.centerX) > band.halfWidth) direction = -direction;

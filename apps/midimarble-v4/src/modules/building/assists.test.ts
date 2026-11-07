@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, MARBLE_SPACING, type TPiece, type TProject, tieOf } from '@/modules/project';
 import { autoPlace, continueSuggestions, copyLinkedPiece, crossesOtherMarbles, findLongGaps, mirrorPiece, nextOpenHit, openLongGaps, repeatPiece, type TSimulateFn } from './assists';
-import { resolvedPieceShapes, shapesGap, paceAt, createLinkedPiece, frameBand, createSimulator, type TContact, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { resolvedPieceShapes, shapesGap, paceAt, createLinkedPiece, frameBand, stageBand, createSimulator, type TContact, type THitResult, type TSimulationResult } from '@/modules/simulation';
 import { createBareRunProject } from '@/modules/simulation/fixture-projects';
 import { createRailForGap, createSwitchbackForGap } from './gap-pieces';
 
@@ -103,7 +103,7 @@ function expectClearRun(project: TProject, travels: number[], chosenFrom = 0): v
 			MIN_TRAVEL
 		);
 	});
-	const band = frameBand(project);
+	const band = stageBand(project);
 	for (const hit of result.hits.slice(chosenFrom))
 		expect(Math.abs((hit.dot?.x ?? Infinity) - band.centerX)).toBeLessThanOrEqual(band.halfWidth);
 	result.pieces.forEach((piece, i) => {
@@ -189,7 +189,7 @@ describe('assists', () => {
 		const [, , again] = autoPlace(project, result, 'marble-1', 'hit-1-3', { simulate, id: 'auto' });
 		expect(again?.angle).toBe(placed.angle);
 		expect(Math.abs(placed.angle)).toBeLessThanOrEqual((40 * Math.PI) / 180 + 1e-9);
-		const band = frameBand(project);
+		const band = stageBand(project);
 		expect(Math.abs((placed.nextDot?.x ?? Infinity) - band.centerX)).toBeLessThanOrEqual(
 			band.halfWidth * 0.9
 		);
@@ -482,7 +482,7 @@ describe('autoPlace after a person tilts a piece', () => {
 
 	it('should bring back a marble the tilt sent past the frame', () => {
 		const project = placed(duet());
-		const stage = frameBand(project);
+		const stage = stageBand(project);
 		const outside = [2, 4, 6, 8, 10, 12].map((degrees) => tilted(project, degrees)).find((item) => {
 			const dot = simulate(item).hits.find((hit) => hit.hitId === 'hit-1-2')?.dot;
 			return dot != null && Math.abs(dot.x - stage.centerX) > stage.halfWidth;

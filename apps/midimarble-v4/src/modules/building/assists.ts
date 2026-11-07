@@ -1,6 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type THit, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, paceAt, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, bandAlongGuide, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { pathGap, resolvedPieceShapes, shapesGap, GRAVITY_Y, gravityOf, surfaceNormal, descentPace, paceAt, layoutOf, getPieceDefinition, hitPlace, isMusicalPiece, PLACEMENT_LENGTH, resolvePieceParams, soundsHit, createLinkedPiece, bandAlongGuide, stageAlongGuide, type TFrameBand, wrapAngle, type TPieceShape, BOWL_TYPE, HIT_TOLERANCE, IMPACT_SPEED, type THitResult, type THitStatus, type TMarbleSample, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { longGapThreshold, takeoffSpeed } from './long-gap';
 import { bounceTakeoff, extraStrikes, MIN_PIECE_GAP, passingSample, riseAfterHit, rollingHits, touchingPairs, visualShapes } from './track-problems';
 import { columnOffset } from './build-track-defaults';
@@ -542,7 +542,7 @@ function placementContext(
 	const bandAt = bandAlongGuide(project, marbleId);
 	const band = bandAt(dot.y);
 	// The limit of what stays in frame, whichever marble's center the marble prefers
-	const stageAt = bandAlongGuide(project);
+	const stageAt = stageAlongGuide(project);
 	// A dot stays a tenth of a marble inside the frame's edge
 	const dotShare = 1 - (0.1 * band.halfWidth) / stageAt(dot.y).halfWidth;
 	// The next strike must come from above. Several marbles in narrow marbles need it firm, so a slow
@@ -1319,7 +1319,7 @@ export function continueSuggestions(
 		after != null && !owners.has(after.id) && after.time - last.hit.time <= longGap
 			? createLinkedPiece('platform', marbleId, after.id, 0, { id: `${idFor(after.id)}-probe` })
 			: null;
-	const bandAt = bandAlongGuide(project);
+	const bandAt = stageAlongGuide(project);
 	const pace = result.pace ?? descentPace(project, result.hits);
 	const openDot = open.result?.dot ?? null;
 	const allowed =

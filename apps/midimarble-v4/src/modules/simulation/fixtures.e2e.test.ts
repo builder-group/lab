@@ -3,7 +3,7 @@ import { type TProject, type TVec2, tieOf, tempoOf } from '@/modules/project';
 import { NO_BLENDER_OBJECTS, checkRun, findLongGaps } from '@/modules/building';
 import { bowlCatch, bowlOfMarble } from './bowl';
 import { paceAt } from './pace';
-import { frameBand, startRailId } from './placement';
+import { stageBand, startRailId } from './placement';
 import { createSimulator, type TSimulator } from './simulate';
 import { HIT_DRIFT, type TMarbleSample, type TSimulationResult } from './types';
 import { loadFixture } from '@/modules/project/test-helpers';
@@ -18,7 +18,7 @@ function expectAllOnTime(result: TSimulationResult, count: number): void {
 }
 
 function expectDotsInFrame(project: TProject, result: TSimulationResult): void {
-	const band = frameBand(project);
+	const band = stageBand(project);
 	for (const hit of result.hits)
 		expect(Math.abs((hit.dot?.x ?? Infinity) - band.centerX), hit.hitId).toBeLessThanOrEqual(
 			band.halfWidth
@@ -91,7 +91,7 @@ describe('fixtures', () => {
 			['hit-1-3', 'rail-1'],
 			['hit-1-6', 'tunnel-1']
 		]);
-		const band = frameBand(project);
+		const band = stageBand(project);
 		const samples = result.marbles[0]?.samples ?? [];
 		for (const [id, from, to] of [
 			['rail-1', 0.75, 2.25],

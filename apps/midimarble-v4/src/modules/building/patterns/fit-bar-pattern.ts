@@ -1,5 +1,5 @@
 import { tieOf, type THit, type TPiece, type TProject } from '@/modules/project';
-import { frameBand, hasRide, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { bandAlongGuide, frameBand, hasRide, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
 import { longGapThreshold } from '../long-gap';
 import { extraStrikes, LONG_FALL, rollingHits, touchingPairs } from '../track-problems';
 import type { THitVerdict, TPatternFit, TPatternInput, TPatternMoment, TPatternWorld } from './contract';
@@ -14,6 +14,8 @@ import { formatSeconds, wordsForHitTime } from './words';
 
 /** Notes closer than this count as the next hop; a longer gap is left for a rail, where a marble must not free fall (`building-a-track`) */
 const LONG_GAP = 0.7;
+/** How far below the arrival a line's direction is read, in meters */
+const LINE_LOOK = 0.1;
 
 interface TScoredFit extends TBarsFit {
 	width: number;
@@ -39,6 +41,7 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 	const isNextClose = next != null && next.time - last.time < LONG_GAP;
 	const ids = isNextClose ? [...hitIds, next.id] : hitIds;
 	const asked = settings.width;
+	const bandAt = bandAlongGuide(project, marbleId);
 
 	const askedDrop = world.fixedBounce != null ? null : (world.drop ?? (kind === 'zigzag' ? 0.08 : 0.12));
 
@@ -51,10 +54,13 @@ export function fitBarPattern(kind: 'zigzag' | 'staircase', input: TPatternInput
 		...(world.barDepth != null ? { barDepth: world.barDepth } : {}),
 		bounce: world.fixedBounce ?? settings.bounce,
 		...(settings.maxTilt != null ? { maxTilt: settings.maxTilt } : {}),
-		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: frameBand(project, undefined, arrival.position.y).centerX } : {}),
-		...(world.stopsAtBadBar === true ? { stopsAtBadBar: true } : {})
+		...(next != null && !isNextClose && world.keepsDirection !== true ? { exitToFrame: bandAt(arrival.position.y).centerX } : {}),
+		...(world.stopsAtBadBar === true ? { stopsAtBadBar: true } : {}),
+		...(marble.guide != null ? { line: (y: number): number => bandAt(y).centerX } : {})
 	};
-	if (kind === 'staircase') shape.dir = Math.sign(frameBand(project, undefined, arrival.position.y).centerX - arrival.position.x) || 1;
+	// A Staircase on a line goes the line's way, and otherwise back to where the marble belongs
+	const aimAhead = bandAt(arrival.position.y - LINE_LOOK).centerX - bandAt(arrival.position.y).centerX;
+	if (kind === 'staircase') shape.dir = Math.sign(marble.guide != null ? aimAhead : bandAt(arrival.position.y).centerX - arrival.position.x) || 1;
 
 	const drops = askedDrop != null ? [askedDrop, askedDrop * 1.2, askedDrop * 0.85] : [null];
 	const maxTries = world.maxTries ?? drops.length;
@@ -130,7 +136,7 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 		const hops = ids.length - 1;
 		const sideOf = (x: number): number => Math.sign(x - start.position.x) || 1;
 		const secondDot = along?.dots.get(ids[1] ?? '');
-		const center = frameBand(world.project, undefined, start.position.y).centerX;
+		const center = frameBand(world.project, marbleId, start.position.y).centerX;
 		// A Zigzag crosses the way the track does; a Staircase goes where the end is if that's far, and otherwise stays in frame
 		const firstSide = secondDot != null ? -sideOf(secondDot.x) : end != null ? -sideOf(end.x) : 1;
 		const stairs = end != null && Math.abs(end.x - start.position.x) > (shape.width * hops) / 2 ? sideOf(end.x) : sideOf(center);
@@ -140,7 +146,7 @@ function fitRuns(world: TPatternWorld, runs: readonly THit[][], next: THit | nul
 		const fit = fitBars(sim, made.project, marbleId, ids, start, {
 			...shape,
 			...(ender != null ? { stopBefore: true } : {}),
-			...(following != null && keptRail == null ? { exitToFrame: frameBand(world.project, undefined, start.position.y).centerX } : {}),
+			...(following != null && keptRail == null ? { exitToFrame: frameBand(world.project, marbleId, start.position.y).centerX } : {}),
 			...(leave != null ? { leaveLike: leave } : {}),
 			...(end != null && hops > 0 ? {
 				endAt: end,

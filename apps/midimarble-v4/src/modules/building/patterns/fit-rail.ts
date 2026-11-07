@@ -1,5 +1,5 @@
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, stageBand, startRailId, type TSimulator, type TSimulationResult } from '@/modules/simulation';
 import { touchingPairs } from '../track-problems';
 import { findEntryTime } from '../gap-pieces';
 import { sampleAt, withPiece } from './fit-bars';
@@ -64,8 +64,8 @@ export function fitLongRail(sim: TSimulator, base: TProject, marbleId: string, s
 	const entry = samples.find((sample) => sample.time >= entryTime);
 	if (entry == null) return { fit: null, why: 'the marble has stopped by then' };
 	const wanted = gap - tail;
-	const band = frameBand(base, undefined, entry.position.y);
-	const downhill0 = Math.abs(entry.velocity.x) > 0.05 ? Math.sign(entry.velocity.x) : Math.sign(band.centerX - entry.position.x) || 1;
+	const band = stageBand(base, entry.position.y);
+	const downhill0 = Math.abs(entry.velocity.x) > 0.05 ? Math.sign(entry.velocity.x) : Math.sign(frameBand(base, marbleId, entry.position.y).centerX - entry.position.x) || 1;
 	const results: TTrial[] = [];
 	const wireRadius = resolvePieceParams('rail', {})['radius'] ?? 0.00375;
 
