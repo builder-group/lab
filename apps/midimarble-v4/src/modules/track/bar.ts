@@ -206,9 +206,15 @@ export function targetKey(target: TBarTarget): string {
 	return target.kind === 'rest' ? `rest:${target.marbleId}:${target.gap.toHitId}` : target.kind === 'note' ? `note:${target.marbleId}:${target.hitId}` : `notes:${target.marbleId}:${target.hitIds.join(',')}`;
 }
 
-/** What Where says */
+/** What Where says, short enough for its fixed width: "12 / 149", "8 notes", "Rest 1.0 s" */
 export function whereWords(target: TBarTarget): string {
-	if (target.kind === 'rest') return `Rest · ${target.gap.duration.toFixed(1)} s`;
+	if (target.kind === 'rest') return `Rest ${target.gap.duration.toFixed(1)} s`;
+	return target.kind === 'note' ? `${target.number} / ${target.total}` : `${target.hitIds.length} notes`;
+}
+
+/** Where in words, for its tooltip and a screen reader: "Note 12 of 149", "Notes 12 to 19", "Rest of 1.0 s" */
+export function whereTitle(target: TBarTarget): string {
+	if (target.kind === 'rest') return `Rest of ${target.gap.duration.toFixed(1)} s`;
 	return target.kind === 'note' ? `Note ${target.number} of ${target.total}` : `Notes ${target.first} to ${target.last}`;
 }
 
@@ -352,6 +358,12 @@ export function effectWords(target: TBarTarget, proposal: TProposal): string | n
 	if (lost.length > 0) return `${lostNotes(lost)} ${lost.length === 1 ? 'stops' : 'stop'} playing.${lost.length > 1 ? ' Their pieces stay.' : ''}`;
 	if (proposal.status === 'problems') return proposal.words;
 	return proposal.ask.kind === 'remove' || proposal.ask.kind === 'flip' ? null : laterWords(proposal, isOverBuilt(target));
+}
+
+/** It places what's asked but breaks something: never a plain accept */
+export function isBadProposal(proposal: TProposal): boolean {
+	const asked = new Set(proposal.notes.map((note) => note.number));
+	return proposal.status === 'problems' || (proposal.facts?.lostNumbers ?? []).some((number) => !asked.has(number));
 }
 
 /** Whether something stands here to remove or fix */

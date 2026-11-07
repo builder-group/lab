@@ -251,4 +251,20 @@ describe('BarCx', () => {
 		await flush();
 		expect(bar.$state.get()).toMatchObject({ choice: 'buildUpTo', answers: {}, target: { number: 2, stage: 'pastBuilt' } });
 	});
+
+	it('opens the status popover from its mark, closes it for the dropdown and on Escape, and drops it on moving on', async () => {
+		const { bar } = studio(notes());
+		await flush();
+		bar.toggleDetails();
+		expect(bar.$state.get().isDetailsOpen).toBe(true);
+		bar.openMenu();
+		expect(bar.$state.get()).toMatchObject({ isDetailsOpen: false });
+		bar.closeMenu();
+		bar.toggleDetails();
+		expect(bar.escape()).toBe(true);
+		expect(bar.$state.get().isDetailsOpen).toBe(false);
+		bar.toggleDetails();
+		bar.move(1);
+		expect(bar.$state.get().isDetailsOpen).toBe(false);
+	});
 });

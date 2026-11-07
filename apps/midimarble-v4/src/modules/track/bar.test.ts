@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { TProposal } from '@/modules/building';
 import { createProject, toHitKey, toRangeKey, type TProject } from '@/modules/project';
 import { createLinkedPiece, type TSimulationResult } from '@/modules/simulation';
-import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, stopBeside, stopsOf, whereWords, type TBarTarget } from './bar';
+import { acceptWords, barRows, causeWords, barTargetOf, defaultChoice, fallbackOf, frontierStop, passedWords, selectionOfStop, senderOf, stopBeside, stopsOf, whereTitle, whereWords, type TBarTarget } from './bar';
 
 /** Notes at these times on one marble, the first `built` with a platform each */
 function track(times: number[], built = 0): TProject {
@@ -40,7 +40,8 @@ describe('barTargetOf', () => {
 	it('reads several notes as a range, whichever order they were selected in', () => {
 		const target = targetOf(track(EVEN, 4), [hit('h3'), hit('h1'), hit('h2')]);
 		expect(target).toMatchObject({ kind: 'notes', first: 1, last: 3, hitIds: ['h1', 'h2', 'h3'] });
-		expect(whereWords(target)).toBe('Notes 1 to 3');
+		expect(whereWords(target)).toBe('3 notes');
+		expect(whereTitle(target)).toBe('Notes 1 to 3');
 	});
 
 	it('has nothing to say on notes of two marbles or anything else', () => {
@@ -65,7 +66,7 @@ describe('stops', () => {
 		const selection = selectionOfStop(project, stop);
 		const rest = targetOf(project, selection);
 		expect(rest.kind).toBe('rest');
-		expect(whereWords(rest)).toBe('Rest · 3.5 s');
+		expect(whereWords(rest)).toBe('Rest 3.5 s');
 		expect(stopBeside(project, rest, -1)).toMatchObject({ kind: 'note', number: 2 });
 		expect(stopBeside(project, rest, 1)).toMatchObject({ kind: 'note', number: 3 });
 	});

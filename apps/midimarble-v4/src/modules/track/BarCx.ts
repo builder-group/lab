@@ -3,7 +3,7 @@ import { acceptProposal, displayPiece, hitOwners, PatternCanceledError, propose,
 import { type TProject, tieOf } from '@/modules/project';
 import { isSuperseded, type THitResult, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import type { StudioCx, TNotice } from '@/modules/studio';
-import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, frontierStop, isOverBuilt, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
+import { acceptWords, askOf, barRows, barTargetOf, BUILD_ENTIRE, BUILD_UP_TO, defaultChoice, fallbackOf, effectWords, frontierStop, isBadProposal, isOverBuilt, REBUILD, selectionOfStop, stopAfterNote, stopBeside, stopsOf, targetHitKeys, targetKey, type TBarChoice, type TBarRow, type TBarStop, type TBarTarget } from './bar';
 import { pieceForHit } from './step-loop';
 
 /** What a kind answered for the target and the track on show */
@@ -29,12 +29,14 @@ export interface TBarState {
 	queued: number;
 	/** At an empty rest, the defaults refused before the one chosen, in their fixed order */
 	passed: TBarChoice[];
+	/** The status mark's popover is open: what's wrong, why, and what to do */
+	isDetailsOpen: boolean;
 }
 
 /** Choices that change what stands here and are over once landed: the bar goes back to its default */
 const DONE_ONCE: ReadonlySet<TBarChoice> = new Set(['flip', 'fix', 'remove']);
 
-const EMPTY: TBarState ={ target: null, choice: null, answers: {}, menu: null, queued: 0, passed: [] };
+const EMPTY: TBarState = { target: null, choice: null, answers: {}, menu: null, queued: 0, passed: [], isDetailsOpen: false };
 
 /** The one question at a time for one target on one track: moving on or an edit makes a new one and the old one's answers are dropped */
 interface TBarSession {
@@ -54,6 +56,8 @@ interface TBarSession {
  */
 export class BarCx {
 	readonly $state = createState<TBarState>(EMPTY);
+	/** When an accept last landed a new problem, so the status mark pulses once; it outlives moving on */
+	readonly $pulsedAt = createState(0);
 
 	private session: TBarSession | null = null;
 	/** Projects whose first note the bar already went to, so it opens on a new track's first note once */
@@ -210,9 +214,17 @@ export class BarCx {
 		const step = this.studio.$history.get()?.groups.present;
 		if (step != null) this.landedFrom.set(step, stood);
 		if (target.kind === 'note' && choice !== 'remove') this.studio.audition(target.marbleId, project.marbles.find((marble) => marble.id === target.marbleId)?.hits.find((hit) => hit.id === target.hitId)?.pitch);
-		if (proposal.status === 'problems' && proposal.words != null) this.studio.notifyEdit(proposal.words);
 		const now = this.studio.project;
 		if (now == null) return;
+		this.goOnAfter(now, target, choice, proposal);
+		// What was accepted anyway is said where the bar now stands: its mark turns red and pulses once, the words in its popover
+		if (!isBadProposal(proposal)) return;
+		this.studio.notify(effectWords(target, proposal) ?? proposal.words ?? 'This has a problem.', 'error', { revision: now.revision });
+		this.$pulsedAt.set(performance.now());
+	}
+
+	/** Where the bar goes once something landed: the same stop for what's done once, else the stop after what landed */
+	private goOnAfter(now: TProject, target: TBarTarget, choice: TBarChoice, proposal: TProposal): void {
 		// The bar stays where it was, back to its default; notes whose pieces went are selected by their notes
 		if (DONE_ONCE.has(choice)) {
 			if (choice === 'remove' && target.kind !== 'rest') this.studio.$selection.set(target.kind === 'note' ? selectionOfStop(now, target) : targetHitKeys(target));
@@ -272,9 +284,25 @@ export class BarCx {
 		return true;
 	}
 
-	/** Esc: closes the dropdown, takes back what was chosen, drops waiting presses. False when there was nothing of the kind */
+	/** The status mark's popover, opened and closed by a click on the mark; the dropdown closes for it */
+	toggleDetails(): void {
+		const state = this.$state.get();
+		if (state.menu != null) this.closeMenu();
+		this.$state.set({ ...this.$state.get(), isDetailsOpen: !state.isDetailsOpen });
+	}
+
+	closeDetails(): void {
+		const state = this.$state.get();
+		if (state.isDetailsOpen) this.$state.set({ ...state, isDetailsOpen: false });
+	}
+
+	/** Esc: closes the popover or the dropdown, takes back what was chosen, drops waiting presses. False when there was nothing of the kind */
 	escape(): boolean {
 		const state = this.$state.get();
+		if (state.isDetailsOpen) {
+			this.closeDetails();
+			return true;
+		}
 		if (state.menu != null) {
 			this.closeMenu();
 			return true;
@@ -304,7 +332,7 @@ export class BarCx {
 		const openNotes = this.openNotes(project);
 		const rows = barRows(project, state.target, openNotes);
 		if (!rows.length) return;
-		this.$state.set({ ...state, menu: { rows, index: rows.findIndex((row) => row.id === state.choice) } });
+		this.$state.set({ ...state, isDetailsOpen: false, menu: { rows, index: rows.findIndex((row) => row.id === state.choice) } });
 		for (const row of rows) if (row.isChoice) this.ask(row.id, false);
 	}
 
@@ -409,7 +437,7 @@ export class BarCx {
 		// once they're built. Flip, Fix and Remove are done once landed
 		const isChosenByHand = state.target != null && state.choice !== defaultChoice(state.target, state.passed) && !DONE_ONCE.has(state.choice ?? '');
 		const choice = isSameTarget && isChosenByHand ? state.choice : defaultChoice(target);
-		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0, passed: [] });
+		this.$state.set({ target, choice, answers: {}, menu: null, queued: isSameTarget ? state.queued : 0, passed: [], isDetailsOpen: isSameTarget && state.isDetailsOpen });
 		this.revealOnce(next, target);
 		this.askChoice();
 	}
