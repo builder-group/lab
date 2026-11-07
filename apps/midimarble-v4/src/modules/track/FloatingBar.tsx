@@ -190,6 +190,7 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 	}
 	const toggle = (
 		<button className="mm-bar-chevron" aria-label="Choose" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Choose what goes here (⇥)" type="button">
+			<kbd className="mm-keycap">⇥</kbd>
 			<ChevronDown size={13} strokeWidth={1.8} />
 		</button>
 	);
@@ -214,6 +215,7 @@ const BarWhat: React.FC<{ cx: StudioCx; project: TProject; target: TBarTarget }>
 		<>
 			<button className="mm-bar-type" aria-haspopup="menu" aria-expanded={isOpen} data-open={isOpen} onClick={() => cx.bar.toggleMenu()} title="Change what stands here (⇥)" type="button">
 				{standingWords(project, target)}
+				<kbd className="mm-keycap">⇥</kbd>
 				<ChevronDown size={13} strokeWidth={1.8} />
 			</button>
 			<NoteMark status={status} />

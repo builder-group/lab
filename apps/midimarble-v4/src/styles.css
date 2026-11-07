@@ -2886,7 +2886,8 @@ button.mm-lcd-length:hover {
 }
 
 .mm-bar-chevron {
-	width: 22px;
+	gap: 3px;
+	padding: 0 4px 0 5px;
 	justify-content: center;
 	background: var(--field-fill);
 }
