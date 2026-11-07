@@ -1,13 +1,14 @@
 import { useFeatureState } from 'feature-react/state';
 import { Spline } from 'lucide-react';
 import React from 'react';
-import { InspectorHeader, Panel, ScrubField, SliderField } from '@/components';
+import { InspectorHeader, Panel, ScrubField, SliderField, StatusPill } from '@/components';
 import { isPatternGroup, type TGroup, type TPiece, type TPatternGroup, type TProject, type TProjectCommand, formatTime, tieOf } from '@/modules/project';
 import { groupProblems, hitsInRange, isPatternKind, MAX_TILT, patternOfKind, patternSpan, type TPatternProblem } from '@/modules/building';
 import { platformDefinition } from '@/modules/simulation';
 import type { StudioCx } from '@/modules/studio';
 import { restWords } from './bar';
 import { GroupIcon } from './GroupIcon';
+import { pieceStatus } from './PieceInspector';
 import { type TPatternTarget } from './PatternsCx';
 
 /** An empty rest, from the bar or dragged out in the strip: "Rest · 2.0 s", as the bar says it */
@@ -49,9 +50,12 @@ export const GroupInspector: React.FC<{ cx: StudioCx; project: TProject; groupId
 	const hasFields = isPatternKind(kind) && widthRange != null;
 	// A Curved Rail has nothing to set: no empty Pattern section under it
 	const hasPanel = hasFields || problems.length > 0 || !isRail;
+	// A Curved Rail has nothing to set, so its header says what the marble does on it, as a piece's does: Rides 1.0 s
+	const rail = isRail ? project.track.pieces.find((piece) => group.pieceIds.includes(piece.id)) : undefined;
+	const railStatus = rail != null ? pieceStatus(project, rail, result?.pieces.find((item) => item.pieceId === rail.id), result) : null;
 	return (
 		<>
-			<InspectorHeader icon={<GroupIcon group={group} size={16} />} title={group.name} subtitle={subtitle} />
+			<InspectorHeader icon={<GroupIcon group={group} size={16} />} title={group.name} subtitle={subtitle} status={railStatus != null ? <StatusPill tone={railStatus.tone} label={railStatus.label} detail={railStatus.detail} /> : null} />
 			{hasPanel ? (
 				<Panel id="pattern" title="Pattern" isGrid={false}>
 					{hasFields && widthRange != null ? (
