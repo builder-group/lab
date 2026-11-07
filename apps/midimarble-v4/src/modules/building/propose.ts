@@ -161,7 +161,8 @@ export async function propose(project: TProject, ask: TProposeAsk, deps: TPropos
 	return landed(project, before, ask, [answer.piece], [{ type: 'addPiece', piece: answer.piece }], { checksNext: true }, deps);
 }
 
-const GAP_KINDS: readonly string[] = ['rail', 'switchback', 'chain', 'tunnel'] satisfies TGapPieceType[];
+// A Switchback asked of `propose` is a Pattern, as the Curved Rail is: Build's own gap search places the plain one
+const GAP_KINDS: readonly string[] = ['rail', 'chain', 'tunnel'] satisfies TGapPieceType[];
 
 function isGapKind(kind: string): kind is TGapPieceType {
 	return GAP_KINDS.includes(kind);

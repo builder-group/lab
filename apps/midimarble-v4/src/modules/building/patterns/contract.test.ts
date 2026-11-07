@@ -271,7 +271,7 @@ describe('PATTERNS', () => {
 			expect(isPatternKind(kind)).toBe(true);
 		}
 		expect(patternKinds('notes')).toEqual(['zigzag', 'staircase']);
-		expect(patternKinds('silence')).toEqual(['longRail']);
+		expect(patternKinds('silence')).toEqual(['longRail', 'switchback']);
 		expect(isPatternKind('toString')).toBe(false);
 	});
 });

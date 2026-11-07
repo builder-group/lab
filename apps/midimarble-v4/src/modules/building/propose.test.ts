@@ -151,11 +151,21 @@ describe('propose across a rest', () => {
 		return landed(gapped, await asked(gapped, 'hit-0'));
 	}
 
-	it('proposes a rail, whose note the marble then reaches and a piece can play', async () => {
+	it('proposes a Switchback as a Pattern, so it stands as one in the strip and Layers as a Curved Rail does', async () => {
 		const project = await rest();
 		const proposal = await asked(project, 'hit-1', 'switchback');
 		expect(['fits', 'problems']).toContain(proposal.status);
 		expect(proposal.pieces[0]?.layout).toBe('switchback');
+		const groups = landed(project, proposal).track.groups;
+		expect(groups.map((group) => group.pattern?.kind)).toEqual(['switchback']);
+		expect(groups[0]?.pieceIds).toEqual([proposal.pieces[0]?.id]);
+	});
+
+	it('proposes a rail, whose note the marble then reaches and a piece can play', async () => {
+		const project = await rest();
+		const proposal = await asked(project, 'hit-1', 'rail');
+		expect(['fits', 'problems']).toContain(proposal.status);
+		expect(proposal.pieces[0]?.type).toBe('rail');
 		expect(proposal.gap?.check).not.toBeNull();
 		expect(proposal.facts?.hasRoomAtNext).toBeNull();
 		expect(proposal.notes[0]?.state).toBe('reached');
