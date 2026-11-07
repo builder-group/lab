@@ -1,6 +1,6 @@
-import { displayPiece, newlyBroken, addedProblems, withCommands } from '@/modules/building';
+import { displayPiece, newlyBroken, addedProblems, withCommands, unanchorPiece, unlinkPiece } from '@/modules/building';
 import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, freePosition, tieOf } from '@/modules/project';
-import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, unanchorPiece, unlinkPiece, type TPieceShape, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { layoutOf, nextPieceName, shapesBounds, shapesDistance, soundsHit, transformShape, type TPieceShape, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
 import type { TBlenderObject } from '@/modules/scene';
 
 /** How far a copy lands from its original, right and down on the wall in meters, like Finder's and Figma's Duplicate */

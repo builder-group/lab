@@ -1,10 +1,6 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { DEFAULT_MARBLE_RADIUS, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { gravityOf } from './geometry';
-import { layoutFree, layoutOf, type TLayoutInput } from './piece-layout';
-import { ANCHOR_DELAY, isMusicalPiece, resolvePieceParams, resolvePiecePath, soundsHit } from './pieces';
-import { trajectoryAt } from './simulate';
-import type { TResolvedPiece, TSimulationResult } from './types';
+import { gravityOf, layoutFree, layoutOf, type TLayoutInput, ANCHOR_DELAY, isMusicalPiece, resolvePieceParams, resolvePiecePath, soundsHit, trajectoryAt, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 
 // Converting a piece between its three states keeps its world pose where possible:
 // - free: a transform in the world, environment the marbles may strike

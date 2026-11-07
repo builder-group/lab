@@ -1,5 +1,6 @@
 import { createId, DEFAULT_MARBLE_RADIUS, freePosition, type TPiece, type TPathNode, type TProject, type TVec2, tieOf } from '@/modules/project';
-import { anchorHit, frameBand, nextPieceName, freePose, getPieceDefinition, hitPlace, isPathPieceType, type TPathPieceType, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, resolvePiecePath, shapeDistance, soundsHit, transformShape, type TLayoutInput, type TPieceLayout, type TPieceShape, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { frameBand, nextPieceName, getPieceDefinition, hitPlace, isPathPieceType, type TPathPieceType, layoutAtMarble, layoutFree, layoutOf, railLayoutInfo, resolvePieceParams, resolvePiecePath, shapeDistance, soundsHit, transformShape, type TLayoutInput, type TPieceLayout, type TPieceShape, type TRailLayout, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
+import { anchorHit, freePose } from './attach';
 import { sampleNodes } from './bezier';
 
 // Pure edits behind the open canvas: an element is free, anchored to a moment on a marble's trajectory or,

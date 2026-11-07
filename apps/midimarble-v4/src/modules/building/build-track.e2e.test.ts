@@ -4,7 +4,8 @@ import { NO_BLENDER_OBJECTS, checkRun, problemSummary } from './export-preflight
 import { alignNotes, createImportCommands, parseMidiFile, proposeMarbles } from '@/modules/music';
 import { applyProjectCommands, createProject, type TProject, tieOf } from '@/modules/project';
 import { loadFixture } from '@/modules/project/test-helpers';
-import { createSimulator, extraStrikes, bowlOfMarble, touchingPairs, type TSimulator } from '@/modules/simulation';
+import { createSimulator, bowlOfMarble, type TSimulator } from '@/modules/simulation';
+import { extraStrikes, touchingPairs } from './track-problems';
 import { buildTrack, localBuildDeps, type TBuildOutcome, type TBuildProgress } from './build-track';
 
 const MINUTES = 60_000;

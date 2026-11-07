@@ -1,9 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { type TPiece, tieOf } from '@/modules/project';
-import { ANCHOR_DELAY } from './pieces';
+import { ANCHOR_DELAY, createSimulator, type TSimulator, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 import { anchorHit, anchorPiece, linkPieceToHit, unanchorPiece, unlinkPiece } from './attach';
-import { createSimulator, type TSimulator } from './simulate';
-import type { TResolvedPiece, TSimulationResult } from './types';
 import { apply, loadFixture } from '@/modules/project/test-helpers';
 
 function pieceOf(result: TSimulationResult, pieceId: string): TResolvedPiece {

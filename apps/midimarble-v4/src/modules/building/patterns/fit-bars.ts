@@ -1,6 +1,6 @@
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
-import { bounceTakeoff, gravityOf, platformDefinition, createLinkedPiece, rollingHits } from '@/modules/simulation';
-import type { TSimulator, TMarbleSample, TSimulationResult } from '@/modules/simulation';
+import { gravityOf, platformDefinition, createLinkedPiece, type TSimulator, type TMarbleSample, type TSimulationResult } from '@/modules/simulation';
+import { bounceTakeoff, rollingHits } from '../track-problems';
 import type { TPatternLeaving, TPatternMoment } from './contract';
 
 // Zigzag and Staircase: decide the shape first, then solve each bar's tilt, and optionally its bounce, against the real

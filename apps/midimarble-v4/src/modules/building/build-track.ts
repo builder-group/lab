@@ -1,5 +1,6 @@
 import { applyProjectCommands, freePosition, type TPiece, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import { isPathPieceType, extraStrikes, passThroughs, rollingHits, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, touchingPairs, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { isPathPieceType, paceAt, createLinkedPiece, frameBand, isMusicalPiece, PLACEMENT_LENGTH, startRailId, type THitResult, type TSimulationResult, type TSimulator, BOWL_TYPE, bowlOfMarble } from '@/modules/simulation';
+import { extraStrikes, passThroughs, rollingHits, touchingPairs } from './track-problems';
 import { changedPieces } from './edit-rule';
 import { columnOffset } from './build-track-defaults';
 import { gapPieceOrder, gapPieceReads } from './gap-pieces';

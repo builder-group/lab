@@ -1,7 +1,8 @@
 import { Err, Ok, type TResult } from 'tuple-result';
 import { createId, type TPiece, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
 import { crossesOtherMarbles, findHitResult, hitOwners, isInBand, openFrontiers, simulateTrial, withPieces, type TSimulateFn } from './assists';
-import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, frameBand, projectOnPath, shapesBounds, trajectoryAt, extraStrikes, MIN_PIECE_GAP, nearestPieceGap, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, descentPace, paceAt, chainGeometry, chainHoldTime, layoutOf, switchbackGeometry, switchbackHoldTime, getPieceDefinition, KIT_SCALE, railLayoutInfo, railParams, resolvePieceParams, type TRailLayout, createLinkedPiece, frameBand, projectOnPath, shapesBounds, trajectoryAt, HIT_TOLERANCE, PHYSICS_HZ, type THitStatus, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, MIN_PIECE_GAP, nearestPieceGap } from './track-problems';
 import { columnOffset } from './build-track-defaults';
 import type { TGapPieceType } from '@/modules/building';
 

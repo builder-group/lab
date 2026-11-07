@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyProjectCommands, createProject, isPatternGroup, type TMarble, type TPatternGroup, type TPiece, type TProject, type TProjectCommand, type TVec2 } from '@/modules/project';
-import { createSimulator, type TSimulator, extraStrikes, rollingHits, touchingPairs } from '@/modules/simulation';
-import type { TSimulationResult } from '@/modules/simulation';
+import { createSimulator, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, rollingHits, touchingPairs } from '../track-problems';
 import { loadFixture } from '@/modules/project/test-helpers';
 import { checkRun, NO_BLENDER_OBJECTS, problemSummary } from '../export-preflight';
 import { checkPattern } from './check-pattern';

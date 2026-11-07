@@ -1,6 +1,7 @@
 export * from './assign-notes';
 export * from './assist-pool';
 export * from './assists';
+export * from './attach';
 export * from './attach-edit';
 export * from './bezier';
 export * from './bowl-assist';
@@ -16,5 +17,6 @@ export * from './problems-client';
 export * from './progress-estimate';
 export * from './reachability';
 export * from './simulation-client';
+export * from './track-problems';
 export * from './worker-protocol';
 export * from './patterns';

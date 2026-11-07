@@ -1,5 +1,6 @@
 import type { TPiece, TProject, TVec2 } from '@/modules/project';
-import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, touchingPairs, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { gravityOf, hitPlace, switchbackHoldTime, railParams, resolvePieceParams, frameBand, startRailId, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { touchingPairs } from '../track-problems';
 import { findEntryTime } from '../gap-pieces';
 import { sampleAt, withPiece } from './fit-bars';
 

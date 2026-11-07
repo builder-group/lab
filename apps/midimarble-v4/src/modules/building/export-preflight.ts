@@ -1,9 +1,9 @@
 import { cachedFollowCameraTrack, framingStretches, isInFrame, measureOpeningFrame, openingFrameNotes, type TCameraTrack, type TFramingStretch } from '@/modules/camera';
 import { hitReach, isUnreachable, reachStatus } from './reachability';
 import { hasSong, marbleSounds } from '@/modules/music';
-import type { TProject, TVec2 } from '@/modules/project';
-import { extraStrikes, BOWL_TYPE, bowlCatch, LONG_FALL, getPieceDefinition, passThroughs, rollingHits, soundsHit, touchingPairs, type THitResult, type TSimulationResult } from '@/modules/simulation';
-import { formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
+import { type TProject, type TVec2, formatTime, CAMERA_KEY, parseHitKey, toHitKey, toSongKey, tieOf } from '@/modules/project';
+import { BOWL_TYPE, bowlCatch, getPieceDefinition, soundsHit, type THitResult, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, LONG_FALL, passThroughs, rollingHits, touchingPairs } from './track-problems';
 import { problemsInTimeOrder } from './hit-status';
 import { decorOverlaps, overlapLabel, type TBlenderObject, getRenderPreset } from '@/modules/scene';
 

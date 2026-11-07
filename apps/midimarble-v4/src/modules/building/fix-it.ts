@@ -1,5 +1,7 @@
 import { patched, type TFollows, type TMarble, type TPiece, type TPlays, type TProject, type TProjectCommand, type TVec2, tieOf } from '@/modules/project';
-import { BOWL_TYPE, isPathPieceType, extraStrikes, rollingHits, freePose, getPieceDefinition, gravityOf, isMusicalPiece, layoutOf, shapesBounds, shapesDistance, soundsHit, passThroughs, touchingPairs, trajectoryAt, transformShape, type THitResult, type TResolvedPiece, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { BOWL_TYPE, isPathPieceType, getPieceDefinition, gravityOf, isMusicalPiece, layoutOf, shapesBounds, shapesDistance, soundsHit, trajectoryAt, transformShape, type THitResult, type TResolvedPiece, type TSimulationResult, resolvedPieceShapes, shapesGap } from '@/modules/simulation';
+import { extraStrikes, rollingHits, passThroughs, touchingPairs } from './track-problems';
+import { freePose } from './attach';
 import { findLongGaps, type TLongGap, crossesOtherMarbles, openFrontiers } from './assists';
 import { gapPieceTypeOf } from './gap-pieces';
 import { type TGapPieceType } from './worker-protocol';

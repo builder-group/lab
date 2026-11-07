@@ -1,8 +1,8 @@
 import { openContextMenu, type TMenuItem } from '@/components';
 import { type TProjectCommand, tieOf } from '@/modules/project';
-import { anchorPiece, isMusicalPiece, unanchorPiece, unlinkPiece } from '@/modules/simulation';
+import { isMusicalPiece } from '@/modules/simulation';
+import { anchorPiece, unanchorPiece, unlinkPiece, attachState } from '@/modules/building';
 import type { StudioCx } from '@/modules/studio';
-import { attachState } from '@/modules/building';
 import type { TrackCx } from './TrackCx';
 import { nearestMoment } from '@/modules/scene';
 import { selectedPieceIds } from './step-loop';

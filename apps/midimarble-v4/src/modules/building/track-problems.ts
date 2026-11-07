@@ -1,9 +1,5 @@
 import { type TProject, type TVec2, tieOf } from '@/modules/project';
-import { boundsOf, resolvedPieceShapes, shapesGap } from './clearance';
-import { layoutOf } from './piece-layout';
-import { soundsHit } from './pieces';
-import { shapeDistance, type TBounds2, type TPieceShape } from './shapes';
-import { HIT_TOLERANCE, IMPACT_SPEED, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from './types';
+import { boundsOf, resolvedPieceShapes, shapesGap, layoutOf, soundsHit, shapeDistance, type TBounds2, type TPieceShape, HIT_TOLERANCE, IMPACT_SPEED, type TMarbleSample, type TMarbleTrack, type TResolvedPiece, type TSimulationResult } from '@/modules/simulation';
 
 // What's physically wrong with a run beyond its timing: pieces touching in the wall plane, a platform struck outside its
 // note, a marble rolling on a platform. They're Problems, with no taste in them: every number here says what breaks.

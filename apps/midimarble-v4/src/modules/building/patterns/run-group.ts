@@ -1,6 +1,6 @@
 import { isPatternGroup, type THit, type TPiece, type TGroup, type TMarble, type TPatternGroup, type TProject, type TProjectCommand, tieOf } from '@/modules/project';
-import type { TSimulationResult, TSimulator } from '@/modules/simulation';
-import { LONG_FALL, soundsHit, touchingPairs } from '@/modules/simulation';
+import { type TSimulationResult, type TSimulator, soundsHit } from '@/modules/simulation';
+import { LONG_FALL, touchingPairs } from '../track-problems';
 import { RELEASE_LEAD } from '../reachability';
 import { arrivalAt } from './arrival';
 import type { THitVerdict, TPatternCourse, TPatternMoment } from './contract';

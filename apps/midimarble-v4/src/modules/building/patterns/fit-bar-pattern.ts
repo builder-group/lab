@@ -1,6 +1,6 @@
 import { tieOf, type THit, type TPiece, type TProject } from '@/modules/project';
-import { frameBand, extraStrikes, hasRide, LONG_FALL, longGapThreshold, rollingHits, soundsHit, touchingPairs } from '@/modules/simulation';
-import type { TSimulator, TSimulationResult } from '@/modules/simulation';
+import { frameBand, hasRide, longGapThreshold, soundsHit, type TSimulator, type TSimulationResult } from '@/modules/simulation';
+import { extraStrikes, LONG_FALL, rollingHits, touchingPairs } from '../track-problems';
 import type { THitVerdict, TPatternFit, TPatternInput, TPatternMoment, TPatternWorld } from './contract';
 import { arrivalAt } from './arrival';
 import { fitLongRail } from './fit-rail';

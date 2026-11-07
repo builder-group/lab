@@ -1,7 +1,7 @@
 import { BACKING_ID, createMarble, MARBLE_SPACING, type TPiece, type TProject, type TProjectCommand, type TVec2, backingOf, tieOf } from '@/modules/project';
 // Deep imports keep the simulation client and its worker out of the music module
-import { anchorHit, freePose, soundsHit } from '@/modules/simulation';
-import type { TSimulationResult } from '@/modules/simulation';
+import { soundsHit, type TSimulationResult } from '@/modules/simulation';
+import { anchorHit, freePose } from './attach';
 import { IMPORT_RELEASE_LEAD } from '@/modules/music';
 
 /**
