@@ -1,6 +1,6 @@
 import { createState } from 'feature-state';
 import type { TResult } from 'tuple-result';
-import { host, type THostRecentProject } from '@/environment';
+import { host, type THostPickedFile, type THostRecentProject } from '@/environment';
 import type { TProject } from '@/modules/project';
 
 /**
@@ -47,6 +47,10 @@ export class StartCx {
 
 	async newProjectFromSong(): Promise<void> {
 		await (await this.load()).cx.newProjectFromSong();
+	}
+
+	async newProjectFromFile(file: THostPickedFile): Promise<void> {
+		await (await this.load()).cx.newProjectFromFile(file);
 	}
 
 	async openProject(path?: string): Promise<void> {

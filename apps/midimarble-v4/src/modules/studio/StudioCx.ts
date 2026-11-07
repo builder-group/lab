@@ -418,7 +418,11 @@ export class StudioCx {
 	/** Import Song… on the start screen: a new project named after the song file, then the import */
 	async newProjectFromSong(): Promise<void> {
 		const file = await host.chooseSourceFile('song');
-		if (file == null) return;
+		if (file != null) await this.newProjectFromFile(file);
+	}
+
+	/** A song file picked or dropped on the start window starts a project named after it */
+	async newProjectFromFile(file: THostPickedFile): Promise<void> {
 		if (songFileKind(file.name) == null) {
 			this.notify(notSongFileMessage(file.name), 'error');
 			return;

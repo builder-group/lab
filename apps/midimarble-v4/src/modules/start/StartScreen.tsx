@@ -4,12 +4,15 @@ import React from 'react';
 import { WindowHeader } from '@/components';
 import { copyExampleFiles, exampleGroups, loadExample, type TExample } from './examples';
 import { host, newProjectTitle } from '@/environment';
+import { useFileDropped } from '@/hooks';
 import type { StartCx } from './StartCx';
 
 /** Welcome window modeled on Xcode: actions on the left, recent projects on the right */
 export const StartScreen: React.FC<TStartScreenProps> = (props) => {
 	const { cx, extraActions } = props;
 	const recent = useFeatureState(cx.$recent);
+	// A song dropped here starts a project named after it, as Import Song… does
+	useFileDropped((file) => void cx.newProjectFromFile(file));
 	const [showAllRecent, setShowAllRecent] = React.useState(false);
 
 	// ⌘N and ⌘O work here as in the studio
